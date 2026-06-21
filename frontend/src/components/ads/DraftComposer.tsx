@@ -9,11 +9,12 @@
 //   pending · AI         (always-visible form)
 //   Regenerate · Approve
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, UploadCloud, Rocket, Sparkles, Wand2, Check, X, Maximize2 } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, UploadCloud, Rocket, Sparkles, Wand2, Check, X, Maximize2, ImageUp } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   listCreatives, reviewCreative, regenerateAdImage, updateCampaignDraft,
+  uploadAdCreativeImage, useManualAdImage,
   pushCampaignToMeta, goLiveCampaign, type AdCampaign, type AdCreative,
 } from "@/services/api/ads";
 
@@ -26,6 +27,8 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
   const [regenOpen, setRegenOpen] = useState(false);
   const [regenPrompt, setRegenPrompt] = useState("");
   const [preview, setPreview] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [headline, setHeadline] = useState("");
   const [primaryText, setPrimaryText] = useState("");
@@ -97,6 +100,22 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
     } finally { setBusy(null); }
   };
 
+  const onUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadAdCreativeImage(campaign.id, file);
+      await useManualAdImage(campaign.id, url);
+      toast.success("Image uploaded — review and approve it.");
+      await load();
+      onChanged?.();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't upload the image.");
+    } finally { setUploading(false); }
+  };
+
   const push = async () => {
     setBusy("push");
     try {
@@ -165,9 +184,14 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
               <span className="text-xs text-[#FFCC00] inline-flex items-center gap-1"><Sparkles className="w-3 h-3" /> AI</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
-              <button onClick={() => setRegenOpen((v) => !v)} disabled={busy !== null}
+              <button onClick={() => setRegenOpen((v) => !v)} disabled={busy !== null || uploading}
                 className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-[#FFCC00]/10 text-[#FFCC00] hover:bg-[#FFCC00]/20 disabled:opacity-50">
                 <Wand2 className="w-3.5 h-3.5" /> Regenerate
+              </button>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onUploadFile} />
+              <button onClick={() => fileRef.current?.click()} disabled={busy !== null || uploading} title="Upload a designer-made image instead"
+                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50">
+                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageUp className="w-3.5 h-3.5" />} Upload
               </button>
               {creative && !approved && (
                 <button onClick={() => review("approved")} disabled={busy !== null}

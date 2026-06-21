@@ -12,7 +12,7 @@
 import { logger } from '../../../utils/logger';
 import { metaService } from './MetaService';
 import { buildCampaignSpec, asMetaObjective } from './metaTargeting';
-import { adCreativeService, AdCreativeService } from './AdCreativeService';
+import { adCreativeService, AdCreativeService, publicUrl } from './AdCreativeService';
 import { decryptToken } from '../../../utils/tokenCrypto';
 import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
 import { CampaignRepository, AdCampaign } from '../repositories/CampaignRepository';
@@ -198,6 +198,8 @@ export class MetaPushService {
   async updateDraft(campaignId: string, edits: {
     dailyBudgetCents?: number; radiusMiles?: number; objective?: string;
     headline?: string; primaryText?: string; regenerateImage?: boolean; imagePrompt?: string;
+    /** A manually-uploaded designer image (public URL) to use instead of AI generation. */
+    manualImageUrl?: string;
     request?: AdCampaignRequest;
   }): Promise<void> {
     if (!this.enabled()) throw new Error('push_disabled');
@@ -229,10 +231,10 @@ export class MetaPushService {
     if (edits.objective && !onMeta) dbUpdate.objective = asMetaObjective(edits.objective) ?? undefined;
     if (Object.keys(dbUpdate).length) await this.campaigns.update(campaignId, dbUpdate);
 
-    // 2) Creative — text and/or image edit. Regenerate (imagePrompt implies it) builds a new
-    //    image; a text-only edit reuses the current stored image. Always re-arms review.
+    // 2) Creative — manual image upload, AI regenerate, or text-only edit. Always re-arms review.
+    const manualImageUrl = edits.manualImageUrl?.trim();
     const regenerateImage = !!(edits.regenerateImage || edits.imagePrompt?.trim());
-    const wantsCreativeEdit = !!(edits.headline || edits.primaryText || regenerateImage);
+    const wantsCreativeEdit = !!(edits.headline || edits.primaryText || regenerateImage || manualImageUrl);
     if (!wantsCreativeEdit) return;
 
     const current = await this.creativeRepo.findAiByCampaign(campaignId);
@@ -241,7 +243,16 @@ export class MetaPushService {
     let primaryText: string | null;
     let linkUrl: string;
     let generationPrompt: string | null;
-    if (regenerateImage) {
+    if (manualImageUrl) {
+      // Designer-uploaded image — use it directly, no AI. Must be a valid public URL (Meta needs it).
+      const valid = publicUrl(manualImageUrl);
+      if (!valid) throw new Error('invalid_image_url: the uploaded image must be a public URL');
+      imageUrl = valid;
+      headline = edits.headline || current?.headline || null;
+      primaryText = edits.primaryText || current?.body || null;
+      linkUrl = current?.landingUrl || landingUrlFor(campaignId) || process.env.META_DEFAULT_LINK_URL || process.env.FRONTEND_URL || 'https://repaircoin.ai';
+      generationPrompt = null; // not AI-generated
+    } else if (regenerateImage) {
       if (!edits.request) throw new Error('cannot_regenerate_without_request');
       const fresh = await this.creatives.build(campaign.shopId, edits.request, campaign.name, { imagePrompt: edits.imagePrompt, landingUrl: landingUrlFor(campaignId) });
       imageUrl = fresh.imageUrl;

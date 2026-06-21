@@ -554,6 +554,8 @@ export interface CampaignDraftEdit {
   regenerateImage?: boolean;
   /** Admin description for a prompt-driven image regenerate (implies regenerateImage). */
   imagePrompt?: string;
+  /** A manually-uploaded designer image (public URL) to use instead of AI generation. */
+  manualImageUrl?: string;
   /** Meta objective picker (pre-push only): OUTCOME_TRAFFIC | OUTCOME_AWARENESS. */
   objective?: string;
 }
@@ -565,6 +567,19 @@ export const updateCampaignDraft = async (id: string, edits: CampaignDraftEdit):
 /** Regenerate the campaign's AI ad image from an admin description (re-arms review → pending). */
 export const regenerateAdImage = async (campaignId: string, imagePrompt: string): Promise<AdCampaign> =>
   updateCampaignDraft(campaignId, { regenerateImage: true, imagePrompt });
+
+/** Upload a designer-made image for the campaign creative → returns its public URL. */
+export const uploadAdCreativeImage = async (campaignId: string, file: File): Promise<string> => {
+  const fd = new FormData();
+  fd.append('image', file);
+  const res = await apiClient.post(`/ads/campaigns/${campaignId}/creative-image`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000,
+  });
+  return unwrap<{ url: string }>(res).url;
+};
+/** Use a manually-uploaded image as the campaign creative (re-arms review → pending). */
+export const useManualAdImage = async (campaignId: string, manualImageUrl: string): Promise<AdCampaign> =>
+  updateCampaignDraft(campaignId, { manualImageUrl });
 /** Prepare→push: create the PAUSED Meta objects from a reviewed local draft (validates budget). */
 export const pushCampaignToMeta = async (id: string): Promise<AdCampaign> => {
   // Several Meta Graph create calls — allow generous time.

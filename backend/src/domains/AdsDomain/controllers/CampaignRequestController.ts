@@ -19,6 +19,7 @@ import { AdBillingService } from '../services/AdBillingService';
 import { parseBrief } from '../services/briefValidation';
 import { metaPushService } from '../services/MetaPushService';
 import { shopRepository } from '../../../repositories';
+import { imageStorageService } from '../../../services/ImageStorageService';
 
 const requests = new CampaignRequestRepository();
 const campaigns = new CampaignRepository();
@@ -187,6 +188,25 @@ export async function declineCampaignRequest(req: Request, res: Response): Promi
   }
 }
 
+// POST /campaigns/:id/creative-image (admin, multipart 'image') — upload a designer-made image
+// for the campaign's creative. Stores it under the campaign's shop folder (public URL) and
+// returns the URL; the caller then PATCHes the draft with manualImageUrl to use it.
+export async function uploadCreativeImage(req: Request, res: Response): Promise<void> {
+  try {
+    const file = (req as any).file;
+    if (!file) { res.status(400).json({ success: false, error: 'No image file provided' }); return; }
+    const campaign = await campaigns.findById(req.params.id);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    // Reuse the AI-source bucket path so the URL is recognized as shop-owned + public.
+    const result = await imageStorageService.uploadAiSource(file, campaign.shopId);
+    if (!result.success || !result.url) { res.status(400).json({ success: false, error: result.error || 'upload_failed' }); return; }
+    res.json({ success: true, data: { url: result.url } });
+  } catch (err) {
+    logger.error('CampaignRequestController.uploadCreativeImage failed', err);
+    res.status(500).json({ success: false, error: 'Failed to upload image' });
+  }
+}
+
 // POST /campaigns/:id/push (admin) — create the PAUSED Meta objects from a reviewed local draft.
 // Validates account + currency-aware budget + creative-approved; flips the draft → paused.
 export async function pushCampaignToMeta(req: Request, res: Response): Promise<void> {
@@ -238,6 +258,7 @@ export async function updateCampaignDraft(req: Request, res: Response): Promise<
       dailyBudgetCents: req.body?.dailyBudgetCents,
       radiusMiles: req.body?.radiusMiles,
       objective: typeof req.body?.objective === 'string' ? req.body.objective : undefined,
+      manualImageUrl: typeof req.body?.manualImageUrl === 'string' ? req.body.manualImageUrl : undefined,
       headline: req.body?.headline,
       primaryText: req.body?.primaryText,
       regenerateImage: req.body?.regenerateImage === true,

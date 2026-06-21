@@ -1,6 +1,6 @@
 # Ads System — v1 Gaps & Next Steps
 
-_Last updated: 2026-06-19_
+_Last updated: 2026-06-21_
 
 Tracks the known gaps in the centralized Ads System after the prepare → push → go-live flow,
 the review-gate, and the admin UX refactor. Everything here is **functional-but-incomplete** or
@@ -9,6 +9,75 @@ insights → ROI) is proven live on Meta. These are the pieces that make a launc
 *useful end to end*.
 
 Branch: `deo/ads-system`. All Meta behavior gated behind `ADS_META_*` flags.
+
+> **Note (2026-06-21):** the **P0 public landing page is now BUILT** (`/l/[campaignId]` +
+> `GET /ads/landing/:id` + dual CTA), closing the click→lead loop — the "P0 — Click → lead loop"
+> section below is kept for history but is now ✅ done. See the checklist for live status.
+
+---
+
+## ✅ Definition of Done — completion checklist
+
+Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) and **Full Vision**
+(adds the Messenger AI moat + money-back safeguards + tiered subscription). Check items as they land.
+
+### A. v1 core — BUILT ✅
+- [x] Request → prepare (local draft + AI creative) → push PAUSED → go-live flow
+- [x] Creative review gate (AI creative must be approved before push/go-live)
+- [x] Prompt-driven AI image regenerate (gpt-image-1, brand-grounded)
+- [x] Objective picker (Website clicks); awareness removed; goals reworded to outcomes
+- [x] Currency-aware budget validation (clear message, no raw Meta error 1885272)
+- [x] Public landing page `/l/[campaignId]` + dual CTA (Book online / lead form) → closes click→lead loop
+- [x] Lead pipeline + Kanban (shop works own leads; call/email vs chat by channel)
+- [x] Nightly Meta insights sync → ROI + True Margin (admin)
+- [x] Connect-Meta OAuth; flat-tier billing accrual; push proven live on Meta
+
+### B. v1 "Ship" gate — REMAINING (mostly external + QA)
+- [ ] **Meta App Review** — write scopes (`ads_management`/`pages_manage_ads`/`leads_retrieval`) so **real (non-app-role) shops** can connect & run ads _(external)_
+- [ ] **Deploy branch to staging** — set `ADS_LANDING_BASE_URL` + `META_*` env; was GitHub-blocked
+- [ ] **Staging `schema_migrations` reconciliation** — shared DB has 165/167 as our OLD versions; main's 165/167 + our 168/169 must all apply
+- [ ] **Browser QA pass** — draft-staging, landing page, AI-card, unified-assistant fix are headless-verified only
+- [ ] **Verify customer "Book online"** end-to-end now that the chain-hiding merge landed (was wallet-blocked)
+- [ ] **Service-aware AI copy** — ad copy should name the promoted service (landing page already shows it) _(~0.5d, buildable)_
+- [ ] **Meta Pixel "Lead" event** — optimize clicks for form submissions; biggest lead-quality lift, no App Review _(~1d)_
+- [ ] UX polish — clearer disabled "Push to Meta" state; show resolved objective in DraftComposer _(~0.5d)_
+
+### C. Full Vision — REMAINING (larger scope / commercial)
+- [ ] **Messenger objective** (click-to-Messenger + AI replies in Messenger — the narrative moat): objective + Page webhook + Send API _(needs `pages_messaging` App Review)_
+- [ ] **Live lead transport** (SMS/WhatsApp/Messenger send) — wire a provider + flip `ADS_LEAD_TRANSPORT_ENABLED` (currently record-only)
+- [ ] **Stripe collection go-live** — real key + saved payment methods + flip `ADS_BILLING_STRIPE_ENABLED` + `invoice.payment_succeeded` reconciliation webhook
+- [ ] **Safeguard 4 — test-budget tier** (start small, then scale)
+- [ ] **Safeguard 5 — free creative iteration** (swap underperforming creative free)
+- [ ] **Safeguard 6 — money-back / ROI refund** (promise = 1× ROI in 60d → refund flat fee; needs threshold + legal decision)
+- [ ] **Budget currency FX** — USD↔account-currency conversion (v1 enters native currency)
+- [ ] **Creative image cost → True Margin** — log gpt-image-1 cost to `ad_ai_costs` so COGS isn't understated _(~0.5d)_
+- [ ] **Tiered subscription** $99/$299/$599 — still flat $500/mo (separate pricing-alignment workstream)
+- [ ] Native `OUTCOME_LEADS` instant-form ads (re-enable once `leads_retrieval` approved + form/ToS hardened)
+- [ ] **Video creatives** — see scoped section below
+
+---
+
+## Video creatives (scoped — not built)
+
+**Status:** ❌ Not built; image-only end to end. **Impact:** shops can't run video ads (designer reels, etc.).
+
+**Why it's a real integration, not a flag** — Meta handles video completely differently from images:
+- Image ads pass a **public picture URL** in `link_data` (what we do today). Video **cannot** do that.
+- Video must be **uploaded to Meta** (`POST /act_<id>/advideos`) → returns a `video_id`.
+- Upload is **async** — Meta transcodes; must **poll** the video's status until `ready` before use.
+- The creative uses **`object_story_spec.video_data`** (not `link_data`) — needs `video_id` + a **thumbnail image** + CTA + message.
+- Larger files (storage/upload limits, format + aspect validation, longer push times).
+- **No AI video** in the stack (`gpt-image-1` is image-only) → video would be **designer-uploaded only** (no regenerate).
+
+**Build path (~2–4d, builds on the manual image upload):**
+1. Manual **video upload** affordance in the DraftComposer (multipart → DO Spaces), like the image upload.
+2. `MetaService.uploadVideo()` → `POST /advideos` + `getVideoStatus()` poll until `ready`.
+3. `createAdCreative` branch for `video_data` (video_id + thumbnail image_hash/url + CTA).
+4. `ad_creatives.creative_type='video'` + store `meta_video_id`; `MetaPushService` push/edit branches for video.
+
+**Prereq:** the manual image-upload affordance (DONE — `POST /ads/campaigns/:id/creative-image` + `manualImageUrl` draft edit). The DB enum already includes `'video'`.
+
+**Biggest single unlock = Meta App Review** — it gates real-shop onboarding, the Messenger objective, and live transport at once.
 
 ---
 

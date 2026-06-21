@@ -8,6 +8,7 @@
 // split out for unit tests; the IO (LLM + image) is exercised manually.
 
 import { logger } from '../../../utils/logger';
+import { getSharedPool } from '../../../utils/database-pool';
 import { AnthropicClient } from '../../AIAgentDomain/services/AnthropicClient';
 import { SpendCapEnforcer } from '../../AIAgentDomain/services/SpendCapEnforcer';
 import { BrandKitService } from '../../AIAgentDomain/services/BrandKitService';
@@ -15,7 +16,7 @@ import { imageGenerationService, ImageGenerationService } from '../../AIAgentDom
 import { shopRepository } from '../../../repositories';
 import { ClaudeModel } from '../../AIAgentDomain/types';
 import { AdCampaignRequest } from '../repositories/CampaignRequestRepository';
-import { parseAdCopy } from './adCopyParse';
+import { parseAdCopy, truncateAtWord } from './adCopyParse';
 
 export { parseAdCopy };
 
@@ -25,6 +26,9 @@ const COPY_SYSTEM =
   'You write short Facebook/Instagram ad copy for a local service business. ' +
   'Output ONLY JSON: {"headline": "...", "primaryText": "..."}. ' +
   'headline ≤ 40 chars, punchy. primaryText ≤ 125 chars, warm, one clear call to action. ' +
+  'If services are named, weave a service name into the headline when it fits the 40-char limit; ' +
+  'otherwise keep the headline benefit-focused and name the services in primaryText. ' +
+  'Keep both within the limits and end on a COMPLETE word — never trail off mid-word or on a comma. ' +
   'Match the brand voice if given. Plain text, no markdown, no placeholders/brackets, no hashtags.';
 
 export interface AdCreativeContent {
@@ -58,6 +62,33 @@ export class AdCreativeService {
     private readonly images: ImageGenerationService = imageGenerationService
   ) {}
 
+  /** The shop's promoted services with the detail the creative needs to be ABOUT the service
+   *  (not just the shop's generic industry): name + category + a short description. Active only,
+   *  top 3 by price. Empty array if none/unavailable. Best-effort. */
+  private async promotedServices(
+    ids: string[] | null | undefined
+  ): Promise<Array<{ name: string; category: string | null; description: string | null }>> {
+    if (!ids?.length) return [];
+    try {
+      const res = await getSharedPool().query(
+        `SELECT service_name, category, description FROM shop_services
+          WHERE service_id = ANY($1) AND active = true
+          ORDER BY price_usd DESC NULLS LAST LIMIT 3`,
+        [ids]
+      );
+      return res.rows
+        .filter((r) => r.service_name)
+        .map((r) => ({
+          name: r.service_name as string,
+          category: r.category ? String(r.category).replace(/_/g, ' ') : null,
+          description: r.description ? String(r.description).slice(0, 160) : null,
+        }));
+    } catch (err) {
+      logger.error('AdCreativeService: promoted service lookup failed', err);
+      return [];
+    }
+  }
+
   /** Build the AI creative for a campaign. Throws if the image can't be generated
    *  (e.g. ai_images_enabled off) so the push rolls back with a clear reason.
    *  `opts.imagePrompt` lets an admin describe the image (regenerate flow) — otherwise we
@@ -76,6 +107,16 @@ export class AdCreativeService {
     const industry = kit?.industryStyle || 'local service business';
     const voice = kit?.brandVoice || kit?.toneNotes || 'friendly and professional';
     const offer = request.offer || (request.goal ? request.goal.replace(/_/g, ' ') : 'our services');
+    // The specific services the shop chose to promote. These DRIVE the creative's subject
+    // (what the ad is actually about) — the brand kit only sets the STYLE (colors/logo/voice).
+    // Without this, a café-branded shop promoting a tech service got café imagery (the generic
+    // industry dominated). Best-effort.
+    const services = await this.promotedServices(request.promoteServiceIds);
+    // Copy context: name + what it actually is (category + short description) so the model
+    // doesn't reinterpret the name to fit the brand (e.g. "I Robot" → barista training).
+    const serviceContext = services
+      .map((s) => [s.name, s.category && `a ${s.category} service`, s.description].filter(Boolean).join(' — '))
+      .join('; ');
     // Meta requires a valid public landing URL. Prefer our own campaign landing page (closes the
     // click→lead loop + shows the promoted services), then the shop's website, then a configured
     // default — never a junk/localhost value (error 2061006). The landing URL is rejected locally
@@ -87,8 +128,8 @@ export class AdCreativeService {
       || 'https://repaircoin.ai';
 
     // --- Copy (best-effort; spend-capped; falls back to the offer) ---
-    let headline = offer.slice(0, 40);
-    let primaryText = `Visit ${shopName} today — ${offer}`.slice(0, 125);
+    let headline = truncateAtWord(offer, 40);
+    let primaryText = truncateAtWord(`Visit ${shopName} today — ${offer}`, 125);
     try {
       const spend = await this.spendCap.canSpend(shopId);
       if (spend.allowed) {
@@ -96,6 +137,9 @@ export class AdCreativeService {
           systemPrompt: [{ text: COPY_SYSTEM, cache: true }],
           messages: [{ role: 'user', content:
             `Business: ${shopName} (${industry}). Brand voice: ${voice}. Offer/goal: ${offer}. ` +
+            (serviceContext
+              ? `The ad is ABOUT these services — write about what they actually are, do NOT reinterpret the names to fit the business type: ${serviceContext}. `
+              : '') +
             `Campaign: ${campaignName}. Write the ad copy JSON.` }],
           model: COPY_MODEL,
           maxTokens: 200,
@@ -110,11 +154,19 @@ export class AdCreativeService {
     }
 
     // --- Image (AI default; gated by ai_images_enabled, spend-capped inside generate) ---
-    // An admin-supplied description (regenerate) takes precedence over the auto prompt.
+    // An admin-supplied description (regenerate) takes precedence. Otherwise the SUBJECT is the
+    // promoted service(s) — what the ad is selling — NOT the shop's generic industry (which only
+    // sets style via the brand kit's colors/logo, applied inside ImageGenerationService). This is
+    // what stops a café-branded shop's tech-service ad from rendering coffee.
+    const imageSubject = services.length
+      ? `Show the subject of this offer: ${services
+          .map((s) => [s.name, s.category && `(${s.category})`, s.description].filter(Boolean).join(' '))
+          .join('; ')}.`
+      : `Theme: ${offer}.`;
     const prompt =
       opts.imagePrompt?.trim() ||
-      `Professional, eye-catching social media ad image for ${shopName}, a ${industry}. ` +
-      `Theme: ${offer}. Clean, vibrant, photographic; leave space for a small logo. No text in the image.`;
+      `Professional, eye-catching social media ad image for ${shopName}. ${imageSubject} ` +
+      `Depict what the service actually is; clean, vibrant, photographic; leave space for a small logo. No text in the image.`;
     const img = await this.images.generate(shopId, { prompt, useCase: 'ads', dimensions: '1536x1024' });
     if (!img.ok || !img.imageUrl) {
       throw new Error(`creative_image_failed: ${img.error || 'image generation unavailable'}`);
