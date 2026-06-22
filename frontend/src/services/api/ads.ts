@@ -605,6 +605,20 @@ export const scaleCampaignBudget = async (id: string): Promise<AdCampaign> => {
   const res = await apiClient.post(`/ads/campaigns/${id}/scale-to-full`, {});
   return unwrap<AdCampaign>(res);
 };
+
+// The connected ad account's currency + minimum daily budget — so the budget field is shown in
+// the account's own currency (no $/PHP ambiguity) and validated against the minimum.
+export interface ShopMetaAccount {
+  connected: boolean;
+  currency?: string | null;
+  minDailyBudgetCents?: number | null;
+  accountActive?: boolean;
+  hasFunding?: boolean;
+}
+export const getShopMetaAccount = async (shopId: string): Promise<ShopMetaAccount> => {
+  const res = await apiClient.get(`/ads/shops/${shopId}/meta-account`);
+  return unwrap<ShopMetaAccount>(res);
+};
 // §9.6 — admin marks a shop's ad account connected/disconnected (build precondition).
 export const setShopAdsAccount = async (shopId: string, connected: boolean) => {
   const res = await apiClient.post(`/ads/shops/${shopId}/ads-account`, { connected });

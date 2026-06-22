@@ -134,6 +134,32 @@ export async function selectMyMetaAccount(req: Request, res: Response): Promise<
   }
 }
 
+// GET /ads/shops/:shopId/meta-account (admin) — the connected ad account's CURRENCY + minimum
+// daily budget, so the admin enters/reviews a campaign budget in the account's own currency
+// (no "is 30 = $30 or PHP30?" ambiguity). Best-effort; returns connected:false if not set up.
+export async function getShopMetaAccount(req: Request, res: Response): Promise<void> {
+  const shopId = req.params.shopId;
+  try {
+    const conn = await connections.getConnection(shopId);
+    if (!conn?.userTokenEnc || !conn.adAccountId) { res.json({ success: true, data: { connected: false } }); return; }
+    const token = decryptToken(conn.userTokenEnc);
+    const status = await metaService.getAccountStatus(conn.adAccountId, token);
+    res.json({
+      success: true,
+      data: {
+        connected: true,
+        currency: status.currency,
+        minDailyBudgetCents: status.minDailyBudget,
+        accountActive: status.accountStatus === 1,
+        hasFunding: status.hasFunding,
+      },
+    });
+  } catch (err) {
+    logger.warn('MetaConnectController.getShopMetaAccount failed', err);
+    res.json({ success: true, data: { connected: false } }); // soft — the field just falls back to a generic label
+  }
+}
+
 // GET /ads/shop/meta/connection — current connection status for the UI.
 export async function getMyMetaConnection(req: Request, res: Response): Promise<void> {
   const shopId = shopIdOf(req);

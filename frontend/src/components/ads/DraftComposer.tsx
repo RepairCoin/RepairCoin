@@ -14,8 +14,8 @@ import { Loader2, UploadCloud, Rocket, Sparkles, Wand2, Check, X, Maximize2, Ima
 import toast from "react-hot-toast";
 import {
   listCreatives, reviewCreative, regenerateAdImage, updateCampaignDraft,
-  uploadAdCreativeImage, useManualAdImage,
-  pushCampaignToMeta, goLiveCampaign, type AdCampaign, type AdCreative,
+  uploadAdCreativeImage, useManualAdImage, getShopMetaAccount,
+  pushCampaignToMeta, goLiveCampaign, type AdCampaign, type AdCreative, type ShopMetaAccount,
 } from "@/services/api/ads";
 
 const inputCls = "w-full px-2.5 py-1.5 bg-[#0F0F0F] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00]";
@@ -44,6 +44,7 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
   const [objective, setObjective] = useState(campaign.objective || "OUTCOME_TRAFFIC");
   const [metaEnhance, setMetaEnhance] = useState(!!campaign.allowMetaEnhancements);
   const [testBudget, setTestBudget] = useState(!!campaign.isTestBudget);
+  const [acct, setAcct] = useState<ShopMetaAccount | null>(null);
 
   const onMeta = !!campaign.metaCampaignId; // pushed (PAUSED) vs local draft
 
@@ -60,8 +61,19 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
   }, [campaign.id, regenOpen]);
 
   useEffect(() => { void load(); }, [campaign.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The connected ad account's currency + minimum, so the budget is shown in the right currency.
+  useEffect(() => {
+    let alive = true;
+    getShopMetaAccount(campaign.shopId).then((a) => { if (alive) setAcct(a); }).catch(() => {});
+    return () => { alive = false; };
+  }, [campaign.shopId]);
 
   const approved = creative?.reviewStatus === "approved";
+  // Warn if the entered daily budget is below the account's minimum (account currency).
+  const budgetBelowMin =
+    acct?.minDailyBudgetCents != null &&
+    !Number.isNaN(parseFloat(dailyBudget)) &&
+    Math.round(parseFloat(dailyBudget) * 100) < acct.minDailyBudgetCents;
 
   const saveDetails = async () => {
     const edits: any = {};
@@ -286,8 +298,16 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
             )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Daily budget</label>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Daily budget{acct?.currency ? ` (${acct.currency})` : ""}
+                </label>
                 <input className={inputCls} type="number" value={dailyBudget} onChange={(e) => setDailyBudget(e.target.value)} />
+                {acct?.minDailyBudgetCents != null && (
+                  <p className={`text-[11px] mt-1 ${budgetBelowMin ? "text-amber-400" : "text-gray-500"}`}>
+                    {budgetBelowMin ? "⚠ Below the account minimum — " : "Account minimum: "}
+                    {acct.currency || ""} {(acct.minDailyBudgetCents / 100).toFixed(2)}/day
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Radius (mi)</label>

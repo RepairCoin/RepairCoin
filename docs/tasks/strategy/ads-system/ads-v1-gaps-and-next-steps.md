@@ -61,7 +61,11 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
     check (window `ADS_TEST_BUDGET_WINDOW_DAYS`=30 + ROAS ≥ `ADS_TEST_BUDGET_MIN_ROAS`=1) flags `test_budget_upgrade_ready`
     → admin "Scale to full budget" banner (migration 173, +3 unit tests). Auto-scale prompt fires once delivering.
   - **6 money-back / ROI refund:** gated on Stripe-live + 60-day ROI data + commercial threshold (D3) + **legal review (D4)**.
-- [ ] **Budget currency FX** — USD↔account-currency conversion (v1 enters native currency)
+- [x] **Budget currency — currency-aware** ✅ BUILT 2026-06-22 — the budget field is labelled with the connected
+  account's currency (e.g. "Daily budget (PHP)") + shows the account minimum, with an inline "below minimum" warning
+  (`GET /ads/shops/:shopId/meta-account` → currency + min_daily_budget; DraftComposer). Removes the $/PHP ambiguity.
+  NOTE: this is currency-AWARE entry (admin enters in the account's own currency), not a USD→FX *conversion* — a live
+  FX-rate provider was deemed unnecessary (the natural unit is the account currency). True FX conversion remains a later option.
 - [x] **Creative image cost → True Margin** ✅ BUILT 2026-06-22 — `AdCreativeService.build` logs the gpt-image-1 image
   cost (`kind:'creative_image'`) AND the AI copy cost (`kind:'creative_copy'`) to `ad_ai_costs` with the campaign id, so
   per-campaign True Margin (`getCampaignCostCents` sums all kinds) reflects the full creative COGS. Best-effort; campaignId
