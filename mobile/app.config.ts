@@ -27,11 +27,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         NSLocationAlwaysUsageDescription:
           "FixFlow uses your location to show repair shops near you. For example, when browsing the service marketplace, your location helps sort and display the closest available shops so you can find and book a nearby repair service.",
         NSCameraUsageDescription:
-          "This app uses your camera to scan QR codes and take photos.",
+          "FixFlow uses your camera to scan QR codes at repair shops and take photos for service bookings or profile pictures.",
         NSPhotoLibraryUsageDescription:
           "FixFlow needs access to your photo library so you can select and upload profile photos and service images. For example, shop owners can upload photos of their services, and customers can set a profile picture from their existing photos.",
-        NSMicrophoneUsageDescription:
-          "This app uses your microphone for video recording.",
       },
       appleTeamId: "HSX33PFXS6",
     },
@@ -48,7 +46,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
       permissions: [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -108,9 +105,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         {
           cameraPermission:
             "Allow FixFlow to access your camera to scan QR codes and take photos.",
-          microphonePermission:
-            "Allow FixFlow to access your microphone for video recording.",
-          recordAudioAndroid: true,
+          recordAudioAndroid: false,
         },
       ],
       [
