@@ -54,7 +54,10 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
 - [ ] **Safeguard 5 — free creative iteration** (swap underperforming creative free)
 - [ ] **Safeguard 6 — money-back / ROI refund** (promise = 1× ROI in 60d → refund flat fee; needs threshold + legal decision)
 - [ ] **Budget currency FX** — USD↔account-currency conversion (v1 enters native currency)
-- [ ] **Creative image cost → True Margin** — log gpt-image-1 cost to `ad_ai_costs` so COGS isn't understated _(~0.5d)_
+- [x] **Creative image cost → True Margin** ✅ BUILT 2026-06-22 — `AdCreativeService.build` logs the gpt-image-1 image
+  cost (`kind:'creative_image'`) AND the AI copy cost (`kind:'creative_copy'`) to `ad_ai_costs` with the campaign id, so
+  per-campaign True Margin (`getCampaignCostCents` sums all kinds) reflects the full creative COGS. Best-effort; campaignId
+  threaded through `prepareCreative` + the regenerate path.
 - [ ] **Tiered subscription** $99/$299/$599 — still flat $500/mo (separate pricing-alignment workstream)
 - [ ] Native `OUTCOME_LEADS` instant-form ads (re-enable once `leads_retrieval` approved + form/ToS hardened)
 - [ ] **Video creatives** — see scoped section below

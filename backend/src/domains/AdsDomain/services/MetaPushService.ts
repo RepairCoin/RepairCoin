@@ -44,7 +44,7 @@ export class MetaPushService {
    *  ad_creatives row for review. No Meta call. Used at Build (prepare) and on regenerate.
    *  Throws if the image can't be generated (e.g. ai_images_enabled off) so Build can surface it. */
   async prepareCreative(shopId: string, request: AdCampaignRequest, campaignId: string, campaignName: string, imagePrompt?: string): Promise<void> {
-    const creative = await this.creatives.build(shopId, request, campaignName, { imagePrompt, landingUrl: landingUrlFor(campaignId) });
+    const creative = await this.creatives.build(shopId, request, campaignName, { imagePrompt, landingUrl: landingUrlFor(campaignId), campaignId });
     await this.creativeRepo.upsertAi({
       campaignId, imageUrl: creative.imageUrl, headline: creative.headline,
       body: creative.primaryText, landingUrl: creative.linkUrl, generationPrompt: creative.imagePrompt,
@@ -258,7 +258,7 @@ export class MetaPushService {
       generationPrompt = null; // not AI-generated
     } else if (regenerateImage) {
       if (!edits.request) throw new Error('cannot_regenerate_without_request');
-      const fresh = await this.creatives.build(campaign.shopId, edits.request, campaign.name, { imagePrompt: edits.imagePrompt, landingUrl: landingUrlFor(campaignId) });
+      const fresh = await this.creatives.build(campaign.shopId, edits.request, campaign.name, { imagePrompt: edits.imagePrompt, landingUrl: landingUrlFor(campaignId), campaignId });
       imageUrl = fresh.imageUrl;
       headline = edits.headline || fresh.headline;
       primaryText = edits.primaryText || fresh.primaryText;
