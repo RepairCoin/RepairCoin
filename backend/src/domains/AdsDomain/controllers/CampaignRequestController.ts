@@ -259,6 +259,7 @@ export async function updateCampaignDraft(req: Request, res: Response): Promise<
       radiusMiles: req.body?.radiusMiles,
       objective: typeof req.body?.objective === 'string' ? req.body.objective : undefined,
       manualImageUrl: typeof req.body?.manualImageUrl === 'string' ? req.body.manualImageUrl : undefined,
+      allowMetaEnhancements: typeof req.body?.allowMetaEnhancements === 'boolean' ? req.body.allowMetaEnhancements : undefined,
       headline: req.body?.headline,
       primaryText: req.body?.primaryText,
       regenerateImage: req.body?.regenerateImage === true,

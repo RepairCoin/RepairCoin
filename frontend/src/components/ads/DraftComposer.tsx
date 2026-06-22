@@ -35,6 +35,7 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
   const [dailyBudget, setDailyBudget] = useState(String((campaign.dailyBudgetCents / 100).toFixed(0)));
   const [radius, setRadius] = useState(campaign.targetRadiusMiles != null ? String(campaign.targetRadiusMiles) : "");
   const [objective, setObjective] = useState(campaign.objective || "OUTCOME_TRAFFIC");
+  const [metaEnhance, setMetaEnhance] = useState(!!campaign.allowMetaEnhancements);
 
   const onMeta = !!campaign.metaCampaignId; // pushed (PAUSED) vs local draft
 
@@ -61,6 +62,7 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
     const r = parseInt(radius, 10);
     if (!Number.isNaN(r) && r !== campaign.targetRadiusMiles) edits.radiusMiles = r;
     if (!onMeta && objective !== (campaign.objective || "OUTCOME_TRAFFIC")) edits.objective = objective;
+    if (metaEnhance !== !!campaign.allowMetaEnhancements) edits.allowMetaEnhancements = metaEnhance;
     if (headline.trim() && headline.trim() !== (creative?.headline || "")) edits.headline = headline.trim();
     if (primaryText.trim() && primaryText.trim() !== (creative?.body || "")) edits.primaryText = primaryText.trim();
     if (Object.keys(edits).length === 0) { toast("Nothing to update."); return; }
@@ -240,6 +242,15 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
                 Optimizes for clicks to the shop&apos;s landing page, where the lead form captures the customer.
               </p>
             </div>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" className="mt-0.5 accent-[#FFCC00]" checked={metaEnhance} onChange={(e) => setMetaEnhance(e.target.checked)} />
+              <span className="text-xs text-gray-300">
+                Allow Meta AI creative enhancements
+                <span className="block text-[11px] text-gray-500">
+                  After approval, lets Meta auto-generate on-delivery variations (image expansion, background, text) of your approved ad. Off = your approved creative only.
+                </span>
+              </span>
+            </label>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Daily budget</label>

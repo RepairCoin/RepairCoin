@@ -18,6 +18,7 @@ export interface AdCampaign {
   dailyBudgetCents: number;
   status: CampaignStatus;
   objective?: string | null; // OUTCOME_TRAFFIC | OUTCOME_AWARENESS | OUTCOME_ENGAGEMENT (admin picker)
+  allowMetaEnhancements?: boolean; // opt-in Meta Advantage+ creative enhancements
   aiAgentEnabled: boolean;
   notes: string | null;
   createdAt: string;
@@ -558,6 +559,8 @@ export interface CampaignDraftEdit {
   manualImageUrl?: string;
   /** Meta objective picker (pre-push only): OUTCOME_TRAFFIC | OUTCOME_AWARENESS. */
   objective?: string;
+  /** Opt into Meta Advantage+ creative enhancements (applies on the next creative push). */
+  allowMetaEnhancements?: boolean;
 }
 export const updateCampaignDraft = async (id: string, edits: CampaignDraftEdit): Promise<AdCampaign> => {
   // Regenerating the image runs gpt-image-1 → allow up to 4 min.

@@ -132,6 +132,7 @@ export class MetaPushService {
         message: creative.body ?? undefined,
         linkUrl,
         leadFormId: metaLeadFormId,
+        enhancements: campaign.allowMetaEnhancements,
       });
       metaAdId = await metaService.createAd(conn.adAccountId, token, {
         name: `${campaign.name} — ad`, adsetId: metaAdSetId, creativeId: metaCreativeId,
@@ -200,6 +201,8 @@ export class MetaPushService {
     headline?: string; primaryText?: string; regenerateImage?: boolean; imagePrompt?: string;
     /** A manually-uploaded designer image (public URL) to use instead of AI generation. */
     manualImageUrl?: string;
+    /** Opt into Meta Advantage+ creative enhancements (applies on the next creative push). */
+    allowMetaEnhancements?: boolean;
     request?: AdCampaignRequest;
   }): Promise<void> {
     if (!this.enabled()) throw new Error('push_disabled');
@@ -229,6 +232,7 @@ export class MetaPushService {
     if (edits.radiusMiles != null) dbUpdate.targetRadiusMiles = edits.radiusMiles;
     // Objective change is only meaningful before the push (it's baked into the Meta campaign).
     if (edits.objective && !onMeta) dbUpdate.objective = asMetaObjective(edits.objective) ?? undefined;
+    if (edits.allowMetaEnhancements !== undefined) dbUpdate.allowMetaEnhancements = edits.allowMetaEnhancements;
     if (Object.keys(dbUpdate).length) await this.campaigns.update(campaignId, dbUpdate);
 
     // 2) Creative — manual image upload, AI regenerate, or text-only edit. Always re-arms review.
@@ -281,6 +285,7 @@ export class MetaPushService {
       const newCreativeId = await metaService.createAdCreative(conn.adAccountId, token, {
         pageId: conn.pageId!, imageUrl, headline: headline ?? undefined, message: primaryText ?? undefined, linkUrl,
         leadFormId: campaign.metaLeadFormId ?? undefined,
+        enhancements: campaign.allowMetaEnhancements,
       });
       await metaService.updateAdCreative(campaign.metaAdId, token, newCreativeId);
       await this.campaigns.setMetaObjects(campaignId, { metaCreativeId: newCreativeId });

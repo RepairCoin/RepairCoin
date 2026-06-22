@@ -19,6 +19,8 @@ export interface AdCampaign {
   /** Admin-selected Meta objective (OUTCOME_TRAFFIC | OUTCOME_AWARENESS | OUTCOME_ENGAGEMENT).
    *  Null → push derives it from the request goal. */
   objective: string | null;
+  /** Opt-in: push the creative with Meta Advantage+ standard enhancements (default false). */
+  allowMetaEnhancements: boolean;
   aiAgentEnabled: boolean;
   notes: string | null;
   startedAt: Date | null;
@@ -68,6 +70,7 @@ export interface UpdateCampaignInput {
   dailyBudgetCents?: number;
   status?: AdCampaign['status'];
   objective?: string | null;
+  allowMetaEnhancements?: boolean;
   aiAgentEnabled?: boolean;
   notes?: string | null;
 }
@@ -144,6 +147,7 @@ export class CampaignRepository extends BaseRepository {
     if (input.targetUnits !== undefined) col('target_units', input.targetUnits);
     if (input.dailyBudgetCents !== undefined) col('daily_budget_cents', input.dailyBudgetCents);
     if (input.objective !== undefined) col('objective', input.objective);
+    if (input.allowMetaEnhancements !== undefined) col('allow_meta_enhancements', input.allowMetaEnhancements);
     if (input.aiAgentEnabled !== undefined) col('ai_agent_enabled', input.aiAgentEnabled);
     if (input.notes !== undefined) col('notes', input.notes);
     // status transitions also stamp the matching timestamp
@@ -253,6 +257,7 @@ export class CampaignRepository extends BaseRepository {
       dailyBudgetCents: r.daily_budget_cents,
       status: r.status,
       objective: r.objective ?? null,
+      allowMetaEnhancements: r.allow_meta_enhancements === true,
       aiAgentEnabled: r.ai_agent_enabled,
       notes: r.notes,
       startedAt: r.started_at,

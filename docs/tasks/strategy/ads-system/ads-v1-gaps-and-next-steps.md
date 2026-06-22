@@ -58,6 +58,9 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
 - [ ] **Tiered subscription** $99/$299/$599 — still flat $500/mo (separate pricing-alignment workstream)
 - [ ] Native `OUTCOME_LEADS` instant-form ads (re-enable once `leads_retrieval` approved + form/ToS hardened)
 - [ ] **Video creatives** — see scoped section below
+- [x] **Meta Advantage+ creative enhancements (opt-in)** ✅ BUILT — default-off `allow_meta_enhancements`
+  (migration 171) + DraftComposer toggle; `createAdCreative` adds `degrees_of_freedom_spec.standard_enhancements`
+  OPT_IN when on. ⏳ Research task (per-account/objective feature eligibility) still open. See scoped section below.
 
 ---
 
@@ -80,6 +83,45 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
 4. `ad_creatives.creative_type='video'` + store `meta_video_id`; `MetaPushService` push/edit branches for video.
 
 **Prereq:** the manual image-upload affordance (DONE — `POST /ads/campaigns/:id/creative-image` + `manualImageUrl` draft edit). The DB enum already includes `'video'`.
+
+---
+
+## Meta Advantage+ creative enhancements (scoped — Phase 2, exec Part 4)
+
+**Status:** 🔵 Scoped, not built. **Exec direction (`c:\dev\exec.txt` Part 4):** Meta has its own AI creative
+generation, and it's good — but **do NOT replace our OpenAI/Stability flow**. Keep **FixFlow creative-first**
+(our review gate + brand control); add Meta AI as an **optional, post-approval enhancement** behind a toggle.
+Setup: **FixFlow AI = the brand-safe approved ad; Meta AI = optimizes variations after approval.**
+
+**What it actually is** — NOT a "generate an image via API" call. It's **Advantage+ Creative enhancements** applied
+to *our existing approved* creative at delivery: **image expansion / outpainting** (fit more placements),
+**background generation**, **text variations**, brightness/crop. Enabled via **`degrees_of_freedom_spec` /
+`creative_features_spec`** flags on the ad creative at push; Meta does the enhancing on delivery.
+
+**⚠️ Why opt-in + post-approval (exec caution):** Meta's auto-enhancements can drift **off-brand** if fully
+automatic (documented strange outputs when automation is too loose) — so they must **never bypass our approve gate**.
+
+**Two parts (exec asked for both):**
+1. **Research task** ✅ DONE 2026-06-22 (probed live on `act_3077737815616411`, PHP, OUTCOME_TRAFFIC):
+   - **⚠️ Correction:** Meta does **NOT** auto-drop ineligible features (earlier assumption was wrong) — **a single
+     ineligible feature invalidates the WHOLE creative** (error 2490472). So we must send **only eligible** features.
+   - **Eligible (enroll OPT_IN):** `image_brightness_and_contrast`, `image_enhancement`, `image_touchups`,
+     `image_auto_crop`, `image_uncrop`, `adapt_to_placement`, `enhance_cta`, `text_optimizations`, `add_text_overlay`,
+     `image_templates`.
+   - **Rejected:** `text_generation` ("Creative Invalid for Text Generation") — **this was in our old default and caused
+     all the 2490472 errors**; `image_background_gen` ("No catalog selected" — needs a product catalog).
+   - **New safe default** (`ADS_META_ENHANCEMENT_FEATURES`): `image_brightness_and_contrast,image_touchups,enhance_cta`.
+   - Eligibility is per-account — the probe (push each feature individually on v22, read back `degrees_of_freedom_spec`)
+     is the way to find a new account's set. Still requires `META_GRAPH_VERSION=v22.0` (enhancements don't exist on v19).
+2. **Build** ✅ DONE 2026-06-22 — `ad_campaigns.allow_meta_enhancements` (migration 171, default **false**) +
+   DraftComposer toggle "Allow Meta AI creative enhancements"; `MetaService.createAdCreative` adds
+   `degrees_of_freedom_spec: { creative_features_spec: { standard_enhancements: { enroll_status: 'OPT_IN' } } }` when
+   the flag is on (push + creative-edit paths). Our approved image stays the base; Meta only varies it on delivery.
+
+**Prereq:** none new — rides on the existing approved-creative push. ⚠️ The build is headless/structural only — needs a
+live delivering ad to confirm Meta actually applies enhancements (that's the open research task).
+
+---
 
 **Biggest single unlock = Meta App Review** — it gates real-shop onboarding, the Messenger objective, and live transport at once.
 
