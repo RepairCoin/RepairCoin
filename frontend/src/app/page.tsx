@@ -12,16 +12,19 @@ import Footer from "@/components/Footer";
 import ScrollProgress from "@/components/motion/ScrollProgress";
 
 // Critical above-the-fold - imported directly
-import HeroSection from "@/components/landing-v2/HeroSection";
+import HeroSection from "@/components/landing-v4/HeroSection";
 
 // Below-the-fold sections - lazy load with dynamic imports
-// WhatIsRepairCoin contains a 3D model (Three.js/R3F ~500KB) - must be lazy loaded
-const WhatIsRepairCoin = dynamic(() => import("@/components/landing-v2/WhatIsRepairCoin"), { ssr: true });
+const ServiceIndustries = dynamic(() => import("@/components/landing-v4/ServiceIndustries"), { ssr: true });
+const AllInOne = dynamic(() => import("@/components/landing-v4/AllInOne"), { ssr: true });
+const Loyalty = dynamic(() => import("@/components/landing-v4/Loyalty"), { ssr: true });
+const Network = dynamic(() => import("@/components/landing-v4/Network"), { ssr: true });
+const GetStarted = dynamic(() => import("@/components/landing-v4/GetStarted"), { ssr: true });
 const HowItWorks = dynamic(() => import("@/components/landing-v2/HowItWorks"), { ssr: true });
 const WhosItFor = dynamic(() => import("@/components/landing-v2/WhosItFor"), { ssr: true });
 const Proof = dynamic(() => import("@/components/landing-v2/Proof"), { ssr: true });
 const IndustriesAndWhy = dynamic(() => import("@/components/landing-v2/IndustriesAndWhy"), { ssr: true });
-const CTASection = dynamic(() => import("@/components/landing-v2/CTASection"), { ssr: true });
+const CTASection = dynamic(() => import("@/components/landing-v4/CTASection"), { ssr: true });
 
 export default function LandingPageNew() {
   const router = useRouter();
@@ -89,31 +92,29 @@ export default function LandingPageNew() {
         <HeroSection
           hasWallet={!!account}
           isDetecting={isDetecting}
-          isRegistered={isRegistered}
-          isAuthenticated={isAuthenticated}
           isRedirecting={isRedirecting}
           onGetStartedClick={handleGetStarted}
         />
 
-        {/* Section 2: What is RepairCoin */}
-        <WhatIsRepairCoin />
+        {/* Section 2: Service Industries */}
+        <ServiceIndustries />
 
-        {/* Section 3: How RepairCoin Works */}
+        {/* Section 3: All-In-One Platform */}
         <div id="how-it-works">
-          <HowItWorks />
+          <AllInOne />
         </div>
 
-        {/* Section 4: Who's It For + Trust & Security */}
+        {/* Section 4: Loyalty / Rewards */}
         <div id="security">
-          <WhosItFor />
+          <Loyalty />
         </div>
 
-        {/* Section 5: Proof */}
-        <Proof />
+        {/* Section 5: Network */}
+        <Network />
 
-        {/* Section 6: Industries & Why RepairCoin */}
+        {/* Section 6: Get Started Steps */}
         <div id="why-repaircoin">
-          <IndustriesAndWhy />
+          <GetStarted />
         </div>
 
         {/* Section 7: CTA + Footer */}
