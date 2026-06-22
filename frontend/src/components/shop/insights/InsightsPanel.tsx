@@ -85,7 +85,20 @@ type TabKey = "chat" | "pinned";
  */
 type PendingRun = { pinnedId: string } | null;
 
-export const InsightsPanel: React.FC = () => {
+export interface InsightsPanelProps {
+  /** Starter questions shown in the empty state. Defaults to general business questions. */
+  starterQuestions?: readonly string[];
+  /** Headline shown above the starter questions in the empty state. */
+  emptyStateTitle?: string;
+  /** Placeholder for the input box (when the conversation isn't full). */
+  inputPlaceholder?: string;
+}
+
+export const InsightsPanel: React.FC<InsightsPanelProps> = ({
+  starterQuestions = STARTER_QUESTIONS,
+  emptyStateTitle = "Ask about your business.",
+  inputPlaceholder = "Ask about your shop's data…",
+}) => {
   const [sessionId] = useState(() =>
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
@@ -433,7 +446,12 @@ export const InsightsPanel: React.FC = () => {
           />
 
           {turns.length === 0 && !loading && !error && (
-            <EmptyState onPick={handleStarterClick} disabled={loading} />
+            <EmptyState
+              onPick={handleStarterClick}
+              disabled={loading}
+              questions={starterQuestions}
+              title={emptyStateTitle}
+            />
           )}
 
           {turns.map((t, i) => (
@@ -510,7 +528,7 @@ export const InsightsPanel: React.FC = () => {
           placeholder={
             atMessageLimit
               ? "Conversation full — close to start fresh"
-              : "Ask about your shop's data…"
+              : inputPlaceholder
           }
           className="flex-1 bg-[#1A1A1A] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Ask the Insights Assistant"
@@ -594,16 +612,18 @@ function extractActiveRange(turns: Turn[]): RangeKey | null {
 const EmptyState: React.FC<{
   onPick: (question: string) => void;
   disabled: boolean;
-}> = ({ onPick, disabled }) => (
+  questions: readonly string[];
+  title: string;
+}> = ({ onPick, disabled, questions, title }) => (
   <div className="flex flex-col px-1 py-6">
     <p className="text-sm text-gray-300 mb-1 text-center">
-      Ask about your business.
+      {title}
     </p>
     <p className="text-xs text-gray-500 mb-5 text-center">
       Or tap a starter question:
     </p>
     <div className="w-full space-y-2">
-      {STARTER_QUESTIONS.map((q) => (
+      {questions.map((q) => (
         <button
           key={q}
           type="button"
