@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useShopProfileStore } from "@/stores/shopProfileStore";
 import { toast } from "react-hot-toast";
 import {
@@ -74,6 +74,7 @@ interface ShopProfileClientProps {
 
 export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, isPreviewMode = false }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [shopInfo, setShopInfo] = useState<ShopInfo | null>(null);
   const [shopData, setShopData] = useState<any>(null);
@@ -101,6 +102,16 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   useEffect(() => {
     loadShopData();
   }, [shopId]);
+
+  // Deep-link from an ad landing page ("Book online" → /customer/shop/:id?service=<id>):
+  // once services have loaded, auto-open that service's detail so the visitor lands straight on it.
+  useEffect(() => {
+    const sid = searchParams?.get("service");
+    if (sid && services.length > 0 && !selectedService) {
+      const match = services.find((s) => s.serviceId === sid);
+      if (match) setSelectedService(match);
+    }
+  }, [searchParams, services]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch reviews when tab becomes active or filter changes
   useEffect(() => {

@@ -121,6 +121,11 @@ export async function selectMyMetaAccount(req: Request, res: Response): Promise<
     const page = pages.find((p) => p.id === pageId);
     if (!page) { res.status(400).json({ success: false, error: 'unknown_page' }); return; }
     await connections.saveSelection(shopId, adAccountId, pageId, encryptToken(page.accessToken));
+    // Resolve (or create) the ad account's Meta Pixel so the landing page can fire a "Lead"
+    // conversion attributed to this account. Best-effort — never block connection on it.
+    metaService.ensureAdPixel(adAccountId, userToken)
+      .then((pixelId) => connections.savePixelId(shopId, pixelId))
+      .catch((e) => logger.warn(`Meta pixel setup skipped for ${shopId}: ${e?.message || e}`));
     void postEvent(shopId, 'Ad account connected — campaigns can now go live.');
     res.json({ success: true, data: { adAccountId, pageId, connected: true } });
   } catch (err) {

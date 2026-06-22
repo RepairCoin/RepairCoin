@@ -7,10 +7,9 @@ import { CustomerSidebar, ShopSidebar, AdminSidebar } from "./sidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { MessageIcon } from "@/components/messaging/MessageIcon";
 import { CartIcon } from "@/components/ui/CartIcon";
-import { UnifiedAssistantLauncher } from "@/components/shop/unified/UnifiedAssistantLauncher";
+import { UnifiedAssistantLauncher, UnifiedAssistantHost } from "@/components/shop/unified/UnifiedAssistantLauncher";
 import { HeaderVoiceMic } from "@/components/voice/HeaderVoiceMic";
 import { MobileBottomNavMic } from "@/components/voice/MobileBottomNavMic";
-import { VoiceCommandPill } from "@/components/voice/VoiceCommandPill";
 import { useNotifications } from "@/hooks/useNotifications";
 
 interface DashboardLayoutProps {
@@ -156,18 +155,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </div>
       )}
 
+      {/* The ONE Unified Assistant panel — mounted exactly once here (shop only),
+          decoupled from the trigger buttons. Every ✨ launcher / voice mic across
+          the breadcrumb + floating clusters opens THIS single Sheet via the store,
+          so there's never more than one panel (no double TTS / greeting race). */}
+      {userRole === "shop" && <UnifiedAssistantHost />}
+
       {/* Voice AI Dispatcher Phase 4 — mobile bottom-nav mic. The
           component itself is lg:hidden, so this mount is a no-op on
           desktop. Shop-only mirrors the other voice surfaces. */}
       {userRole === "shop" && <MobileBottomNavMic />}
-
-      {/* Floating "Ask AI Anything" pill on the shop Profile tab — fixed at the
-          bottom, centered within the content area (offset for the sidebar so
-          it's not pulled left by the viewport-centered default). Desktop only;
-          mobile uses the bottom-nav mic. */}
-      {userRole === "shop" && activeTab === "profile" && (
-        <VoiceCommandPill floating sidebarCollapsed={isSidebarCollapsed} />
-      )}
 
       {/* Main Content Area. In fullHeight mode, becomes a flex column that
           bounds children to the remaining viewport height — required for

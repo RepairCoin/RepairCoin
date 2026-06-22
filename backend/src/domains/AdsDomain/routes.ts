@@ -5,6 +5,7 @@
 // Per Stage-0 scope: super_admin/ads_manager collapse to 'admin'; no 'employee' in v1.
 
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
 import { authMiddleware, requireRole } from '../../middleware/auth';
 import {
   createCampaign, listCampaigns, getCampaign, updateCampaign, deleteCampaign,
@@ -14,7 +15,7 @@ import {
   createCreative, listCreatives, updateCreative, reviewCreative, deleteCreative,
 } from './controllers/CreativeController';
 import {
-  listLeads, createManualLead, updateLeadStatus, listShopLeads, webformLead, draftLeadReply,
+  listLeads, createManualLead, updateLeadStatus, updateShopLeadStatus, listShopLeads, webformLead, draftLeadReply,
   listAwaitingLeads, listShopAwaitingLeads,
   getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage,
 } from './controllers/LeadController';
@@ -38,7 +39,7 @@ import {
 import {
   submitCampaignRequest, listMyCampaignRequests, listCampaignRequests,
   buildCampaignFromRequest, declineCampaignRequest, setAdsAccountConnected,
-  goLiveCampaign, updateCampaignDraft,
+  pushCampaignToMeta, goLiveCampaign, updateCampaignDraft, uploadCreativeImage,
 } from './controllers/CampaignRequestController';
 import {
   getMySubscription, changeMyTier, cancelMySubscription,
@@ -48,17 +49,28 @@ import {
   getMyMetaConnection, disconnectMyMeta, handleMetaDeauthorize, handleMetaDataDeletion,
   triggerMetaInsightsSync,
 } from './controllers/MetaConnectController';
+import { getCampaignLanding } from './controllers/LandingController';
 import { taxonomyFor } from './services/industryTaxonomies';
 
 export function initializeRoutes(): Router {
   const router = Router();
   const admin = [authMiddleware, requireRole(['admin'])];
   const shop = [authMiddleware, requireRole(['shop'])];
+  // Multipart for the designer-image upload on a campaign creative (memory → DO Spaces).
+  const creativeUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
+    fileFilter: (_req, file, cb) =>
+      cb(null, ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)),
+  });
 
   // Health — confirms the domain is registered.
   router.get('/health', (_req: Request, res: Response) => {
     res.json({ domain: 'ads', status: 'live', stage: '2' });
   });
+
+  // PUBLIC — ad landing-page data (shop + offer + promoted services) for /l/:campaignId.
+  router.get('/landing/:campaignId', getCampaignLanding);
 
   // PUBLIC — landing-page lead webform (UTM-attributed). No auth: attribution is
   // by campaign id / utm params in the body. (Stage 2.)
@@ -108,8 +120,10 @@ export function initializeRoutes(): Router {
   router.get('/campaign-requests', ...admin, listCampaignRequests);     // build queue (Phase 3)
   router.post('/campaign-requests/:id/build', ...admin, buildCampaignFromRequest);
   router.post('/campaign-requests/:id/decline', ...admin, declineCampaignRequest);
+  router.post('/campaigns/:id/creative-image', ...admin, creativeUpload.single('image'), uploadCreativeImage); // manual designer image → public URL
+  router.post('/campaigns/:id/push', ...admin, pushCampaignToMeta);             // prepare→push: create PAUSED Meta objects from a reviewed draft
   router.post('/campaigns/:id/go-live', ...admin, goLiveCampaign);              // push P5: activate a PAUSED draft
-  router.patch('/campaigns/:id/draft', ...admin, updateCampaignDraft);          // push P5: edit budget/radius/creative
+  router.patch('/campaigns/:id/draft', ...admin, updateCampaignDraft);          // push P5: edit budget/radius/creative (draft or paused)
   router.post('/shops/:shopId/ads-account', ...admin, setAdsAccountConnected);  // §9.6 connect gate
   router.post('/meta/sync-insights', ...admin, triggerMetaInsightsSync);        // push P3: import Meta spend/impr/clicks now
 
@@ -150,6 +164,7 @@ export function initializeRoutes(): Router {
   router.get('/shop/capacity', ...shop, getShopCapacity);               // tier limit vs. used (§9.5)
   router.get('/shop/campaigns/:id/performance', ...shop, getShopCampaignPerformance);
   router.get('/shop/leads', ...shop, listShopLeads);
+  router.patch('/shop/leads/:id/status', ...shop, updateShopLeadStatus); // shop works its own leads
   router.get('/shop/leads/awaiting', ...shop, listShopAwaitingLeads);   // SLA (Stage 2)
   router.get('/shop/enrollment', ...shop, getMyEnrollment);             // "Request ads" status
   router.post('/shop/enrollment', ...shop, requestAds);                 // "Request ads" opt-in

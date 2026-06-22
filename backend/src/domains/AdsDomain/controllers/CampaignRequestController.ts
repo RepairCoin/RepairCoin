@@ -19,6 +19,7 @@ import { AdBillingService } from '../services/AdBillingService';
 import { parseBrief } from '../services/briefValidation';
 import { metaPushService } from '../services/MetaPushService';
 import { shopRepository } from '../../../repositories';
+import { imageStorageService } from '../../../services/ImageStorageService';
 
 const requests = new CampaignRequestRepository();
 const campaigns = new CampaignRepository();
@@ -137,22 +138,23 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
     } as any);
     await safeguards.ensureDefault(campaign.id);
 
-    // Stage-4 PUSH (Option B): create the real campaign PAUSED on the shop's Meta ad account,
-    // then the admin reviews + goes live (Phase 5). Until ADS_META_PUSH_ENABLED, stays record-only.
+    // Stage-4 PREPARE (Option B): build a LOCAL draft + generate the AI creative — nothing is
+    // pushed to Meta yet. The admin reviews/edits/approves the creative + budget, then hits
+    // "Push to Meta" (PAUSED) → "Go live". Until ADS_META_PUSH_ENABLED, stays record-only.
     if (metaPushService.enabled()) {
       try {
-        await metaPushService.pushNewCampaign(r.shopId, r, campaign);
+        await metaPushService.prepareCreative(r.shopId, r, campaign.id, name);
       } catch (err: any) {
-        await campaigns.softDelete(campaign.id); // roll back our record (Meta objects rolled back inside)
-        logger.error('buildCampaignFromRequest: Meta push failed', err?.message || err);
-        res.status(502).json({ success: false, error: 'meta_push_failed', message: err?.message || 'Failed to create the campaign on Meta.' });
+        await campaigns.softDelete(campaign.id); // roll back our record (no Meta objects created)
+        logger.error('buildCampaignFromRequest: prepare creative failed', err?.message || err);
+        res.status(502).json({ success: false, error: 'prepare_failed', message: err?.message || 'Failed to generate the ad creative.' });
         return;
       }
-      await campaigns.update(campaign.id, { status: 'paused' }); // drafted on Meta, not yet live
+      await campaigns.update(campaign.id, { status: 'draft' }); // local draft, not on Meta yet
       const updated = await requests.setStatus(id, 'building', { campaignId: campaign.id, decidedBy: adminId(req) });
-      void postEvent(r.shopId, `Campaign "${name}" drafted on Meta (paused) — review & go live.`);
-      await notifyShop(r.shopId, `Your campaign "${name}" is being set up — we'll take it live shortly.`);
-      res.status(201).json({ success: true, data: { request: updated, campaign, pushed: true } });
+      void postEvent(r.shopId, `Campaign "${name}" drafted — review the creative & details, then push it live.`);
+      await notifyShop(r.shopId, `Your campaign "${name}" is being prepared — we'll take it live shortly.`);
+      res.status(201).json({ success: true, data: { request: updated, campaign, prepared: true } });
       return;
     }
 
@@ -183,6 +185,44 @@ export async function declineCampaignRequest(req: Request, res: Response): Promi
   } catch (err) {
     logger.error('CampaignRequestController.declineCampaignRequest failed', err);
     res.status(500).json({ success: false, error: 'Failed to decline request' });
+  }
+}
+
+// POST /campaigns/:id/creative-image (admin, multipart 'image') — upload a designer-made image
+// for the campaign's creative. Stores it under the campaign's shop folder (public URL) and
+// returns the URL; the caller then PATCHes the draft with manualImageUrl to use it.
+export async function uploadCreativeImage(req: Request, res: Response): Promise<void> {
+  try {
+    const file = (req as any).file;
+    if (!file) { res.status(400).json({ success: false, error: 'No image file provided' }); return; }
+    const campaign = await campaigns.findById(req.params.id);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    // Reuse the AI-source bucket path so the URL is recognized as shop-owned + public.
+    const result = await imageStorageService.uploadAiSource(file, campaign.shopId);
+    if (!result.success || !result.url) { res.status(400).json({ success: false, error: result.error || 'upload_failed' }); return; }
+    res.json({ success: true, data: { url: result.url } });
+  } catch (err) {
+    logger.error('CampaignRequestController.uploadCreativeImage failed', err);
+    res.status(500).json({ success: false, error: 'Failed to upload image' });
+  }
+}
+
+// POST /campaigns/:id/push (admin) — create the PAUSED Meta objects from a reviewed local draft.
+// Validates account + currency-aware budget + creative-approved; flips the draft → paused.
+export async function pushCampaignToMeta(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const campaign = await campaigns.findById(campaignId);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    if (campaign.metaCampaignId) { res.status(400).json({ success: false, error: 'already_pushed', message: 'This campaign is already on Meta.' }); return; }
+    const request = await requests.findByCampaignId(campaignId);
+    await metaPushService.pushPreparedCampaign(campaign.shopId, request, campaign); // throws → 502
+    await campaigns.update(campaignId, { status: 'paused' }); // drafted on Meta, not yet live
+    void postEvent(campaign.shopId, `Campaign "${campaign.name}" pushed to Meta (paused) — review & go live.`);
+    res.json({ success: true, data: await campaigns.findById(campaignId) });
+  } catch (err: any) {
+    logger.error('CampaignRequestController.pushCampaignToMeta failed', err?.message || err);
+    res.status(502).json({ success: false, error: 'meta_push_failed', message: err?.message || 'Failed to push the campaign to Meta.' });
   }
 }
 
@@ -217,9 +257,12 @@ export async function updateCampaignDraft(req: Request, res: Response): Promise<
     await metaPushService.updateDraft(campaignId, {
       dailyBudgetCents: req.body?.dailyBudgetCents,
       radiusMiles: req.body?.radiusMiles,
+      objective: typeof req.body?.objective === 'string' ? req.body.objective : undefined,
+      manualImageUrl: typeof req.body?.manualImageUrl === 'string' ? req.body.manualImageUrl : undefined,
       headline: req.body?.headline,
       primaryText: req.body?.primaryText,
       regenerateImage: req.body?.regenerateImage === true,
+      imagePrompt: typeof req.body?.imagePrompt === 'string' ? req.body.imagePrompt : undefined,
       request: request ?? undefined,
     });
     res.json({ success: true, data: await campaigns.findById(campaignId) });

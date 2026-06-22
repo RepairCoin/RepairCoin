@@ -13,6 +13,9 @@ export interface AdCreative {
   landingUrlType: 'booking_page' | 'shop_profile' | 'lead_form' | null;
   headline: string | null;
   body: string | null;
+  imageUrl: string | null;
+  metaCreativeId: string | null;
+  generationPrompt: string | null;
   version: number;
   reviewStatus: 'pending' | 'approved' | 'rejected';
   reviewedBy: string | null;
@@ -88,6 +91,60 @@ export class CreativeRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
+  /** The AI creative for a campaign (the generated image+copy — identified by a non-null
+   *  image_url). Latest wins. This is the row reviewed in the panel and that gates go-live.
+   *  It exists from the local "prepare" step onward; meta_creative_id is filled in at push. */
+  async findAiByCampaign(campaignId: string): Promise<AdCreative | null> {
+    const res = await this.pool.query(
+      `SELECT * FROM ad_creatives
+        WHERE campaign_id = $1 AND image_url IS NOT NULL AND deleted_at IS NULL
+        ORDER BY updated_at DESC LIMIT 1`,
+      [campaignId]
+    );
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
+  /** Record (or refresh) the AI creative for a campaign — generated locally at prepare time,
+   *  before any Meta push. Always lands as 'pending' so an admin must approve it before go-live;
+   *  a regenerate bumps version + re-arms review and clears any stale meta_creative_id (a new
+   *  Meta creative is created at push/edit time). One AI row per campaign (replaced in place). */
+  async upsertAi(input: {
+    campaignId: string;
+    imageUrl: string;
+    headline: string | null;
+    body: string | null;
+    landingUrl?: string | null;
+    generationPrompt: string | null;
+  }): Promise<AdCreative> {
+    const existing = await this.findAiByCampaign(input.campaignId);
+    if (existing) {
+      const res = await this.pool.query(
+        `UPDATE ad_creatives
+            SET image_url = $1, headline = $2, body = $3, landing_url = COALESCE($4, landing_url),
+                generation_prompt = $5, meta_creative_id = NULL, version = version + 1,
+                review_status = 'pending', reviewed_by = NULL, reviewed_at = NULL, updated_at = now()
+          WHERE id = $6 RETURNING *`,
+        [input.imageUrl, input.headline, input.body, input.landingUrl ?? null, input.generationPrompt, existing.id]
+      );
+      return this.mapRow(res.rows[0]);
+    }
+    const res = await this.pool.query(
+      `INSERT INTO ad_creatives
+         (campaign_id, creative_type, language, image_url, headline, body, landing_url, generation_prompt)
+       VALUES ($1,'image','en',$2,$3,$4,$5,$6) RETURNING *`,
+      [input.campaignId, input.imageUrl, input.headline, input.body, input.landingUrl ?? null, input.generationPrompt]
+    );
+    return this.mapRow(res.rows[0]);
+  }
+
+  /** Stamp the Meta ad-creative id on the AI creative row once it's pushed to Meta. */
+  async setMetaCreativeId(id: string, metaCreativeId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_creatives SET meta_creative_id = $1, updated_at = now() WHERE id = $2`,
+      [metaCreativeId, id]
+    );
+  }
+
   /** Q8: approve/reject a creative before it can launch. */
   async review(
     id: string,
@@ -122,6 +179,9 @@ export class CreativeRepository extends BaseRepository {
       landingUrlType: r.landing_url_type,
       headline: r.headline,
       body: r.body,
+      imageUrl: r.image_url ?? null,
+      metaCreativeId: r.meta_creative_id ?? null,
+      generationPrompt: r.generation_prompt ?? null,
       version: r.version,
       reviewStatus: r.review_status,
       reviewedBy: r.reviewed_by,

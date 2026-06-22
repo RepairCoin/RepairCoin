@@ -6,7 +6,6 @@ import {
   Sheet,
   SheetContent,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { UnifiedAssistantPanel } from "./UnifiedAssistantPanel";
 import {
@@ -18,20 +17,43 @@ import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
 /**
  * UnifiedAssistantLauncher (v2 — "the one door")
  *
- * Persistent launcher in the shop dashboard's right-side action cluster.
- * Opens a right-side slide-over (shadcn `Sheet`) housing the cross-domain
- * Unified Assistant — answer + recommend + draft, all in one conversation.
+ * A thin TRIGGER button (the ✨ in the dashboard action clusters). Tapping it
+ * opens the single shared assistant Sheet via the store. It does NOT render the
+ * Sheet/panel itself — that's `UnifiedAssistantHost`, mounted exactly ONCE.
  *
- * Cloned from InsightsLauncher minus the voice-open effect — repointing voice
- * entry points at the orchestrator is Phase 3 (voice/TTS). Shop-only;
- * DashboardLayout gates on userRole === 'shop'. The per-domain Insights /
- * Marketing / Help launchers stay (D1) as deep-dive surfaces underneath.
+ * Why the split: the button appears in multiple clusters (desktop breadcrumb +
+ * mobile floating). If each rendered its own Sheet/panel, opening would mount
+ * TWO panels → two TTS voices + a race on the one-shot greeting/mic flags. Many
+ * trigger buttons, ONE panel — same pattern as HeaderVoiceMic / MobileBottomNavMic.
  */
 export const UnifiedAssistantLauncher: React.FC<{ variant?: 'default' | 'subtle' }> = ({ variant = 'default' }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const subtle = variant === 'subtle';
-  // Open state lives in the shared store so the global voice triggers
-  // (HeaderVoiceMic / MobileBottomNavMic) can open this same panel.
+  const openAssistant = useUnifiedAssistantStore((s) => s.open);
+  return (
+    <button
+      type="button"
+      aria-label="Open your business assistant"
+      onClick={() => openAssistant()}
+      className={
+        subtle
+          ? 'relative p-2 rounded-full bg-[#1f1f1f] text-gray-300 hover:bg-[#2a2a2a] hover:text-white transition-colors'
+          : 'relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]'
+      }
+    >
+      <Sparkles className={subtle ? 'w-5 h-5' : 'w-6 h-6'} />
+    </button>
+  );
+};
+
+/**
+ * UnifiedAssistantHost — the actual assistant Sheet + panel, controlled by the
+ * shared store's open state. MUST be mounted exactly once (DashboardLayout, shop
+ * only). All trigger buttons (UnifiedAssistantLauncher, HeaderVoiceMic,
+ * MobileBottomNavMic, VoiceCommandPill) open THIS one panel through the store.
+ */
+export const UnifiedAssistantHost: React.FC = () => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  // Open state lives in the shared store so every trigger opens this same panel.
   const open = useUnifiedAssistantStore((s) => s.isOpen);
   const setOpen = useUnifiedAssistantStore((s) => s.setOpen);
   // `undefined` = not loaded yet (show a skeleton, NOT the "Assistant" default,
@@ -83,20 +105,6 @@ export const UnifiedAssistantLauncher: React.FC<{ variant?: 'default' | 'subtle'
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <button
-          type="button"
-          aria-label="Open your business assistant"
-          className={
-            subtle
-              ? 'relative p-2 rounded-full bg-[#1f1f1f] text-gray-300 hover:bg-[#2a2a2a] hover:text-white transition-colors'
-              : 'relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]'
-          }
-        >
-          <Sparkles className={subtle ? 'w-5 h-5' : 'w-6 h-6'} />
-        </button>
-      </SheetTrigger>
-
       <SheetContent
         side="right"
         className={`bg-black border-l border-gray-800 text-white p-6 flex flex-col transition-[max-width] duration-200 ease-out ${

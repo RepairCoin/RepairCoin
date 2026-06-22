@@ -5,19 +5,17 @@
 // entry. Admin-only; reads/writes /api/ads. Gated by ADS_DASHBOARD_ENABLED upstream.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { LeadKanban } from "@/components/ads/LeadKanban";
 import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import { IndustryAnalytics } from "@/components/ads/IndustryAnalytics";
-import { ExperimentsPanel } from "@/components/ads/ExperimentsPanel";
-import { CreativesPanel } from "@/components/ads/CreativesPanel";
+import { CreativePreview } from "@/components/ads/CreativePreview";
 import { MarginPanel } from "@/components/ads/MarginPanel";
-import { BillingPanel } from "@/components/ads/BillingPanel";
 import { CampaignRequestsQueue } from "@/components/ads/CampaignRequestsQueue";
 import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
-import { MetaDraftReview } from "@/components/ads/MetaDraftReview";
+import { DraftComposer } from "@/components/ads/DraftComposer";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
@@ -35,6 +33,7 @@ export const AdminAdsTab: React.FC = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [savingMetrics, setSavingMetrics] = useState(false);
+  const [showMetrics, setShowMetrics] = useState(false); // manual-metrics override (Live mode)
 
   const [form, setForm] = useState({ shopId: "", name: "", dailyBudget: "", notes: "" });
   const [metrics, setMetrics] = useState({
@@ -139,6 +138,9 @@ export const AdminAdsTab: React.FC = () => {
   }
 
   const selected = campaigns.find((c) => c.id === selectedId) || null;
+  // Pre-live (drafting) vs launched (operating): a campaign that has gone live at least once
+  // (startedAt) or is active shows the metrics view; otherwise the review/push view.
+  const launched = !!selected && (selected.status === "active" || !!selected.startedAt);
 
   return (
     <div className="space-y-6">
@@ -244,12 +246,14 @@ export const AdminAdsTab: React.FC = () => {
             </div>
           </div>
 
-          {/* Push P5 — review/edit + Go-live for a PAUSED Meta draft (renders only for drafts) */}
-          <MetaDraftReview campaign={selected} onChanged={load} />
-
-          {!perf ? (
+          {!launched ? (
+            /* ─── DRAFTING ─── one cohesive composer: creative + details form + push/go-live.
+               Everything needed to launch in a single card; nothing else. */
+            <DraftComposer campaign={selected} onChanged={load} />
+          ) : !perf ? (
             <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading performance…</div>
           ) : (
+            /* ─── LIVE / OPERATING ─── metrics, true margin, creative, leads. */
             <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Stat label="Spend" value={fmtUsd(perf.roi.totalSpendCents)} />
@@ -262,21 +266,16 @@ export const AdminAdsTab: React.FC = () => {
                 <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
               </div>
 
-              {/* Daily metric entry */}
-              <div className="rounded-lg border border-white/10 bg-[#1A1A1A] p-4">
-                <p className="text-sm font-medium text-gray-300 mb-3">Enter daily metrics</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                  <Field label="Date"><input className={inputCls} type="date" value={metrics.date} onChange={(e) => setMetrics({ ...metrics, date: e.target.value })} /></Field>
-                  <Field label="Spend $"><input className={inputCls} type="number" value={metrics.spend} onChange={(e) => setMetrics({ ...metrics, spend: e.target.value })} /></Field>
-                  <Field label="Impr."><input className={inputCls} type="number" value={metrics.impressions} onChange={(e) => setMetrics({ ...metrics, impressions: e.target.value })} /></Field>
-                  <Field label="Clicks"><input className={inputCls} type="number" value={metrics.clicks} onChange={(e) => setMetrics({ ...metrics, clicks: e.target.value })} /></Field>
-                  <Field label="Leads"><input className={inputCls} type="number" value={metrics.leads} onChange={(e) => setMetrics({ ...metrics, leads: e.target.value })} /></Field>
-                  <Field label="Bookings"><input className={inputCls} type="number" value={metrics.bookings} onChange={(e) => setMetrics({ ...metrics, bookings: e.target.value })} /></Field>
-                  <Field label="Revenue $"><input className={inputCls} type="number" value={metrics.revenue} onChange={(e) => setMetrics({ ...metrics, revenue: e.target.value })} /></Field>
-                </div>
-                <Button onClick={saveMetrics} disabled={savingMetrics} className="mt-3 bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
-                  {savingMetrics ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save metrics
-                </Button>
+              {/* True margin (Q6) — admin only */}
+              <MarginPanel campaignId={selected.id} />
+
+              {/* Current ad — read-only (editing lives in the draft, pre-launch) */}
+              <CreativePreview campaignId={selected.id} />
+
+              {/* Lead pipeline (Stage 2) */}
+              <div>
+                <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
+                <LeadKanban mode="admin" campaignId={selected.id} />
               </div>
 
               {/* 30-day rows */}
@@ -301,23 +300,30 @@ export const AdminAdsTab: React.FC = () => {
                 </div>
               )}
 
-              {/* True margin (Q6) — admin only */}
-              <MarginPanel campaignId={selected.id} />
-
-              {/* Ad-management billing (Q4/Q7) — admin only, per shop */}
-              <BillingPanel shopId={selected.shopId} />
-
-              {/* Creatives + Q8 review */}
-              <CreativesPanel campaignId={selected.id} />
-
-              {/* Lead pipeline (Stage 2) */}
-              <div>
-                <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
-                <LeadKanban mode="admin" campaignId={selected.id} />
+              {/* Manual metrics — collapsed override (Meta auto-syncs spend/impressions/clicks). */}
+              <div className="rounded-lg border border-white/10 bg-[#1A1A1A]">
+                <button onClick={() => setShowMetrics((v) => !v)} className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-400 hover:text-white">
+                  <span>Enter metrics manually (override)</span>
+                  {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {showMetrics && (
+                  <div className="px-4 pb-4">
+                    <p className="text-xs text-gray-500 mb-3">Meta syncs spend, impressions &amp; clicks automatically — use this only to correct or backfill.</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                      <Field label="Date"><input className={inputCls} type="date" value={metrics.date} onChange={(e) => setMetrics({ ...metrics, date: e.target.value })} /></Field>
+                      <Field label="Spend $"><input className={inputCls} type="number" value={metrics.spend} onChange={(e) => setMetrics({ ...metrics, spend: e.target.value })} /></Field>
+                      <Field label="Impr."><input className={inputCls} type="number" value={metrics.impressions} onChange={(e) => setMetrics({ ...metrics, impressions: e.target.value })} /></Field>
+                      <Field label="Clicks"><input className={inputCls} type="number" value={metrics.clicks} onChange={(e) => setMetrics({ ...metrics, clicks: e.target.value })} /></Field>
+                      <Field label="Leads"><input className={inputCls} type="number" value={metrics.leads} onChange={(e) => setMetrics({ ...metrics, leads: e.target.value })} /></Field>
+                      <Field label="Bookings"><input className={inputCls} type="number" value={metrics.bookings} onChange={(e) => setMetrics({ ...metrics, bookings: e.target.value })} /></Field>
+                      <Field label="Revenue $"><input className={inputCls} type="number" value={metrics.revenue} onChange={(e) => setMetrics({ ...metrics, revenue: e.target.value })} /></Field>
+                    </div>
+                    <Button onClick={saveMetrics} disabled={savingMetrics} className="mt-3 bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
+                      {savingMetrics ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save metrics
+                    </Button>
+                  </div>
+                )}
               </div>
-
-              {/* A/B experiments (Stage 5) */}
-              <ExperimentsPanel campaignId={selected.id} />
             </>
           )}
         </div>

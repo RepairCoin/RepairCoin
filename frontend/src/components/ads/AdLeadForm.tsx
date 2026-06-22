@@ -48,6 +48,8 @@ export const AdLeadForm: React.FC<AdLeadFormProps> = ({ campaignId, title = "Get
         utm,
         clickId,
       });
+      // Fire the Meta Pixel "Lead" conversion (no-op if the landing page didn't load a pixel).
+      try { (window as any).fbq?.("track", "Lead"); } catch { /* ignore */ }
       setDone(true);
     } catch (err: any) {
       setError(err?.message || "Something went wrong. Please try again.");

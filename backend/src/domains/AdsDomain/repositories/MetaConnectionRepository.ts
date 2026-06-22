@@ -16,6 +16,7 @@ export interface MetaConnection {
   pageId: string | null;
   pageTokenEnc: string | null;
   businessId: string | null;
+  pixelId: string | null;
   connected: boolean;
 }
 
@@ -60,10 +61,15 @@ export class MetaConnectionRepository extends BaseRepository {
     );
   }
 
+  /** Store the shop's Meta Pixel id (resolved/created at account selection). */
+  async savePixelId(shopId: string, pixelId: string): Promise<void> {
+    await this.pool.query(`UPDATE shops SET meta_pixel_id = $2 WHERE shop_id = $1`, [shopId, pixelId]);
+  }
+
   async getConnection(shopId: string): Promise<MetaConnection | null> {
     const res = await this.pool.query(
       `SELECT meta_oauth_token, meta_oauth_refresh_token, meta_oauth_expires_at,
-              meta_ad_account_id, meta_page_id, meta_page_token, meta_business_id, ads_account_connected
+              meta_ad_account_id, meta_page_id, meta_page_token, meta_business_id, meta_pixel_id, ads_account_connected
          FROM shops WHERE shop_id = $1`,
       [shopId]
     );
@@ -78,6 +84,7 @@ export class MetaConnectionRepository extends BaseRepository {
       pageId: r.meta_page_id ?? null,
       pageTokenEnc: r.meta_page_token ?? null,
       businessId: r.meta_business_id ?? null,
+      pixelId: r.meta_pixel_id ?? null,
       connected: r.ads_account_connected === true,
     };
   }
@@ -88,7 +95,7 @@ export class MetaConnectionRepository extends BaseRepository {
       `UPDATE shops
           SET meta_oauth_token = NULL, meta_oauth_refresh_token = NULL, meta_oauth_expires_at = NULL,
               meta_ad_account_id = NULL, meta_page_id = NULL, meta_page_token = NULL,
-              meta_business_id = NULL, ads_account_connected = false
+              meta_business_id = NULL, meta_pixel_id = NULL, ads_account_connected = false
         WHERE shop_id = $1`,
       [shopId]
     );

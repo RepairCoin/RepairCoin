@@ -12,8 +12,8 @@ export function parseBrief(raw: any): { brief: CampaignBrief } | { error: string
   if (b.targetRadiusMiles != null && (!Number.isInteger(b.targetRadiusMiles) || b.targetRadiusMiles < 1 || b.targetRadiusMiles > 100)) {
     return { error: 'brief.targetRadiusMiles must be an integer 1–100' };
   }
-  if (b.goal != null && !['more_bookings', 'awareness', 'promote_service'].includes(b.goal)) {
-    return { error: "brief.goal must be 'more_bookings', 'awareness' or 'promote_service'" };
+  if (b.goal != null && !['more_bookings', 'leads', 'awareness', 'promote_service'].includes(b.goal)) {
+    return { error: "brief.goal must be 'more_bookings', 'leads', 'awareness' or 'promote_service'" };
   }
   return {
     brief: {
