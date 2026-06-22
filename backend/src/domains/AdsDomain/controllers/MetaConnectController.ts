@@ -126,6 +126,10 @@ export async function selectMyMetaAccount(req: Request, res: Response): Promise<
     metaService.ensureAdPixel(adAccountId, userToken)
       .then((pixelId) => connections.savePixelId(shopId, pixelId))
       .catch((e) => logger.warn(`Meta pixel setup skipped for ${shopId}: ${e?.message || e}`));
+    // Capture the account's currency so ad money displays in the right currency. Best-effort.
+    metaService.getAccountStatus(adAccountId, userToken)
+      .then((s) => s.currency && connections.saveCurrency(shopId, s.currency))
+      .catch((e) => logger.warn(`Meta currency capture skipped for ${shopId}: ${e?.message || e}`));
     void postEvent(shopId, 'Ad account connected — campaigns can now go live.');
     res.json({ success: true, data: { adAccountId, pageId, connected: true } });
   } catch (err) {
@@ -144,6 +148,13 @@ export async function getShopMetaAccount(req: Request, res: Response): Promise<v
     if (!conn?.userTokenEnc || !conn.adAccountId) { res.json({ success: true, data: { connected: false } }); return; }
     const token = decryptToken(conn.userTokenEnc);
     const status = await metaService.getAccountStatus(conn.adAccountId, token);
+    // Self-heal: shops connected before the currency column existed have a NULL meta_currency,
+    // so the campaign list/perf (which read the joined column) would fall back to USD. Persist it
+    // the first time the account is viewed. Best-effort — never block the response.
+    if (!conn.currency && status.currency) {
+      connections.saveCurrency(shopId, status.currency)
+        .catch((e) => logger.warn(`Meta currency backfill skipped for ${shopId}: ${e?.message || e}`));
+    }
     res.json({
       success: true,
       data: {
@@ -172,6 +183,14 @@ export async function getMyMetaConnection(req: Request, res: Response): Promise<
       try { leadgenTosAccepted = await metaService.getPageLeadgenTosAccepted(conn.pageId, decryptToken(conn.pageTokenEnc)); }
       catch { leadgenTosAccepted = null; }
     }
+    // Self-heal currency for shops connected before the column existed (mirrors getShopMetaAccount).
+    let currency = conn?.currency ?? null;
+    if (!currency && conn?.connected && conn.adAccountId && conn.userTokenEnc) {
+      try {
+        const s = await metaService.getAccountStatus(conn.adAccountId, decryptToken(conn.userTokenEnc));
+        if (s.currency) { currency = s.currency; void connections.saveCurrency(shopId, s.currency).catch(() => {}); }
+      } catch { /* best-effort — falls back to USD label */ }
+    }
     res.json({
       success: true,
       data: {
@@ -180,6 +199,7 @@ export async function getMyMetaConnection(req: Request, res: Response): Promise<
         hasToken: !!conn?.userTokenEnc,
         adAccountId: conn?.adAccountId ?? null,
         pageId: conn?.pageId ?? null,
+        currency,
         leadgenTosAccepted,
       },
     });

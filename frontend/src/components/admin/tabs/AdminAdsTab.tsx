@@ -18,7 +18,7 @@ import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
 import { DraftComposer } from "@/components/ads/DraftComposer";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
-  enterDailyMetrics, getAllShopsSummary, regenerateAdImage, scaleCampaignBudget, fmtUsd, fmtRoi,
+  enterDailyMetrics, getAllShopsSummary, regenerateAdImage, scaleCampaignBudget, fmtUsd, fmtMoney, fmtRoi,
   type AdCampaign, type CampaignPerformance, type AllShopsSummary,
 } from "@/services/api/ads";
 import { Wand2, TrendingUp as TrendingUpIcon } from "lucide-react";
@@ -210,7 +210,7 @@ export const AdminAdsTab: React.FC = () => {
         <div className="rounded-xl border border-[#FFCC00]/30 bg-[#1A1A1A] p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Shop ID"><input className={inputCls} value={form.shopId} onChange={(e) => setForm({ ...form, shopId: e.target.value })} placeholder="e.g. tcoy" /></Field>
           <Field label="Campaign name"><input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Spring promo" /></Field>
-          <Field label="Daily budget ($)"><input className={inputCls} type="number" value={form.dailyBudget} onChange={(e) => setForm({ ...form, dailyBudget: e.target.value })} placeholder="25" /></Field>
+          <Field label="Daily budget (account currency)"><input className={inputCls} type="number" value={form.dailyBudget} onChange={(e) => setForm({ ...form, dailyBudget: e.target.value })} placeholder="25" /></Field>
           <Field label="Notes"><input className={inputCls} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
           <div className="sm:col-span-2">
             <Button onClick={submitCreate} disabled={creating} className="bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
@@ -241,7 +241,7 @@ export const AdminAdsTab: React.FC = () => {
                 <td className="px-4 py-2.5 text-white">{c.name}</td>
                 <td className="px-4 py-2.5 text-gray-300">{c.shopId}</td>
                 <td className="px-4 py-2.5"><StatusBadge status={c.status} /></td>
-                <td className="px-4 py-2.5 text-right text-gray-300">{fmtUsd(c.dailyBudgetCents)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-300">{fmtMoney(c.dailyBudgetCents, c.currency)}</td>
                 <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                   <button onClick={() => toggleStatus(c)} className="text-gray-400 hover:text-white" title={c.status === "active" ? "Pause" : "Activate"}>
                     {c.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -285,13 +285,13 @@ export const AdminAdsTab: React.FC = () => {
             /* ─── LIVE / OPERATING ─── metrics, true margin, creative, leads. */
             <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Stat label="Spend" value={fmtUsd(perf.roi.totalSpendCents)} />
-                <Stat label="Revenue" value={fmtUsd(perf.roi.totalRevenueCents)} />
+                <Stat label="Spend" value={fmtMoney(perf.roi.totalSpendCents, selected.currency)} />
+                <Stat label="Revenue" value={fmtMoney(perf.roi.totalRevenueCents, selected.currency)} />
                 <Stat label="ROI" value={fmtRoi(perf.roi.roi)} accent />
                 <Stat label="Bookings" value={String(perf.roi.totalBookings)} />
                 <Stat label="Leads" value={String(perf.roi.totalLeads)} />
-                <Stat label="Cost / Lead" value={fmtUsd(perf.roi.cplCents)} />
-                <Stat label="Cost / Booking" value={fmtUsd(perf.roi.cpbCents)} />
+                <Stat label="Cost / Lead" value={fmtMoney(perf.roi.cplCents, selected.currency)} />
+                <Stat label="Cost / Booking" value={fmtMoney(perf.roi.cpbCents, selected.currency)} />
                 <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
               </div>
 
@@ -303,7 +303,7 @@ export const AdminAdsTab: React.FC = () => {
                 <div className="rounded-lg border border-green-500/40 bg-green-500/10 p-3 flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-green-300">Test budget is performing</p>
-                    <p className="text-xs text-green-200/80 mt-0.5">It's hit at least break-even ROI over the test window{selected.fullDailyBudgetCents ? ` — scale to ${fmtUsd(selected.fullDailyBudgetCents)}/day` : ""}.</p>
+                    <p className="text-xs text-green-200/80 mt-0.5">It's hit at least break-even ROI over the test window{selected.fullDailyBudgetCents ? ` — scale to ${fmtMoney(selected.fullDailyBudgetCents, selected.currency)}/day` : ""}.</p>
                   </div>
                   <button onClick={() => scaleBudget(selected)} disabled={scaling}
                     className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-50 shrink-0">
@@ -346,10 +346,10 @@ export const AdminAdsTab: React.FC = () => {
                       {perf.dailyRows.map((r) => (
                         <tr key={r.date} className="border-t border-white/5">
                           <td className="px-3 py-1.5 text-gray-300">{r.date}</td>
-                          <td className="px-3 py-1.5 text-right text-gray-300">{fmtUsd(r.spendCents)}</td>
+                          <td className="px-3 py-1.5 text-right text-gray-300">{fmtMoney(r.spendCents, selected.currency)}</td>
                           <td className="px-3 py-1.5 text-right text-gray-300">{r.leadsCaptured}</td>
                           <td className="px-3 py-1.5 text-right text-gray-300">{r.bookingsCreated}</td>
-                          <td className="px-3 py-1.5 text-right text-gray-300">{fmtUsd(r.revenueCents)}</td>
+                          <td className="px-3 py-1.5 text-right text-gray-300">{fmtMoney(r.revenueCents, selected.currency)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -368,12 +368,12 @@ export const AdminAdsTab: React.FC = () => {
                     <p className="text-xs text-gray-500 mb-3">Meta syncs spend, impressions &amp; clicks automatically — use this only to correct or backfill.</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
                       <Field label="Date"><input className={inputCls} type="date" value={metrics.date} onChange={(e) => setMetrics({ ...metrics, date: e.target.value })} /></Field>
-                      <Field label="Spend $"><input className={inputCls} type="number" value={metrics.spend} onChange={(e) => setMetrics({ ...metrics, spend: e.target.value })} /></Field>
+                      <Field label={`Spend (${selected.currency || "USD"})`}><input className={inputCls} type="number" value={metrics.spend} onChange={(e) => setMetrics({ ...metrics, spend: e.target.value })} /></Field>
                       <Field label="Impr."><input className={inputCls} type="number" value={metrics.impressions} onChange={(e) => setMetrics({ ...metrics, impressions: e.target.value })} /></Field>
                       <Field label="Clicks"><input className={inputCls} type="number" value={metrics.clicks} onChange={(e) => setMetrics({ ...metrics, clicks: e.target.value })} /></Field>
                       <Field label="Leads"><input className={inputCls} type="number" value={metrics.leads} onChange={(e) => setMetrics({ ...metrics, leads: e.target.value })} /></Field>
                       <Field label="Bookings"><input className={inputCls} type="number" value={metrics.bookings} onChange={(e) => setMetrics({ ...metrics, bookings: e.target.value })} /></Field>
-                      <Field label="Revenue $"><input className={inputCls} type="number" value={metrics.revenue} onChange={(e) => setMetrics({ ...metrics, revenue: e.target.value })} /></Field>
+                      <Field label={`Revenue (${selected.currency || "USD"})`}><input className={inputCls} type="number" value={metrics.revenue} onChange={(e) => setMetrics({ ...metrics, revenue: e.target.value })} /></Field>
                     </div>
                     <Button onClick={saveMetrics} disabled={savingMetrics} className="mt-3 bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
                       {savingMetrics ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save metrics

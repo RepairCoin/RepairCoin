@@ -29,6 +29,9 @@ export interface AdCampaign {
   fullDailyBudgetCents: number | null;
   testBudgetStartedAt: Date | null;
   testBudgetUpgradeReady: boolean;
+  /** The shop's ad-account currency (ISO), joined from shops.meta_currency — for displaying
+   *  ad money (budget/spend/etc.) in the right currency. Null until the account is connected. */
+  currency: string | null;
   aiAgentEnabled: boolean;
   notes: string | null;
   startedAt: Date | null;
@@ -120,17 +123,19 @@ export class CampaignRepository extends BaseRepository {
 
   async findById(id: string): Promise<AdCampaign | null> {
     const res = await this.pool.query(
-      `SELECT * FROM ad_campaigns WHERE id = $1 AND deleted_at IS NULL`,
+      `SELECT c.*, sh.meta_currency AS currency
+         FROM ad_campaigns c LEFT JOIN shops sh ON sh.shop_id = c.shop_id
+        WHERE c.id = $1 AND c.deleted_at IS NULL`,
       [id]
     );
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
   async list(filter: ListCampaignsFilter): Promise<{ items: AdCampaign[]; total: number }> {
-    const where: string[] = ['deleted_at IS NULL'];
+    const where: string[] = ['c.deleted_at IS NULL'];
     const params: any[] = [];
-    if (filter.shopId) { params.push(filter.shopId); where.push(`shop_id = $${params.length}`); }
-    if (filter.status) { params.push(filter.status); where.push(`status = $${params.length}`); }
+    if (filter.shopId) { params.push(filter.shopId); where.push(`c.shop_id = $${params.length}`); }
+    if (filter.status) { params.push(filter.status); where.push(`c.status = $${params.length}`); }
     const whereSql = where.join(' AND ');
 
     const page = filter.page ?? 1;
@@ -138,12 +143,14 @@ export class CampaignRepository extends BaseRepository {
     const offset = this.getPaginationOffset(page, limit);
 
     const countRes = await this.pool.query(
-      `SELECT COUNT(*)::int AS n FROM ad_campaigns WHERE ${whereSql}`,
+      `SELECT COUNT(*)::int AS n FROM ad_campaigns c WHERE ${whereSql}`,
       params
     );
     const dataRes = await this.pool.query(
-      `SELECT * FROM ad_campaigns WHERE ${whereSql}
-       ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      `SELECT c.*, sh.meta_currency AS currency
+         FROM ad_campaigns c LEFT JOIN shops sh ON sh.shop_id = c.shop_id
+        WHERE ${whereSql}
+        ORDER BY c.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]
     );
     return { items: dataRes.rows.map((r) => this.mapRow(r)), total: countRes.rows[0].n };
@@ -289,6 +296,7 @@ export class CampaignRepository extends BaseRepository {
       fullDailyBudgetCents: r.full_daily_budget_cents != null ? Number(r.full_daily_budget_cents) : null,
       testBudgetStartedAt: r.test_budget_started_at ?? null,
       testBudgetUpgradeReady: r.test_budget_upgrade_ready === true,
+      currency: r.currency ?? null,
       aiAgentEnabled: r.ai_agent_enabled,
       notes: r.notes,
       startedAt: r.started_at,

@@ -61,11 +61,22 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
     check (window `ADS_TEST_BUDGET_WINDOW_DAYS`=30 + ROAS ≥ `ADS_TEST_BUDGET_MIN_ROAS`=1) flags `test_budget_upgrade_ready`
     → admin "Scale to full budget" banner (migration 173, +3 unit tests). Auto-scale prompt fires once delivering.
   - **6 money-back / ROI refund:** gated on Stripe-live + 60-day ROI data + commercial threshold (D3) + **legal review (D4)**.
-- [x] **Budget currency — currency-aware** ✅ BUILT 2026-06-22 — the budget field is labelled with the connected
-  account's currency (e.g. "Daily budget (PHP)") + shows the account minimum, with an inline "below minimum" warning
-  (`GET /ads/shops/:shopId/meta-account` → currency + min_daily_budget; DraftComposer). Removes the $/PHP ambiguity.
-  NOTE: this is currency-AWARE entry (admin enters in the account's own currency), not a USD→FX *conversion* — a live
-  FX-rate provider was deemed unnecessary (the natural unit is the account currency). True FX conversion remains a later option.
+- [x] **Budget currency — full currency-aware sweep** ✅ BUILT 2026-06-22 — every SHOP-FACING ad-money value now renders
+  in the connected ad account's own currency (no more assumed "$"). The account currency is captured at account selection
+  (`shops.meta_currency`, migration 174) and **self-heals** for pre-existing connections: both `getShopMetaAccount` (admin)
+  and `getMyMetaConnection` (shop) backfill the column from `getAccountStatus` the first time the account is viewed.
+  - Backend: `MetaConnection.currency` + `saveCurrency`; `AdCampaign.currency` joined from `shops.meta_currency` in
+    `CampaignRepository.findById`/`list`; exposed on `getMyMetaConnection`.
+  - Frontend: `fmtMoney(cents, currency)` helper (Intl currency, falls back to USD/code suffix). Applied to the admin
+    campaign list (Budget/day), per-campaign perf stats + daily rows + test-budget scale banner, the shop's own campaign
+    list + perf card + request rows, the shop request form's "Monthly ad budget" label + neutralised the "$49" offer
+    placeholder, and the admin manual-metrics "Spend/Revenue" labels. DraftComposer was already currency-aware.
+  - DELIBERATELY left in USD: FixFlow's OWN fees/COGS — the flat-tier ad-management billing (`BillingPanel`), True Margin
+    AI-cost/ROI (`MarginPanel`, USD-based COGS), and cross-shop/industry platform roll-ups (`IndustryAnalytics`,
+    all-shops summary) which can mix currencies. Enrollment-request review stays USD (often pre-Meta-connection → no currency).
+  NOTE: this is currency-AWARE *display* (each account's own currency), not a USD↔account-currency *conversion*. A live
+  FX-rate provider was deemed unnecessary (the natural unit is the account currency). True FX conversion + normalising the
+  USD/account-currency mix inside True Margin remain later options.
 - [x] **Creative image cost → True Margin** ✅ BUILT 2026-06-22 — `AdCreativeService.build` logs the gpt-image-1 image
   cost (`kind:'creative_image'`) AND the AI copy cost (`kind:'creative_copy'`) to `ad_ai_costs` with the campaign id, so
   per-campaign True Margin (`getCampaignCostCents` sums all kinds) reflects the full creative COGS. Best-effort; campaignId
@@ -257,15 +268,17 @@ forms remain a later option (code supports it via `ensureLeadForm`).
 
 ## P2 — Budget currency: no USD↔account-currency conversion
 
-**Status:** ⚠️ v1 simplification. **Impact:** on a non-USD ad account (e.g. PHP), the daily-budget
-number is interpreted in the **account's currency** — admins must enter a value valid for that currency.
+**Status:** ✅ display resolved (full currency-aware sweep, 2026-06-22) · ⚠️ no FX *conversion* (v1 simplification).
+**Impact:** on a non-USD ad account (e.g. PHP), every shop-facing ad-money value now renders in the account's
+own currency (no assumed "$"), and the daily-budget integer is entered/interpreted in that same currency.
 
 **Root cause:** Meta reads the budget integer in the account currency. We send our cents value as-is.
-We now **validate** against the account's `min_daily_budget` and surface a clear message (no more raw
-error 1885272), but we do **not** convert USD → the account currency.
+We **validate** against the account's `min_daily_budget` (clear message, no raw error 1885272) and now
+**display** every shop-facing value in the account currency — but we do **not** numerically convert USD → it.
 
-**Fix:** fetch `currency` + `min_daily_budget` (already done at push), display the account currency in
-the DraftComposer budget field, and optionally apply an FX rate for true multi-currency. **Effort:** ~1 day.
+**Done:** `shops.meta_currency` (migration 174, self-healing backfill), `AdCampaign.currency` join, `fmtMoney()`
+applied across admin + shop ad-money displays. **Remaining (optional):** a live FX rate for true multi-currency
+normalisation + folding the USD AI-COGS vs account-currency spend mismatch out of True Margin. **Effort:** ~1 day.
 
 ---
 

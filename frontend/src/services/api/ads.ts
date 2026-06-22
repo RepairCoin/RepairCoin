@@ -32,6 +32,7 @@ export interface AdCampaign {
   metaCampaignId?: string | null;
   metaStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ACTIVE
   targetRadiusMiles?: number | null;
+  currency?: string | null; // joined from shops.meta_currency — the connected ad account's currency
 }
 
 export interface CampaignRoi {
@@ -663,6 +664,7 @@ export interface MetaConnection {
   hasToken: boolean;      // OAuth done but no account/Page picked yet
   adAccountId: string | null;
   pageId: string | null;
+  currency?: string | null; // the connected ad account's currency (ISO code) — for the shop budget label
   leadgenTosAccepted?: boolean | null; // has the Page accepted Meta's Lead Gen ToS? (null = unknown)
 }
 export interface MetaAdAccount { id: string; accountId: string; name: string; status?: number; }
@@ -719,6 +721,22 @@ export const listShopAwaitingLeads = async (): Promise<AdLead[]> => {
 
 export const fmtUsd = (cents: number | null | undefined): string =>
   cents == null ? '—' : `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+// SHOP ad money (budget / spend / revenue / CPL / CPB) shown in the connected ad account's
+// own currency — avoids the "$ vs PHP" ambiguity. Falls back to USD when currency is unknown
+// (legacy rows / not connected). Use fmtUsd for FixFlow's OWN fees/COGS, which are always USD.
+export const fmtMoney = (cents: number | null | undefined, currency?: string | null): string => {
+  if (cents == null) return '—';
+  const ccy = (currency || 'USD').toUpperCase();
+  try {
+    return (cents / 100).toLocaleString(undefined, {
+      style: 'currency', currency: ccy, minimumFractionDigits: 0, maximumFractionDigits: 0,
+    });
+  } catch {
+    // Unknown/invalid ISO code → plain number + code suffix.
+    return `${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${ccy}`;
+  }
+};
 
 export const fmtRoi = (roi: number | null): string =>
   roi == null ? '—' : `${(roi * 100).toFixed(0)}%`;
