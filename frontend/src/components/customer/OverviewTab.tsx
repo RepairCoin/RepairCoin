@@ -26,6 +26,7 @@ import { ShopServiceWithShopInfo, ServiceOrderWithDetails } from "@/services/api
 import { ShopMapData } from "@/services/api/shop";
 import { useRouter } from "next/navigation";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
+import { Stagger, StaggerItem } from "@/components/ui/motion";
 
 const client = createThirdwebClient({
   clientId:
@@ -240,8 +241,8 @@ export const OverviewTab: React.FC = () => {
 
   return (
     <>
-      <div className="max-w-[1080px] mx-auto space-y-5 animate-fade-in">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+      <Stagger className="max-w-[1080px] mx-auto space-y-5">
+      <StaggerItem className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         {/* ============================= LEFT COLUMN ============================= */}
         <div className="rounded-2xl border border-[#262626] bg-[#161616] p-5">
           <div className="space-y-5">
@@ -279,18 +280,22 @@ export const OverviewTab: React.FC = () => {
             />
           )}
         </div>
-      </div>
+      </StaggerItem>
 
-        <TrustedProfessionalsCard
-          onSelectCategory={handleSelectCategory}
-          onSeeMore={handleSeeMoreCategories}
-        />
+        <StaggerItem>
+          <TrustedProfessionalsCard
+            onSelectCategory={handleSelectCategory}
+            onSeeMore={handleSeeMoreCategories}
+          />
+        </StaggerItem>
 
-        <PopularServicesCard
-          onViewService={handleViewService}
-          onSeeMore={handleSeeMoreCategories}
-        />
-      </div>
+        <StaggerItem>
+          <PopularServicesCard
+            onViewService={handleViewService}
+            onSeeMore={handleSeeMoreCategories}
+          />
+        </StaggerItem>
+      </Stagger>
 
       {/* Mint to Wallet Modal */}
       {showMintModal && (
