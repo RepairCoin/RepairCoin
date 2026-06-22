@@ -44,7 +44,9 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
 - [ ] **Meta Pixel "Lead" event — OPTIMIZATION** (follow-up) — switch the ad set to optimize for the Lead conversion:
   `optimization_goal: OFFSITE_CONVERSIONS` + `promoted_object: { pixel_id, custom_event_type: LEAD }` (needs pixel
   to have collected events first → that's why tracking ships first). Tunes delivery toward form-submitters, not clickers. _(~0.5d)_
-- [ ] UX polish — clearer disabled "Push to Meta" state; show resolved objective in DraftComposer _(~0.5d)_
+- [x] **UX polish** ✅ BUILT 2026-06-22 — Push to Meta / Go live now show a clear locked state (grey + lock icon +
+  "locked until you approve the ad creative" hint) when the creative isn't approved; DraftComposer shows the resolved
+  "Objective on Meta: …" line (Website clicks / Awareness / Messages).
 
 ### C. Full Vision — REMAINING (larger scope / commercial)
 - [ ] **Messenger objective** (click-to-Messenger + AI replies in Messenger — the narrative moat): objective + Page webhook + Send API _(needs `pages_messaging` App Review)_
