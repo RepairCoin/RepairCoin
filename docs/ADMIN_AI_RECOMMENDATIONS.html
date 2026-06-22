@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RepairCoin — Admin AI: Recommendations &amp; Roadmap</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #181b22;
+    --card2: #1d212b;
+    --line: #2a2f3a;
+    --text: #e8eaed;
+    --muted: #9aa3b2;
+    --accent: #2dd4bf;      /* teal — admin theme */
+    --green: #34d399;
+    --blue: #60a5fa;
+    --amber: #fbbf24;
+    --pink: #f472b6;
+    --red: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55; padding: 40px 20px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  header { border-bottom: 2px solid var(--accent); padding-bottom: 22px; margin-bottom: 26px; }
+  .eyebrow { color: var(--accent); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin: 0 0 6px; }
+  h1 { font-size: 31px; margin: 0 0 6px; }
+  .dates { color: var(--muted); font-size: 15px; margin: 0; }
+  .byline { color: var(--muted); font-size: 13.5px; margin: 8px 0 0; }
+  .byline strong { color: var(--text); }
+
+  .intro {
+    background: linear-gradient(135deg, #15282a, #181b22);
+    border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 10px; padding: 18px 22px; margin: 24px 0; font-size: 15.5px;
+  }
+  .intro strong { color: var(--accent); }
+
+  h2 { font-size: 21px; margin: 38px 0 14px; display: flex; align-items: center; gap: 10px; }
+  h3 { font-size: 15px; margin: 14px 0 5px; color: var(--accent); }
+  .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; background: var(--accent); color: #06201c;
+    border-radius: 7px; font-size: 15px; font-weight: 800; flex: none;
+  }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 22px; margin-bottom: 14px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
+  ul { margin: 6px 0 0; padding-left: 20px; } li { margin: 6px 0; } li strong { color: #fff; }
+  .muted { color: var(--muted); }
+  code {
+    background: #11141a; border: 1px solid var(--line); border-radius: 5px;
+    padding: 1px 6px; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: #d6deeb;
+  }
+
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; vertical-align: middle; }
+  .rank { background: var(--accent); color:#06201c; }
+  .rank2 { background: var(--blue); color:#06122a; }
+  .rank3 { background: var(--pink); color:#2a0a1c; }
+  .rank4 { background: var(--red); color:#2a0a0a; }
+  .eff-low { background: rgba(52,211,153,0.15); color: var(--green); border: 1px solid rgba(52,211,153,0.4); }
+  .eff-med { background: rgba(251,191,36,0.13); color: var(--amber); border: 1px solid rgba(251,191,36,0.4); }
+  .eff-high { background: rgba(244,114,182,0.13); color: var(--pink); border: 1px solid rgba(244,114,182,0.4); }
+
+  .metrics { display: flex; gap: 12px; flex-wrap: wrap; margin: 22px 0; }
+  .metric { flex: 1; min-width: 120px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .metric .big { font-size: 24px; font-weight: 800; color: var(--accent); }
+  .metric .lbl { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+
+  .rec { border-left: 4px solid var(--line); }
+  .rec.top { border-left-color: var(--accent); }
+  .rec.two { border-left-color: var(--blue); }
+  .rec.three { border-left-color: var(--pink); }
+  .rec.four { border-left-color: var(--red); }
+  .rec-head { display:flex; align-items:center; gap:10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .rec-head h3 { margin: 0; color: #fff; font-size: 17px; }
+
+  .meta-row { display:flex; gap:18px; flex-wrap:wrap; margin-top: 10px; font-size:13px; }
+  .meta-row div { color: var(--muted); }
+  .meta-row b { color: var(--text); font-weight:600; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .reco-box {
+    background: rgba(45,212,191,0.07); border: 1px solid rgba(45,212,191,0.35);
+    border-radius: 10px; padding: 16px 20px; margin-top: 12px; font-size: 15px;
+  }
+  .reco-box strong { color: var(--accent); }
+  footer { margin-top: 38px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Product / Engineering Proposal · Admin</p>
+    <h1>Admin AI — Recommendations &amp; Roadmap</h1>
+    <p class="dates">RepairCoin · Prepared June 22, 2026</p>
+    <p class="byline">Prepared by: <strong>Zeff</strong> · Focus: AI for the platform-operator role — oversight, protection, and decision support</p>
+  </header>
+
+  <div class="intro">
+    <strong>Scope:</strong> These recommendations are for the <strong>admin / platform-operator</strong> seat specifically — protecting the token economy, monitoring the whole marketplace, and supporting platform decisions. They complement (don't overlap) the shop/customer-facing AI ideas in the separate "AI Features" doc.
+  </div>
+
+  <!-- WHAT ADMIN HAS -->
+  <h2><span class="num">◉</span> What Admin AI Exists Today</h2>
+  <div class="card">
+    <p class="sub" style="margin-bottom:8px">Current admin-side AI is mostly configuration &amp; cost visibility — not yet decision support or protection:</p>
+    <ul style="margin-top:0">
+      <li><strong>AI settings panel</strong> — enable/disable AI per shop, set budgets &amp; escalation thresholds.</li>
+      <li><strong>Platform cost summary</strong> — aggregate AI spend, top spenders, trends.</li>
+      <li><strong>Per-campaign AI cost tracking</strong> — true-margin visibility for the ads system.</li>
+    </ul>
+    <p class="muted" style="margin:10px 0 0">Gap: there's no AI that <em>protects the token economy</em>, <em>answers questions about the whole platform</em>, or <em>predicts/forecasts</em> for the operator. That's where the biggest value is.</p>
+  </div>
+
+  <!-- RECOMMENDATIONS -->
+  <h2><span class="num">★</span> Recommended Admin AI Features</h2>
+
+  <!-- #1 -->
+  <div class="card rec four">
+    <div class="rec-head">
+      <span class="pill rank4">Priority 1</span>
+      <h3>Fraud &amp; Abuse Detection — protect the token economy</h3>
+    </div>
+    <p class="sub">A rewards platform with a tradeable token is a target for abuse. This is the highest-stakes gap.</p>
+    <h3>What it does</h3>
+    <ul>
+      <li>Flags suspicious <strong>reward issuance / redemption patterns</strong> — e.g., a shop issuing large RCN to a handful of wallets, rapid earn-then-redeem cycles, or shop–customer collusion.</li>
+      <li>Detects <strong>fake reviews</strong>, review brigading, and self-dealing across the marketplace.</li>
+      <li>Scores each anomaly with a severity + plain-English explanation; routes the riskiest to an admin review queue with a recommended action (freeze, investigate, dismiss).</li>
+    </ul>
+    <h3>Why it wins</h3>
+    <ul>
+      <li>Directly <strong>protects platform integrity and treasury</strong> — the thing most likely to cause real loss.</li>
+      <li>Reuses the existing <strong>anomaly-detection</strong> pipeline and <strong>emergency-freeze</strong> tooling; extends them platform-wide.</li>
+    </ul>
+    <div class="meta-row">
+      <div><b>Builds on:</b> Anomaly detector, freeze service, transaction ledger</div>
+      <div><b>Effort:</b> <span class="pill eff-med">Medium</span></div>
+      <div><b>Value:</b> Risk reduction (highest stakes)</div>
+    </div>
+  </div>
+
+  <!-- #2 -->
+  <div class="card rec top">
+    <div class="rec-head">
+      <span class="pill rank">Priority 2</span>
+      <h3>Platform Health Copilot — "Ask the platform"</h3>
+    </div>
+    <p class="sub">An admin-scoped version of the shop insights assistant — natural-language Q&amp;A over the <em>entire</em> platform.</p>
+    <h3>What it does</h3>
+    <ul>
+      <li>Admin asks things like: "How many shops churned this month?", "Which shops are at risk of canceling?", "Platform-wide RCN issued vs. redeemed?", "Top 10 shops by revenue?"</li>
+      <li>Agentic tool-use over platform data → returns metrics, tables, and short narrative answers.</li>
+      <li>Optional <strong>daily executive briefing</strong>: an auto-generated digest of what needs attention.</li>
+    </ul>
+    <h3>Why it wins</h3>
+    <ul>
+      <li>Reuses the proven <strong>19-tool insights engine</strong> — re-scope the tools from one-shop to platform-wide with new admin tools.</li>
+      <li>Turns scattered dashboards into one conversational surface; big time-saver for operators.</li>
+    </ul>
+    <div class="meta-row">
+      <div><b>Builds on:</b> Insights agent + tools, admin analytics</div>
+      <div><b>Effort:</b> <span class="pill eff-med">Medium</span></div>
+      <div><b>Value:</b> Operator productivity</div>
+    </div>
+  </div>
+
+  <!-- #3 -->
+  <div class="card rec two">
+    <div class="rec-head">
+      <span class="pill rank2">Priority 3</span>
+      <h3>Shop Churn Prediction &amp; Retention — protect subscription revenue</h3>
+    </div>
+    <p class="sub">The core business is the $500/mo shop subscription. Losing shops is the #1 revenue risk.</p>
+    <h3>What it does</h3>
+    <ul>
+      <li>Scores each shop's <strong>likelihood to cancel</strong> from usage signals (declining bookings, low AI/feature engagement, support friction, payment issues).</li>
+      <li>Surfaces an <strong>at-risk shops</strong> list with the "why" and a recommended intervention (outreach, discount, success check-in).</li>
+      <li>Pairs with revenue forecasting — projected MRR with/without intervention.</li>
+    </ul>
+    <h3>Why it wins</h3>
+    <ul>
+      <li>Protects <strong>recurring revenue</strong> directly; even a small churn reduction pays for itself.</li>
+      <li>Data already exists (subscriptions, bookings, activity) — mostly modeling + a dashboard.</li>
+    </ul>
+    <div class="meta-row">
+      <div><b>Builds on:</b> Subscription + booking + activity data</div>
+      <div><b>Effort:</b> <span class="pill eff-med">Medium</span></div>
+      <div><b>Value:</b> Revenue protection</div>
+    </div>
+  </div>
+
+  <!-- #4 -->
+  <div class="card rec three">
+    <div class="rec-head">
+      <span class="pill rank3">Priority 4</span>
+      <h3>Token Economy &amp; Treasury Advisor</h3>
+    </div>
+    <p class="sub">Unique to RepairCoin: an AI that watches the RCN/RCG economy and advises the operator.</p>
+    <h3>What it does</h3>
+    <ul>
+      <li>Monitors <strong>RCN issuance vs. redemption</strong>, treasury balance/runway, and RCG tier distribution over time.</li>
+      <li>Alerts on imbalances (e.g., issuance outpacing redemption) and recommends <strong>pricing or policy adjustments</strong>.</li>
+      <li>"What-if" simulations: project the effect of a reward-rate or tier-threshold change before applying it.</li>
+    </ul>
+    <h3>Why it wins</h3>
+    <ul>
+      <li>Nothing else gives the operator a <strong>health view of the token economy</strong> — strategic and unique.</li>
+      <li>Builds on the now database-backed treasury &amp; RCG data (post blockchain-removal).</li>
+    </ul>
+    <div class="kept" style="border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.07);">
+      <strong style="color: var(--green);">Data readiness (June 2026):</strong> the underlying numbers are now <strong>real and DB-derived</strong>, so this advisor is feasible today:
+      <ul style="margin-top:6px">
+        <li><b>RCN circulating supply</b> — computed from the transaction ledger (minted − redeemed). <span class="muted">(was 0/chain-only before)</span></li>
+        <li><b>RCG circulating supply &amp; holder count</b> — summed from admin-managed shop balances. <span class="muted">(was hardcoded constants)</span></li>
+        <li><b>RCG total supply &amp; allocations</b> — fixed tokenomics constants (100M, defined splits) <em>by design</em>; staking is N/A in database-only mode.</li>
+      </ul>
+    </div>
+    <div class="meta-row">
+      <div><b>Builds on:</b> Treasury repo, RCG service, transaction ledger</div>
+      <div><b>Effort:</b> <span class="pill eff-med">Medium</span></div>
+      <div><b>Value:</b> Strategic / unique</div>
+    </div>
+  </div>
+
+  <!-- HONORABLE MENTIONS -->
+  <h2><span class="num">+</span> Honorable Mentions</h2>
+  <div class="card" style="padding-top:8px;padding-bottom:8px;">
+    <table>
+      <tr><th>Feature</th><th>What it does</th><th>Effort</th></tr>
+      <tr>
+        <td><b>Shop Approval Assistant</b></td>
+        <td>Screens new shop applications — validates legitimacy, flags risk, and summarizes each for the admin reviewer.</td>
+        <td><span class="pill eff-low">Low</span></td>
+      </tr>
+      <tr>
+        <td><b>Support Ticket Triage</b></td>
+        <td>Auto-categorizes &amp; prioritizes shop support tickets and drafts admin replies. Builds on existing support notifications.</td>
+        <td><span class="pill eff-low">Low</span></td>
+      </tr>
+      <tr>
+        <td><b>Daily Executive Briefing</b></td>
+        <td>Auto-generated platform digest (key metrics, alerts, what needs attention) — admin version of the shop briefing.</td>
+        <td><span class="pill eff-low">Low</span></td>
+      </tr>
+      <tr>
+        <td><b>Content &amp; Compliance Moderation</b></td>
+        <td>Auto-moderate service listings, reviews, and images platform-wide. Extends the existing image moderation.</td>
+        <td><span class="pill eff-med">Medium</span></td>
+      </tr>
+      <tr>
+        <td><b>Smart Admin Command Bar</b></td>
+        <td>Natural-language admin actions: "show Texas shops with declining revenue", "freeze shop X" (confirm-gated).</td>
+        <td><span class="pill eff-med">Medium</span></td>
+      </tr>
+      <tr>
+        <td><b>AI Cost &amp; Margin Optimizer</b></td>
+        <td>Recommends per-shop AI budget allocation, flags shops where AI cost exceeds value, tunes model routing.</td>
+        <td><span class="pill eff-low">Low</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- PRIORITIZATION -->
+  <h2><span class="num">▦</span> At-a-Glance Prioritization</h2>
+  <div class="card" style="padding-top:8px;padding-bottom:8px;">
+    <table>
+      <tr><th>#</th><th>Feature</th><th>Primary Value</th><th>Effort</th><th>Reuses existing?</th></tr>
+      <tr><td>1</td><td>Fraud &amp; Abuse Detection</td><td>Risk / integrity ↑↑↑</td><td>Medium</td><td>Yes (anomaly + freeze)</td></tr>
+      <tr><td>2</td><td>Platform Health Copilot</td><td>Productivity ↑↑</td><td>Medium</td><td>Heavily (insights engine)</td></tr>
+      <tr><td>3</td><td>Shop Churn Prediction</td><td>Revenue ↑↑↑</td><td>Medium</td><td>Yes (subscription data)</td></tr>
+      <tr><td>4</td><td>Token Economy Advisor</td><td>Strategic (unique)</td><td>Medium</td><td>Yes (treasury data)</td></tr>
+      <tr><td>5</td><td>Shop Approval Assistant</td><td>Efficiency ↑</td><td>Low</td><td>Yes</td></tr>
+    </table>
+  </div>
+
+  <!-- RECOMMENDED PATH -->
+  <h2><span class="num">→</span> Recommended Path</h2>
+  <div class="reco-box">
+    <strong>Start with Fraud &amp; Abuse Detection</strong> — it's the highest-stakes gap for a token-rewards platform and reuses the anomaly + freeze tooling we already have. <strong>Platform Health Copilot</strong> is the best quick-win after that (it re-scopes the existing insights engine to platform level), and <strong>Shop Churn Prediction</strong> protects the subscription revenue that funds everything.
+    <div style="margin-top:10px; font-size:14px; color:var(--muted)">
+      Suggested sequence: <b>1)</b> Fraud Detection (protect) → <b>2)</b> Platform Copilot (oversee) → <b>3)</b> Churn Prediction (retain) → <b>4)</b> Token Economy Advisor (optimize).
+    </div>
+  </div>
+
+  <footer>
+    Prepared June 22, 2026 · RepairCoin · Companion to the shop/customer "AI Features — Recommendations &amp; Roadmap" doc.
+  </footer>
+
+</div>
+</body>
+</html>
