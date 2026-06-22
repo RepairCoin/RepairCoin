@@ -93,7 +93,16 @@ export class MetaPushService {
       lng: geo.lng,
     });
     // Use the REVIEWED daily budget on the campaign (not monthly/30) — the admin set it.
-    const dailyBudgetCents = campaign.dailyBudgetCents || spec.dailyBudgetCents;
+    const fullDaily = campaign.dailyBudgetCents || spec.dailyBudgetCents;
+    // Safeguard 4 — test-budget tier: launch at a fraction of the full budget (floored at the
+    // account minimum so it still delivers), and remember the full target to scale up to later.
+    let dailyBudgetCents = fullDaily;
+    if (campaign.isTestBudget) {
+      const pct = parseFloat(process.env.ADS_TEST_BUDGET_PERCENT || '0.4');
+      const floor = status.minDailyBudget ?? 100;
+      dailyBudgetCents = Math.max(floor, Math.round(fullDaily * pct));
+      await this.campaigns.update(campaign.id, { fullDailyBudgetCents: fullDaily });
+    }
     const linkUrl = creative.landingUrl || process.env.META_DEFAULT_LINK_URL || process.env.FRONTEND_URL || 'https://repaircoin.ai';
 
     let metaCampaignId: string | undefined;
@@ -190,6 +199,31 @@ export class MetaPushService {
     const ids = [campaign.metaCampaignId, campaign.metaAdSetId, campaign.metaAdId].filter(Boolean) as string[];
     for (const id of ids) await metaService.setObjectStatus(id, 'ACTIVE', token);
     await this.campaigns.setMetaObjects(campaignId, { metaStatus: 'ACTIVE' });
+    // Safeguard 4 — start the test-budget window at first go-live (the nightly check measures ROI
+    // from here; once the window passes with ROI ≥ threshold it flags "ready to scale to full").
+    if (campaign.isTestBudget && !campaign.testBudgetStartedAt) {
+      await this.campaigns.update(campaignId, { testBudgetStartedAt: new Date() });
+    }
+  }
+
+  /** Safeguard 4 — scale a test-budget campaign up to its full daily budget (admin confirms after
+   *  the nightly check flags it ready). Pushes the new ad-set budget + exits test mode. */
+  async scaleToFull(campaignId: string): Promise<void> {
+    if (!this.enabled()) throw new Error('push_disabled');
+    const campaign = await this.campaigns.findById(campaignId);
+    if (!campaign) throw new Error('campaign_not_found');
+    if (!campaign.isTestBudget || !campaign.fullDailyBudgetCents) throw new Error('not_a_test_budget_campaign');
+    const conn = await this.connections.getConnection(campaign.shopId);
+    if (!conn?.userTokenEnc) throw new Error('meta_not_connected');
+    const token = decryptToken(conn.userTokenEnc);
+    if (campaign.metaAdSetId) {
+      await metaService.updateAdSet(campaign.metaAdSetId, token, { dailyBudgetCents: campaign.fullDailyBudgetCents });
+    }
+    await this.campaigns.update(campaignId, {
+      dailyBudgetCents: campaign.fullDailyBudgetCents,
+      isTestBudget: false,
+      testBudgetUpgradeReady: false,
+    });
   }
 
   /** In-app draft edits: budget / radius and headline / primaryText / image. Works on BOTH a
@@ -203,6 +237,8 @@ export class MetaPushService {
     manualImageUrl?: string;
     /** Opt into Meta Advantage+ creative enhancements (applies on the next creative push). */
     allowMetaEnhancements?: boolean;
+    /** Safeguard 4 — start at a reduced test budget (only meaningful pre-push). */
+    isTestBudget?: boolean;
     request?: AdCampaignRequest;
   }): Promise<void> {
     if (!this.enabled()) throw new Error('push_disabled');
@@ -233,6 +269,8 @@ export class MetaPushService {
     // Objective change is only meaningful before the push (it's baked into the Meta campaign).
     if (edits.objective && !onMeta) dbUpdate.objective = asMetaObjective(edits.objective) ?? undefined;
     if (edits.allowMetaEnhancements !== undefined) dbUpdate.allowMetaEnhancements = edits.allowMetaEnhancements;
+    // Test-budget toggle is only meaningful before the push (it sets the launch budget).
+    if (edits.isTestBudget !== undefined && !onMeta) dbUpdate.isTestBudget = edits.isTestBudget;
     if (Object.keys(dbUpdate).length) await this.campaigns.update(campaignId, dbUpdate);
 
     // 2) Creative — manual image upload, AI regenerate, or text-only edit. Always re-arms review.

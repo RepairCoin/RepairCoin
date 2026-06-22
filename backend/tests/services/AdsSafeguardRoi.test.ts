@@ -124,6 +124,19 @@ describe('SafeguardEvaluator.shouldRefreshCreative (Safeguard 5)', () => {
   });
 });
 
+describe('SafeguardEvaluator.testBudgetReady (Safeguard 4)', () => {
+  it('not ready with no spend', () => {
+    expect(SafeguardEvaluator.testBudgetReady(totals({ totalSpendCents: 0, totalRevenueCents: 0 }), 1)).toBe(false);
+  });
+  it('ready at break-even (revenue >= spend, ROAS 1×)', () => {
+    expect(SafeguardEvaluator.testBudgetReady(totals({ totalSpendCents: 20000, totalRevenueCents: 20000 }), 1)).toBe(true);
+    expect(SafeguardEvaluator.testBudgetReady(totals({ totalSpendCents: 20000, totalRevenueCents: 25000 }), 1)).toBe(true);
+  });
+  it('not ready below the ROAS bar', () => {
+    expect(SafeguardEvaluator.testBudgetReady(totals({ totalSpendCents: 20000, totalRevenueCents: 15000 }), 1)).toBe(false);
+  });
+});
+
 describe('normalizePhone (lead dedupe key)', () => {
   it('formats a bare 10-digit US number to E.164', () => {
     expect(normalizePhone('(415) 555-0132')).toBe('+14155550132');

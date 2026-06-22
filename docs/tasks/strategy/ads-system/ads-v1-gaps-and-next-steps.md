@@ -56,7 +56,10 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
   - **5 free creative iteration:** ✅ BUILT 2026-06-22 — nightly `SafeguardEvaluator.shouldRefreshCreative` (default $200 spend
     / $50 CPL ceiling, env-tunable `ADS_CREATIVE_REFRESH_SPEND_CENTS`/`_CPL_CENTS`) flags `needs_creative_refresh` (migration 172);
     admin live-view banner "Refresh creative (free)" → regenerate; flag clears on swap. +4 unit tests. Fires once a campaign delivers.
-  - **4 test-budget tier:** setup buildable; auto-scale needs live ROI + rules (D2).
+  - **4 test-budget tier:** ✅ BUILT 2026-06-22 — opt-in "Start as a test budget" toggle; push launches the ad set at
+    ~40% of the daily budget floored at the account min (env `ADS_TEST_BUDGET_PERCENT`), stores the full target; nightly
+    check (window `ADS_TEST_BUDGET_WINDOW_DAYS`=30 + ROAS ≥ `ADS_TEST_BUDGET_MIN_ROAS`=1) flags `test_budget_upgrade_ready`
+    → admin "Scale to full budget" banner (migration 173, +3 unit tests). Auto-scale prompt fires once delivering.
   - **6 money-back / ROI refund:** gated on Stripe-live + 60-day ROI data + commercial threshold (D3) + **legal review (D4)**.
 - [ ] **Budget currency FX** — USD↔account-currency conversion (v1 enters native currency)
 - [x] **Creative image cost → True Margin** ✅ BUILT 2026-06-22 — `AdCreativeService.build` logs the gpt-image-1 image

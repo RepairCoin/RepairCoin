@@ -39,7 +39,7 @@ import {
 import {
   submitCampaignRequest, listMyCampaignRequests, listCampaignRequests,
   buildCampaignFromRequest, declineCampaignRequest, setAdsAccountConnected,
-  pushCampaignToMeta, goLiveCampaign, updateCampaignDraft, uploadCreativeImage,
+  pushCampaignToMeta, goLiveCampaign, updateCampaignDraft, uploadCreativeImage, scaleCampaignBudget,
 } from './controllers/CampaignRequestController';
 import {
   getMySubscription, changeMyTier, cancelMySubscription,
@@ -123,6 +123,7 @@ export function initializeRoutes(): Router {
   router.post('/campaigns/:id/creative-image', ...admin, creativeUpload.single('image'), uploadCreativeImage); // manual designer image → public URL
   router.post('/campaigns/:id/push', ...admin, pushCampaignToMeta);             // prepare→push: create PAUSED Meta objects from a reviewed draft
   router.post('/campaigns/:id/go-live', ...admin, goLiveCampaign);              // push P5: activate a PAUSED draft
+  router.post('/campaigns/:id/scale-to-full', ...admin, scaleCampaignBudget);   // Safeguard 4: test budget → full
   router.patch('/campaigns/:id/draft', ...admin, updateCampaignDraft);          // push P5: edit budget/radius/creative (draft or paused)
   router.post('/shops/:shopId/ads-account', ...admin, setAdsAccountConnected);  // §9.6 connect gate
   router.post('/meta/sync-insights', ...admin, triggerMetaInsightsSync);        // push P3: import Meta spend/impr/clicks now

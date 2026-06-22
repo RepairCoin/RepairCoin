@@ -18,10 +18,10 @@ import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
 import { DraftComposer } from "@/components/ads/DraftComposer";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
-  enterDailyMetrics, getAllShopsSummary, regenerateAdImage, fmtUsd, fmtRoi,
+  enterDailyMetrics, getAllShopsSummary, regenerateAdImage, scaleCampaignBudget, fmtUsd, fmtRoi,
   type AdCampaign, type CampaignPerformance, type AllShopsSummary,
 } from "@/services/api/ads";
-import { Wand2 } from "lucide-react";
+import { Wand2, TrendingUp as TrendingUpIcon } from "lucide-react";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -48,6 +48,20 @@ export const AdminAdsTab: React.FC = () => {
     } catch (e: any) {
       toast.error(e?.response?.data?.message || e?.message || "Couldn't refresh the creative.");
     } finally { setRefreshingCreative(false); }
+  };
+
+  // Safeguard 4 — scale a test-budget campaign up to its full daily budget.
+  const [scaling, setScaling] = useState(false);
+  const scaleBudget = async (c: AdCampaign) => {
+    setScaling(true);
+    try {
+      await scaleCampaignBudget(c.id);
+      toast.success("Scaled to full budget.");
+      await load();
+      if (selectedId === c.id) await select(c.id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't scale the budget.");
+    } finally { setScaling(false); }
   };
 
   const [form, setForm] = useState({ shopId: "", name: "", dailyBudget: "", notes: "" });
@@ -283,6 +297,20 @@ export const AdminAdsTab: React.FC = () => {
 
               {/* True margin (Q6) — admin only */}
               <MarginPanel campaignId={selected.id} />
+
+              {/* Safeguard 4 — test budget performed: scale up to full budget */}
+              {selected.testBudgetUpgradeReady && (
+                <div className="rounded-lg border border-green-500/40 bg-green-500/10 p-3 flex items-start justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-green-300">Test budget is performing</p>
+                    <p className="text-xs text-green-200/80 mt-0.5">It's hit at least break-even ROI over the test window{selected.fullDailyBudgetCents ? ` — scale to ${fmtUsd(selected.fullDailyBudgetCents)}/day` : ""}.</p>
+                  </div>
+                  <button onClick={() => scaleBudget(selected)} disabled={scaling}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-50 shrink-0">
+                    {scaling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TrendingUpIcon className="w-3.5 h-3.5" />} Scale to full budget
+                  </button>
+                </div>
+              )}
 
               {/* Safeguard 5 — underperformance nudge: swap the creative for free */}
               {selected.needsCreativeRefresh && (

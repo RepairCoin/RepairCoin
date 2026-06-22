@@ -21,6 +21,9 @@ export interface AdCampaign {
   allowMetaEnhancements?: boolean; // opt-in Meta Advantage+ creative enhancements
   needsCreativeRefresh?: boolean;  // Safeguard 5: underperforming → nudge a free creative swap
   creativeRefreshReason?: string | null;
+  isTestBudget?: boolean;          // Safeguard 4: running at the reduced test budget
+  fullDailyBudgetCents?: number | null;
+  testBudgetUpgradeReady?: boolean; // window passed + ROI ok → nudge scale-up
   aiAgentEnabled: boolean;
   notes: string | null;
   createdAt: string;
@@ -563,6 +566,8 @@ export interface CampaignDraftEdit {
   objective?: string;
   /** Opt into Meta Advantage+ creative enhancements (applies on the next creative push). */
   allowMetaEnhancements?: boolean;
+  /** Safeguard 4 — start at a reduced test budget (pre-push only). */
+  isTestBudget?: boolean;
 }
 export const updateCampaignDraft = async (id: string, edits: CampaignDraftEdit): Promise<AdCampaign> => {
   // Regenerating the image runs gpt-image-1 → allow up to 4 min.
@@ -594,6 +599,11 @@ export const pushCampaignToMeta = async (id: string): Promise<AdCampaign> => {
 export const goLiveCampaign = async (id: string): Promise<{ campaignId: string; status: string }> => {
   const res = await apiClient.post(`/ads/campaigns/${id}/go-live`, {});
   return unwrap(res);
+};
+/** Safeguard 4 — scale a test-budget campaign up to its full daily budget. */
+export const scaleCampaignBudget = async (id: string): Promise<AdCampaign> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/scale-to-full`, {});
+  return unwrap<AdCampaign>(res);
 };
 // §9.6 — admin marks a shop's ad account connected/disconnected (build precondition).
 export const setShopAdsAccount = async (shopId: string, connected: boolean) => {

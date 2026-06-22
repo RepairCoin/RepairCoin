@@ -24,6 +24,11 @@ export interface AdCampaign {
   /** Safeguard 5: set when a nightly check finds the campaign underperforming → nudge a free swap. */
   needsCreativeRefresh: boolean;
   creativeRefreshReason: string | null;
+  /** Safeguard 4 — test-budget tier. */
+  isTestBudget: boolean;
+  fullDailyBudgetCents: number | null;
+  testBudgetStartedAt: Date | null;
+  testBudgetUpgradeReady: boolean;
   aiAgentEnabled: boolean;
   notes: string | null;
   startedAt: Date | null;
@@ -74,6 +79,10 @@ export interface UpdateCampaignInput {
   status?: AdCampaign['status'];
   objective?: string | null;
   allowMetaEnhancements?: boolean;
+  isTestBudget?: boolean;
+  fullDailyBudgetCents?: number | null;
+  testBudgetStartedAt?: Date | null;
+  testBudgetUpgradeReady?: boolean;
   aiAgentEnabled?: boolean;
   notes?: string | null;
 }
@@ -151,6 +160,10 @@ export class CampaignRepository extends BaseRepository {
     if (input.dailyBudgetCents !== undefined) col('daily_budget_cents', input.dailyBudgetCents);
     if (input.objective !== undefined) col('objective', input.objective);
     if (input.allowMetaEnhancements !== undefined) col('allow_meta_enhancements', input.allowMetaEnhancements);
+    if (input.isTestBudget !== undefined) col('is_test_budget', input.isTestBudget);
+    if (input.fullDailyBudgetCents !== undefined) col('full_daily_budget_cents', input.fullDailyBudgetCents);
+    if (input.testBudgetStartedAt !== undefined) col('test_budget_started_at', input.testBudgetStartedAt);
+    if (input.testBudgetUpgradeReady !== undefined) col('test_budget_upgrade_ready', input.testBudgetUpgradeReady);
     if (input.aiAgentEnabled !== undefined) col('ai_agent_enabled', input.aiAgentEnabled);
     if (input.notes !== undefined) col('notes', input.notes);
     // status transitions also stamp the matching timestamp
@@ -272,6 +285,10 @@ export class CampaignRepository extends BaseRepository {
       allowMetaEnhancements: r.allow_meta_enhancements === true,
       needsCreativeRefresh: r.needs_creative_refresh === true,
       creativeRefreshReason: r.creative_refresh_reason ?? null,
+      isTestBudget: r.is_test_budget === true,
+      fullDailyBudgetCents: r.full_daily_budget_cents != null ? Number(r.full_daily_budget_cents) : null,
+      testBudgetStartedAt: r.test_budget_started_at ?? null,
+      testBudgetUpgradeReady: r.test_budget_upgrade_ready === true,
       aiAgentEnabled: r.ai_agent_enabled,
       notes: r.notes,
       startedAt: r.started_at,

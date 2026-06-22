@@ -59,6 +59,15 @@ export class SafeguardEvaluator {
     return { refresh: false };
   }
 
+  /** PURE — Safeguard 4: has a test-budget campaign earned its scale-up? True when it has spent
+   *  AND revenue ≥ minRoas × spend (default 1× = at least broke even). The window/elapsed check
+   *  is done by the caller (needs the clock). */
+  static testBudgetReady(totals: CampaignTotals, minRoas: number): boolean {
+    const { totalSpendCents: spend, totalRevenueCents: revenue } = totals;
+    if (spend <= 0) return false;
+    return revenue / spend >= minRoas;
+  }
+
   /** Evaluate every active campaign; act on breaches. Returns the decisions made. */
   async runNightly(): Promise<SafeguardDecision[]> {
     const active = await this.campaigns.listActive();
@@ -77,6 +86,21 @@ export class SafeguardEvaluator {
         });
         if (refresh.refresh) {
           await this.campaigns.setCreativeRefresh(c.id, true, refresh.reason ?? null);
+        }
+
+        // Safeguard 4 — test-budget campaign that has run its window with ≥ break-even ROI → flag
+        // "ready to scale" (admin confirms; we never auto-raise spend).
+        const full = await this.campaigns.findById(c.id);
+        if (full?.isTestBudget && !full.testBudgetUpgradeReady && full.testBudgetStartedAt) {
+          const windowDays = parseInt(process.env.ADS_TEST_BUDGET_WINDOW_DAYS || '30', 10);
+          const elapsedMs = Date.now() - new Date(full.testBudgetStartedAt).getTime();
+          if (elapsedMs >= windowDays * 86400000) {
+            const minRoas = parseFloat(process.env.ADS_TEST_BUDGET_MIN_ROAS || '1');
+            if (SafeguardEvaluator.testBudgetReady(totals, minRoas)) {
+              await this.campaigns.update(c.id, { testBudgetUpgradeReady: true });
+              logger.info(`SafeguardEvaluator: test-budget campaign ${c.id} ready to scale (ROAS ≥ ${minRoas})`);
+            }
+          }
         }
 
         const action = SafeguardEvaluator.decide(totals, {
