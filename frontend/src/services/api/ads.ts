@@ -19,6 +19,8 @@ export interface AdCampaign {
   status: CampaignStatus;
   objective?: string | null; // OUTCOME_TRAFFIC | OUTCOME_AWARENESS | OUTCOME_ENGAGEMENT (admin picker)
   allowMetaEnhancements?: boolean; // opt-in Meta Advantage+ creative enhancements
+  needsCreativeRefresh?: boolean;  // Safeguard 5: underperforming → nudge a free creative swap
+  creativeRefreshReason?: string | null;
   aiAgentEnabled: boolean;
   notes: string | null;
   createdAt: string;

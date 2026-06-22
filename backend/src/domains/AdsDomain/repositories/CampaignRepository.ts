@@ -21,6 +21,9 @@ export interface AdCampaign {
   objective: string | null;
   /** Opt-in: push the creative with Meta Advantage+ standard enhancements (default false). */
   allowMetaEnhancements: boolean;
+  /** Safeguard 5: set when a nightly check finds the campaign underperforming → nudge a free swap. */
+  needsCreativeRefresh: boolean;
+  creativeRefreshReason: string | null;
   aiAgentEnabled: boolean;
   notes: string | null;
   startedAt: Date | null;
@@ -167,6 +170,15 @@ export class CampaignRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
+  /** Safeguard 5 — set/clear the "swap the creative" nudge flag. */
+  async setCreativeRefresh(id: string, needs: boolean, reason: string | null = null): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_campaigns SET needs_creative_refresh = $2, creative_refresh_reason = $3, updated_at = now()
+        WHERE id = $1 AND deleted_at IS NULL`,
+      [id, needs, needs ? reason : null]
+    );
+  }
+
   async softDelete(id: string): Promise<boolean> {
     const res = await this.pool.query(
       `UPDATE ad_campaigns SET deleted_at = now(), updated_at = now()
@@ -258,6 +270,8 @@ export class CampaignRepository extends BaseRepository {
       status: r.status,
       objective: r.objective ?? null,
       allowMetaEnhancements: r.allow_meta_enhancements === true,
+      needsCreativeRefresh: r.needs_creative_refresh === true,
+      creativeRefreshReason: r.creative_refresh_reason ?? null,
       aiAgentEnabled: r.ai_agent_enabled,
       notes: r.notes,
       startedAt: r.started_at,

@@ -278,6 +278,8 @@ export class MetaPushService {
     const saved = await this.creativeRepo.upsertAi({
       campaignId, imageUrl, headline, body: primaryText, landingUrl: linkUrl, generationPrompt,
     });
+    // Safeguard 5 — the creative was just swapped, so clear the "needs refresh" nudge.
+    await this.campaigns.setCreativeRefresh(campaignId, false).catch(() => undefined);
 
     // If the campaign is already on Meta, push the new creative and re-point the ad at it.
     if (onMeta && conn && campaign.metaAdId) {

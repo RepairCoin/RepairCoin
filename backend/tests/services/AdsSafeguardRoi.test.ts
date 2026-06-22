@@ -101,6 +101,29 @@ describe('SafeguardEvaluator.decide', () => {
   });
 });
 
+describe('SafeguardEvaluator.shouldRefreshCreative (Safeguard 5)', () => {
+  const T = { spendCents: 20000, cplCents: 5000 }; // $200 spend / $50 CPL ceiling
+
+  it('does NOT nudge below the spend threshold', () => {
+    expect(SafeguardEvaluator.shouldRefreshCreative(totals({ totalSpendCents: 19900 }), T).refresh).toBe(false);
+  });
+  it('nudges at $200+ with 0 leads', () => {
+    const r = SafeguardEvaluator.shouldRefreshCreative(totals({ totalSpendCents: 20100 }), T);
+    expect(r.refresh).toBe(true);
+    expect(r.reason).toMatch(/0 leads/);
+  });
+  it('nudges when CPL is above the ceiling', () => {
+    // $300 spend, 5 leads → CPL $60 > $50 ceiling.
+    const r = SafeguardEvaluator.shouldRefreshCreative(totals({ totalSpendCents: 30000, totalLeads: 5 }), T);
+    expect(r.refresh).toBe(true);
+    expect(r.reason).toMatch(/Cost per lead/);
+  });
+  it('does NOT nudge when CPL is healthy', () => {
+    // $300 spend, 20 leads → CPL $15 < $50.
+    expect(SafeguardEvaluator.shouldRefreshCreative(totals({ totalSpendCents: 30000, totalLeads: 20 }), T).refresh).toBe(false);
+  });
+});
+
 describe('normalizePhone (lead dedupe key)', () => {
   it('formats a bare 10-digit US number to E.164', () => {
     expect(normalizePhone('(415) 555-0132')).toBe('+14155550132');

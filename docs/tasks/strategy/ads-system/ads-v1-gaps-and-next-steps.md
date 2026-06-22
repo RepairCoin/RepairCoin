@@ -52,9 +52,12 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
 - [ ] **Messenger objective** (click-to-Messenger + AI replies in Messenger — the narrative moat): objective + Page webhook + Send API _(needs `pages_messaging` App Review)_
 - [ ] **Live lead transport** (SMS/WhatsApp/Messenger send) — wire a provider + flip `ADS_LEAD_TRANSPORT_ENABLED` (currently record-only)
 - [ ] **Stripe collection go-live** — real key + saved payment methods + flip `ADS_BILLING_STRIPE_ENABLED` + `invoice.payment_succeeded` reconciliation webhook
-- [ ] **Safeguard 4 — test-budget tier** (start small, then scale)
-- [ ] **Safeguard 5 — free creative iteration** (swap underperforming creative free)
-- [ ] **Safeguard 6 — money-back / ROI refund** (promise = 1× ROI in 60d → refund flat fee; needs threshold + legal decision)
+- [ ] **Safeguards 4–6** — SCOPED (see `ads-safeguards-4-6-scope.md`, restated for flat tiers):
+  - **5 free creative iteration:** ✅ BUILT 2026-06-22 — nightly `SafeguardEvaluator.shouldRefreshCreative` (default $200 spend
+    / $50 CPL ceiling, env-tunable `ADS_CREATIVE_REFRESH_SPEND_CENTS`/`_CPL_CENTS`) flags `needs_creative_refresh` (migration 172);
+    admin live-view banner "Refresh creative (free)" → regenerate; flag clears on swap. +4 unit tests. Fires once a campaign delivers.
+  - **4 test-budget tier:** setup buildable; auto-scale needs live ROI + rules (D2).
+  - **6 money-back / ROI refund:** gated on Stripe-live + 60-day ROI data + commercial threshold (D3) + **legal review (D4)**.
 - [ ] **Budget currency FX** — USD↔account-currency conversion (v1 enters native currency)
 - [x] **Creative image cost → True Margin** ✅ BUILT 2026-06-22 — `AdCreativeService.build` logs the gpt-image-1 image
   cost (`kind:'creative_image'`) AND the AI copy cost (`kind:'creative_copy'`) to `ad_ai_costs` with the campaign id, so

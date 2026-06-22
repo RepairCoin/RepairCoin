@@ -18,9 +18,10 @@ import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
 import { DraftComposer } from "@/components/ads/DraftComposer";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
-  enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
+  enterDailyMetrics, getAllShopsSummary, regenerateAdImage, fmtUsd, fmtRoi,
   type AdCampaign, type CampaignPerformance, type AllShopsSummary,
 } from "@/services/api/ads";
+import { Wand2 } from "lucide-react";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -34,6 +35,20 @@ export const AdminAdsTab: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [savingMetrics, setSavingMetrics] = useState(false);
   const [showMetrics, setShowMetrics] = useState(false); // manual-metrics override (Live mode)
+  const [refreshingCreative, setRefreshingCreative] = useState(false);
+
+  // Safeguard 5 — free creative swap on an underperforming live campaign.
+  const refreshCreative = async (c: AdCampaign) => {
+    setRefreshingCreative(true);
+    try {
+      await regenerateAdImage(c.id, ""); // empty prompt → auto-derive a fresh creative
+      toast.success("New creative generated — free of charge.");
+      await load();
+      if (selectedId === c.id) await select(c.id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't refresh the creative.");
+    } finally { setRefreshingCreative(false); }
+  };
 
   const [form, setForm] = useState({ shopId: "", name: "", dailyBudget: "", notes: "" });
   const [metrics, setMetrics] = useState({
@@ -268,6 +283,20 @@ export const AdminAdsTab: React.FC = () => {
 
               {/* True margin (Q6) — admin only */}
               <MarginPanel campaignId={selected.id} />
+
+              {/* Safeguard 5 — underperformance nudge: swap the creative for free */}
+              {selected.needsCreativeRefresh && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-start justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-amber-300">This campaign is underperforming</p>
+                    <p className="text-xs text-amber-200/80 mt-0.5">{selected.creativeRefreshReason || "Try a fresh creative."} — swapping the creative is free.</p>
+                  </div>
+                  <button onClick={() => refreshCreative(selected)} disabled={refreshingCreative}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#FFCC00] text-black hover:bg-[#E6B800] disabled:opacity-50 shrink-0">
+                    {refreshingCreative ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} Refresh creative (free)
+                  </button>
+                </div>
+              )}
 
               {/* Current ad — read-only (editing lives in the draft, pre-launch) */}
               <CreativePreview campaignId={selected.id} />
