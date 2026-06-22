@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { getApiBaseUrl } from "@/utils/apiUrl";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
+import { FadeSlideIn } from "@/components/ui/motion";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -1367,7 +1368,8 @@ export default function ShopDashboardClient() {
             </div>
           )}
 
-          {/* Tab Content */}
+          {/* Tab Content — keyed wrapper so each tab fades + slides in on switch */}
+          <FadeSlideIn key={activeTab}>
           {/* Optional brand-setup nudge for skippers (operational + kit not set up). */}
           {activeTab === "overview" &&
             isOperational &&
@@ -1614,6 +1616,7 @@ export default function ShopDashboardClient() {
               />
             </SubscriptionGuard>
           )}
+          </FadeSlideIn>
 
           {/* Payment Modal (crypto/Thirdweb path; blockchain-only) */}
           {showPayment && currentPurchaseId && blockchainEnabled && (
