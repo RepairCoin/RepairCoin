@@ -10,6 +10,7 @@ import { AdsEvents } from '../events';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { NotificationRepository } from '../../../repositories/NotificationRepository';
 import { shopRepository } from '../../../repositories';
+import { getAdAttributionService } from './AdAttributionService';
 
 let registered = false;
 
@@ -44,5 +45,26 @@ export function registerAdsEventListeners(): void {
     'AdsDomain'
   );
 
-  logger.info('AdsDomain event listeners registered (lead_captured → shop notification)');
+  // P0 conversion attribution: when an order is paid, contact-match it to a recent ad lead and
+  // set service_orders.ad_lead_id (so the roll-up records bookings/revenue/ROI). Cross-domain via
+  // the bus (ServiceDomain publishes 'service.order_paid'). Gated by ADS_CONVERSION_ATTRIBUTION.
+  eventBus.subscribe(
+    'service.order_paid',
+    async (event: any) => {
+      try {
+        const d = event?.data || {};
+        if (!d.orderId || !d.customerAddress || !d.shopId) return;
+        await getAdAttributionService().attributeOrderPaid({
+          orderId: d.orderId,
+          customerAddress: d.customerAddress,
+          shopId: d.shopId,
+        });
+      } catch (err) {
+        logger.error('AdsDomain: order_paid attribution failed', err);
+      }
+    },
+    'AdsDomain'
+  );
+
+  logger.info('AdsDomain event listeners registered (lead_captured → notify; order_paid → attribution)');
 }
