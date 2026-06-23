@@ -3,6 +3,7 @@
 **Date:** 2026-06-23
 **Branch:** `deo/ads-system`
 **Status:** 🔵 Scoped, not built. Standing rule: do not commit unless told.
+**Implementation plan:** `ads-meta-two-way-sync-implementation-plan.md` (phase-by-phase build; D1/D4 locked).
 **Companion:** `ads-v1-gaps-and-next-steps.md` (this expands the "no config read-back from Meta" gap).
 
 ---
