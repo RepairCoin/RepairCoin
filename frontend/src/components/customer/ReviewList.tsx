@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { ThumbsUp, MessageSquare, ChevronDown, User } from "lucide-react";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { toast } from "react-hot-toast";
 import { servicesApi, ServiceReview } from "@/services/api/services";
 import { StarRating } from "./StarRating";
@@ -173,11 +174,7 @@ export const ReviewList: React.FC<ReviewListProps> = ({
   };
 
   if (isLoading && page === 1) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00]"></div>
-      </div>
-    );
+    return <ListSkeleton rows={4} />;
   }
 
   return (

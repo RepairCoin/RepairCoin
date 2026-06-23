@@ -35,6 +35,8 @@ import { inventoryStockSummary } from "./tools/inventoryStockSummary";
 import { lowStockItems } from "./tools/lowStockItems";
 import { inventoryTurnover } from "./tools/inventoryTurnover";
 import { inventoryValueTrend } from "./tools/inventoryValueTrend";
+import { reorderRecommendation } from "./tools/reorderRecommendation";
+import { deadStock } from "./tools/deadStock";
 
 const INSIGHTS_TOOLS: readonly BusinessInsightsTool[] = Object.freeze([
   // v1 (Phase 2)
@@ -54,6 +56,9 @@ const INSIGHTS_TOOLS: readonly BusinessInsightsTool[] = Object.freeze([
   lowStockItems,
   inventoryTurnover,
   inventoryValueTrend,
+  // Inventory follow-ups — reorder advice + dead-stock analysis.
+  reorderRecommendation,
+  deadStock,
   // Phase 6.3 — meta-tools (no DB access; Claude orchestration).
   suggestFollowups,
   // FixFlow AI Operator Phase 1 — composed one-shot briefing.
