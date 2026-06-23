@@ -40,6 +40,7 @@ import {
   submitCampaignRequest, listMyCampaignRequests, listCampaignRequests,
   buildCampaignFromRequest, declineCampaignRequest, setAdsAccountConnected,
   pushCampaignToMeta, goLiveCampaign, updateCampaignDraft, uploadCreativeImage, scaleCampaignBudget,
+  syncCampaignFromMeta,
 } from './controllers/CampaignRequestController';
 import {
   getMySubscription, changeMyTier, cancelMySubscription,
@@ -124,6 +125,7 @@ export function initializeRoutes(): Router {
   router.post('/campaigns/:id/push', ...admin, pushCampaignToMeta);             // prepare→push: create PAUSED Meta objects from a reviewed draft
   router.post('/campaigns/:id/go-live', ...admin, goLiveCampaign);              // push P5: activate a PAUSED draft
   router.post('/campaigns/:id/scale-to-full', ...admin, scaleCampaignBudget);   // Safeguard 4: test budget → full
+  router.post('/campaigns/:id/sync-from-meta', ...admin, syncCampaignFromMeta); // two-way config sync: pull budget/status from Meta
   router.patch('/campaigns/:id/draft', ...admin, updateCampaignDraft);          // push P5: edit budget/radius/creative (draft or paused)
   router.post('/shops/:shopId/ads-account', ...admin, setAdsAccountConnected);  // §9.6 connect gate
   router.get('/shops/:shopId/meta-account', ...admin, getShopMetaAccount);       // account currency + min daily budget

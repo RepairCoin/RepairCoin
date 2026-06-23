@@ -48,6 +48,7 @@ export interface AdCampaign {
   metaLeadFormId: string | null;
   metaStatus: string | null;
   metaLastSyncedAt: Date | null;
+  metaSyncedConfigAt: Date | null;
 }
 
 export interface MetaObjectIds {
@@ -58,6 +59,8 @@ export interface MetaObjectIds {
   metaLeadFormId?: string | null;
   metaStatus?: string | null;
   metaLastSyncedAt?: Date | null;
+  /** When config was last reconciled FROM Meta (two-way sync) — distinct from metaLastSyncedAt (insights). */
+  metaSyncedConfigAt?: Date | null;
 }
 
 export interface CreateCampaignInput {
@@ -238,6 +241,7 @@ export class CampaignRepository extends BaseRepository {
     if (m.metaLeadFormId !== undefined) col('meta_lead_form_id', m.metaLeadFormId);
     if (m.metaStatus !== undefined) col('meta_status', m.metaStatus);
     if (m.metaLastSyncedAt !== undefined) col('meta_last_synced_at', m.metaLastSyncedAt);
+    if (m.metaSyncedConfigAt !== undefined) col('meta_synced_config_at', m.metaSyncedConfigAt);
     if (sets.length === 0) return this.findById(id);
     sets.push(`updated_at = now()`);
     params.push(id);
@@ -312,6 +316,7 @@ export class CampaignRepository extends BaseRepository {
       metaLeadFormId: r.meta_lead_form_id ?? null,
       metaStatus: r.meta_status ?? null,
       metaLastSyncedAt: r.meta_last_synced_at ?? null,
+      metaSyncedConfigAt: r.meta_synced_config_at ?? null,
     };
   }
 }

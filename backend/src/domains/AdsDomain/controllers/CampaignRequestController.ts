@@ -18,6 +18,7 @@ import { NotificationRepository } from '../../../repositories/NotificationReposi
 import { AdBillingService } from '../services/AdBillingService';
 import { parseBrief } from '../services/briefValidation';
 import { metaPushService } from '../services/MetaPushService';
+import { metaConfigSyncService } from '../services/MetaConfigSyncService';
 import { shopRepository } from '../../../repositories';
 import { imageStorageService } from '../../../services/ImageStorageService';
 
@@ -239,6 +240,22 @@ export async function scaleCampaignBudget(req: Request, res: Response): Promise<
   } catch (err: any) {
     logger.error('CampaignRequestController.scaleCampaignBudget failed', err?.message || err);
     res.status(502).json({ success: false, error: 'scale_failed', message: err?.message || 'Failed to scale the budget.' });
+  }
+}
+
+// POST /campaigns/:id/sync-from-meta (admin) — two-way config sync: pull the campaign's current
+// budget/status back FROM Meta into our DB (Meta is source-of-truth for live). Returns the fresh
+// campaign + the applied changes. No-op (changes {}) when ADS_META_CONFIG_SYNC is off.
+export async function syncCampaignFromMeta(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const campaign = await campaigns.findById(campaignId);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    const result = await metaConfigSyncService.reconcile(campaignId);
+    res.json({ success: true, data: { campaign: await campaigns.findById(campaignId), ...result } });
+  } catch (err: any) {
+    logger.error('CampaignRequestController.syncCampaignFromMeta failed', err?.message || err);
+    res.status(502).json({ success: false, error: 'sync_failed', message: err?.message || 'Failed to sync from Meta.' });
   }
 }
 

@@ -11,6 +11,7 @@
 
 import { logger } from '../../../utils/logger';
 import { metaService } from './MetaService';
+import { metaConfigSyncService } from './MetaConfigSyncService';
 import { buildCampaignSpec, asMetaObjective } from './metaTargeting';
 import { adCreativeService, AdCreativeService, publicUrl } from './AdCreativeService';
 import { decryptToken } from '../../../utils/tokenCrypto';
@@ -223,6 +224,9 @@ export class MetaPushService {
     const campaign = await this.campaigns.findById(campaignId);
     if (!campaign) throw new Error('campaign_not_found');
     if (!campaign.isTestBudget || !campaign.fullDailyBudgetCents) throw new Error('not_a_test_budget_campaign');
+    // D6 clobber-guard: pull the latest config from Meta first (no-op unless ADS_META_CONFIG_SYNC),
+    // so this scale-up acts on fresh state and stamps the sync rather than racing a manual edit.
+    await metaConfigSyncService.reconcile(campaignId);
     const conn = await this.connections.getConnection(campaign.shopId);
     if (!conn?.userTokenEnc) throw new Error('meta_not_connected');
     const token = decryptToken(conn.userTokenEnc);
@@ -255,6 +259,9 @@ export class MetaPushService {
     const campaign = await this.campaigns.findById(campaignId);
     if (!campaign) throw new Error('campaign_not_found');
     const onMeta = !!campaign.metaCampaignId; // pushed (PAUSED) vs local draft
+    // D6 clobber-guard: for a pushed campaign, pull the latest config from Meta first (no-op
+    // unless ADS_META_CONFIG_SYNC) so this in-app edit acts on current state, not a stale value.
+    if (onMeta) await metaConfigSyncService.reconcile(campaignId);
     const conn = await this.connections.getConnection(campaign.shopId);
     if (onMeta && (!conn?.userTokenEnc || !conn.adAccountId || !conn.pageId)) throw new Error('meta_not_connected');
     const token = conn?.userTokenEnc ? decryptToken(conn.userTokenEnc) : '';

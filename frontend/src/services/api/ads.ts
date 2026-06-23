@@ -607,6 +607,22 @@ export const scaleCampaignBudget = async (id: string): Promise<AdCampaign> => {
   return unwrap<AdCampaign>(res);
 };
 
+/** Two-way config sync — pull this campaign's budget/status back FROM Meta into our DB
+ *  (Meta is source-of-truth for live). Returns the fresh campaign + which fields changed
+ *  (empty when already in sync, the feature is off, or the campaign isn't pushed). */
+export type SyncFromMetaStatus = 'disabled' | 'skipped' | 'synced' | 'in_sync' | 'error';
+export interface SyncFromMetaResult {
+  campaign: AdCampaign;
+  status: SyncFromMetaStatus;
+  changes: Record<string, unknown>;
+  reason?: 'not_pushed' | 'disconnected';
+  error?: string;
+}
+export const syncCampaignFromMeta = async (id: string): Promise<SyncFromMetaResult> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/sync-from-meta`, {});
+  return unwrap<SyncFromMetaResult>(res);
+};
+
 // The connected ad account's currency + minimum daily budget — so the budget field is shown in
 // the account's own currency (no $/PHP ambiguity) and validated against the minimum.
 export interface ShopMetaAccount {
@@ -615,6 +631,8 @@ export interface ShopMetaAccount {
   minDailyBudgetCents?: number | null;
   accountActive?: boolean;
   hasFunding?: boolean;
+  /** Two-way config-sync feature flag — gates the admin "Refresh from Meta" button. */
+  configSyncEnabled?: boolean;
 }
 export const getShopMetaAccount = async (shopId: string): Promise<ShopMetaAccount> => {
   const res = await apiClient.get(`/ads/shops/${shopId}/meta-account`);

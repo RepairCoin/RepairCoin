@@ -16,6 +16,7 @@ import { AdMessageRepository } from '../repositories/AdMessageRepository';
 import { metaConnectionService } from '../services/MetaConnectionService';
 import { metaInsightsService } from '../services/MetaInsightsService';
 import { metaPushService } from '../services/MetaPushService';
+import { isConfigSyncEnabled } from '../services/MetaConfigSyncService';
 
 const connections = new MetaConnectionRepository();
 const campaigns = new CampaignRepository();
@@ -163,6 +164,9 @@ export async function getShopMetaAccount(req: Request, res: Response): Promise<v
         minDailyBudgetCents: status.minDailyBudget,
         accountActive: status.accountStatus === 1,
         hasFunding: status.hasFunding,
+        // Two-way config sync feature flag — lets the admin UI show the "Refresh from Meta"
+        // button only when the feature is actually on.
+        configSyncEnabled: isConfigSyncEnabled(),
       },
     });
   } catch (err) {

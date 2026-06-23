@@ -18,8 +18,9 @@ import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
 import { DraftComposer } from "@/components/ads/DraftComposer";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
-  enterDailyMetrics, getAllShopsSummary, regenerateAdImage, scaleCampaignBudget, fmtUsd, fmtMoney, fmtRoi,
-  type AdCampaign, type CampaignPerformance, type AllShopsSummary,
+  enterDailyMetrics, getAllShopsSummary, regenerateAdImage, scaleCampaignBudget, syncCampaignFromMeta,
+  getShopMetaAccount, fmtUsd, fmtMoney, fmtRoi,
+  type AdCampaign, type CampaignPerformance, type AllShopsSummary, type ShopMetaAccount,
 } from "@/services/api/ads";
 import { Wand2, TrendingUp as TrendingUpIcon } from "lucide-react";
 
@@ -31,6 +32,7 @@ export const AdminAdsTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [perf, setPerf] = useState<CampaignPerformance | null>(null);
+  const [metaAccount, setMetaAccount] = useState<ShopMetaAccount | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [savingMetrics, setSavingMetrics] = useState(false);
@@ -64,6 +66,31 @@ export const AdminAdsTab: React.FC = () => {
     } finally { setScaling(false); }
   };
 
+  // Two-way config sync — pull budget/status back from Meta for this campaign.
+  const [syncing, setSyncing] = useState(false);
+  const syncFromMeta = async (c: AdCampaign) => {
+    setSyncing(true);
+    try {
+      const r = await syncCampaignFromMeta(c.id);
+      if (r.status === "synced") {
+        const n = Object.keys(r.changes || {}).length;
+        toast.success(`Synced from Meta — updated ${n} field${n > 1 ? "s" : ""}.`);
+        await load();
+        if (selectedId === c.id) await select(c.id);
+      } else if (r.status === "in_sync") {
+        toast.success("Already in sync with Meta.");
+      } else if (r.status === "skipped") {
+        toast(r.reason === "disconnected" ? "Reconnect the shop's Meta account to sync." : "This campaign isn't on Meta yet.");
+      } else if (r.status === "error") {
+        toast.error("Couldn't reach Meta — please try again.");
+      } else {
+        toast("Meta config sync isn't enabled.");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't sync from Meta.");
+    } finally { setSyncing(false); }
+  };
+
   const [form, setForm] = useState({ shopId: "", name: "", dailyBudget: "", notes: "" });
   const [metrics, setMetrics] = useState({
     date: todayStr(), spend: "", impressions: "", clicks: "", leads: "", bookings: "", revenue: "",
@@ -88,8 +115,13 @@ export const AdminAdsTab: React.FC = () => {
   const select = async (id: string) => {
     setSelectedId(id);
     setPerf(null);
+    setMetaAccount(null);
     try { setPerf(await getCampaignPerformance(id)); }
     catch (e: any) { toast.error(e?.message || "Couldn't load performance."); }
+    // Best-effort: learn the shop's Meta-account state (incl. the config-sync flag) so the
+    // "Refresh from Meta" button only shows when the feature is on. Never blocks the view.
+    const shopId = campaigns.find((c) => c.id === id)?.shopId;
+    if (shopId) getShopMetaAccount(shopId).then(setMetaAccount).catch(() => setMetaAccount(null));
   };
 
   const toggleAiAgent = async (c: AdCampaign) => {
@@ -284,6 +316,20 @@ export const AdminAdsTab: React.FC = () => {
           ) : (
             /* ─── LIVE / OPERATING ─── metrics, true margin, creative, leads. */
             <>
+              {/* Two-way config sync — pull budget/status back from Meta. Shown only for pushed
+                  campaigns AND when the feature flag is on (from the shop's meta-account check). */}
+              {selected.metaCampaignId && metaAccount?.configSyncEnabled && (
+                <div className="flex items-center justify-end">
+                  <button
+                    onClick={() => syncFromMeta(selected)}
+                    disabled={syncing}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
+                    title="Pull the latest budget & status from Meta Ads Manager"
+                  >
+                    {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh from Meta
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Stat label="Spend" value={fmtMoney(perf.roi.totalSpendCents, selected.currency)} />
                 <Stat label="Revenue" value={fmtMoney(perf.roi.totalRevenueCents, selected.currency)} />

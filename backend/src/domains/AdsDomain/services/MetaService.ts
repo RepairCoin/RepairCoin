@@ -189,6 +189,53 @@ export class MetaService {
     }
   }
 
+  /** Read a campaign's current config from Meta (two-way config sync). `status` is the configured
+   *  status (ACTIVE/PAUSED/ARCHIVED/DELETED); `effectiveStatus` is the computed delivery state. */
+  async getCampaign(campaignId: string, userToken: string): Promise<{
+    objective: string | null; status: string | null; effectiveStatus: string | null; name: string | null;
+  }> {
+    this.requireConfig();
+    try {
+      const res = await axios.get(`${GRAPH}/${campaignId}`, {
+        params: { fields: 'objective,status,effective_status,name', access_token: userToken },
+        timeout: 15000,
+      });
+      return {
+        objective: res.data?.objective ?? null,
+        status: res.data?.status ?? null,
+        effectiveStatus: res.data?.effective_status ?? null,
+        name: res.data?.name ?? null,
+      };
+    } catch (err: any) {
+      logger.error('MetaService.getCampaign failed', { detail: err?.response?.data || err?.message });
+      throw new Error(`get_campaign_failed: ${this.fbError(err)}`);
+    }
+  }
+
+  /** Read an ad set's current config from Meta (two-way config sync). `dailyBudgetCents` is in the
+   *  account-currency minor units (the same unit we send). */
+  async getAdSet(adsetId: string, userToken: string): Promise<{
+    dailyBudgetCents: number | null; optimizationGoal: string | null; status: string | null; effectiveStatus: string | null;
+  }> {
+    this.requireConfig();
+    try {
+      const res = await axios.get(`${GRAPH}/${adsetId}`, {
+        params: { fields: 'daily_budget,optimization_goal,status,effective_status', access_token: userToken },
+        timeout: 15000,
+      });
+      const db = res.data?.daily_budget;
+      return {
+        dailyBudgetCents: db != null && db !== '' ? Number(db) : null,
+        optimizationGoal: res.data?.optimization_goal ?? null,
+        status: res.data?.status ?? null,
+        effectiveStatus: res.data?.effective_status ?? null,
+      };
+    } catch (err: any) {
+      logger.error('MetaService.getAdSet failed', { detail: err?.response?.data || err?.message });
+      throw new Error(`get_adset_failed: ${this.fbError(err)}`);
+    }
+  }
+
   /** Return the ad account's existing Meta Pixel id, or CREATE one ("FixFlow Lead Tracking")
    *  if none exists. Used so the landing page can fire a "Lead" conversion attributed to the
    *  shop's ad account. Throws on a Graph error (caller treats as best-effort). */
