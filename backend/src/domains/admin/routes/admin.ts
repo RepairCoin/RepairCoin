@@ -503,6 +503,11 @@ router.use('', treasuryRoutes);
 import fraudRoutes from './fraud';
 router.use('', fraudRoutes);
 
+// Platform Health Copilot — "ask the platform" admin assistant (Admin AI #2)
+import { makePlatformCopilotController } from '../../AIAgentDomain/controllers/PlatformCopilotController';
+const platformCopilot = makePlatformCopilotController();
+router.post('/ai/platform-copilot', (req, res) => { void platformCopilot.ask(req, res); });
+
 // Analytics routes
 router.use('/analytics', analyticsRoutes);
 
