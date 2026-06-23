@@ -2202,6 +2202,28 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/appointments/shop-date-overrides/:shopId:
+   *   get:
+   *     summary: Get a shop's date overrides (public)
+   *     description: Closed/holiday dates and custom hours, used by the customer booking calendar
+   *     tags: [Appointments]
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: List of date overrides
+   */
+  router.get(
+    '/appointments/shop-date-overrides/:shopId',
+    appointmentController.getShopDateOverrides
+  );
+
+  /**
+   * @swagger
    * /api/services/appointments/time-slot-config/{shopId}:
    *   get:
    *     summary: Get time slot configuration for a shop (Public)

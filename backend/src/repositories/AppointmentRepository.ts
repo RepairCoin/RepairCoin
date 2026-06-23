@@ -245,7 +245,7 @@ export class AppointmentRepository extends BaseRepository {
         SELECT
           override_id as "overrideId",
           shop_id as "shopId",
-          override_date as "overrideDate",
+          to_char(override_date, 'YYYY-MM-DD') as "overrideDate",
           is_closed as "isClosed",
           custom_open_time as "customOpenTime",
           custom_close_time as "customCloseTime",
@@ -258,12 +258,12 @@ export class AppointmentRepository extends BaseRepository {
       const params: any[] = [shopId];
 
       if (startDate) {
-        query += ` AND override_date >= $${params.length + 1}`;
+        query += ` AND override_date >= $${params.length + 1}::date`;
         params.push(startDate);
       }
 
       if (endDate) {
-        query += ` AND override_date <= $${params.length + 1}`;
+        query += ` AND override_date <= $${params.length + 1}::date`;
         params.push(endDate);
       }
 
@@ -293,7 +293,7 @@ export class AppointmentRepository extends BaseRepository {
         RETURNING
           override_id as "overrideId",
           shop_id as "shopId",
-          override_date as "overrideDate",
+          to_char(override_date, 'YYYY-MM-DD') as "overrideDate",
           is_closed as "isClosed",
           custom_open_time as "customOpenTime",
           custom_close_time as "customCloseTime",
@@ -321,11 +321,11 @@ export class AppointmentRepository extends BaseRepository {
     try {
       const query = `
         DELETE FROM shop_date_overrides
-        WHERE shop_id = $1 AND override_date = $2
+        WHERE shop_id = $1 AND override_date = $2::date
       `;
 
-      await this.pool.query(query, [shopId, overrideDate]);
-      return true;
+      const result = await this.pool.query(query, [shopId, overrideDate]);
+      return (result.rowCount ?? 0) > 0;
     } catch (error) {
       logger.error('Error deleting date override:', error);
       throw new Error('Failed to delete date override');
