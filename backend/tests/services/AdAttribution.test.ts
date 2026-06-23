@@ -45,4 +45,12 @@ describe('AdAttributionService flag gating', () => {
     const r = await svc.attributeOrderPaid({ orderId: 'o1', customerAddress: '0xabc', shopId: 'peanut' });
     expect(r.linked).toBe(false);
   });
+
+  it('backfillUnattributed is a no-op (no DB) when the flag is off', async () => {
+    delete process.env.ADS_CONVERSION_ATTRIBUTION;
+    const failPool: any = { query: () => { throw new Error('DB must not be touched when disabled'); } };
+    const svc = new AdAttributionService(failPool);
+    const r = await svc.backfillUnattributed({ shopId: 'peanut' });
+    expect(r).toEqual({ scanned: 0, linked: 0 });
+  });
 });
