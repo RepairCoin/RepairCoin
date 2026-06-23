@@ -1,14 +1,21 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import { m, useReducedMotion } from "framer-motion";
+import {
+  CalendarClock,
+  SquareUserRound,
+  Megaphone,
+  Gift,
+  ChartColumnIncreasing,
+  FunnelPlus,
+} from "lucide-react";
 import Badge from "./Badge";
 
 interface Feature {
   title: string;
   description: string;
-  icon: string;
+  icon: React.ReactNode;
 }
 
 const features: Feature[] = [
@@ -16,37 +23,37 @@ const features: Feature[] = [
     title: "Smart Bookings",
     description:
       "Let customers book effortlessly while you manage every appointment in one place.",
-    icon: "/img/landingv4/features/smart-bookings.png",
+    icon: <CalendarClock className="w-7 h-7" />,
   },
   {
     title: "Customer CRM",
     description:
       "Build stronger customer relationships with a complete view of every conversation, booking, and purchase.",
-    icon: "/img/landingv4/features/customer-crm.png",
+    icon: <SquareUserRound className="w-7 h-7" />,
   },
   {
     title: "AI Marketing",
     description:
       "Create smarter campaigns, generate content faster, and reach the right customers with AI-powered marketing.",
-    icon: "/img/landingv4/features/ai-marketing.png",
+    icon: <Megaphone className="w-7 h-7" />,
   },
   {
     title: "Rewards Hub",
     description:
       "Reward loyal customers, encourage referrals, and turn every visit into a reason to come back.",
-    icon: "/img/landingv4/features/rewards-hub.png",
+    icon: <Gift className="w-7 h-7" />,
   },
   {
     title: "Business Insights",
     description:
       "Turn your business data into actionable insights with real-time analytics, trends, and AI-powered recommendations.",
-    icon: "/img/landingv4/features/business-insights.png",
+    icon: <ChartColumnIncreasing className="w-7 h-7" />,
   },
   {
     title: "AI Lead Assistant",
     description:
       "Capture, qualify, and engage potential customers automatically with an AI assistant that never misses an opportunity.",
-    icon: "/img/landingv4/features/ai-lead-assistant.png",
+    icon: <FunnelPlus className="w-7 h-7" />,
   },
 ];
 
@@ -94,19 +101,13 @@ export default function AllInOne() {
                 {...fadeUp(0.05 * (index % 3))}
                 className="p-10 min-h-[480px] flex flex-col justify-center bg-[linear-gradient(to_bottom_right,#0a0a0a_30%,rgba(133,110,40,0.55))]"
               >
-                <div className="relative w-20 h-20">
-                  <Image
-                    src={feature.icon}
-                    alt={feature.title}
-                    fill
-                    sizes="80px"
-                    className="object-contain"
-                  />
+                <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-[#F7CC00] text-black">
+                  {feature.icon}
                 </div>
                 <h3 className="mt-5 text-white font-semibold text-[30px] leading-snug">
                   {feature.title}
                 </h3>
-                <p className="mt-3 text-gray-400 text-[1.25rem] leading-relaxed">
+                <p className="mt-3 text-gray-400 text-[1.25rem] leading-relaxed min-h-[160px]">
                   {feature.description}
                 </p>
               </m.div>

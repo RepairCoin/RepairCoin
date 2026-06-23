@@ -44,7 +44,7 @@ const plans: Plan[] = [
     description: "Everything you need to grow & scale.",
     price: "$299",
     popular: true,
-    robot: "/img/landingv4/hero-mascot.png",
+    robot: "/img/landingv4/pricing-robot-growth.png",
     includesLabel: "Includes everything in Starter, plus:",
     features: [
       "AI Marketing Suite",
