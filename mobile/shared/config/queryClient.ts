@@ -54,6 +54,7 @@ export const queryKeys = {
   shop: (id: string) => [...queryKeys.shops(), 'detail', id] as const,
   shopProfile: (id: string) => [...queryKeys.shop(id), 'profile'] as const,
   shopTransactions: (id: string) => [...queryKeys.shop(id), 'transactions'] as const,
+  shopRedemptions: (id: string) => [...queryKeys.shop(id), 'redemptions'] as const,
   shopCustomerGrowth: (id: string) => [...queryKeys.shop(id), 'customerGrowth'] as const,
   shopCustomers: (id: string) => [...queryKeys.shop(id), 'customers'] as const,
   shopPromoCodes: (shopId: string) => [...queryKeys.shops(), 'promoCodes', shopId] as const,

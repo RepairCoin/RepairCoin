@@ -63,7 +63,7 @@ export const RedemptionAmountSection: React.FC<RedemptionAmountSectionProps> = (
   }, [customerData, maxRedeemablePoints, onAmountChange]);
 
   return (
-    <View className="px-5 mb-40">
+    <View className="px-5 mb-4">
       <View className="bg-[#1A1A1A] rounded-2xl p-5">
         <Text className="text-white text-lg font-bold mb-4">
           Redemption Amount

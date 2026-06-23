@@ -60,6 +60,18 @@ export interface CustomerNoShowStatus {
   restrictions: string[];
   isHomeShop?: boolean;
   maxRcnRedemptionPercent?: number;
+  /**
+   * Present when the customer was recently de-escalated a tier by completing
+   * successful appointments (e.g. deposit_required → caution). Used to confirm
+   * a just-completed appointment counted, since successfulAppointmentsSinceTier3
+   * resets to 0 after each reduction.
+   */
+  recentReduction?: {
+    previousTier: NoShowTier;
+    newTier: NoShowTier;
+    at: string;
+    fullReset: boolean;
+  };
 }
 
 export interface NoShowHistoryEntry {
