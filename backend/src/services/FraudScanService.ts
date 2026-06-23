@@ -79,6 +79,10 @@ export class FraudScanService {
       () => this.ruleRapidEarnRedeem(windowEnd),
       () => this.ruleIssuanceSpike(windowEnd),
       () => this.ruleReviewBrigading(windowEnd),
+      // Phase 5 — expanded signals
+      () => this.ruleSelfDealingProximity(windowEnd),
+      () => this.ruleCrossShopRedemptionAnomaly(windowEnd),
+      () => this.ruleRatingManipulation(windowEnd),
     ];
 
     const byRule: Record<string, number> = {};
@@ -310,6 +314,163 @@ export class FraudScanService {
           avgRating: parseFloat(r.avg_rating),
         },
         explanation: `Shop received ${count} reviews in 24 hours (avg rating ${r.avg_rating}) — an unusual burst that may indicate review manipulation.`,
+      };
+    });
+  }
+
+  // --- Rule 5: self-dealing proximity (30d) -----------------------------------
+  // A specific shop both issues to AND redeems from the same wallet repeatedly —
+  // a tight 1:1 loop that suggests collusion between a shop and a wallet.
+  private async ruleSelfDealingProximity(windowEnd: Date): Promise<RawFinding[]> {
+    const windowStart = new Date(windowEnd.getTime() - 30 * 86400000);
+    const { rows } = await this.pool.query<{
+      shop_id: string;
+      customer_address: string;
+      mint_count: string;
+      redeem_count: string;
+      mint_total: string;
+      redeem_total: string;
+    }>(
+      `WITH mints AS (
+         SELECT shop_id, customer_address, COUNT(*) AS c, SUM(amount) AS t
+         FROM transactions
+         WHERE type = 'mint' AND status = 'confirmed'
+           AND shop_id IS NOT NULL AND customer_address IS NOT NULL
+           AND created_at >= NOW() - INTERVAL '30 days'
+         GROUP BY shop_id, customer_address
+       ),
+       redeems AS (
+         SELECT shop_id, customer_address, COUNT(*) AS c, SUM(amount) AS t
+         FROM transactions
+         WHERE type = 'redeem' AND status = 'confirmed'
+           AND shop_id IS NOT NULL AND customer_address IS NOT NULL
+           AND created_at >= NOW() - INTERVAL '30 days'
+         GROUP BY shop_id, customer_address
+       )
+       SELECT m.shop_id, m.customer_address,
+              m.c::text AS mint_count, r.c::text AS redeem_count,
+              m.t::text AS mint_total, r.t::text AS redeem_total
+       FROM mints m
+       JOIN redeems r ON m.shop_id = r.shop_id AND m.customer_address = r.customer_address
+       WHERE m.c >= 3 AND r.c >= 3`
+    );
+
+    return rows.map((r) => {
+      const pairs = Math.min(parseInt(r.mint_count, 10), parseInt(r.redeem_count, 10));
+      const severity = clampSeverity(45 + pairs * 5);
+      return {
+        ruleKey: "self_dealing_proximity",
+        subjectType: "pair" as const,
+        shopId: r.shop_id,
+        customerAddress: r.customer_address,
+        windowStart,
+        windowEnd,
+        severity,
+        metrics: {
+          mintCount: parseInt(r.mint_count, 10),
+          redeemCount: parseInt(r.redeem_count, 10),
+          mintTotal: parseFloat(r.mint_total),
+          redeemTotal: parseFloat(r.redeem_total),
+        },
+        explanation: `Shop and wallet form a tight loop over 30 days — the shop issued ${r.mint_count}× to this wallet, which redeemed ${r.redeem_count}× at the same shop. Possible collusion / self-dealing.`,
+      };
+    });
+  }
+
+  // --- Rule 6: cross-shop redemption anomaly (7d) -----------------------------
+  // A wallet redeems across an unusual number of shops it didn't earn at.
+  private async ruleCrossShopRedemptionAnomaly(windowEnd: Date): Promise<RawFinding[]> {
+    const windowStart = new Date(windowEnd.getTime() - 7 * 86400000);
+    const { rows } = await this.pool.query<{
+      customer_address: string;
+      cross_shop_redeems: string;
+      distinct_shops: string;
+      cross_shop_total: string;
+    }>(
+      `SELECT customer_address,
+              COUNT(*) FILTER (WHERE is_cross_shop) AS cross_shop_redeems,
+              COUNT(DISTINCT shop_id) FILTER (WHERE is_cross_shop) AS distinct_shops,
+              COALESCE(SUM(amount) FILTER (WHERE is_cross_shop), 0) AS cross_shop_total
+       FROM transactions
+       WHERE type = 'redeem' AND status = 'confirmed' AND customer_address IS NOT NULL
+         AND created_at >= NOW() - INTERVAL '7 days'
+       GROUP BY customer_address
+       HAVING COUNT(*) FILTER (WHERE is_cross_shop) >= 5
+           OR COUNT(DISTINCT shop_id) FILTER (WHERE is_cross_shop) >= 4`
+    );
+
+    return rows.map((r) => {
+      const redeems = parseInt(r.cross_shop_redeems, 10);
+      const shops = parseInt(r.distinct_shops, 10);
+      const severity = clampSeverity(35 + redeems * 4 + shops * 3);
+      return {
+        ruleKey: "cross_shop_redemption_anomaly",
+        subjectType: "customer" as const,
+        customerAddress: r.customer_address,
+        windowStart,
+        windowEnd,
+        severity,
+        metrics: {
+          crossShopRedeems: redeems,
+          distinctShops: shops,
+          crossShopTotal: parseFloat(r.cross_shop_total),
+        },
+        explanation: `Wallet made ${redeems} cross-shop redemptions across ${shops} shops in 7 days — unusually high cross-shop activity worth reviewing.`,
+      };
+    });
+  }
+
+  // --- Rule 7: rating manipulation (recent 7d vs history) ---------------------
+  // A shop's recent average rating diverges sharply from its historical baseline.
+  private async ruleRatingManipulation(windowEnd: Date): Promise<RawFinding[]> {
+    const windowStart = new Date(windowEnd.getTime() - 7 * 86400000);
+    const { rows } = await this.pool.query<{
+      shop_id: string;
+      recent_avg: string;
+      recent_count: string;
+      hist_avg: string;
+      hist_count: string;
+      divergence: string;
+    }>(
+      `WITH recent AS (
+         SELECT shop_id, AVG(rating) AS a, COUNT(*) AS c
+         FROM service_reviews
+         WHERE created_at >= NOW() - INTERVAL '7 days'
+         GROUP BY shop_id
+       ),
+       hist AS (
+         SELECT shop_id, AVG(rating) AS a, COUNT(*) AS c
+         FROM service_reviews
+         WHERE created_at < NOW() - INTERVAL '7 days'
+         GROUP BY shop_id
+       )
+       SELECT r.shop_id,
+              r.a::text AS recent_avg, r.c::text AS recent_count,
+              h.a::text AS hist_avg, h.c::text AS hist_count,
+              ABS(r.a - h.a)::text AS divergence
+       FROM recent r JOIN hist h ON r.shop_id = h.shop_id
+       WHERE r.c >= 5 AND h.c >= 5 AND ABS(r.a - h.a) >= 1.5`
+    );
+
+    return rows.map((r) => {
+      const divergence = parseFloat(r.divergence);
+      // 1.5 stars -> ~60, 3 stars -> ~95
+      const severity = clampSeverity(37 + divergence * 18);
+      return {
+        ruleKey: "rating_manipulation",
+        subjectType: "shop" as const,
+        shopId: r.shop_id,
+        windowStart,
+        windowEnd,
+        severity,
+        metrics: {
+          recentAvg: Number(parseFloat(r.recent_avg).toFixed(2)),
+          recentCount: parseInt(r.recent_count, 10),
+          historicalAvg: Number(parseFloat(r.hist_avg).toFixed(2)),
+          historicalCount: parseInt(r.hist_count, 10),
+          divergence: Number(divergence.toFixed(2)),
+        },
+        explanation: `Shop's recent 7-day average rating (${parseFloat(r.recent_avg).toFixed(1)}) diverges by ${divergence.toFixed(1)} stars from its historical average (${parseFloat(r.hist_avg).toFixed(1)}) — possible rating manipulation.`,
       };
     });
   }

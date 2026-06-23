@@ -156,7 +156,7 @@ finding row, never from client input.
 | **2 — Review queue UI** | Admin "Trust & Safety" tab + endpoints + investigate/dismiss. | ✅ Done |
 | **3 — Enforcement** | "Confirm & Suspend" reuses the audited per-subject `suspendShop`/`suspendCustomer` (NOT the platform-wide freeze — safer per-subject scope). | ✅ Done |
 | **4 — AI phrasing + alerts** | Claude (Haiku) phrases new high-severity findings (templated fallback); `admin_alerts` row raised per new high-severity finding. | ✅ Done |
-| **5 — Expand rules (4,5,7)** | Add the remaining signals once the loop is proven. | ⏳ Next |
+| **5 — Expand rules** | Added self_dealing_proximity, cross_shop_redemption_anomaly, rating_manipulation. All 7 rules now live. | ✅ Done |
 
 ---
 
