@@ -12,6 +12,7 @@ export interface PushNotificationPayload {
   categoryId?: string; // For notification actions
   priority?: 'default' | 'normal' | 'high';
   ttl?: number; // Time to live in seconds
+  imageUrl?: string; // Rich notification image (Android big-picture; iOS requires a Notification Service Extension)
 }
 
 export interface SendPushResult {
@@ -186,6 +187,14 @@ export class ExpoPushService {
       ...(token.deviceType === 'ios' && notification.badge !== undefined
         ? { badge: notification.badge }
         : {}),
+      // Rich notification image. Android renders the big-picture natively;
+      // iOS additionally needs mutableContent so a Notification Service Extension can attach it.
+      ...(notification.imageUrl
+        ? {
+            richContent: { image: notification.imageUrl },
+            ...(token.deviceType === 'ios' ? { mutableContent: true } : {}),
+          }
+        : {}),
     };
   }
 
@@ -310,12 +319,14 @@ export class ExpoPushService {
     serviceName: string,
     appointmentDate: string,
     appointmentTime: string,
-    orderId: string
+    orderId: string,
+    imageUrl?: string
   ): Promise<SendPushResult> {
     return this.sendToUser(customerAddress, {
       title: 'Booking Confirmed',
       body: `Your ${serviceName} at ${shopName} is confirmed for ${appointmentDate} at ${appointmentTime}`,
       channelId: NotificationChannels.APPOINTMENTS,
+      imageUrl,
       data: {
         type: 'booking_confirmed',
         orderId,
@@ -385,12 +396,14 @@ export class ExpoPushService {
     serviceName: string,
     appointmentDate: string,
     appointmentTime: string,
-    orderId: string
+    orderId: string,
+    imageUrl?: string
   ): Promise<SendPushResult> {
     return this.sendToUser(shopAddress, {
       title: 'New Booking',
       body: `${customerName} booked ${serviceName} for ${appointmentDate} at ${appointmentTime}`,
       channelId: NotificationChannels.APPOINTMENTS,
+      imageUrl,
       data: {
         type: 'new_booking',
         orderId,

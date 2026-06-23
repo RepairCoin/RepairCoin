@@ -297,8 +297,10 @@ export class MessageService {
 
           (async () => {
             try {
-              const { getWebPushService } = await import('../../../services/WebPushService');
-              await getWebPushService().sendNewMessageNotification(receiverAddress!, {
+              // Dispatcher fans out to BOTH Expo (mobile) and Web push, so the
+              // receiver gets the message notification on every registered device.
+              const { getPushNotificationDispatcher } = await import('../../../services/PushNotificationDispatcher');
+              await getPushNotificationDispatcher().sendNewMessageNotification(receiverAddress!, {
                 conversationId: conversation.conversationId,
                 senderName,
                 preview,
@@ -306,7 +308,7 @@ export class MessageService {
                 senderImageUrl,
               });
             } catch (pushError) {
-              logger.error('Failed to send web push for new message:', pushError);
+              logger.error('Failed to send push for new message:', pushError);
             }
           })();
         }

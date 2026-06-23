@@ -92,12 +92,14 @@ export class PushNotificationDispatcher {
     serviceName: string,
     appointmentDate: string,
     appointmentTime: string,
-    orderId: string
+    orderId: string,
+    imageUrl?: string
   ): Promise<SendPushResult> {
     return this.sendToUser(customerAddress, {
       title: 'Booking Confirmed',
       body: `Your ${serviceName} at ${shopName} is confirmed for ${appointmentDate} at ${appointmentTime}`,
       channelId: NotificationChannels.APPOINTMENTS,
+      imageUrl,
       data: { type: 'booking_confirmed', orderId, shopName, serviceName, appointmentDate, appointmentTime },
     });
   }
@@ -139,13 +141,47 @@ export class PushNotificationDispatcher {
     serviceName: string,
     appointmentDate: string,
     appointmentTime: string,
-    orderId: string
+    orderId: string,
+    imageUrl?: string
   ): Promise<SendPushResult> {
     return this.sendToUser(shopAddress, {
       title: 'New Booking',
       body: `${customerName} booked ${serviceName} for ${appointmentDate} at ${appointmentTime}`,
       channelId: NotificationChannels.APPOINTMENTS,
+      imageUrl,
       data: { type: 'new_booking', orderId, customerName, serviceName, appointmentDate, appointmentTime },
+    });
+  }
+
+  async sendNewMessageNotification(
+    receiverAddress: string,
+    params: {
+      conversationId: string;
+      senderName: string;
+      preview: string;
+      receiverType: 'customer' | 'shop';
+      senderImageUrl?: string;
+    }
+  ): Promise<SendPushResult> {
+    const { conversationId, senderName, preview, receiverType, senderImageUrl } = params;
+    const route = receiverType === 'customer'
+      ? `/customer?tab=messages&conversation=${conversationId}`
+      : `/shop?tab=messages&conversation=${conversationId}`;
+
+    return this.sendToUser(receiverAddress, {
+      title: senderName,
+      body: preview,
+      channelId: NotificationChannels.MESSAGES,
+      priority: 'high',
+      // Sender avatar: Android renders it as the rich image; web uses data.icon.
+      imageUrl: senderImageUrl,
+      data: {
+        type: 'new_message',
+        conversationId,
+        tag: `new_message:${conversationId}`,
+        route,
+        ...(senderImageUrl ? { icon: senderImageUrl } : {}),
+      },
     });
   }
 
