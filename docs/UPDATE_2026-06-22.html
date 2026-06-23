@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RepairCoin — Daily Update (Jun 22, 2026)</title>
+<style>
+  :root {
+    --bg: #0f1115; --card: #181b22; --line: #2a2f3a; --text: #e8eaed; --muted: #9aa3b2;
+    --accent: #f5b301; --green: #34d399; --blue: #60a5fa; --amber: #fbbf24; --purple: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55; padding: 40px 20px; }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  header { border-bottom: 2px solid var(--accent); padding-bottom: 20px; margin-bottom: 26px; }
+  .eyebrow { color: var(--accent); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin: 0 0 6px; }
+  h1 { font-size: 29px; margin: 0 0 6px; }
+  .dates { color: var(--muted); font-size: 15px; margin: 0; }
+  .byline { color: var(--muted); font-size: 13.5px; margin: 8px 0 0; }
+  .byline strong { color: var(--text); }
+  .headline { background: linear-gradient(135deg, #1d2230, #181b22); border: 1px solid var(--line);
+    border-left: 4px solid var(--green); border-radius: 10px; padding: 16px 20px; margin: 22px 0; font-size: 15px; }
+  .headline strong { color: var(--green); }
+  h2 { font-size: 20px; margin: 32px 0 12px; display: flex; align-items: center; gap: 10px; }
+  h3 { font-size: 14px; margin: 12px 0 5px; color: var(--accent); }
+  .num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+    background: var(--accent); color: #1a1a1a; border-radius: 7px; font-size: 14px; font-weight: 800; flex: none; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+  ul { margin: 6px 0 0; padding-left: 20px; } li { margin: 6px 0; } li strong { color: #fff; }
+  .muted { color: var(--muted); }
+  code { background: #11141a; border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: #d6deeb; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: 0.5px; vertical-align: middle; }
+  .pill-ship { background: rgba(52,211,153,0.15); color: var(--green); border: 1px solid rgba(52,211,153,0.4); }
+  .pill-data { background: rgba(96,165,250,0.13); color: var(--blue); border: 1px solid rgba(96,165,250,0.4); }
+  .pill-doc { background: rgba(167,139,250,0.13); color: var(--purple); border: 1px solid rgba(167,139,250,0.4); }
+  .metrics { display: flex; gap: 12px; flex-wrap: wrap; margin: 20px 0; }
+  .metric { flex: 1; min-width: 120px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .metric .big { font-size: 24px; font-weight: 800; color: var(--accent); }
+  .metric .lbl { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Daily Engineering Update</p>
+    <h1>RepairCoin — Daily Update</h1>
+    <p class="dates">Sunday, June 22, 2026</p>
+    <p class="byline">Owner: <strong>Zeff</strong> · Backend (Node + PostgreSQL) &amp; Frontend (Next.js / React) · Branch <code>main</code></p>
+  </header>
+
+  <div class="headline">
+    <strong>Today:</strong> Shipped a new <strong>conversational Inventory AI assistant</strong>, made the <strong>token-economy figures real (database-derived)</strong>, fixed a shop's <strong>"Subscription Expired" issue</strong> and a platform-wide tier data bug, and produced an <strong>Admin AI roadmap</strong>.
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="big">2</div><div class="lbl">features shipped to main</div></div>
+    <div class="metric"><div class="big">59</div><div class="lbl">shops data-corrected</div></div>
+    <div class="metric"><div class="big">1</div><div class="lbl">shop access issue resolved</div></div>
+    <div class="metric"><div class="big">1</div><div class="lbl">AI roadmap doc</div></div>
+  </div>
+
+  <!-- 1 -->
+  <h2><span class="num">1</span> Inventory AI Assistant <span class="pill pill-ship">Shipped</span></h2>
+  <div class="card">
+    <p class="sub">Upgraded the inventory tab from a static analytics panel to a full conversational AI assistant — the same multi-turn "ask about your business" experience used elsewhere in the app.</p>
+    <ul>
+      <li>New <strong>"Ask Inventory AI"</strong> button on the inventory tab opens a chat assistant that answers questions like <em>"What's running low?"</em>, <em>"Which items are my slowest movers?"</em>, and <em>"How is my inventory value trending?"</em> — live from the shop's data.</li>
+      <li>Reused the proven AI chat engine (which already had inventory tools), so it shipped with no backend changes and inherits spend caps, audit logging, and tool-result cards.</li>
+    </ul>
+    <p class="muted" style="margin-bottom:0">Commit <code>5d654c87</code>.</p>
+  </div>
+
+  <!-- 2 -->
+  <h2><span class="num">2</span> Token-Economy Figures → Real Database Numbers <span class="pill pill-data">Shipped</span></h2>
+  <div class="card">
+    <p class="sub">The treasury/token-economy numbers were partly placeholders after the blockchain removal. Wired them to real, database-derived values so the treasury page and any future token-economy tooling reflect reality.</p>
+    <ul>
+      <li><strong>RCN circulating supply</strong> — now computed from the transaction ledger (minted − redeemed). Restores the treasury page's "% sold" and "remaining supply" figures (previously blank).</li>
+      <li><strong>RCG circulating supply + holder count</strong> — now summed from real shop balances (were hardcoded constants).</li>
+      <li><strong>RCG total supply &amp; allocations</strong> remain fixed tokenomics by design; comments clarify what's real vs. constant.</li>
+    </ul>
+    <p class="muted" style="margin-bottom:0">Commit <code>c0cd8ac7</code>.</p>
+  </div>
+
+  <!-- 3 -->
+  <h2><span class="num">3</span> Shop "Subscription Expired" Fix &amp; Tier Data Cleanup <span class="pill pill-data">Resolved</span></h2>
+  <div class="card">
+    <p class="sub">Investigated a shop showing a "Subscription Expired" banner despite being a qualified (RCG-holding) shop, and found a systemic data bug behind it.</p>
+    <h3>Diagnosis</h3>
+    <ul>
+      <li>The shop was actually <strong>healthy server-side</strong> (RCG-qualified) — the banner was stale browser cache. A refresh clears it.</li>
+    </ul>
+    <h3>Root cause &amp; fix</h3>
+    <ul>
+      <li>Found a seed-data bug: <strong>every shop's tier was labeled "STANDARD"</strong> (wrong casing) regardless of its actual token balance — breaking RCN pricing, tier benefits, and analytics.</li>
+      <li><strong>Backfilled 59 shops</strong>: recomputed each shop's tier from its real balance (none / standard / premium / elite). No shop's access was changed — only the (incorrect) labels.</li>
+      <li>Corrected the specific shop to its real <strong>Premium</strong> tier.</li>
+    </ul>
+    <p class="muted" style="margin-bottom:0">Database correction (staging). Final distribution: 57 none, 2 standard, 1 premium.</p>
+  </div>
+
+  <!-- 4 -->
+  <h2><span class="num">4</span> Admin AI Recommendations &amp; Roadmap <span class="pill pill-doc">Delivered</span></h2>
+  <div class="card">
+    <p class="sub">Produced a prioritized roadmap of AI features for the platform-operator (admin) role, complementing the earlier shop/customer AI roadmap.</p>
+    <ul>
+      <li>Top recommendations: <strong>Fraud &amp; Abuse Detection</strong> (protect the token economy), <strong>Platform Health Copilot</strong> ("ask the platform"), <strong>Shop Churn Prediction</strong>, and a <strong>Token Economy Advisor</strong>.</li>
+      <li>Includes effort/value scoring and a recommended build sequence (Protect → Oversee → Retain → Optimize).</li>
+    </ul>
+    <p class="muted" style="margin-bottom:0">Doc: <code>docs/ADMIN_AI_RECOMMENDATIONS.html</code>.</p>
+  </div>
+
+  <!-- commits -->
+  <h2><span class="num">▦</span> Commits Shipped Today</h2>
+  <div class="card" style="padding-top:8px;padding-bottom:8px;">
+    <table>
+      <tr><th>Commit</th><th>Summary</th></tr>
+      <tr><td><code>5d654c87</code></td><td>feat(inventory): conversational AI assistant on the inventory tab</td></tr>
+      <tr><td><code>c0cd8ac7</code></td><td>feat(treasury): derive token-economy figures from the database</td></tr>
+    </table>
+  </div>
+
+  <!-- next -->
+  <h2><span class="num">→</span> Next / Open</h2>
+  <div class="card">
+    <ul style="margin-top:0">
+      <li>Production likely has the same shop-tier seed bug — verify &amp; backfill prod if confirmed.</li>
+      <li>Decide which Admin AI feature to build first (recommended: Fraud &amp; Abuse Detection).</li>
+    </ul>
+  </div>
+
+  <footer>
+    Prepared June 22, 2026 · RepairCoin engineering · All feature work merged to <code>main</code>.
+  </footer>
+
+</div>
+</body>
+</html>
