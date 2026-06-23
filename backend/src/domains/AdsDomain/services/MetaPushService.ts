@@ -91,6 +91,11 @@ export class MetaPushService {
       targetRadiusMiles: campaign.targetRadiusMiles,
       lat: geo.lat,
       lng: geo.lng,
+      // Pixel "Lead" optimization (opt-in). Off by default — Meta under-delivers / rejects
+      // OFFSITE_CONVERSIONS before the pixel has Lead events, so tracking ships first and ops
+      // flips this on once events accrue. Only applies when the shop actually has a pixel.
+      optimizeForPixelLead: process.env.ADS_OPTIMIZE_FOR_LEAD === 'true',
+      pixelId: conn.pixelId,
     });
     // Use the REVIEWED daily budget on the campaign (not monthly/30) — the admin set it.
     const fullDaily = campaign.dailyBudgetCents || spec.dailyBudgetCents;
@@ -121,10 +126,15 @@ export class MetaPushService {
         billingEvent: spec.billingEvent,
         targeting: spec.targeting,
         promotedPageId: conn.pageId,
+        // Pixel-Lead website-conversion optimization → promoted_object names the pixel + LEAD.
+        conversionPixelId: spec.conversionOptimized ? spec.pixelId ?? undefined : undefined,
+        customEventType: spec.conversionOptimized ? 'LEAD' : undefined,
       });
-      // For lead objectives, attach a native instant form (best-effort → link fallback).
+      // For native-lead-form objectives, attach a Meta instant form (best-effort → link
+      // fallback). SKIP it for the pixel-conversion flavor (conversionOptimized) — that path
+      // optimizes for the Lead pixel event on OUR landing page, with a normal link creative.
       let metaLeadFormId: string | undefined;
-      if (spec.objective === 'OUTCOME_LEADS' && conn.pageTokenEnc) {
+      if (spec.objective === 'OUTCOME_LEADS' && !spec.conversionOptimized && conn.pageTokenEnc) {
         try {
           const pageToken = decryptToken(conn.pageTokenEnc);
           metaLeadFormId = await metaService.ensureLeadForm(conn.pageId, pageToken, {

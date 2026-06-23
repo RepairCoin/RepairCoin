@@ -65,4 +65,35 @@ describe('buildCampaignSpec', () => {
     expect(spec.billingEvent).toBe('IMPRESSIONS');
     expect(spec.targeting.geo_locations.custom_locations[0].radius).toBe(Math.round(10 * 1.609344));
   });
+
+  it('pixel-Lead optimization upgrades a clicks campaign to OUTCOME_LEADS / OFFSITE_CONVERSIONS', () => {
+    const spec = buildCampaignSpec({
+      goal: null, monthlyBudgetCents: 300000, targetRadiusMiles: 10, lat: 1, lng: 2,
+      optimizeForPixelLead: true, pixelId: 'px_123',
+    });
+    expect(spec.objective).toBe('OUTCOME_LEADS');
+    expect(spec.optimizationGoal).toBe('OFFSITE_CONVERSIONS');
+    expect(spec.conversionOptimized).toBe(true);
+    expect(spec.pixelId).toBe('px_123');
+  });
+
+  it('does NOT upgrade when the flag is on but there is no pixel', () => {
+    const spec = buildCampaignSpec({
+      goal: null, monthlyBudgetCents: 300000, targetRadiusMiles: 10, lat: 1, lng: 2,
+      optimizeForPixelLead: true, pixelId: null,
+    });
+    expect(spec.objective).toBe('OUTCOME_TRAFFIC');
+    expect(spec.optimizationGoal).toBe('LINK_CLICKS');
+    expect(spec.conversionOptimized).toBeFalsy();
+  });
+
+  it('does NOT upgrade Awareness even with a pixel + flag', () => {
+    const spec = buildCampaignSpec({
+      goal: null, objective: 'OUTCOME_AWARENESS', monthlyBudgetCents: 300000, targetRadiusMiles: 10, lat: 1, lng: 2,
+      optimizeForPixelLead: true, pixelId: 'px_123',
+    });
+    expect(spec.objective).toBe('OUTCOME_AWARENESS');
+    expect(spec.optimizationGoal).toBe('REACH');
+    expect(spec.conversionOptimized).toBeFalsy();
+  });
 });

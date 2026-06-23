@@ -226,6 +226,9 @@ export class MetaService {
   async createAdSet(adAccountId: string, userToken: string, opts: {
     name: string; campaignId: string; dailyBudgetCents: number; optimizationGoal: string;
     billingEvent: string; targeting: Record<string, any>; promotedPageId?: string;
+    /** When optimizing for a pixel conversion (OFFSITE_CONVERSIONS), the ad set's promoted_object
+     *  must name the pixel + the standard event to optimize toward. Takes precedence over page. */
+    conversionPixelId?: string; customEventType?: string;
   }): Promise<string> {
     const body: Record<string, any> = {
       name: opts.name,
@@ -242,7 +245,16 @@ export class MetaService {
     // Lead-gen optimization uses a native instant form on the ad (ON_AD destination) — required
     // so a creative carrying a lead_gen_form_id is accepted (else Meta 100/1892040).
     if (opts.optimizationGoal === 'LEAD_GENERATION') body.destination_type = 'ON_AD';
-    if (opts.promotedPageId) body.promoted_object = JSON.stringify({ page_id: opts.promotedPageId });
+    // promoted_object: a pixel conversion (OFFSITE_CONVERSIONS) takes precedence over the page —
+    // Meta requires { pixel_id, custom_event_type } to optimize toward the Lead event.
+    if (opts.conversionPixelId) {
+      body.promoted_object = JSON.stringify({
+        pixel_id: opts.conversionPixelId,
+        custom_event_type: opts.customEventType || 'LEAD',
+      });
+    } else if (opts.promotedPageId) {
+      body.promoted_object = JSON.stringify({ page_id: opts.promotedPageId });
+    }
     return this.create(`${adAccountId}/adsets`, userToken, body);
   }
 
