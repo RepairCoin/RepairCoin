@@ -528,8 +528,6 @@ class ServiceApi {
       const response: any = await apiClient.get(
         `/services/appointments/reschedule-requests${queryString}`
       );
-      // Backend wraps the array: { data: { requests: [...], pendingCount } }.
-      // apiClient already unwrapped the HTTP body, so response.data is that object.
       return response.data?.requests || response.requests || response.data || [];
     } catch (error: any) {
       console.error("Failed to get reschedule requests:", error.message);
