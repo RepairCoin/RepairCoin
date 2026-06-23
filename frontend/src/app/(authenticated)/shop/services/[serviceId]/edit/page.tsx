@@ -152,7 +152,7 @@ export default function EditServicePage() {
   };
 
   const handleTabChange = (tab: string) => {
-    window.location.href = `/shop?tab=${tab}`;
+    router.push(`/shop?tab=${tab}`);
   };
 
   return (
