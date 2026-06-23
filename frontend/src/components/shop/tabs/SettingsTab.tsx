@@ -11,6 +11,7 @@ import { ModerationSettings } from "../ModerationSettings";
 import { ShopFAQSection } from "../ShopFAQSection";
 import CalendarIntegrationSettings from "../CalendarIntegrationSettings";
 import { AISalesAgentSettings } from "../AISalesAgentSettings";
+import { AiMemorySettings } from "../AiMemorySettings";
 import { BrandKitSettings } from "../BrandKitSettings";
 import {
   Store,
@@ -782,8 +783,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {/* AI Assistant Tab Content */}
           {activeTab === "ai-assistant" && (
-            <div>
+            <div className="space-y-6">
               <AISalesAgentSettings />
+              <AiMemorySettings />
             </div>
           )}
 

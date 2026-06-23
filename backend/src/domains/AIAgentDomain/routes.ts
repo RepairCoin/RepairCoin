@@ -43,6 +43,12 @@ import {
   sendMessage as sendCustomerMessage,
   uploadImage as uploadCustomerImage,
 } from './controllers/CustomerChatController';
+import {
+  listMemories,
+  createMemory,
+  updateMemory,
+  removeMemory,
+} from './controllers/AiMemoryController';
 
 /**
  * AI Agent domain routes.
@@ -320,6 +326,14 @@ export function initializeRoutes(): Router {
     requireRole(['admin']),
     adminUpdateShopAiSettings
   );
+
+  // AI Memory (Phase 2) — shop-owner CRUD over the unified assistant's saved
+  // standing instructions. All shop-scoped via JWT (:id never determines scope).
+  // Gated by ENABLE_AI_MEMORY (controller returns enabled:false / 409 when off).
+  router.get('/memories', authMiddleware, requireRole(['shop']), listMemories);
+  router.post('/memories', authMiddleware, requireRole(['shop']), createMemory);
+  router.patch('/memories/:id', authMiddleware, requireRole(['shop']), updateMemory);
+  router.delete('/memories/:id', authMiddleware, requireRole(['shop']), removeMemory);
 
   // Customer-facing diagnostic chat — PUBLIC endpoints (no auth required).
   // Anonymous customers can get AI help finding the right repair service.
