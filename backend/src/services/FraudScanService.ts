@@ -18,6 +18,7 @@
 import { Pool } from "pg";
 import { getSharedPool } from "../utils/database-pool";
 import { logger } from "../utils/logger";
+import { AnthropicClient } from "../domains/AIAgentDomain/services/AnthropicClient";
 
 export interface RawFinding {
   ruleKey: string;
@@ -51,9 +52,23 @@ function clampSeverity(n: number): number {
 
 export class FraudScanService {
   private pool: Pool;
+  private anthropic: AnthropicClient | null = null;
+  private anthropicTried = false;
 
   constructor(pool?: Pool) {
     this.pool = pool || getSharedPool();
+  }
+
+  /** Lazily build the Claude client; null if creds are missing (→ templated fallback). */
+  private getAnthropic(): AnthropicClient | null {
+    if (this.anthropicTried) return this.anthropic;
+    this.anthropicTried = true;
+    try {
+      this.anthropic = new AnthropicClient();
+    } catch {
+      this.anthropic = null;
+    }
+    return this.anthropic;
   }
 
   /** Run all rules, upsert findings, return a summary. */
@@ -81,8 +96,13 @@ export class FraudScanService {
     let upserted = 0;
     for (const f of all) {
       try {
-        await this.upsertFinding(f);
+        const { inserted, id } = await this.upsertFinding(f);
         upserted++;
+        // Phase 4: only NEW high-severity findings get an AI explanation + an
+        // admin alert (bounds Claude calls + avoids duplicate alerts on re-scan).
+        if (inserted && id && f.severity >= HIGH_SEVERITY) {
+          await this.enrichHighSeverity(id, f);
+        }
       } catch (err) {
         logger.error("Failed to upsert fraud finding:", err);
       }
@@ -298,7 +318,9 @@ export class FraudScanService {
   // Dedupe on (rule, subject, window-start day). Re-running updates an OPEN
   // finding's score/metrics but never resurrects a reviewed (dismissed/confirmed)
   // one.
-  private async upsertFinding(f: RawFinding): Promise<void> {
+  private async upsertFinding(
+    f: RawFinding
+  ): Promise<{ inserted: boolean; id: string | null }> {
     const windowStartDay = new Date(
       Date.UTC(
         f.windowStart.getUTCFullYear(),
@@ -306,7 +328,9 @@ export class FraudScanService {
         f.windowStart.getUTCDate()
       )
     );
-    await this.pool.query(
+    // RETURNING id + (xmax = 0) tells us whether this was a fresh INSERT
+    // (xmax = 0) vs an UPDATE of an existing open finding.
+    const { rows } = await this.pool.query<{ id: string; inserted: boolean }>(
       `INSERT INTO fraud_findings
          (rule_key, severity, status, subject_type, shop_id, customer_address,
           window_start, window_end, metrics, explanation, recommended_action)
@@ -320,7 +344,8 @@ export class FraudScanService {
          metrics = EXCLUDED.metrics,
          explanation = EXCLUDED.explanation,
          recommended_action = EXCLUDED.recommended_action
-       WHERE fraud_findings.status = 'open'`,
+       WHERE fraud_findings.status = 'open'
+       RETURNING id, (xmax = 0) AS inserted`,
       [
         f.ruleKey,
         f.severity,
@@ -332,6 +357,77 @@ export class FraudScanService {
         JSON.stringify(f.metrics),
         f.explanation,
         recommendedAction(f.severity),
+      ]
+    );
+    if (rows.length === 0) return { inserted: false, id: null };
+    return { inserted: rows[0].inserted, id: rows[0].id };
+  }
+
+  // --- Phase 4: AI explanation + admin alert for new high-severity findings ---
+  private async enrichHighSeverity(id: string, f: RawFinding): Promise<void> {
+    // 1) Upgrade the templated explanation with an AI-phrased one (best-effort).
+    try {
+      const phrased = await this.aiPhraseExplanation(f);
+      if (phrased) {
+        await this.pool.query(
+          `UPDATE fraud_findings SET explanation = $1 WHERE id = $2 AND status = 'open'`,
+          [phrased, id]
+        );
+        f.explanation = phrased; // so the alert uses the nicer text
+      }
+    } catch (err) {
+      logger.warn("Fraud AI phrasing failed (using templated):", err);
+    }
+
+    // 2) Raise an admin alert so high-severity findings aren't missed.
+    try {
+      await this.createAdminAlert(id, f);
+    } catch (err) {
+      logger.error("Failed to create fraud admin alert:", err);
+    }
+  }
+
+  private async aiPhraseExplanation(f: RawFinding): Promise<string | null> {
+    const anthropic = this.getAnthropic();
+    if (!anthropic) return null;
+
+    const systemPrompt =
+      "You write concise fraud-review notes for a platform trust-and-safety admin. " +
+      "Given a detection rule and its metrics, output ONE clear sentence (max ~30 words) " +
+      "explaining the suspicious pattern and why it matters. Plain text only, no preamble.";
+    const userMessage =
+      `Rule: ${f.ruleKey}\nSeverity: ${f.severity}/100\nSubject: ${f.subjectType} ` +
+      `${f.shopId || f.customerAddress || ""}\nMetrics: ${JSON.stringify(f.metrics)}`;
+
+    const response = await anthropic.complete({
+      systemPrompt: [{ text: systemPrompt, cache: true }],
+      messages: [{ role: "user", content: userMessage }],
+      model: "claude-haiku-4-5-20251001",
+      maxTokens: 120,
+    });
+    const text = (response.text || "").trim();
+    return text.length > 0 ? text : null;
+  }
+
+  private async createAdminAlert(id: string, f: RawFinding): Promise<void> {
+    const severity: "high" | "critical" = f.severity >= 85 ? "critical" : "high";
+    await this.pool.query(
+      `INSERT INTO admin_alerts (alert_type, severity, title, message, metadata, triggered_by)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        "fraud_finding",
+        severity,
+        `Fraud: ${f.ruleKey} (severity ${f.severity})`,
+        f.explanation,
+        JSON.stringify({
+          findingId: id,
+          ruleKey: f.ruleKey,
+          subjectType: f.subjectType,
+          shopId: f.shopId ?? null,
+          customerAddress: f.customerAddress ?? null,
+          metrics: f.metrics,
+        }),
+        "fraud-scan",
       ]
     );
   }

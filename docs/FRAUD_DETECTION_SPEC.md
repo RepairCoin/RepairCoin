@@ -149,14 +149,14 @@ finding row, never from client input.
 
 ## 8. Phased rollout
 
-| Phase | Scope |
-|---|---|
-| **0 — Spec + schema** | This doc; create `fraud_findings`; stub `FraudScanService` |
-| **1 — Detection (rules 1,2,3,6)** | Implement the 4 core rules + scoring + dedupe + nightly job. No AI yet — explanations are templated. |
-| **2 — Review queue UI** | Admin "Trust & Safety" tab + the 5 endpoints + investigate/dismiss. |
-| **3 — Freeze integration** | Wire the Freeze action to `EmergencyFreezeService` with confirm-gate + audit. |
-| **4 — AI phrasing + alerts** | `AnomalyPhraser` for explanations + recommended actions; admin notifications for high severity. |
-| **5 — Expand rules (4,5,7)** | Add the remaining signals once the loop is proven. |
+| Phase | Scope | Status |
+|---|---|---|
+| **0 — Spec + schema** | This doc; create `fraud_findings`; `FraudScanService` | ✅ Done (migration 171) |
+| **1 — Detection (rules 1,2,3,6)** | 4 core rules + scoring + dedupe + nightly job; templated explanations. | ✅ Done |
+| **2 — Review queue UI** | Admin "Trust & Safety" tab + endpoints + investigate/dismiss. | ✅ Done |
+| **3 — Enforcement** | "Confirm & Suspend" reuses the audited per-subject `suspendShop`/`suspendCustomer` (NOT the platform-wide freeze — safer per-subject scope). | ✅ Done |
+| **4 — AI phrasing + alerts** | Claude (Haiku) phrases new high-severity findings (templated fallback); `admin_alerts` row raised per new high-severity finding. | ✅ Done |
+| **5 — Expand rules (4,5,7)** | Add the remaining signals once the loop is proven. | ⏳ Next |
 
 ---
 
