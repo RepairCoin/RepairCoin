@@ -24,6 +24,7 @@ import cron from "node-cron";
 import { logger } from "../utils/logger";
 import { AnomalyDetector } from "../domains/AIAgentDomain/services/insights/anomalies/AnomalyDetector";
 import { AnomalyPhraser } from "../domains/AIAgentDomain/services/insights/anomalies/AnomalyPhraser";
+import { getAiMemoryService } from "../domains/AIAgentDomain/services/AiMemoryService";
 
 // 03:00 UTC = off-peak for both PH and US time zones the shops
 // operate in. Per-cron syntax: minute hour day month weekday.
@@ -34,7 +35,7 @@ export class InsightsAnomalyScheduler {
   private cronJob: cron.ScheduledTask | null = null;
   private isRunning = false;
   private lastRunAt: Date | null = null;
-  private lastRunResult: { shopsProcessed: number; anomaliesFlagged: number; shopErrors: number; phrased: number; phrasingSkipped: number } | null = null;
+  private lastRunResult: { shopsProcessed: number; anomaliesFlagged: number; shopErrors: number; phrased: number; phrasingSkipped: number; memoriesPurged: number } | null = null;
 
   start(): void {
     if (this.cronJob) {
@@ -83,11 +84,24 @@ export class InsightsAnomalyScheduler {
       const phraser = new AnomalyPhraser();
       const { phrased, skipped } = await phraser.phraseAllPending();
 
+      // AI Memory aging (Phase 6 slice): soft-delete auto + unpinned, never-
+      // referenced memories past the window (AI_MEMORY_STALE_DAYS). No-op when
+      // ENABLE_AI_MEMORY is off. Non-throwing so it never sinks the batch.
+      let memoriesPurged = 0;
+      try {
+        memoriesPurged = await getAiMemoryService().purgeStale();
+      } catch (err) {
+        logger.warn("InsightsAnomalyScheduler: AI memory purge skipped", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+
       this.lastRunAt = new Date();
       this.lastRunResult = {
         ...detectorResult,
         phrased,
         phrasingSkipped: skipped,
+        memoriesPurged,
       };
 
       logger.info("InsightsAnomalyScheduler: nightly run complete", {
