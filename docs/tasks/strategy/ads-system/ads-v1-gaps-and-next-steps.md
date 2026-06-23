@@ -33,6 +33,12 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
 - [x] Connect-Meta OAuth; flat-tier billing accrual; push proven live on Meta
 
 ### B. v1 "Ship" gate — REMAINING (mostly external + QA)
+- [ ] 🔴 **P0 — Conversion attribution (`service_orders.ad_lead_id` is never written)** — booking/checkout never
+  tags an order with its ad lead, so the roll-up's bookings/revenue JOIN matches nothing → **ROI / Revenue /
+  Bookings / True-Margin are structurally always 0** (True ROI reads −100% with any AI cost), even for a real
+  converting campaign. NOT caused by the Kanban (the math ignores `lead_status`). Fix = auto-link order→lead at
+  booking (deterministic landing "Book online" + contact-match fallback) + Kanban auto-advance. SCOPED:
+  `ads-conversion-attribution-scope.md` (v1 ~2d). **Must land before ROI/True-Margin are trusted.**
 - [ ] **Meta App Review** — write scopes (`ads_management`/`pages_manage_ads`/`leads_retrieval`) so **real (non-app-role) shops** can connect & run ads _(external)_
 - [ ] **Deploy branch to staging** — set `ADS_LANDING_BASE_URL` + `META_*` env; was GitHub-blocked
 - [ ] **Staging `schema_migrations` reconciliation** — shared DB has 165/167 as our OLD versions; main's 165/167 + our 168/169 must all apply
@@ -89,6 +95,9 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
   threaded through `prepareCreative` + the regenerate path.
 - [ ] **Tiered subscription** $99/$299/$599 — still flat $500/mo (separate pricing-alignment workstream)
 - [ ] Native `OUTCOME_LEADS` instant-form ads (re-enable once `leads_retrieval` approved + form/ToS hardened)
+- [ ] **Two-way Meta ⇄ app config sync** — today config is one-way (app → Meta); manual Ads-Manager edits
+  (budget/creative/targeting/status) don't sync back + can be clobbered by in-app actions. SCOPED:
+  `ads-meta-two-way-sync-scope.md` (D1 Meta-as-source-of-truth for live; nightly + on-demand pull; v1 = budget+status ~1–1.5d).
 - [ ] **Video creatives** — see scoped section below
 - [x] **Meta Advantage+ creative enhancements (opt-in)** ✅ BUILT — default-off `allow_meta_enhancements`
   (migration 171) + DraftComposer toggle; `createAdCreative` adds `degrees_of_freedom_spec.standard_enhancements`
@@ -317,6 +326,8 @@ on NEW generations (no backfill of pre-existing creatives).
 Done already: objective picker, P0 landing page, service-aware creative, Pixel "Lead" **tracking + optimization**
 (flag-gated), currency sweep, image-cost accounting, UX polish, Safeguards 1–5. What's left, in order:
 
+0. 🔴 **P0 — Conversion attribution** (`ads-conversion-attribution-scope.md`, ~2d) — without it ROI/Revenue/
+   True-Margin are always 0; everything ROI-related downstream is meaningless until this lands. Do first.
 1. **QA + deploy** — browser QA pass, deploy branch to staging (+ `ADS_LANDING_BASE_URL`/`META_*` env),
    `schema_migrations` reconciliation, verify customer "Book online", confirm Advantage+ on a live delivering ad.
 2. **Meta App Review** (external, the big unlock) — write scopes + `pages_messaging`; gates real-shop onboarding,
