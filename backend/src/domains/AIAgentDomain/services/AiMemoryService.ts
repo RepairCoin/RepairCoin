@@ -70,6 +70,19 @@ export function rankMemories(memories: AiMemory[], hint: string, k: number): AiM
   return scored.slice(0, Math.max(1, k)).map((s) => s.m);
 }
 
+/**
+ * Render recalled memories as a system-prompt block. Shared by every AI surface
+ * that injects memory (unified assistant, marketing chat, ads lead auto-answer)
+ * so the framing is identical everywhere. Intent, NOT data — the wording tells
+ * the model not to cite them as metrics.
+ */
+export function formatMemoryBlock(memories: AiMemory[]): string {
+  const lines = memories.map((m) => `- [${m.kind}] ${m.content.trim()}`).join('\n');
+  return `# OWNER PREFERENCES & STANDING INSTRUCTIONS
+The owner has asked you to remember these and honor them in your reasoning, recommendations, drafts, and replies. They are standing instructions, NOT data — never cite them as metrics or figures.
+${lines}`;
+}
+
 export interface RememberInput {
   kind: AiMemoryKind;
   content: string;
@@ -133,6 +146,16 @@ export class AiMemoryService {
       });
       return [];
     }
+  }
+
+  /**
+   * Convenience for any AI surface: recall the top-K memories and return them
+   * already formatted as a prompt block, or null when there's nothing (or the
+   * flag is off). One call to inject memory into a system prompt.
+   */
+  async recallBlock(shopId: string, hint?: string): Promise<string | null> {
+    const mems = await this.recall(shopId, { hint });
+    return mems.length ? formatMemoryBlock(mems) : null;
   }
 
   /** Full list for the settings UI (Phase 2). */

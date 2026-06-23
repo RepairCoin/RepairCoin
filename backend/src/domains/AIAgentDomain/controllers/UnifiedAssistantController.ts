@@ -53,7 +53,7 @@ import {
   getOrchestratorOwnTools,
   getOrchestratorOwnToolByName,
 } from "../services/orchestrator/registry";
-import { AiMemoryService, isAiMemoryEnabled, getAiMemoryService } from "../services/AiMemoryService";
+import { AiMemoryService, isAiMemoryEnabled, getAiMemoryService, formatMemoryBlock } from "../services/AiMemoryService";
 import type { AiMemory } from "../../../repositories/AiMemoryRepository";
 import { getDefaultHelpCorpusLoader } from "../services/HelpCorpusLoader";
 import { SUPPORT_FALLBACK_COPY } from "../services/HelpPromptBuilder";
@@ -185,12 +185,7 @@ async function fetchShopTimezone(
  * so the assistant honors them without citing them as metrics.
  */
 function buildMemoryBlock(memories: AiMemory[]): string {
-  const lines = memories
-    .map((m) => `- [${m.kind}] ${m.content.trim()}`)
-    .join("\n");
-  return `# OWNER PREFERENCES & STANDING INSTRUCTIONS
-The owner has asked you to remember these and honor them in your reasoning, recommendations, and proposals across conversations. They are standing instructions, NOT data — never cite them as metrics or figures.
-${lines}`;
+  return formatMemoryBlock(memories);
 }
 
 /** Latest user message text (the retrieval hint for memory recall). */
