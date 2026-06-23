@@ -18,6 +18,7 @@ import {
   useBalance,
   useAvailableTimeSlotsQuery,
   useShopAvailabilityQuery,
+  useShopDateOverridesQuery,
   useCreateStripeCheckoutMutation,
 } from "../hooks";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
@@ -42,6 +43,10 @@ export default function AppointmentCompleteScreen() {
   const [notes] = useState("");
 
   const { data: shopAvailability } = useShopAvailabilityQuery(
+    serviceData?.shopId || ""
+  );
+
+  const { data: dateOverrides } = useShopDateOverridesQuery(
     serviceData?.shopId || ""
   );
 
@@ -255,6 +260,7 @@ export default function AppointmentCompleteScreen() {
             isLoadingSlots={isLoadingSlots}
             slotsError={slotsError}
             shopAvailability={shopAvailability}
+            dateOverrides={dateOverrides}
             bookingAdvanceDays={bookingAdvanceDays}
             allowWeekendBooking={allowWeekendBooking}
             onDateSelect={handleDayPress}

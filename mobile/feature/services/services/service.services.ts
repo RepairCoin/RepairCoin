@@ -528,7 +528,9 @@ class ServiceApi {
       const response: any = await apiClient.get(
         `/services/appointments/reschedule-requests${queryString}`
       );
-      return response.data || response.requests || response || [];
+      // Backend wraps the array: { data: { requests: [...], pendingCount } }.
+      // apiClient already unwrapped the HTTP body, so response.data is that object.
+      return response.data?.requests || response.requests || response.data || [];
     } catch (error: any) {
       console.error("Failed to get reschedule requests:", error.message);
       throw error;
@@ -823,6 +825,25 @@ class ServiceApi {
       return response.data || response || [];
     } catch (error: any) {
       console.error("Failed to get date overrides:", error.message);
+      throw error;
+    }
+  }
+
+  // Public — fetch a specific shop's date overrides (used by the customer
+  // booking calendar to grey out closed/holiday dates).
+  async getShopDateOverrides(
+    shopId: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<DateOverride[]> {
+    try {
+      const queryString = buildQueryString({ startDate, endDate });
+      const response = await apiClient.get(
+        `/services/appointments/shop-date-overrides/${shopId}${queryString}`
+      );
+      return response.data || response || [];
+    } catch (error: any) {
+      console.error("Failed to get shop date overrides:", error.message);
       throw error;
     }
   }
