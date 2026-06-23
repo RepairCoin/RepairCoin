@@ -101,7 +101,7 @@ export default function NewServicePage() {
   };
 
   const handleTabChange = (tab: string) => {
-    window.location.href = `/shop?tab=${tab}`;
+    router.push(`/shop?tab=${tab}`);
   };
 
   return (

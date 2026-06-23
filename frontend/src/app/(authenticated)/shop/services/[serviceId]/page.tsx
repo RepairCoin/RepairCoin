@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import ServiceManagementClient from "@/components/shop/ServiceManagementClient";
 
@@ -18,13 +18,14 @@ function LoadingFallback() {
 
 export default function ServiceManagementPage() {
   const params = useParams();
+  const router = useRouter();
   const serviceId = params.serviceId as string;
 
   // We'll use "services" as the active tab since we're on a service detail page
   const handleTabChange = (tab: string) => {
     // If user clicks a sidebar tab, navigate to the main shop dashboard with that tab
     if (tab !== "service-detail") {
-      window.location.href = `/shop?tab=${tab}`;
+      router.push(`/shop?tab=${tab}`);
     }
   };
 

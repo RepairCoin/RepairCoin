@@ -30,7 +30,7 @@ export default function CustomerProfilePage() {
 
   const handleTabChange = (tab: string) => {
     if (tab !== "customers") {
-      window.location.href = `/shop?tab=${tab}`;
+      router.push(`/shop?tab=${tab}`);
     }
   };
 
