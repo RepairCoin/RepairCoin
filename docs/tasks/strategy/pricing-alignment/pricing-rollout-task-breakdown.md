@@ -97,7 +97,8 @@ then grants **everything**. No per-tier gating.
 - ❌ **T2.5** Apply gates to **Business** features: Multi-Location, AI Memory & Automation, Team Mgmt &
   Permissions, AI Auto-Replies (Voice+Text), AI Campaigns (Advanced), Custom Workflows, Advanced Inventory
   Intelligence. (Several are net-new — see WS7; gate ships with the build. **Multi-Location renders as
-  "Business — coming soon" per D3** until T7.4 lands.) *(Backend-Platform + FE, M)*
+  "Business — coming soon" per D3** until T7.4 lands. **AI Memory (T7.3) is already BUILT + flag-gated** — here it
+  just needs the Business entitlement check added on top of `ENABLE_AI_MEMORY`.) *(Backend-Platform + FE, M)*
 - ❌ **T2.6** Decide RCG-holder access vs paid tiers — does ≥10K RCG still grant "everything", or map to a tier?
   (Touches `subscriptionGuard`.) *(Backend-Platform, S — needs D-note)*
 
@@ -173,9 +174,16 @@ Today: ❌ none. Affiliate groups are **peer coalitions**, not managed-client ac
   Today only `admin/shop/customer` (no shop-staff layer; `config/permissions.ts` is admin sub-roles only). *(Backend-Platform + FE, L)*
 - ⚠️ **T7.2 Custom Workflows** (Business) — promote the existing event-driven handlers into a real workflow
   builder (today: handlers only, no builder). *(Backend-Platform + FE, XL)*
-- ⚠️ **T7.3 AI Memory** (Business) — persistent cross-conversation memory for the unified assistant (today:
-  conversation-scoped only). **Scoped:** `../ai-memory/ai-memory-scope.md` (D1–D7 + phases; v1 ~M–L, flag
-  `ENABLE_AI_MEMORY`). NOTE the sheet's "AI Memory & Automation" also implies T7.2 (workflows/automation). *(Backend-AI, L)*
+- ✅ **T7.3 AI Memory** (Business) — **BUILT 2026-06-23** (flag `ENABLE_AI_MEMORY`, default OFF). The unified
+  assistant now remembers the owner's STANDING INTENT (preferences/instructions/decisions/corrections) across
+  conversations — NOT DB facts (the assistant is already DB-grounded), NOT chat history. Committed on
+  `deo/ads-system`: Phase 1 recall + `remember_this` (mig 175, `f7e6371d8`), Phase 2 settings UI + CRUD
+  (`f7e6371d8`), Phase 5 shared reads — also honored in marketing chat + ads lead replies (`cdb4721bd`), nightly
+  `purgeStale` (`dc9cf9855`). Live-verified on peanut (chat + marketing). Docs: `../ai-memory/` (scope, impl-plan,
+  QA guide). **Remaining (optional/gated):** Phase 3 auto-extract (deprioritized — DB grounding makes it
+  low-signal), Phase 4 customer-level (privacy review). **Business-tier ENTITLEMENT gate still pending WS2** —
+  until then it's env-flag-gated, not plan-gated. NOTE the sheet's "AI Memory & Automation" also implies T7.2
+  (workflows/automation), which is separate + unbuilt. *(Backend-AI — v1 DONE; tier-gate via WS2.)*
 - ⚠️ **T7.4 True Multi-Location Management** (Business) — one-owner-many-branches data model (parent account +
   child locations, shared billing, per-location + rolled-up data; **NOT** affiliate coalitions). **D3 locked:
   build LATER — ships as "Business — coming soon" at launch (gated via T2.5).** *(Architect + Backend, XL — deferred)*
