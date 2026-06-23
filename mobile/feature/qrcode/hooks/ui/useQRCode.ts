@@ -1,11 +1,11 @@
 import { useState } from "react";
+import { Share } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
 import * as Clipboard from "expo-clipboard";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { COPY_FEEDBACK_DURATION } from "@/shared/constants/qrCode";
 
 export function useQRCode() {
-  const [modalVisible, setModalVisible] = useState(false);
   const [copied, setCopied] = useState(false);
   const { account, userProfile } = useAuthStore();
 
@@ -28,22 +28,24 @@ export function useQRCode() {
     goBack();
   };
 
-  const openShareModal = () => {
-    setModalVisible(true);
-  };
-
-  const closeShareModal = () => {
-    setModalVisible(false);
+  const handleShare = async () => {
+    if (!walletAddress) return;
+    try {
+      await Share.share({
+        message: walletAddress,
+        title: "My RepairCoin QR Code",
+      });
+    } catch {
+      // user dismissed — no-op
+    }
   };
 
   return {
     walletAddress,
     copied,
-    modalVisible,
     copyToClipboard,
     formatAddress,
     handleGoBack,
-    openShareModal,
-    closeShareModal,
+    handleShare,
   };
 }
