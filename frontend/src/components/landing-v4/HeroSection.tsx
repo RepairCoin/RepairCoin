@@ -34,8 +34,8 @@ const layout = {
 
   row: [
     "grid",
-    "grid-cols-1 lg:grid-cols-[max-content_1fr]",
-    "items-stretch",
+    "grid-cols-1 lg:grid-cols-[2fr_1fr]",
+    "items-center",
     "gap-10 lg:gap-12",
   ].join(" "),
 
@@ -62,7 +62,7 @@ const layout = {
 
   rightColumn: [
     "relative",
-    "flex items-end justify-center lg:justify-start",
+    "flex items-center justify-center lg:justify-end",
   ].join(" "),
 };
 
@@ -114,8 +114,7 @@ export default function HeroSection({
             </m.div>
 
             <m.h1 {...fadeUp(0.2)} className={layout.heading}>
-              <span className="block whitespace-nowrap">Everything You Need to</span>
-              <span className="block whitespace-nowrap">Run Your Business</span>
+              The Smarter Way to Grow Your Business With AI
             </m.h1>
 
             <m.p
@@ -144,19 +143,6 @@ export default function HeroSection({
                 )}
               </button>
             </m.div>
-
-            {/* AI assistant prompt label */}
-            <m.div {...fadeUp(0.6)} className="flex items-start gap-2 pt-2 pl-6">
-              <CurvedArrow />
-              <span className="text-[#F7CC00] font-medium text-sm sm:text-base">
-                Ask our AI assistant anything about your business
-              </span>
-            </m.div>
-
-            {/* AI chat bar (visual only) */}
-            <m.div {...fadeUp(0.7)} className="w-full lg:w-3/4 !mt-3">
-              <AIChatBar />
-            </m.div>
           </div>
 
           <div className={layout.rightColumn}>
@@ -172,7 +158,7 @@ export default function HeroSection({
                   ? undefined
                   : { duration: 0.8, delay: 0.3, ease: "easeOut" }
               }
-              className="relative w-[260px] h-[300px] sm:w-[340px] sm:h-[400px] lg:w-[440px] lg:h-[500px] lg:-mb-10 lg:-ml-24"
+              className="relative shrink-0 w-full lg:w-[150%] max-w-none aspect-[7/5]"
             >
               <m.div
                 animate={prefersReducedMotion ? undefined : { y: [0, -14, 0] }}
@@ -184,16 +170,32 @@ export default function HeroSection({
                 className="relative w-full h-full"
               >
                 <Image
-                  src="/img/landingv4/hero-mascot.png"
+                  src="/img/landingv4/hero-mascot-v2.png"
                   alt="FixFlow AI assistant"
                   fill
                   priority
-                  sizes="(max-width: 1024px) 360px, 480px"
-                  className="object-contain object-bottom"
+                  sizes="(max-width: 1024px) 90vw, 640px"
+                  className="object-contain object-center"
                 />
               </m.div>
             </m.div>
           </div>
+        </div>
+
+        {/* ── Full-width AI assistant section ── */}
+        <div className="relative z-10 mt-10 lg:mt-12">
+          {/* AI assistant prompt label */}
+          <m.div {...fadeUp(0.6)} className="flex items-start gap-2 pl-6">
+            <CurvedArrow />
+            <span className="text-[#F7CC00] font-medium text-sm sm:text-base">
+              Ask our AI assistant anything about your business
+            </span>
+          </m.div>
+
+          {/* AI chat bar (visual only) */}
+          <m.div {...fadeUp(0.7)} className="w-full lg:w-1/2 mt-3">
+            <AIChatBar />
+          </m.div>
         </div>
       </div>
     </section>
