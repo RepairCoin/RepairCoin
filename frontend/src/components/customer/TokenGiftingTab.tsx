@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useActiveAccount } from "thirdweb/react";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import toast from "react-hot-toast";
 import {
   Send,
@@ -478,9 +479,8 @@ export function TokenGiftingTab() {
             </div>
 
             {loadingHistory ? (
-              <div className="px-6 py-8 text-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#FFCC00] border-t-transparent mx-auto"></div>
-                <p className="text-gray-500 text-xs mt-3">Loading history...</p>
+              <div className="px-6 py-4">
+                <ListSkeleton rows={3} />
               </div>
             ) : recentSentGifts.length === 0 ? (
               <div className="px-6 py-8 text-center">

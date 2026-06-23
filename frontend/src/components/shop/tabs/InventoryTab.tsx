@@ -39,6 +39,7 @@ import { AdjustmentHistoryModal } from '../modals/AdjustmentHistoryModal';
 import { BulkActionsBar } from './BulkActionsBar';
 import { BulkUpdateModal } from '../modals/BulkUpdateModal';
 import { POSuggestionsCard } from '../inventory/POSuggestionsCard';
+import { InventoryAILauncher } from '../inventory/InventoryAILauncher';
 import { BarcodeScannerModal } from '../modals/BarcodeScannerModal';
 import { BatchStockCountModal } from '../modals/BatchStockCountModal';
 
@@ -303,6 +304,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <InventoryAILauncher />
           <button
             onClick={() => setShowCategoryModal(true)}
             className="px-4 py-2 bg-[#101010] border border-gray-700 text-gray-300 rounded-lg hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors flex items-center gap-2"

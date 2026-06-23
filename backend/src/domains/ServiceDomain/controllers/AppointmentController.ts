@@ -317,6 +317,35 @@ export class AppointmentController {
   };
 
   /**
+   * Get date overrides for a shop (public — used by the customer booking calendar
+   * so closed/holiday dates can be greyed out before a date is selected).
+   * GET /api/services/appointments/shop-date-overrides/:shopId
+   */
+  getShopDateOverrides = async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const { startDate, endDate } = req.query;
+
+      const overrides = await this.appointmentRepo.getDateOverrides(
+        shopId,
+        startDate as string | undefined,
+        endDate as string | undefined
+      );
+
+      res.json({
+        success: true,
+        data: overrides
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getShopDateOverrides controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get shop date overrides'
+      });
+    }
+  };
+
+  /**
    * Get date overrides (Shop only)
    * GET /api/services/appointments/date-overrides
    */
@@ -400,7 +429,14 @@ export class AppointmentController {
 
       const { date } = req.params;
 
-      await this.appointmentRepo.deleteDateOverride(shopId, date);
+      const deleted = await this.appointmentRepo.deleteDateOverride(shopId, date);
+
+      if (!deleted) {
+        return res.status(404).json({
+          success: false,
+          error: 'Date override not found'
+        });
+      }
 
       res.json({
         success: true,

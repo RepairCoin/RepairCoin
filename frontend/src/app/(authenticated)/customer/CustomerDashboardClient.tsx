@@ -8,6 +8,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { ReferralDashboard } from "@/components/customer/ReferralDashboard";
 import { RedemptionApprovals } from "@/components/customer/RedemptionApprovals";
 import { OverviewTab } from "@/components/customer/OverviewTab";
+import { FadeSlideIn } from "@/components/ui/motion";
 import { SettingsTab } from "@/components/customer/SettingsTab";
 import { FindShop } from "@/components/customer/FindShop";
 import { TokenGiftingTab } from "@/components/customer/TokenGiftingTab";
@@ -288,7 +289,7 @@ export default function CustomerDashboardClient() {
               </div>
             )
           ) : (
-            <>
+            <FadeSlideIn key={activeTab}>
               {activeTab === "overview" && <OverviewTab />}
 
               {/* Marketplace Tab */}
@@ -322,7 +323,7 @@ export default function CustomerDashboardClient() {
 
               {/* FAQ Tab */}
               {activeTab === "faq" && <CustomerFAQSection />}
-            </>
+            </FadeSlideIn>
           )}
         </div>
       </div>

@@ -499,6 +499,10 @@ router.post('/test/subscription-reminders/setup/:shopId',
 // Treasury management routes
 router.use('', treasuryRoutes);
 
+// Fraud & Abuse Detection — Trust & Safety review queue (Admin AI #1)
+import fraudRoutes from './fraud';
+router.use('', fraudRoutes);
+
 // Analytics routes
 router.use('/analytics', analyticsRoutes);
 

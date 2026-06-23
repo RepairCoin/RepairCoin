@@ -2,10 +2,19 @@ import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { appointmentApi } from "@/feature/services/services/service.services";
 import {
-  appointmentApi,
   CustomerNoShowStatus,
-} from "@/feature/services/services/service.services";
+  NoShowTier,
+} from "@/feature/services/services/service.interface";
+
+const TIER_LABELS: Record<NoShowTier, string> = {
+  normal: "Good Standing",
+  warning: "Warning",
+  caution: "Caution",
+  deposit_required: "Deposit Required",
+  suspended: "Suspended",
+};
 
 interface BannerConfig {
   bgColor: string;
@@ -138,6 +147,24 @@ export default function NoShowWarningBanner() {
           </View>
 
           <Text className="text-gray-400 text-xs mt-1">{config.message}</Text>
+
+          {/* Recent reduction confirmation — shows that a just-completed
+              appointment counted and lowered the restriction level (the progress
+              counter resets to 0 after each reduction, which otherwise looks like
+              "nothing happened"). */}
+          {status.recentReduction && status.tier !== "suspended" && (
+            <View className="bg-green-900/20 border border-green-700/50 rounded-lg p-2.5 mt-2.5">
+              <Text className="text-green-400 text-xs font-medium">
+                ✅ Nice work! Restrictions reduced from{" "}
+                {TIER_LABELS[status.recentReduction.previousTier]} to{" "}
+                {TIER_LABELS[status.recentReduction.newTier]}
+              </Text>
+              <Text className="text-gray-400 text-[10px] mt-0.5">
+                Complete 3 more successful appointments to reduce them further.
+              </Text>
+            </View>
+          )}
+
           {config.showRestrictions && status.restrictions.length > 0 && (
             <View className="mt-2">
               {status.restrictions.map((restriction, index) => (
@@ -150,13 +177,17 @@ export default function NoShowWarningBanner() {
               ))}
             </View>
           )}
-          {status.tier === "deposit_required" && (
+          {(status.tier === "deposit_required" ||
+            status.tier === "caution" ||
+            status.tier === "warning") && (
             <View className="bg-white/5 rounded-lg p-2.5 mt-2.5">
               <Text className="text-green-400 text-xs font-medium">
-                Complete 3 successful appointments to remove restrictions
+                Complete 3 successful appointments to move to a lower restriction
+                level. Each level down needs a fresh 3.
               </Text>
               <Text className="text-gray-500 text-[10px] mt-0.5">
-                Progress: {status.successfulAppointmentsSinceTier3} / 3
+                Progress toward your next reduction:{" "}
+                {status.successfulAppointmentsSinceTier3} / 3
               </Text>
             </View>
           )}

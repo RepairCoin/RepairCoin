@@ -12,6 +12,7 @@ import AdminsTab from "@/components/admin/tabs/AdminsTab";
 import { CustomersTabEnhanced } from "@/components/admin/tabs/CustomersTabEnhanced";
 import { ShopsManagementTab } from "@/components/admin/tabs/ShopsManagementTab";
 import { AdvancedTreasuryTab } from "@/components/admin/tabs/AdvancedTreasuryTab";
+import { AdminFraudTab } from "@/components/admin/tabs/AdminFraudTab";
 import { AnalyticsTab } from "@/components/admin/tabs/AnalyticsTab";
 import SubscriptionManagementTab from "@/components/admin/tabs/SubscriptionManagementTab";
 import PromoCodesAnalyticsTab from "@/components/admin/tabs/PromoCodesAnalyticsTab";
@@ -364,6 +365,12 @@ export default function AdminDashboardClient() {
           {activeTab === "treasury" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "treasury"}>
                 <AdvancedTreasuryTab />
+              </LazyTabWrapper>
+            )}
+
+          {activeTab === "fraud" && hasAdminAccess && (
+              <LazyTabWrapper isActive={activeTab === "fraud"}>
+                <AdminFraudTab />
               </LazyTabWrapper>
             )}
 

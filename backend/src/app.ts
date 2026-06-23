@@ -894,6 +894,19 @@ class RepairCoinApp {
         }, 5 * 60 * 1000); // 5 minutes
         logger.info('📊 Platform statistics refresh scheduled (every 5 minutes)');
 
+        // Fraud & Abuse Detection — nightly scan over the ledger + reviews.
+        // Surfaces suspicious patterns into fraud_findings for admin review.
+        // See docs/FRAUD_DETECTION_SPEC.md.
+        setInterval(async () => {
+          try {
+            const { getFraudScanService } = await import('./services/FraudScanService');
+            await getFraudScanService().runScan();
+          } catch (error) {
+            logger.error('Fraud scan error:', error);
+          }
+        }, 24 * 60 * 60 * 1000); // daily
+        logger.info('🛡️ Fraud detection scan scheduled (daily)');
+
         // Start error monitoring
         monitorErrors();
         logger.info(`🚨 Error monitoring started`);

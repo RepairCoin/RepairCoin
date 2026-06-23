@@ -54,6 +54,12 @@ services:
         value: "0x761E5E59485ec6feb263320f5d636042bD9EBc8c,0x3D2bd8836dFf844987e85BEB103c21613C7964A8,0x44a541d8d0bda1f1e381aa4ce82010eec2d9644e,0x7db8b2758d10101310b1aDd18125AddE0d2a2C15"
       - key: ENABLE_SWAGGER
         value: "true"
+      # Database-only mode — blockchain minting/burning disabled in production.
+      # See docs/blockchain-removal/. NOTE: the authoritative value is the env var
+      # in the DigitalOcean dashboard; set it there too if this spec isn't the
+      # live deploy source.
+      - key: ENABLE_BLOCKCHAIN_MINTING
+        value: "false"
 databases:
   - name: repaircoin-db
     engine: PG

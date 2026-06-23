@@ -71,8 +71,13 @@ export class AppointmentService {
       }
 
       // Check for date overrides (holidays, closures)
+      // The query is already filtered to exactly `date` (override_date BETWEEN
+      // date AND date) and UNIQUE(shop_id, override_date) guarantees at most one
+      // row. We must NOT compare `o.overrideDate === date`: node-postgres returns
+      // the DATE column as a Date object, so === against the `date` string never
+      // matches and the closure below was silently skipped.
       const overrides = await this.appointmentRepo.getDateOverrides(shopId, date, date);
-      const dateOverride = overrides.find(o => o.overrideDate === date);
+      const dateOverride = overrides[0];
 
       if (dateOverride && dateOverride.isClosed) {
         logger.info('Date has closure override', { date, reason: dateOverride.reason });

@@ -79,16 +79,20 @@ export class RCGTokenReader {
     // the result.) Decoupled as part of the reversible blockchain removal so
     // admin RCG metrics work in DB-only mode. See
     // docs/blockchain-removal/IMPLEMENTATION_STATUS.md.
+    // Note: circulatingSupply and holders here are placeholders. The real,
+    // DB-derived values (sum of shop RCG balances / count of holders) are
+    // computed in RCGService.getRCGMetrics() and override these. stakedAmount
+    // is 0 because staking is a blockchain feature disabled in DB-only mode.
     return {
       totalSupply: this.TOTAL_SUPPLY,
-      circulatingSupply: this.PUBLIC_SALE_ALLOCATION, // Simplified for now
+      circulatingSupply: this.PUBLIC_SALE_ALLOCATION, // superseded by DB value in RCGService
       teamAllocation: this.TEAM_ALLOCATION,
       investorAllocation: this.INVESTOR_ALLOCATION,
       publicSaleAllocation: this.PUBLIC_SALE_ALLOCATION,
       daoTreasuryAllocation: this.DAO_TREASURY_ALLOCATION,
       stakingRewardsAllocation: this.STAKING_REWARDS_ALLOCATION,
-      holders: 0, // Would need to track this separately
-      stakedAmount: '0' // Would come from staking contract
+      holders: 0, // superseded by DB value in RCGService
+      stakedAmount: '0' // staking disabled in DB-only mode
     };
   }
 

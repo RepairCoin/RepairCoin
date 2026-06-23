@@ -55,6 +55,27 @@ export function useDateOverridesQuery(startDate?: string, endDate?: string) {
   });
 }
 
+// Customer-facing: a specific shop's date overrides, for greying out closed
+// dates in the booking calendar.
+export function useShopDateOverridesQuery(
+  shopId: string,
+  startDate?: string,
+  endDate?: string
+) {
+  return useQuery({
+    queryKey: ["shopDateOverrides", shopId, startDate, endDate],
+    queryFn: async () => {
+      return (await appointmentApi.getShopDateOverrides(
+        shopId,
+        startDate,
+        endDate
+      )) as DateOverride[];
+    },
+    enabled: !!shopId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useShopCalendarQuery(startDate: string, endDate: string) {
   return useQuery({
     queryKey: queryKeys.shopCalendar(startDate, endDate),

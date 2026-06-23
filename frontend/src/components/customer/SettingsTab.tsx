@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useCustomer } from "@/hooks/useCustomer";
 import { customerApi, uploadProfileImage } from "@/services/api/customer";
+import { FormSkeleton } from "@/components/ui/skeleton";
 import toast from "react-hot-toast";
 import {
   Mail,
@@ -238,11 +239,7 @@ export function SettingsTab() {
 
   // Only show loading on initial load, not when switching tabs
   if (isLoading && !customerData) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-16 w-16 border-4 border-yellow-400 border-t-transparent"></div>
-      </div>
-    );
+    return <FormSkeleton fields={6} />;
   }
 
   return (
