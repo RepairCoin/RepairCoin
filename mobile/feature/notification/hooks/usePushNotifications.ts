@@ -7,6 +7,7 @@ import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { usePaymentStore } from "@/feature/services/payment/store/payment.store";
+import { useNotificationUiStore } from "@/shared/store/notification-ui.store";
 import { notificationApi } from "@/feature/notification/services/notification.services";
 import {
   PushNotificationState,
@@ -29,13 +30,40 @@ function pushDisabledKey(address?: string | null): string {
 }
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data as NotificationData;
+    const isForeground = AppState.currentState === "active";
+    const activeConversationId =
+      useNotificationUiStore.getState().activeConversationId;
+
+    // If we're already inside the exact conversation this message belongs to,
+    // the chat screen polls and renders it live — so suppress the redundant OS
+    // banner/sound. Pushes for other conversations (or any other type, or while
+    // backgrounded) still show normally.
+    const viewingThisConversation =
+      isForeground &&
+      data?.type === "new_message" &&
+      !!data?.conversationId &&
+      data.conversationId === activeConversationId;
+
+    if (viewingThisConversation) {
+      return {
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      };
+    }
+
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    };
+  },
 });
 
 export function usePushNotifications() {

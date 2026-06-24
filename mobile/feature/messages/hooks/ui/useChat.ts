@@ -4,6 +4,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { useFocusEffect } from "expo-router";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { useNotificationUiStore } from "@/shared/store/notification-ui.store";
 import { Message, Conversation, MessageAttachment } from "../../types";
 import { MESSAGE_POLL_INTERVAL } from "@/shared/constants/messaging";
 import { AttachmentFile } from "../../components/MessageInput";
@@ -18,6 +19,9 @@ export function useChat() {
   const [messageText, setMessageText] = useState("");
   const flatListRef = useRef<FlatList>(null);
   const { userType } = useAuthStore();
+  const setActiveConversationId = useNotificationUiStore(
+    (state) => state.setActiveConversationId
+  );
 
   const isCustomer = userType === "customer";
 
@@ -60,7 +64,15 @@ export function useChat() {
       hasMarkedRead.current = false;
       fetchConversation();
       fetchMessages();
-    }, [fetchConversation, fetchMessages])
+
+      // Mark this conversation as on-screen so the push handler suppresses the
+      // redundant OS banner for messages we're already viewing. Cleared on blur
+      // (navigate away / back / app backgrounded).
+      if (conversationId) {
+        setActiveConversationId(conversationId);
+      }
+      return () => setActiveConversationId(null);
+    }, [conversationId, fetchConversation, fetchMessages, setActiveConversationId])
   );
 
   // Poll for new messages
