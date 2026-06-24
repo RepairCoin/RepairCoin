@@ -159,15 +159,15 @@ export const MessagesLayout: React.FC<MessagesLayoutProps> = ({
     <div className="h-full flex bg-[#0A0A0A]">
       {/* Side-by-side layout. Customer: 1024px+. Shop: 1280px+. */}
       <div className={sideBySideClass}>
-        <div className="w-96 flex-shrink-0">{inbox}</div>
-        <div className="flex-1">{desktopMain}</div>
+        <div className="w-96 flex-shrink-0 min-h-0">{inbox}</div>
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col">{desktopMain}</div>
       </div>
 
       {/* Single-pane layout (toggle between inbox and thread). Customer:
           <1024px. Shop: <1280px. The back-to-inbox button is rendered
           inline inside ConversationThread's header (see its onBack prop)
           — no overlay needed here. */}
-      <div className={singlePaneClass}>
+      <div className={`${singlePaneClass} min-h-0 flex flex-col`}>
         {showMobileThread && thread ? thread : inbox}
       </div>
     </div>
