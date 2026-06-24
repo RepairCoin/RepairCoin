@@ -1396,7 +1396,16 @@ export default function ShopDashboardClient() {
             </div>
           )}
 
+          {isMessagesFullHeight && shopData && (
+            <SubscriptionGuard shopData={shopData} showOverlay={false}>
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                <MessagesTab shopId={shopData.shopId} compact />
+              </div>
+            </SubscriptionGuard>
+          )}
+
           {/* Tab Content — keyed wrapper so each tab fades + slides in on switch */}
+          {!isMessagesFullHeight && (
           <FadeSlideIn key={activeTab}>
           {/* Optional brand-setup nudge for skippers (operational + kit not set up). */}
           {activeTab === "overview" &&
@@ -1482,7 +1491,7 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
           {activeTab === "messages" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
+            <SubscriptionGuard shopData={shopData} showOverlay={false}>
               {isMessagesFullHeight ? (
                 <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                   <MessagesTab shopId={shopData.shopId} compact />
@@ -1645,6 +1654,7 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
           </FadeSlideIn>
+          )}
 
           {/* Payment Modal (crypto/Thirdweb path; blockchain-only) */}
           {showPayment && currentPurchaseId && blockchainEnabled && (
