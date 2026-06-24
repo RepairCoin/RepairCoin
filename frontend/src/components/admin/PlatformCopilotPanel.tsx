@@ -17,9 +17,9 @@ import { InsightsToolCallCard } from "@/components/shop/insights/InsightsToolCal
  */
 const STARTERS: readonly string[] = [
   "Give me a platform overview",
-  "RCN issued vs redeemed this month",
-  "How healthy are shop subscriptions?",
-  "Show the RCG tier distribution",
+  "Which shops are at risk of churning?",
+  "Top shops by revenue this month",
+  "How many new signups in the last 30 days?",
 ] as const;
 
 type Turn =
