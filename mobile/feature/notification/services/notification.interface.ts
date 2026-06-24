@@ -59,7 +59,8 @@ export type NotificationType =
   | 'reschedule_request_rejected'
   | 'subscription_expiring'
   | 'subscription_expired'
-  | 'subscription_renewed';
+  | 'subscription_renewed'
+  | 'new_message';
 
 // Base notification data
 export interface NotificationData {

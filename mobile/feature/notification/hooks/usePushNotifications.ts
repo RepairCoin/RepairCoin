@@ -15,7 +15,18 @@ import {
 
 // Persists the user's explicit "Turn off notifications" choice so the app does
 // NOT silently re-register the push token on the next launch / re-login.
-const PUSH_DISABLED_KEY = "push_notifications_disabled";
+//
+// Scoped PER WALLET. AsyncStorage is device-global, so a single shared key let
+// one account's "off" choice suppress registration for the NEXT account that
+// logs in on the same device — leaving the previous user's token active and
+// still receiving pushes. Keying by wallet keeps each account's choice isolated.
+const PUSH_DISABLED_PREFIX = "push_notifications_disabled";
+
+function pushDisabledKey(address?: string | null): string {
+  return address
+    ? `${PUSH_DISABLED_PREFIX}:${address.toLowerCase()}`
+    : PUSH_DISABLED_PREFIX;
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -36,17 +47,26 @@ export function usePushNotifications() {
     error: null,
   });
 
-  const { isAuthenticated, accessToken, userType, isDemo } = useAuthStore();
+  const { isAuthenticated, accessToken, userType, isDemo, account, userProfile } =
+    useAuthStore();
+
+  const walletAddress: string | null =
+    userProfile?.walletAddress || userProfile?.address || account?.address || null;
 
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
   const isRegistering = useRef(false);
   const userTypeRef = useRef(userType);
+  const walletAddressRef = useRef(walletAddress);
   const lastHandledResponseId = useRef<string | null>(null);
 
   useEffect(() => {
     userTypeRef.current = userType;
   }, [userType]);
+
+  useEffect(() => {
+    walletAddressRef.current = walletAddress;
+  }, [walletAddress]);
 
   const setupAndroidChannels = useCallback(async () => {
     if (Platform.OS !== "android") return;
@@ -146,7 +166,7 @@ export function usePushNotifications() {
           });
 
           // Successfully registered → clear any prior "turned off" choice.
-          await AsyncStorage.removeItem(PUSH_DISABLED_KEY);
+          await AsyncStorage.removeItem(pushDisabledKey(walletAddressRef.current));
 
           setState({
             expoPushToken,
@@ -249,13 +269,22 @@ export function usePushNotifications() {
             ? "/(dashboard)/shop/tabs/history"
             : "/(dashboard)/customer/tabs/history";
           break;
+        case "new_booking":
+        case "service_booking_received": {
+          // Open the specific booking. New-booking notifications target the shop
+          // and carry orderId; fall back to the bookings list if it's missing.
+          const orderId = data?.orderId as string | undefined;
+          const base = isShop
+            ? "/(dashboard)/shop/booking"
+            : "/(dashboard)/customer/booking";
+          route = orderId ? `${base}/${orderId}` : base;
+          break;
+        }
         case "booking_confirmed":
         case "appointment_reminder":
         case "upcoming_appointment":
         case "service_order_completed":
         case "order_completed":
-        case "service_booking_received":
-        case "new_booking":
           route = isShop
             ? "/(dashboard)/shop/booking"
             : "/(dashboard)/customer/tabs/service/";
@@ -274,6 +303,16 @@ export function usePushNotifications() {
             ? "/(dashboard)/shop/subscription"
             : "/(dashboard)/customer/notification";
           break;
+        case "new_message": {
+          // Open the conversation directly. Fall back to the messages list if
+          // the payload is missing the conversationId for any reason.
+          const conversationId = data?.conversationId as string | undefined;
+          const base = isShop
+            ? "/(dashboard)/shop/messages"
+            : "/(dashboard)/customer/messages";
+          route = conversationId ? `${base}/${conversationId}` : base;
+          break;
+        }
         default:
           route = isShop
             ? "/(dashboard)/shop/notification"
@@ -290,8 +329,9 @@ export function usePushNotifications() {
   const unregisterPushNotifications = useCallback(async () => {
     // Remember the user's choice first, so it persists even if the backend call
     // fails — otherwise the next launch / re-login would silently re-register
-    // and turn notifications back on.
-    await AsyncStorage.setItem(PUSH_DISABLED_KEY, "true");
+    // and turn notifications back on. Scoped to this wallet so it does not
+    // suppress a different account that later logs in on the same device.
+    await AsyncStorage.setItem(pushDisabledKey(walletAddressRef.current), "true");
 
     // Deactivate ALL of this user's tokens (by wallet), not just the one in
     // local state. The current token may have rotated or be missing from state,
@@ -336,8 +376,8 @@ export function usePushNotifications() {
     if (isAuthenticated && accessToken) {
       (async () => {
         // Respect an explicit "Turn off notifications" choice — do not
-        // auto-register on launch / re-login if the user disabled push.
-        const disabled = await AsyncStorage.getItem(PUSH_DISABLED_KEY);
+        // auto-register on launch / re-login if THIS wallet disabled push.
+        const disabled = await AsyncStorage.getItem(pushDisabledKey(walletAddress));
         if (disabled === "true") {
           setState((prev) => ({
             ...prev,
@@ -355,7 +395,7 @@ export function usePushNotifications() {
         isLoading: false,
       }));
     }
-  }, [isAuthenticated, accessToken, isDemo, registerForPushNotifications]);
+  }, [isAuthenticated, accessToken, isDemo, walletAddress, registerForPushNotifications]);
 
   useEffect(() => {
     notificationListener.current =
@@ -378,8 +418,10 @@ export function usePushNotifications() {
         return;
       }
 
-      // Don't re-register on token rotation if the user turned push off.
-      const disabled = await AsyncStorage.getItem(PUSH_DISABLED_KEY);
+      // Don't re-register on token rotation if this wallet turned push off.
+      const disabled = await AsyncStorage.getItem(
+        pushDisabledKey(walletAddressRef.current)
+      );
       if (disabled === "true") {
         return;
       }
