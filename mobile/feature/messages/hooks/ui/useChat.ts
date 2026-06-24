@@ -79,6 +79,9 @@ export function useChat() {
       if (!hasMarkedRead.current) {
         hasMarkedRead.current = true;
         await messageApi.markConversationAsRead(conversationId);
+        // Tray notifications are swept by the effect below once the sender name
+        // is known (foreign FCM notifications carry no conversationId — only the
+        // title — so we can't match them here yet).
       }
     } catch (error) {
       console.error("Failed to fetch messages:", error);
@@ -168,10 +171,6 @@ export function useChat() {
       // (navigate away / back / app backgrounded).
       if (conversationId) {
         setActiveConversationId(conversationId);
-        // Clear any already-delivered tray notifications for this sender —
-        // covers landing here directly via a push tap / deep link (not just
-        // the conversation-list tap).
-        dismissConversationNotifications(conversationId);
       }
       return () => setActiveConversationId(null);
     }, [conversationId, fetchConversation, fetchMessages, setActiveConversationId])
@@ -290,6 +289,16 @@ export function useChat() {
   };
 
   const otherPartyName = isCustomer ? conversation?.shopName : conversation?.customerName;
+
+  // Sweep this conversation's delivered tray notifications once we know the
+  // sender name. Notifications delivered while the app was backgrounded are
+  // "foreign" FCM entries that expose no conversationId — only the title (the
+  // sender's name) — so the name is what lets us clear the siblings the user
+  // didn't tap. Re-runs if the name resolves late or the conversation changes.
+  useEffect(() => {
+    if (!conversationId || !otherPartyName) return;
+    dismissConversationNotifications(conversationId, { titleMatch: otherPartyName });
+  }, [conversationId, otherPartyName]);
 
   return {
     conversationId,

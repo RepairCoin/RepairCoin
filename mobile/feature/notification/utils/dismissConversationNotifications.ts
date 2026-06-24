@@ -3,19 +3,36 @@ import * as Notifications from "expo-notifications";
 type PushData = {
   type?: string;
   conversationId?: string;
+  // Backend stamps `new_message:<conversationId>` (PushNotificationDispatcher).
+  tag?: string;
+  // Android system extras present on FOREIGN notifications (ones FCM displayed
+  // itself while the app was backgrounded/killed). For those, our custom data
+  // payload is NOT exposed — only these Android keys are. The title equals the
+  // sender's display name, which is our only per-conversation signal there.
+  "android.title"?: string;
+};
+
+type DismissOptions = {
+  // Sender display name = the conversation's other party. Used to match foreign
+  // FCM notifications by their `android.title`, since they carry no conversationId.
+  titleMatch?: string;
 };
 
 /**
- * Dismiss any delivered OS notifications for a conversation's new messages.
+ * Dismiss delivered OS notifications for a conversation's new messages.
  *
- * Called when the user opens / reads a thread so the notification tray doesn't
- * keep stale "new message" entries for a sender they've already caught up on.
- * New-message pushes carry data { type: 'new_message', conversationId } (see
- * backend PushNotificationDispatcher.sendNewMessageNotification), so we match
- * on that and dismiss every delivered notification for this conversation.
+ * Two delivery shapes have to be handled:
+ *  1. Expo-managed (received while the app was foregrounded): carries our data
+ *     { type: 'new_message', conversationId, tag } — matched precisely.
+ *  2. Foreign FCM (displayed by the system while backgrounded/killed): exposes
+ *     NO custom data, only Android extras. We fall back to matching the title
+ *     against the sender's name (titleMatch). Caveat: if two conversations have
+ *     the same sender display name, both clear — acceptable for "I just read
+ *     this sender's thread".
  */
 export async function dismissConversationNotifications(
-  conversationId: string
+  conversationId: string,
+  options?: DismissOptions
 ): Promise<void> {
   if (!conversationId) return;
 
@@ -24,9 +41,22 @@ export async function dismissConversationNotifications(
 
     const toDismiss = presented.filter((n) => {
       const data = n.request.content.data as PushData;
-      return (
-        data?.type === "new_message" && data?.conversationId === conversationId
-      );
+
+      // 1. Expo-managed notification carrying our payload.
+      if (data?.type === "new_message") {
+        const matchesId =
+          String(data?.conversationId ?? "") === String(conversationId);
+        const matchesTag = data?.tag === `new_message:${conversationId}`;
+        if (matchesId || matchesTag) return true;
+      }
+
+      // 2. Foreign FCM notification — match the sender name via android.title.
+      const title = data?.["android.title"];
+      if (options?.titleMatch && title && String(title) === options.titleMatch) {
+        return true;
+      }
+
+      return false;
     });
 
     await Promise.all(
