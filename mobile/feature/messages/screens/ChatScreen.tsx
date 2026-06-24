@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useChat } from "../hooks";
 import { useUnlockSession } from "../hooks/useUnlockSession";
 import { useAppToast } from "@/shared/hooks";
+import { useEndBootWhenReady } from "@/shared/hooks/useEndBootWhenReady";
 import {
   ChatHeader,
   DateDivider,
@@ -34,6 +35,10 @@ export default function ChatScreen() {
     scrollToEnd,
     refetchConversation,
   } = useChat();
+
+  // Lift the cold-start boot splash once the conversation has loaded — this is
+  // the screen a "new_message" push deep-links to.
+  useEndBootWhenReady(!isLoading);
 
   const { showSuccess, showError } = useAppToast();
   const unlockSession = useUnlockSession();

@@ -1,6 +1,12 @@
 import { router } from "expo-router";
 import apiClient from "@/shared/utilities/axios";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { useBootStore } from "@/shared/store/boot.store";
+
+// Static, no-data destinations lift the boot splash immediately (there's no
+// screen data to wait for). Data-backed home screens lift it themselves once
+// loaded, via useEndBootWhenReady.
+const endBoot = () => useBootStore.getState().endBoot();
 
 export const useSplashNavigation = () => {
   const { 
@@ -20,6 +26,7 @@ export const useSplashNavigation = () => {
 
     if (!isAuthenticated || !userProfile?.address || !accessToken || !account) {
       router.replace("/connect");
+      endBoot();
       return;
     }
 
@@ -38,6 +45,7 @@ export const useSplashNavigation = () => {
         isActive === false;
       if (isSuspended) {
         router.replace("/register/customer-suspended");
+        endBoot();
       } else {
         router.replace("/customer/tabs/home");
       }
@@ -54,9 +62,11 @@ export const useSplashNavigation = () => {
         router.replace(
           isSuspended ? "/register/suspended" : "/register/pending",
         );
+        endBoot();
       }
     } else {
       router.replace("/connect");
+      endBoot();
     }
   };
 
