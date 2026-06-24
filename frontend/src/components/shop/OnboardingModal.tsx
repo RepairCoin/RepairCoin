@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Info, ExternalLink, CreditCard, Shield, AlertCircle, X } from 'lucide-react';
 import { RCGPurchaseModal } from './RCGPurchaseModal';
 import { useBlockchainEnabled } from '@/contexts/AppConfigContext';
+import { SUBSCRIPTION_PLANS } from '@/config/subscriptionPlans';
 import Link from 'next/link';
 
 interface OnboardingModalProps {
@@ -30,6 +31,7 @@ export function OnboardingModal({ shopData, open, onClose }: OnboardingModalProp
   const rcgBalance = shopData.rcg_balance || 0;
   const hasEnoughRCG = rcgBalance >= 10000;
   const hasSubscription = shopData.operational_status === 'subscription_qualified';
+  const lowestPlanPrice = Math.min(...SUBSCRIPTION_PLANS.map((p) => p.price));
 
   return (
     <>
@@ -44,11 +46,14 @@ export function OnboardingModal({ shopData, open, onClose }: OnboardingModalProp
           
           <div className="space-y-4">
             <p className="text-amber-100">
-              To operate as a RepairCoin partner shop and purchase RCN tokens, you must meet one of the following requirements:
+              {blockchainEnabled
+                ? 'To operate as a RepairCoin partner shop and purchase RCN tokens, you must meet one of the following requirements:'
+                : 'To operate as a RepairCoin partner shop and purchase RCN tokens, you must have an active subscription:'}
             </p>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className={`grid gap-4 ${blockchainEnabled ? 'md:grid-cols-2' : ''}`}>
               {/* RCG Option */}
+              {blockchainEnabled && (
               <div className={`bg-black/30 rounded-lg p-4 border ${hasEnoughRCG ? 'border-green-600' : 'border-gray-700'}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-2">
@@ -96,6 +101,7 @@ export function OnboardingModal({ shopData, open, onClose }: OnboardingModalProp
                   </Button>
                 )}
               </div>
+              )}
 
               {/* Monthly Subscription Option */}
               <div className={`bg-black/30 rounded-lg p-4 border ${hasSubscription ? 'border-green-600' : 'border-gray-700'}`}>
@@ -111,7 +117,7 @@ export function OnboardingModal({ shopData, open, onClose }: OnboardingModalProp
                   )}
                 </div>
                 <p className="text-sm text-gray-300 mb-3">
-                  Pay $500/month to operate without RCG tokens. Cancel anytime.
+                  Choose a monthly plan starting at ${lowestPlanPrice}/month to operate your shop. Cancel anytime.
                 </p>
                 <div className="space-y-1 mb-3 text-sm text-gray-400">
                   <div>• Monthly payment plan</div>
@@ -137,7 +143,7 @@ export function OnboardingModal({ shopData, open, onClose }: OnboardingModalProp
             <Alert className="bg-red-900/20 border-red-600/50">
               <Info className="h-4 w-4" />
               <AlertDescription className="text-red-200">
-                <strong>Important:</strong> You cannot purchase RCN tokens or issue rewards to customers until you meet one of these requirements.
+                <strong>Important:</strong> You cannot purchase RCN tokens or issue rewards to customers until you {blockchainEnabled ? 'meet one of these requirements' : 'have an active subscription'}.
               </AlertDescription>
             </Alert>
 

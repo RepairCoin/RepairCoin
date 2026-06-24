@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { BaseRepository } from '../repositories/BaseRepository';
 import { eventBus } from '../events/EventBus';
 import { ShopSubscriptionRepository } from '../repositories/ShopSubscriptionRepository';
+import { DEFAULT_TIER, getMonthlyAmountForPriceId, getPlanByTier, resolveCheckoutPriceId, SubscriptionTier } from '../config/subscriptionPlans';
 
 export interface SubscriptionData {
   id: number;
@@ -43,7 +44,7 @@ export class SubscriptionService extends BaseRepository {
   /**
    * Create a new subscription for a shop
    */
-  async createSubscription(shopId: string, email: string, name: string, paymentMethodId?: string): Promise<{
+  async createSubscription(shopId: string, email: string, name: string, paymentMethodId?: string, tier: SubscriptionTier = DEFAULT_TIER): Promise<{
     subscription: SubscriptionData;
     clientSecret?: string;
   }> {
@@ -114,8 +115,7 @@ export class SubscriptionService extends BaseRepository {
       customer = this.mapCustomerRow(customerResult.rows[0]);
     }
 
-    // Get price ID from environment
-    const priceId = process.env.STRIPE_MONTHLY_PRICE_ID!;
+    const priceId = resolveCheckoutPriceId(tier);
 
     // Create Stripe subscription BEFORE acquiring connection
     const stripeSubscription = await this.stripeService.createSubscription({
@@ -192,7 +192,8 @@ export class SubscriptionService extends BaseRepository {
         shopId,
         stripeSubscription.id,
         stripeSubscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
-        new Date(currentPeriodEnd * 1000)
+        new Date(currentPeriodEnd * 1000),
+        priceId
       );
 
       // Publish event
@@ -813,6 +814,112 @@ export class SubscriptionService extends BaseRepository {
       await client.query('ROLLBACK');
       logger.error('Failed to cancel subscription', {
         shopId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Change the tier of a shop's active subscription.
+   * Upgrades take effect immediately and invoice the prorated difference now.
+   * Downgrades apply at the next renewal (no refund for the current cycle).
+   */
+  async changeSubscriptionTier(shopId: string, newTier: SubscriptionTier): Promise<{
+    subscription: SubscriptionData;
+    isUpgrade: boolean;
+    newTier: SubscriptionTier;
+    newAmount: number;
+    previousAmount: number;
+  }> {
+    const subscription = await this.getActiveSubscription(shopId);
+    if (!subscription) {
+      throw new Error('No active subscription found');
+    }
+
+    const newPriceId = resolveCheckoutPriceId(newTier);
+    if (newPriceId === subscription.stripePriceId) {
+      throw new Error('Shop is already subscribed to this plan');
+    }
+
+    const previousAmount = getMonthlyAmountForPriceId(subscription.stripePriceId);
+    const newAmount = getPlanByTier(newTier).amount;
+    const isUpgrade = newAmount > previousAmount;
+
+    // Update price in Stripe BEFORE acquiring a connection
+    const updatedStripeSubscription = await this.stripeService.changeSubscriptionPrice(
+      subscription.stripeSubscriptionId,
+      newPriceId,
+      isUpgrade
+    );
+
+    // Derive the current period end (location varies by Stripe API version)
+    let currentPeriodEnd = (updatedStripeSubscription as any).current_period_end
+      || (updatedStripeSubscription.items?.data?.[0] as any)?.current_period_end;
+    const periodEnd = currentPeriodEnd
+      ? new Date(currentPeriodEnd * 1000)
+      : subscription.currentPeriodEnd;
+
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const updateResult = await client.query(
+        `UPDATE stripe_subscriptions
+         SET stripe_price_id = $1, current_period_end = $2, updated_at = CURRENT_TIMESTAMP
+         WHERE stripe_subscription_id = $3
+         RETURNING *`,
+        [newPriceId, periodEnd, subscription.stripeSubscriptionId]
+      );
+
+      await client.query('COMMIT');
+
+      // Sync shop_subscriptions (monthly_amount + subscription_type) with the new price
+      const shopSubRepo = new ShopSubscriptionRepository();
+      await shopSubRepo.syncFromStripeSubscription(
+        shopId,
+        subscription.stripeSubscriptionId,
+        updatedStripeSubscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
+        periodEnd,
+        newPriceId
+      );
+
+      const updatedSubscription = this.mapSubscriptionRow(updateResult.rows[0]);
+
+      eventBus.publish({
+        type: 'subscription.tier_changed',
+        aggregateId: shopId,
+        timestamp: new Date(),
+        source: 'SubscriptionService',
+        version: 1,
+        data: {
+          subscriptionId: subscription.stripeSubscriptionId,
+          newTier,
+          newPriceId,
+          isUpgrade,
+          previousAmount,
+          newAmount
+        }
+      });
+
+      logger.info('Subscription tier changed successfully', {
+        shopId,
+        subscriptionId: subscription.stripeSubscriptionId,
+        newTier,
+        isUpgrade,
+        previousAmount,
+        newAmount
+      });
+
+      return { subscription: updatedSubscription, isUpgrade, newTier, newAmount, previousAmount };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to change subscription tier', {
+        shopId,
+        newTier,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       throw error;

@@ -22,6 +22,11 @@ import Link from "next/link";
 import apiClient from "@/services/api/client";
 import { CountryPhoneInput } from "../ui/CountryPhoneInput";
 import { useNotificationStore } from "@/stores/notificationStore";
+import {
+  DEFAULT_TIER,
+  SubscriptionTier,
+  SUBSCRIPTION_PLANS,
+} from "@/config/subscriptionPlans";
 
 interface Subscription {
   id?: number;
@@ -29,6 +34,8 @@ interface Subscription {
   status: "pending" | "active" | "cancelled" | "paused" | "defaulted";
   monthlyAmount: number;
   subscriptionType: string;
+  tier?: SubscriptionTier;
+  planLabel?: string;
   billingMethod?: "credit_card" | "ach" | "wire" | "crypto";
   billingReference?: string;
   paymentsMade: number;
@@ -69,9 +76,11 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
+  const [showChangePlanModal, setShowChangePlanModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [reactivating, setReactivating] = useState(false);
+  const [changingPlanTier, setChangingPlanTier] = useState<SubscriptionTier | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -231,6 +240,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
         billingEmail: billingForm.billingEmail,
         billingContact: billingForm.billingContact,
         billingPhone: billingForm.billingPhone,
+        tier: subscription?.tier ?? DEFAULT_TIER,
         notes: "Monthly subscription enrollment",
       });
 
@@ -310,6 +320,36 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
       );
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleChangePlan = async (tier: SubscriptionTier) => {
+    try {
+      setChangingPlanTier(tier);
+      setError(null);
+
+      const result = await apiClient.post("/shops/subscription/change-plan", {
+        tier,
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to change plan");
+      }
+
+      setShowChangePlanModal(false);
+      setSuccessMessage(
+        result.data.message || "Your subscription plan has been updated."
+      );
+      setTimeout(() => setSuccessMessage(null), 10000);
+
+      await loadSubscriptionStatus();
+    } catch (error) {
+      console.error("Error changing plan:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to change plan"
+      );
+    } finally {
+      setChangingPlanTier(null);
     }
   };
 
@@ -518,16 +558,25 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                 </div>
               ) : (
                 <div>
-                  <Button
-                    onClick={() => setShowCancelModal(true)}
-                    variant="destructive"
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors
-  font-medium flex items-center justify-center gap-2"
-                  >
-                    Cancel Subscription
-                  </Button>
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      onClick={() => setShowChangePlanModal(true)}
+                      className="px-4 py-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-medium rounded-lg transition-colors"
+                    >
+                      Change Plan
+                    </Button>
+                    <Button
+                      onClick={() => setShowCancelModal(true)}
+                      variant="destructive"
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2"
+                    >
+                      Cancel Subscription
+                    </Button>
+                  </div>
                   <p className="text-sm text-gray-400 mt-2">
-                    You can cancel anytime and resubscribe when needed.
+                    Upgrades start right away — you're only charged the prorated
+                    difference. Downgrades take effect at your next renewal, with
+                    no refund for the current month.
                   </p>
                 </div>
               )}
@@ -960,7 +1009,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
               No Active Subscription
             </h4>
             <p className="text-gray-400 mb-6">
-              Subscribe for $500/month to operate without RCG tokens
+              Choose a plan to operate without RCG tokens
             </p>
 
             <div className="space-y-3 mb-6">
@@ -1025,7 +1074,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">Subscribe to Monthly Plan</DialogTitle>
             <DialogDescription className="pt-2 text-gray-400">
-              Subscribe for $500/month to operate your shop without RCG tokens.
+              Subscribe to operate your shop without RCG tokens.
             </DialogDescription>
           </DialogHeader>
 
@@ -1180,7 +1229,10 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
-                  <span>You'll be charged $500 on your next billing date</span>
+                  <span>
+                    You'll be charged ${subscription?.monthlyAmount ?? 500} on
+                    your next billing date
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
@@ -1221,6 +1273,94 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
               className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-semibold disabled:opacity-50"
             >
               {reactivating ? "Reactivating..." : "Confirm Reactivation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Plan Modal */}
+      <Dialog open={showChangePlanModal} onOpenChange={setShowChangePlanModal}>
+        <DialogContent className="sm:max-w-lg bg-[#1A1A1A] border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white">
+              Change Your Plan
+            </DialogTitle>
+            <DialogDescription className="pt-2 text-gray-400">
+              Upgrades apply immediately and the prorated difference is charged
+              today. Downgrades take effect at your next renewal with no refund
+              for the current cycle.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {SUBSCRIPTION_PLANS.map((plan) => {
+              const currentAmount = subscription?.monthlyAmount ?? 0;
+              const isCurrent =
+                plan.tier === subscription?.tier &&
+                plan.price === currentAmount;
+              const isUpgrade = plan.price > currentAmount;
+              const isBusy = changingPlanTier !== null;
+
+              return (
+                <div
+                  key={plan.tier}
+                  className={`rounded-xl border p-4 ${
+                    isCurrent
+                      ? "border-green-600 bg-green-900/10"
+                      : "border-gray-700 bg-gray-900/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-white">
+                        {plan.label}{" "}
+                        <span className="text-gray-400 font-normal">
+                          · ${plan.price}/mo
+                        </span>
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {isCurrent
+                          ? "Your current plan"
+                          : isUpgrade
+                          ? "Upgrade · charged today (prorated)"
+                          : "Downgrade · effective next renewal"}
+                      </p>
+                    </div>
+                    {isCurrent ? (
+                      <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium whitespace-nowrap">
+                        Current
+                      </span>
+                    ) : (
+                      <Button
+                        onClick={() => handleChangePlan(plan.tier)}
+                        disabled={isBusy}
+                        className={`whitespace-nowrap font-medium disabled:opacity-50 ${
+                          isUpgrade
+                            ? "bg-[#FFCC00] hover:bg-[#FFD700] text-black"
+                            : "bg-gray-700 hover:bg-gray-600 text-white"
+                        }`}
+                      >
+                        {changingPlanTier === plan.tier
+                          ? "Updating..."
+                          : isUpgrade
+                          ? "Upgrade"
+                          : "Downgrade"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowChangePlanModal(false)}
+              disabled={changingPlanTier !== null}
+              className="bg-gray-700 hover:bg-gray-600 text-white border-gray-600"
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

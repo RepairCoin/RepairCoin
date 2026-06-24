@@ -12,6 +12,7 @@ import { NotificationService } from '../../notification/services/NotificationSer
 import { EmailService } from '../../../services/EmailService';
 import { generalNotificationPreferencesRepository } from '../../../repositories/GeneralNotificationPreferencesRepository';
 import { shopRepository } from '../../../repositories';
+import { getPlanByPriceId } from '../../../config/subscriptionPlans';
 import Stripe from 'stripe';
 
 const router = Router();
@@ -1251,7 +1252,8 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
           shopId,
           subscription.id,
           subscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
-          new Date(periodEndTs * 1000)
+          new Date(periodEndTs * 1000),
+          subscription.items?.data?.[0]?.price?.id
         );
       }
     }
@@ -1540,15 +1542,19 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
           const shopSubRepo = new ShopSubscriptionRepository();
           const currentPeriodEnd = periodEndDate;
 
+          const plan = getPlanByPriceId(subscription.items.data[0]?.price.id);
+          const monthlyAmount = plan?.amount ?? 500;
+          const subscriptionType = plan?.tier ?? 'standard';
+
           await shopSubRepo.createSubscription({
             shopId: shopId,
             status: 'active',
-            monthlyAmount: 500,
-            subscriptionType: 'standard',
+            monthlyAmount,
+            subscriptionType,
             billingMethod: 'credit_card',
             billingReference: subscription.id,
             paymentsMade: 1,
-            totalPaid: 500,
+            totalPaid: monthlyAmount,
             nextPaymentDate: currentPeriodEnd,
             lastPaymentDate: new Date(),
             activatedAt: new Date(),

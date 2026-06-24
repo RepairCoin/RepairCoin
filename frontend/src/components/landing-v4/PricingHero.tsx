@@ -2,15 +2,24 @@
 
 import React from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { m, useReducedMotion } from "framer-motion";
 import { Check, Sparkles } from "lucide-react";
 import { useModalStore } from "@/stores/modalStore";
+import { useAuthStore } from "@/stores/authStore";
+import {
+  SUBSCRIBE_TIER_STORAGE_KEY,
+  SubscriptionTier,
+  SUBSCRIPTION_PLANS,
+  getPlanByTier,
+} from "@/config/subscriptionPlans";
 import Badge from "./Badge";
 
 interface Plan {
   name: string;
   description: string;
   price: string;
+  tier: SubscriptionTier;
   popular?: boolean;
   robot: string;
   includesLabel: string;
@@ -19,72 +28,58 @@ interface Plan {
   aiDescription: string;
 }
 
-const plans: Plan[] = [
-  {
-    name: "Starter AI",
+// Pricing-page-only presentational data, keyed by tier. Plan labels, prices,
+// features and includesLabel come from the shared subscriptionPlans config.
+const planExtras: Record<
+  SubscriptionTier,
+  { description: string; robot: string; aiValue: string; aiDescription: string }
+> = {
+  starter: {
     description: "Perfect for solo operators and new businesses.",
-    price: "$80",
     robot: "/img/landingv4/pricing-robot-starter.png",
-    includesLabel: "Includes",
-    features: [
-      "Online Booking & Scheduling",
-      "CRM & Customer Management",
-      "Review Management",
-      "AI Assistant (Basic)",
-      "Branding Studio (Basic)",
-      "Email & SMS Marketing (SMS)",
-      "Mobile App",
-      "Basic Reports",
-    ],
     aiValue: "$10/month value",
     aiDescription: "Basic AI features and limited usage.",
   },
-  {
-    name: "Growth AI",
+  growth: {
     description: "Everything you need to grow & scale.",
-    price: "$299",
-    popular: true,
     robot: "/img/landingv4/pricing-robot-growth.png",
-    includesLabel: "Includes everything in Starter, plus:",
-    features: [
-      "AI Marketing Suite",
-      "AI Image & Content Generator",
-      "AI Lead Follow-Up (Email & SMS)",
-      "AI Insights & Business Intelligence",
-      "Inventory Management",
-      "Voice AI Assistant",
-      "Campaign Builder",
-      "Advanced Reports & Analytics",
-      "Priority Email Support",
-    ],
     aiValue: "$30/month value",
     aiDescription: "More AI power for marketing, content, leads and insights.",
   },
-  {
-    name: "Business AI",
+  business: {
     description: "Advanced solutions for growing operations.",
-    price: "$599",
     robot: "/img/landingv4/pricing-robot-business.png",
-    includesLabel: "Includes everything in Growth, plus:",
-    features: [
-      "Multi-location Management",
-      "Advanced AI Memory & Automation",
-      "Team Management & Permissions",
-      "AI Auto-Replies (Voice & Text)",
-      "AI Campaigns (Advanced)",
-      "Customer Workflows",
-      "Advanced Inventory Intelligence",
-      "Dedicated Account Manager",
-      "Priority Phone & Chat Support",
-    ],
     aiValue: "$75/month value",
     aiDescription: "Maximum AI power for automation, insights and growth.",
   },
-];
+};
+
+const plans: Plan[] = SUBSCRIPTION_PLANS.map((plan) => ({
+  name: plan.label,
+  price: `$${plan.price}`,
+  tier: plan.tier,
+  popular: plan.popular,
+  includesLabel: plan.includesLabel,
+  features: getPlanByTier(plan.tier).features,
+  ...planExtras[plan.tier],
+}));
 
 export default function PricingHero() {
   const prefersReducedMotion = useReducedMotion();
+  const router = useRouter();
   const { openWelcomeModal } = useModalStore();
+  const { isShop, userProfile } = useAuthStore();
+
+  const handleSelectPlan = (tier: SubscriptionTier) => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(SUBSCRIBE_TIER_STORAGE_KEY, tier);
+    }
+    if (isShop && userProfile?.shopId) {
+      router.push(`/shop/subscription-form?tier=${tier}`);
+    } else {
+      openWelcomeModal();
+    }
+  };
 
   const fadeUp = (delay: number) => ({
     initial: prefersReducedMotion ? undefined : { opacity: 0, y: 24 },
@@ -186,10 +181,10 @@ export default function PricingHero() {
 
                 {/* CTA */}
                 <button
-                  onClick={openWelcomeModal}
+                  onClick={() => handleSelectPlan(plan.tier)}
                   className="mt-5 w-full bg-[#F7CC00] hover:bg-[#e0b900] text-black font-semibold py-3 rounded-lg transition-colors duration-200"
                 >
-                  Start Free Trial
+                  Subscribe
                 </button>
                 <p className="mt-3 pb-5 text-center text-gray-400 text-xs border-b border-gray-200">
                   14 days Free. No Credit Card.
