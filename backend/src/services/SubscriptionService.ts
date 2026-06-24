@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 import { BaseRepository } from '../repositories/BaseRepository';
 import { eventBus } from '../events/EventBus';
 import { ShopSubscriptionRepository } from '../repositories/ShopSubscriptionRepository';
-import { DEFAULT_TIER, getMonthlyAmountForPriceId, getPlanByTier, resolveCheckoutPriceId, SubscriptionTier } from '../config/subscriptionPlans';
+import { DEFAULT_TIER, getMonthlyAmountForPriceId, getPlanByTier, resolveCheckoutPriceId, SubscriptionTier, TRIAL_PERIOD_DAYS, isValidTier } from '../config/subscriptionPlans';
 
 export interface SubscriptionData {
   id: number;
@@ -230,6 +230,95 @@ export class SubscriptionService extends BaseRepository {
     } catch (error) {
       await client.query('ROLLBACK');
       logger.error('Failed to create subscription', {
+        shopId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Start a DB-only free trial for a shop. No Stripe involvement — the shop is marked
+   * operational for TRIAL_PERIOD_DAYS. One trial per shop (enforced via shops.trial_used_at).
+   */
+  async startTrial(shopId: string, tier: SubscriptionTier = DEFAULT_TIER): Promise<{
+    trialEndsAt: Date;
+    tier: SubscriptionTier;
+  }> {
+    const selectedTier = isValidTier(tier) ? tier : DEFAULT_TIER;
+
+    // Already has an active Stripe subscription?
+    const existingStripe = await this.getActiveSubscription(shopId);
+    if (existingStripe) {
+      throw new Error('Shop already has an active subscription');
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const shopRes = await client.query(
+        'SELECT trial_used_at, operational_status FROM shops WHERE shop_id = $1 FOR UPDATE',
+        [shopId]
+      );
+      if (shopRes.rows.length === 0) {
+        throw new Error('Shop not found');
+      }
+      if (shopRes.rows[0].trial_used_at) {
+        throw new Error('Free trial has already been used for this shop');
+      }
+
+      // Block if there is an active/paused shop_subscriptions record already
+      const activeSubRes = await client.query(
+        `SELECT 1 FROM shop_subscriptions
+         WHERE shop_id = $1 AND is_active = true AND status IN ('active', 'paused')
+         LIMIT 1`,
+        [shopId]
+      );
+      if (activeSubRes.rows.length > 0) {
+        throw new Error('Shop already has an active subscription');
+      }
+
+      const now = new Date();
+      const trialEndsAt = new Date(now.getTime() + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+
+      await client.query(
+        `INSERT INTO shop_subscriptions (
+           shop_id, status, monthly_amount, subscription_type,
+           payments_made, total_paid, current_period_start, current_period_end,
+           next_payment_date, is_active, enrolled_at, activated_at, notes
+         ) VALUES ($1, 'active', 0, 'trial', 0, 0, $2, $3, $4, true, NOW(), NOW(), $5)`,
+        [shopId, now, trialEndsAt, trialEndsAt, `Free trial (${selectedTier})`]
+      );
+
+      await client.query(
+        `UPDATE shops
+         SET operational_status = 'subscription_qualified',
+             trial_used_at = NOW(),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE shop_id = $1`,
+        [shopId]
+      );
+
+      await client.query('COMMIT');
+
+      eventBus.publish({
+        type: 'subscription.trial_started',
+        aggregateId: shopId,
+        timestamp: new Date(),
+        source: 'SubscriptionService',
+        version: 1,
+        data: { tier: selectedTier, trialEndsAt: trialEndsAt.toISOString() }
+      });
+
+      logger.info('Free trial started', { shopId, tier: selectedTier, trialEndsAt });
+
+      return { trialEndsAt, tier: selectedTier };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to start free trial', {
         shopId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });

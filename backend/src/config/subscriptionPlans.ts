@@ -17,6 +17,8 @@ export const DEFAULT_TIER: SubscriptionTier = 'business';
 
 export const LEGACY_MONTHLY_AMOUNT = 500;
 
+export const TRIAL_PERIOD_DAYS = 14;
+
 export function isValidTier(value: unknown): value is SubscriptionTier {
   return value === 'starter' || value === 'growth' || value === 'business';
 }

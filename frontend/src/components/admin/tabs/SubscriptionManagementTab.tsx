@@ -98,6 +98,7 @@ export default function SubscriptionManagementTab() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showChangePlanModal, setShowChangePlanModal] = useState(false);
   const [changePlanTier, setChangePlanTier] = useState<SubscriptionTier | null>(null);
+  const [showEndTrialModal, setShowEndTrialModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
 
@@ -319,6 +320,27 @@ export default function SubscriptionManagementTab() {
       toast.error(errorMessage);
     } finally {
       setChangePlanTier(null);
+    }
+  };
+
+  const handleEndTrial = async () => {
+    if (!selectedSubscription) return;
+
+    try {
+      setActionLoading(true);
+      const response = await apiClient.post(
+        `/admin/subscription/subscriptions/${selectedSubscription.id}/end-trial`
+      );
+      setShowEndTrialModal(false);
+      setSelectedSubscription(null);
+      toast.success(response.message || "Free trial ended");
+      await loadSubscriptions(true);
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.error || error?.message || "Failed to end trial"
+      );
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -628,7 +650,21 @@ export default function SubscriptionManagementTab() {
             </button>
           )}
 
-          {sub.status === "active" && (
+          {sub.status === "active" && sub.subscriptionType === "trial" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedSubscription(sub);
+                setShowEndTrialModal(true);
+              }}
+              className="p-1 md:p-1.5 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-colors"
+              title="End Trial"
+            >
+              <Clock className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            </button>
+          )}
+
+          {sub.status === "active" && sub.subscriptionType !== "trial" && (
             <>
               <button
                 onClick={(e) => {
@@ -1088,7 +1124,68 @@ export default function SubscriptionManagementTab() {
         </div>
       )}
 
-      {/* Pause Modal */}
+      {/* End Trial Modal */}
+      {showEndTrialModal && selectedSubscription && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md">
+            <div
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            >
+              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+                End Free Trial
+              </p>
+              <button
+                onClick={() => setShowEndTrialModal(false)}
+                disabled={actionLoading}
+                className="p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-900" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <p className="text-gray-300 mb-4">
+                End the free trial for{" "}
+                <span className="text-white font-semibold">
+                  {selectedSubscription.shopName || selectedSubscription.shopId}
+                </span>
+                ?
+              </p>
+              <div className="bg-orange-900/30 border border-orange-700 rounded-lg p-4">
+                <ul className="space-y-1 text-sm text-orange-300">
+                  <li>• Immediately ends trial access</li>
+                  <li>• Shop loses operational access until it subscribes</li>
+                  <li>• No charge — trials have no billing</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => setShowEndTrialModal(false)}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-gray-700 text-white rounded-3xl hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEndTrial}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-orange-600 text-white rounded-3xl hover:bg-orange-700 transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? "Ending..." : "End Trial"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Plan Modal */}
       {showChangePlanModal && selectedSubscription && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-lg">

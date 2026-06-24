@@ -47,7 +47,45 @@ export default function SubscriptionForm() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loadingShopData, setLoadingShopData] = useState(false);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>(DEFAULT_TIER);
+  const [trialEligible, setTrialEligible] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
   const dataLoadedRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    apiClient
+      .get("/shops/subscription/trial-eligibility")
+      .then((res) => {
+        if (active) setTrialEligible(!!res?.data?.eligible);
+      })
+      .catch(() => {
+        if (active) setTrialEligible(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleStartTrial = async () => {
+    try {
+      setStartingTrial(true);
+      setError(null);
+      const result = await apiClient.post("/shops/subscription/start-trial", {
+        tier: selectedTier,
+      });
+      if (!result.success) {
+        throw new Error(result.error || "Failed to start free trial");
+      }
+      setSuccessMessage(
+        result.data.message || "Your free trial has started. No credit card required."
+      );
+      setTimeout(() => router.push("/shop?tab=subscription"), 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start free trial");
+    } finally {
+      setStartingTrial(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -259,6 +297,29 @@ export default function SubscriptionForm() {
                 ))}
               </ul>
             </div>
+
+            {/* Free Trial CTA */}
+            {trialEligible && (
+              <div className="bg-blue-900/20 border border-blue-600/50 rounded-2xl p-6">
+                <p className="text-white font-semibold mb-1">
+                  Not ready to pay? Try it free for 14 days.
+                </p>
+                <p className="text-sm text-gray-400 mb-4">
+                  Full access, no credit card required. Subscribe anytime to
+                  keep your shop running after the trial.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleStartTrial}
+                  disabled={startingTrial}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {startingTrial
+                    ? "Starting your free trial..."
+                    : "Start 14-Day Free Trial"}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Right Side - Form Section */}

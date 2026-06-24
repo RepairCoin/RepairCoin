@@ -1562,6 +1562,15 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
             notes: `Created via Stripe webhook on checkout.session.completed | Stripe Sub ID: ${subscription.id} | Customer ID: ${stripeCustomerId}`
           });
 
+          // Retire any active free-trial row now that the shop has converted to paid
+          await DatabaseService.getInstance().query(
+            `UPDATE shop_subscriptions
+             SET status = 'cancelled', is_active = false, cancelled_at = NOW(),
+                 cancellation_reason = 'Converted to paid subscription', updated_at = CURRENT_TIMESTAMP
+             WHERE shop_id = $1 AND subscription_type = 'trial' AND is_active = true`,
+            [shopId]
+          );
+
           logger.info('Shop subscription record created from webhook', {
             shopId,
             subscriptionId: subscription.id,

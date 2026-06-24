@@ -1222,6 +1222,64 @@ router.post('/subscriptions/:subscriptionId/change-plan', async (req: Request, r
   }
 });
 
+// End a DB-only free trial (no Stripe involved)
+router.post('/subscriptions/:subscriptionId/end-trial', async (req: Request, res: Response) => {
+  try {
+    const { subscriptionId } = req.params;
+
+    const subQuery = await db.query(
+      'SELECT id, shop_id, subscription_type, status FROM shop_subscriptions WHERE id = $1',
+      [subscriptionId]
+    );
+
+    if (subQuery.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Subscription not found' });
+    }
+
+    const sub = subQuery.rows[0];
+    if (sub.subscription_type !== 'trial') {
+      return res.status(400).json({ success: false, error: 'This subscription is not a free trial' });
+    }
+    if (sub.status !== 'active') {
+      return res.status(400).json({ success: false, error: 'Trial is not active' });
+    }
+
+    const shopId = sub.shop_id;
+
+    await db.query(
+      `UPDATE shop_subscriptions
+       SET status = 'cancelled', is_active = false, cancelled_at = NOW(),
+           cancellation_reason = 'Trial ended by admin', updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [subscriptionId]
+    );
+
+    const shopRes = await db.query(
+      'SELECT rcg_balance, operational_status FROM shops WHERE shop_id = $1',
+      [shopId]
+    );
+    const rcgBalance = shopRes.rows[0]?.rcg_balance || 0;
+    const opStatus = shopRes.rows[0]?.operational_status;
+    if (opStatus !== 'paused') {
+      const newStatus = rcgBalance >= 10000 ? 'rcg_qualified' : 'not_qualified';
+      await db.query(
+        'UPDATE shops SET operational_status = $1, updated_at = NOW() WHERE shop_id = $2',
+        [newStatus, shopId]
+      );
+    }
+
+    logger.info('Admin ended free trial', { subscriptionId, shopId });
+
+    res.json({ success: true, message: 'Free trial ended' });
+  } catch (error) {
+    logger.error('Error ending trial:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to end trial'
+    });
+  }
+});
+
 // ============================================
 // Subscription Enforcement Endpoints
 // ============================================

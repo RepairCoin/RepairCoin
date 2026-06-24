@@ -7,7 +7,7 @@ import { DatabaseService } from '../../../services/DatabaseService';
 import { shopRepository } from '../../../repositories';
 import { eventBus } from '../../../events/EventBus';
 import { EmailService } from '../../../services/EmailService';
-import { DEFAULT_TIER, getMonthlyAmountForPriceId, getPlanByPriceId, isValidTier, resolveCheckoutPriceId } from '../../../config/subscriptionPlans';
+import { DEFAULT_TIER, getMonthlyAmountForPriceId, getPlanByPriceId, isValidTier, resolveCheckoutPriceId, TRIAL_PERIOD_DAYS } from '../../../config/subscriptionPlans';
 
 const router = Router();
 
@@ -71,6 +71,15 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
 
     if (shopSubQuery.rows.length > 0) {
       const shopSub = shopSubQuery.rows[0];
+
+      // An ended/cancelled free trial was never a paid subscription — report it as
+      // "no subscription" so the shop sees "Subscribe", not "Resubscribe".
+      if (shopSub.subscription_type === 'trial' && shopSub.status !== 'active') {
+        return res.json({
+          success: true,
+          data: { currentSubscription: null, hasActiveSubscription: false }
+        });
+      }
 
       // If subscription is paused or cancelled, check if there's a newer active Stripe subscription first
       // This handles resubscription where the shop paid again but shop_subscriptions hasn't been updated yet
@@ -179,6 +188,34 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
                 pauseReason: shopSub.pause_reason,
               },
               hasActiveSubscription: false
+            }
+          });
+        }
+      }
+
+      // DB-only free trial has no Stripe subscription to look up — return it here
+      if (shopSub.status === 'active' && shopSub.subscription_type === 'trial') {
+        const trialEndRaw = shopSub.next_payment_date || shopSub.current_period_end;
+        const trialActive = trialEndRaw ? new Date(trialEndRaw) >= new Date() : true;
+        if (trialActive) {
+          const trialEndIso = trialEndRaw ? new Date(trialEndRaw).toISOString() : null;
+          return res.json({
+            success: true,
+            data: {
+              currentSubscription: {
+                id: shopSub.id,
+                shopId: shopSub.shop_id,
+                status: 'active',
+                monthlyAmount: 0,
+                subscriptionType: 'trial',
+                isActive: true,
+                enrolledAt: shopSub.enrolled_at,
+                activatedAt: shopSub.activated_at,
+                nextPaymentDate: trialEndIso,
+                currentPeriodEnd: trialEndIso,
+                cancelAtPeriodEnd: false
+              },
+              hasActiveSubscription: true
             }
           });
         }
@@ -809,6 +846,120 @@ router.post('/subscription/change-plan', async (req: Request, res: Response) => 
     return res.status(status).json({
       success: false,
       error: status === 400 ? message : 'Failed to change subscription plan. Please try again later.'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/shops/subscription/trial-eligibility:
+ *   get:
+ *     summary: Whether the shop can start a free trial
+ *     tags: [Shop Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/subscription/trial-eligibility', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    if (!shopId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    const db = DatabaseService.getInstance();
+    const shopRes = await db.query('SELECT trial_used_at FROM shops WHERE shop_id = $1', [shopId]);
+    const trialUsed = !!shopRes.rows[0]?.trial_used_at;
+
+    const subscriptionService = getSubscriptionService();
+    const activeStripe = await subscriptionService.getActiveSubscription(shopId);
+
+    const activeShopSub = await db.query(
+      `SELECT 1 FROM shop_subscriptions
+       WHERE shop_id = $1 AND is_active = true AND status IN ('active', 'paused') LIMIT 1`,
+      [shopId]
+    );
+
+    const hasActiveSubscription = !!activeStripe || activeShopSub.rows.length > 0;
+
+    return res.json({
+      success: true,
+      data: {
+        eligible: !trialUsed && !hasActiveSubscription,
+        trialUsed,
+        hasActiveSubscription,
+        trialPeriodDays: TRIAL_PERIOD_DAYS
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to check trial eligibility', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      shopId: req.user?.shopId
+    });
+    return res.status(500).json({ success: false, error: 'Failed to check trial eligibility' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/shops/subscription/start-trial:
+ *   post:
+ *     summary: Start a DB-only free trial (no credit card)
+ *     tags: [Shop Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tier:
+ *                 type: string
+ *                 enum: [starter, growth, business]
+ */
+router.post('/subscription/start-trial', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { tier } = req.body;
+
+    if (!shopId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    const selectedTier = tier === undefined ? DEFAULT_TIER : tier;
+    if (!isValidTier(selectedTier)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid subscription tier. Must be one of: starter, growth, business'
+      });
+    }
+
+    const subscriptionService = getSubscriptionService();
+    const result = await subscriptionService.startTrial(shopId, selectedTier);
+
+    return res.json({
+      success: true,
+      data: {
+        message: `Your ${TRIAL_PERIOD_DAYS}-day free trial has started. No credit card required.`,
+        tier: result.tier,
+        trialEndsAt: result.trialEndsAt.toISOString(),
+        trialPeriodDays: TRIAL_PERIOD_DAYS
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to start free trial';
+    logger.error('Failed to start free trial', { error: message, shopId: req.user?.shopId });
+
+    const clientErrors = [
+      'Shop already has an active subscription',
+      'Free trial has already been used for this shop',
+      'Shop not found'
+    ];
+    const status = clientErrors.includes(message) ? 400 : 500;
+
+    return res.status(status).json({
+      success: false,
+      error: status === 400 ? message : 'Failed to start free trial. Please try again later.'
     });
   }
 });

@@ -89,10 +89,14 @@ export class SubscriptionEnforcementService extends BaseRepository {
     cancelled: number;
     synced: number;
     errors: number;
+    trialsExpired: number;
   }> {
-    const stats = { checked: 0, warned: 0, cancelled: 0, synced: 0, errors: 0 };
+    const stats = { checked: 0, warned: 0, cancelled: 0, synced: 0, errors: 0, trialsExpired: 0 };
 
     try {
+      // Expire DB-only free trials that have ended
+      stats.trialsExpired = await this.expireEndedTrials();
+
       // Get all overdue subscriptions
       const overdueSubscriptions = await this.getOverdueSubscriptions();
       stats.checked = overdueSubscriptions.length;
@@ -135,6 +139,77 @@ export class SubscriptionEnforcementService extends BaseRepository {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       throw error;
+    }
+  }
+
+  /**
+   * Expire DB-only free trials whose period has ended. Trials carry no Stripe
+   * subscription, so this just retires the row and drops the shop's operational
+   * status (unless it has since converted to a paid plan or is admin-paused).
+   */
+  async expireEndedTrials(): Promise<number> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const ended = await client.query(`
+        SELECT id, shop_id FROM shop_subscriptions
+        WHERE subscription_type = 'trial'
+          AND status = 'active'
+          AND is_active = true
+          AND current_period_end < NOW()
+      `);
+
+      let expired = 0;
+      for (const row of ended.rows) {
+        const shopId = row.shop_id;
+
+        const paid = await client.query(`
+          SELECT 1 FROM shop_subscriptions
+          WHERE shop_id = $1 AND id <> $2 AND is_active = true
+            AND status IN ('active', 'past_due', 'unpaid')
+            AND subscription_type <> 'trial'
+          LIMIT 1
+        `, [shopId, row.id]);
+
+        await client.query(`
+          UPDATE shop_subscriptions
+          SET status = 'cancelled', is_active = false, cancelled_at = NOW(),
+              cancellation_reason = 'Free trial ended', updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+        `, [row.id]);
+
+        if (paid.rows.length === 0) {
+          const shopRes = await client.query(
+            'SELECT rcg_balance, operational_status FROM shops WHERE shop_id = $1',
+            [shopId]
+          );
+          const rcgBalance = shopRes.rows[0]?.rcg_balance || 0;
+          const opStatus = shopRes.rows[0]?.operational_status;
+          if (opStatus !== 'paused') {
+            const newStatus = rcgBalance >= 10000 ? 'rcg_qualified' : 'not_qualified';
+            await client.query(
+              'UPDATE shops SET operational_status = $1, updated_at = NOW() WHERE shop_id = $2',
+              [newStatus, shopId]
+            );
+          }
+        }
+        expired++;
+      }
+
+      await client.query('COMMIT');
+      if (expired > 0) {
+        logger.info('Expired ended free trials', { count: expired });
+      }
+      return expired;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to expire ended trials', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return 0;
+    } finally {
+      client.release();
     }
   }
 
