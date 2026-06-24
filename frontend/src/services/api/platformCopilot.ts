@@ -19,6 +19,22 @@ export const PLATFORM_COPILOT_LIMITS = {
   maxContentChars: 4000,
 } as const;
 
+export interface ExecutiveBriefing {
+  generatedAt: string;
+  briefing: string;
+  data: Record<string, unknown>;
+}
+
+export async function getExecutiveBriefing(
+  refresh = false
+): Promise<ExecutiveBriefing | null> {
+  const res = await apiClient.get<{ data?: ExecutiveBriefing }>(
+    "/admin/ai/briefing",
+    { params: refresh ? { refresh: "true" } : {} }
+  );
+  return res.data ?? null;
+}
+
 export async function askPlatformCopilot(
   sessionId: string,
   messages: InsightsMessage[]

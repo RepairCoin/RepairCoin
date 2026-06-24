@@ -1,11 +1,13 @@
 "use client";
 
 import React, { KeyboardEvent, useRef, useState, useEffect } from "react";
-import { Loader2, Send, AlertCircle, Sparkles } from "lucide-react";
+import { Loader2, Send, AlertCircle, Sparkles, RefreshCw, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import {
   askPlatformCopilot,
+  getExecutiveBriefing,
   PLATFORM_COPILOT_LIMITS,
+  type ExecutiveBriefing,
 } from "@/services/api/platformCopilot";
 import type { InsightsMessage, InsightsToolCall } from "@/services/api/aiInsights";
 import { InsightsToolCallCard } from "@/components/shop/insights/InsightsToolCallCard";
@@ -37,6 +39,25 @@ export const PlatformCopilotPanel: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+
+  // Daily executive briefing (cached server-side; one AI call/day).
+  const [briefing, setBriefing] = useState<ExecutiveBriefing | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(true);
+
+  const loadBriefing = async (refresh = false) => {
+    setBriefingLoading(true);
+    try {
+      setBriefing(await getExecutiveBriefing(refresh));
+    } catch {
+      setBriefing(null);
+    } finally {
+      setBriefingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBriefing(false);
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -90,6 +111,40 @@ export const PlatformCopilotPanel: React.FC = () => {
         <Sparkles className="w-5 h-5 text-[#FFCC00]" />
         <h2 className="text-xl font-bold text-white">Platform Copilot</h2>
         <span className="text-xs text-gray-500">Ask about the whole platform</span>
+      </div>
+
+      {/* Daily executive briefing */}
+      <div className="mb-3 rounded-xl border border-gray-800 bg-[#161616] p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-[#FFCC00]" />
+            <span className="text-sm font-semibold text-white">Today&apos;s Briefing</span>
+            {briefing && (
+              <span className="text-[10px] text-gray-500">
+                {new Date(briefing.generatedAt).toLocaleString()}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => loadBriefing(true)}
+            disabled={briefingLoading}
+            className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
+            title="Regenerate briefing"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${briefingLoading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+        {briefingLoading ? (
+          <div className="flex items-center gap-2 text-gray-500 text-xs py-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Generating briefing…
+          </div>
+        ) : briefing ? (
+          <div className="text-sm text-gray-300 prose-sm leading-relaxed [&_strong]:text-white [&_ul]:list-disc [&_ul]:ml-5 [&_li]:my-0.5">
+            <ReactMarkdown>{briefing.briefing}</ReactMarkdown>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">Briefing unavailable right now.</p>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto pr-1 space-y-3" aria-live="polite">

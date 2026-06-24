@@ -508,6 +508,19 @@ import { makePlatformCopilotController } from '../../AIAgentDomain/controllers/P
 const platformCopilot = makePlatformCopilotController();
 router.post('/ai/platform-copilot', (req, res) => { void platformCopilot.ask(req, res); });
 
+// Daily Executive Briefing (Platform Copilot Phase 3) — cached once/day.
+import { getExecutiveBriefing } from '../../AIAgentDomain/services/platform/executiveBriefing';
+router.get('/ai/briefing', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const briefing = await getExecutiveBriefing(force);
+    res.json({ success: true, data: briefing });
+  } catch (error) {
+    logger.error('Error generating executive briefing:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate briefing' });
+  }
+});
+
 // Analytics routes
 router.use('/analytics', analyticsRoutes);
 
