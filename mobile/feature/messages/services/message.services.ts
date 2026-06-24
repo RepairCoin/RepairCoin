@@ -72,11 +72,12 @@ class MessageApi {
   async getMessages(
     conversationId: string,
     page: number = 1,
-    limit: number = 50
+    limit: number = 50,
+    sort: "asc" | "desc" = "asc"
   ): Promise<GetMessagesResponse> {
     try {
       return await apiClient.get<GetMessagesResponse>(
-        `/messages/conversations/${conversationId}/messages?page=${page}&limit=${limit}`
+        `/messages/conversations/${conversationId}/messages?page=${page}&limit=${limit}&sort=${sort}`
       );
     } catch (error) {
       console.error("Failed to get messages:", error);

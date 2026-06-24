@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useChat } from "../hooks";
+import { useChat, useConversationPresence } from "../hooks";
 import { useUnlockSession } from "../hooks/useUnlockSession";
 import { useAppToast } from "@/shared/hooks";
 import { useEndBootWhenReady } from "@/shared/hooks/useEndBootWhenReady";
@@ -21,9 +21,12 @@ import { messageApi } from "../services/message.services";
 
 export default function ChatScreen() {
   const {
+    conversationId,
     messages,
     conversation,
     isLoading,
+    isLoadingMore,
+    hasMore,
     isSending,
     messageText,
     setMessageText,
@@ -32,9 +35,15 @@ export default function ChatScreen() {
     otherPartyName,
     handleSend,
     handleGoBack,
-    scrollToEnd,
+    loadMore,
+    handleContentSizeChange,
     refetchConversation,
   } = useChat();
+
+  // Tell the backend we're viewing this thread (over the shared WebSocket) so it
+  // suppresses push + email notifications for messages that land while we're
+  // looking. Mirrors the web chat's conversation:open/close presence signals.
+  useConversationPresence(conversationId);
 
   // Lift the cold-start boot splash once the conversation has loaded — this is
   // the screen a "new_message" push deep-links to.
@@ -196,7 +205,29 @@ export default function ChatScreen() {
             paddingVertical: 16,
           }}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={scrollToEnd}
+          onContentSizeChange={handleContentSizeChange}
+          // Load older messages when the user scrolls near the top. loadMore
+          // self-guards against overlap, so calling it repeatedly is safe.
+          onScroll={(e) => {
+            if (
+              e.nativeEvent.contentOffset.y <= 60 &&
+              hasMore &&
+              !isLoadingMore
+            ) {
+              loadMore();
+            }
+          }}
+          scrollEventThrottle={16}
+          // Keep the viewport anchored when older messages are prepended so the
+          // list doesn't jump while loading more.
+          maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+          ListHeaderComponent={
+            isLoadingMore ? (
+              <View className="py-3 items-center">
+                <ActivityIndicator size="small" color="#FFCC00" />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={EmptyChat}
           ListFooterComponent={null}
         />

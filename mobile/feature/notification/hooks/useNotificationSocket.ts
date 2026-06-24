@@ -68,6 +68,19 @@ export function useNotificationSocket(options: UseNotificationSocketOptions = {}
 
   const { isAuthenticated, isDemo } = useAuthStore();
 
+  // Send a frame on the shared socket (e.g. conversation:open/close presence).
+  // No-op if the socket isn't open yet — callers re-send on reconnect.
+  const send = useCallback((message: { type: string; payload?: any }): boolean => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    try {
+      ws.send(JSON.stringify(message));
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const clearTimers = useCallback(() => {
     if (heartbeatIntervalRef.current) {
       clearInterval(heartbeatIntervalRef.current);
@@ -267,5 +280,5 @@ export function useNotificationSocket(options: UseNotificationSocketOptions = {}
     return () => sub.remove();
   }, [enabled, connect]);
 
-  return { isConnected };
+  return { isConnected, send };
 }

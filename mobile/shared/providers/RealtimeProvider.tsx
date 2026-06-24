@@ -16,10 +16,13 @@ import { Notification } from "@/feature/notification/services/notification.inter
 
 interface RealtimeContextType {
   isConnected: boolean;
+  /** Send a frame on the shared socket. No-op (returns false) if not open. */
+  send: (message: { type: string; payload?: any }) => boolean;
 }
 
 const RealtimeContext = createContext<RealtimeContextType>({
   isConnected: false,
+  send: () => false,
 });
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
@@ -31,13 +34,13 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     realtimeEvents.emitType(type, payload);
   }, []);
 
-  const { isConnected } = useNotificationSocket({
+  const { isConnected, send } = useNotificationSocket({
     onNotification: handleNotification,
     onMessage: handleMessage,
   });
 
   return (
-    <RealtimeContext.Provider value={{ isConnected }}>
+    <RealtimeContext.Provider value={{ isConnected, send }}>
       {children}
     </RealtimeContext.Provider>
   );
