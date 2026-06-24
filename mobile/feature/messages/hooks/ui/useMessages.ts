@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useFocusEffect, router } from "expo-router";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { realtimeEvents } from "@/shared/utilities/realtimeEvents";
 import { Conversation } from "../../types";
 
 export type MessageFilter = "active" | "resolved" | "archived";
@@ -56,6 +57,16 @@ export function useMessages() {
       setIsLoading(true);
       fetchConversations(filter, debouncedSearch);
     }
+  }, [filter, debouncedSearch, fetchConversations]);
+
+  // Realtime: a new message arrived over the shared socket (RealtimeProvider
+  // re-broadcasts `message:new`). Silently refetch the current view so the list
+  // reorders (newest activity first) and unread counts update live — no spinner.
+  // Mirrors the web inbox refreshing on `new-message-received`.
+  useEffect(() => {
+    return realtimeEvents.on("message:new", () => {
+      fetchConversations(filter, debouncedSearch);
+    });
   }, [filter, debouncedSearch, fetchConversations]);
 
   const handleRefresh = () => {

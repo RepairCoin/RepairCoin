@@ -4,6 +4,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { useFocusEffect } from "expo-router";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { realtimeEvents } from "@/shared/utilities/realtimeEvents";
 import { useNotificationUiStore } from "@/shared/store/notification-ui.store";
 import { Message, Conversation, MessageAttachment } from "../../types";
 import { MESSAGE_POLL_INTERVAL } from "@/shared/constants/messaging";
@@ -74,6 +75,19 @@ export function useChat() {
       return () => setActiveConversationId(null);
     }, [conversationId, fetchConversation, fetchMessages, setActiveConversationId])
   );
+
+  // Realtime: refetch this thread the instant a message lands in it. The shared
+  // socket broadcasts `message:new` with the target conversationId; ignore
+  // events for other conversations. The poll below stays as a fallback for when
+  // the socket is down.
+  useEffect(() => {
+    if (!conversationId) return;
+    return realtimeEvents.on("message:new", (payload) => {
+      if (payload?.conversationId === conversationId) {
+        fetchMessages();
+      }
+    });
+  }, [conversationId, fetchMessages]);
 
   // Poll for new messages
   useEffect(() => {

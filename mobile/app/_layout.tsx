@@ -13,6 +13,7 @@ import { createWallet, walletConnect } from "thirdweb/wallets";
 
 import { ErrorBoundaryProvider } from "../shared/providers/ErrorBoundaryProvider";
 import { PushNotificationProvider } from "../shared/providers/PushNotificationProvider";
+import { RealtimeProvider } from "../shared/providers/RealtimeProvider";
 import { AppBootSplash } from "../shared/components/AppBootSplash";
 import { queryClient } from "../shared/config/queryClient";
 import { client } from "../shared/constants/thirdweb";
@@ -65,6 +66,7 @@ export default function RootLayout() {
               <ThirdwebProvider>
                 <WalletAutoConnect />
                 <PushNotificationProvider>
+                  <RealtimeProvider>
                   <BottomSheetModalProvider>
                     <ToastProvider>
                       <StatusBar
@@ -87,6 +89,7 @@ export default function RootLayout() {
                       <DevTools />
                     </ToastProvider>
                   </BottomSheetModalProvider>
+                  </RealtimeProvider>
                 </PushNotificationProvider>
               </ThirdwebProvider>
             </QueryClientProvider>
