@@ -805,7 +805,7 @@ class RepairCoinApp {
         cleanupService.scheduleCleanup(24, {
           enableTransactionArchiving: false
         });
-        logger.info('🧹 Cleanup service scheduled (daily, webhook cleanup only)');
+        logger.info('🧹 Cleanup service scheduled (daily: webhook logs, refresh tokens, push tokens)');
 
         // Start appointment reminder service - runs every hour for 2h reminder accuracy
         appointmentReminderService.scheduleReminders(1);

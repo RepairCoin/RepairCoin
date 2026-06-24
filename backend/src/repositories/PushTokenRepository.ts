@@ -86,6 +86,30 @@ export class PushTokenRepository extends BaseRepository {
         appVersion || null,
       ]);
 
+      // Authoritative handoff: this physical device (identified by its Expo
+      // push token) now belongs to `normalizedAddress`. Defensively deactivate
+      // any OTHER active row carrying the same token but a different wallet, so
+      // a previous user on this device can never keep receiving pushes. The
+      // unique index on expo_push_token normally makes this a no-op, but it
+      // also reaps any legacy duplicate rows that predate that index.
+      if (expoPushToken) {
+        const reassigned = await this.pool.query(
+          `UPDATE device_push_tokens
+             SET is_active = FALSE, updated_at = NOW()
+           WHERE expo_push_token = $1
+             AND wallet_address <> $2
+             AND is_active = TRUE
+           RETURNING id`,
+          [expoPushToken, normalizedAddress]
+        );
+        if (reassigned.rowCount && reassigned.rowCount > 0) {
+          logger.info('Reassigned push token to new wallet; deactivated stale owners', {
+            walletAddress: normalizedAddress,
+            deactivated: reassigned.rowCount,
+          });
+        }
+      }
+
       logger.info('Push token registered', {
         walletAddress: normalizedAddress,
         deviceType,
@@ -305,6 +329,32 @@ export class PushTokenRepository extends BaseRepository {
     );
 
     return result.rows.map((row) => this.mapSnakeToCamel(row) as DevicePushToken);
+  }
+
+  /**
+   * Deactivate tokens that haven't been used in a long time.
+   *
+   * `last_used_at` is bumped on every successful send (see ExpoPushService /
+   * WebPushService), so a token untouched for `daysOld` days is almost certainly
+   * a dead install or an abandoned device. Marking it inactive stops the backend
+   * from pushing to it. Defense-in-depth on top of the explicit logout/handoff
+   * deactivation — does NOT replace those (it won't catch a same-day switch).
+   */
+  async deactivateStaleTokens(daysOld: number = 60): Promise<number> {
+    const result = await this.pool.query(
+      `UPDATE device_push_tokens
+       SET is_active = FALSE, updated_at = NOW()
+       WHERE is_active = TRUE
+       AND last_used_at < NOW() - INTERVAL '1 day' * $1
+       RETURNING id`,
+      [daysOld]
+    );
+
+    const count = result.rowCount || 0;
+    if (count > 0) {
+      logger.info(`Deactivated ${count} stale push tokens unused for ${daysOld}+ days`);
+    }
+    return count;
   }
 
   /**

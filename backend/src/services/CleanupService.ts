@@ -2,6 +2,7 @@
 import { logger } from '../utils/logger';
 import { WebhookLogRepository } from '../repositories/WebhookLogRepository';
 import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
+import { PushTokenRepository } from '../repositories/PushTokenRepository';
 import { getSharedPool } from '../utils/database-pool';
 
 export interface CleanupReport {
@@ -9,6 +10,8 @@ export interface CleanupReport {
   webhookLogsDeleted: number;
   transactionsArchived: number;
   refreshTokensDeleted: number;
+  pushTokensDeactivated: number;
+  pushTokensDeleted: number;
   errors: string[];
   totalDurationMs: number;
 }
@@ -19,11 +22,17 @@ export interface CleanupConfig {
   enableWebhookCleanup: boolean;
   enableTransactionArchiving: boolean;
   enableRefreshTokenCleanup: boolean;
+  enablePushTokenCleanup: boolean;
+  // Deactivate active tokens unused for this many days (staleness sweep)
+  pushTokenStaleDays: number;
+  // Hard-delete already-inactive tokens older than this many days
+  pushTokenRetentionDays: number;
 }
 
 export class CleanupService {
   private webhookLogRepository: WebhookLogRepository;
   private refreshTokenRepository: RefreshTokenRepository;
+  private pushTokenRepository: PushTokenRepository;
   private isRunning: boolean = false;
   private scheduledIntervalId: NodeJS.Timeout | null = null;
 
@@ -32,12 +41,16 @@ export class CleanupService {
     transactionArchiveDays: 365,
     enableWebhookCleanup: true,
     enableTransactionArchiving: true,
-    enableRefreshTokenCleanup: true
+    enableRefreshTokenCleanup: true,
+    enablePushTokenCleanup: true,
+    pushTokenStaleDays: 60,
+    pushTokenRetentionDays: 90
   };
 
   constructor() {
     this.webhookLogRepository = new WebhookLogRepository();
     this.refreshTokenRepository = new RefreshTokenRepository();
+    this.pushTokenRepository = new PushTokenRepository();
   }
 
   /**
@@ -54,6 +67,8 @@ export class CleanupService {
     let webhookLogsDeleted = 0;
     let transactionsArchived = 0;
     let refreshTokensDeleted = 0;
+    let pushTokensDeactivated = 0;
+    let pushTokensDeleted = 0;
 
     const finalConfig = { ...this.defaultConfig, ...config };
 
@@ -99,6 +114,23 @@ export class CleanupService {
         }
       }
 
+      // Clean up push tokens: deactivate long-unused ones, then hard-delete
+      // already-inactive ones past retention.
+      if (finalConfig.enablePushTokenCleanup) {
+        try {
+          const result = await this.cleanupPushTokens(
+            finalConfig.pushTokenStaleDays,
+            finalConfig.pushTokenRetentionDays
+          );
+          pushTokensDeactivated = result.deactivated;
+          pushTokensDeleted = result.deleted;
+        } catch (error) {
+          const errorMsg = `Push token cleanup failed: ${error.message}`;
+          logger.error(errorMsg, error);
+          errors.push(errorMsg);
+        }
+      }
+
       const totalDurationMs = Date.now() - startTime;
 
       const report: CleanupReport = {
@@ -106,6 +138,8 @@ export class CleanupService {
         webhookLogsDeleted,
         transactionsArchived,
         refreshTokensDeleted,
+        pushTokensDeactivated,
+        pushTokensDeleted,
         errors,
         totalDurationMs
       };
@@ -180,6 +214,31 @@ export class CleanupService {
     } catch (error) {
       logger.error('Error cleaning up refresh tokens:', error);
       throw new Error('Failed to cleanup refresh tokens');
+    }
+  }
+
+  /**
+   * Clean up device push tokens.
+   * 1. Deactivate active tokens unused for `staleDays` (defense-in-depth so the
+   *    backend stops pushing to abandoned devices / dead installs).
+   * 2. Hard-delete already-inactive tokens older than `retentionDays`.
+   */
+  async cleanupPushTokens(
+    staleDays: number = 60,
+    retentionDays: number = 90
+  ): Promise<{ deactivated: number; deleted: number }> {
+    try {
+      logger.info('Cleaning up push tokens', { staleDays, retentionDays });
+
+      const deactivated = await this.pushTokenRepository.deactivateStaleTokens(staleDays);
+      const deleted = await this.pushTokenRepository.cleanupInactiveTokens(retentionDays);
+
+      logger.info('Push token cleanup completed', { deactivated, deleted });
+
+      return { deactivated, deleted };
+    } catch (error) {
+      logger.error('Error cleaning up push tokens:', error);
+      throw new Error('Failed to cleanup push tokens');
     }
   }
 
@@ -395,7 +454,10 @@ export class CleanupService {
       transactionArchiveDays: 180, // More aggressive
       enableWebhookCleanup: true,
       enableTransactionArchiving: true,
-      enableRefreshTokenCleanup: true
+      enableRefreshTokenCleanup: true,
+      enablePushTokenCleanup: true,
+      pushTokenStaleDays: 30, // More aggressive
+      pushTokenRetentionDays: 45 // More aggressive
     };
 
     return await this.runCleanup(aggressiveConfig);

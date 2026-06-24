@@ -1,9 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Pressable, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
+import { realtimeEvents } from "@/shared/utilities/realtimeEvents";
 
 interface MessageButtonProps {
   userType?: "customer" | "shop";
@@ -29,6 +30,18 @@ export default function MessageButton({ userType = "customer" }: MessageButtonPr
       fetchUnreadCount();
     }, [fetchUnreadCount])
   );
+
+  // Realtime: refetch the unread count whenever a new message arrives over the
+  // shared WebSocket (RealtimeProvider re-broadcasts `message:new`). Mirrors the
+  // web MessageIcon, which refetches on the `new-message-received` event. The
+  // useFocusEffect above still covers the decrement case — returning to this
+  // screen after reading a conversation refetches and clears the badge.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    return realtimeEvents.on("message:new", () => {
+      fetchUnreadCount();
+    });
+  }, [isAuthenticated, fetchUnreadCount]);
 
   const handlePress = () => {
     const route = userType === "shop"

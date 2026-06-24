@@ -2,6 +2,7 @@ import React from "react";
 import { Image, View, Text } from "react-native";
 import { useCustomer } from "@/feature/customer/profile/hooks/useCustomer";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { useEndBootWhenReady } from "@/shared/hooks/useEndBootWhenReady";
 import { DemoBanner } from "@/shared/components/ui/DemoBanner";
 import {
   CustomerWalletTab,
@@ -16,6 +17,9 @@ export default function CustomerDashboard() {
   const { data: customerData } = useGetCustomerByWalletAddress(
     account?.address,
   );
+
+  // Lift the cold-start boot splash once this screen has its data.
+  useEndBootWhenReady(!!customerData);
 
   return (
     <View className="flex-1 bg-zinc-950">

@@ -28,11 +28,21 @@ export const useLogout = () => {
 
     try {
       setIsLoggingOut(true);
-      apiClient.clearAuthHeader();
 
-      notificationApi.deactivateAllPushTokens().catch((error) => {
-        console.error("[Logout] Error deactivating push tokens:", error);
-      });
+      // Deactivate this device's push tokens BEFORE tearing down auth. The
+      // request needs a valid JWT, so it must run before clearAuthHeader() and
+      // resetState(). We await it (racing a short timeout so a hung network
+      // never blocks logout) — otherwise a fire-and-forget call can lose its
+      // auth header to the reset below and 401, leaving the token active so the
+      // next user on this device keeps receiving this account's notifications.
+      await Promise.race([
+        notificationApi.deactivateAllPushTokens().catch((error) => {
+          console.error("[Logout] Error deactivating push tokens:", error);
+        }),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
+
+      apiClient.clearAuthHeader();
 
       // Disconnect the actual thirdweb wallet (not the store's plain
       // { address } object). This tears down the underlying WalletConnect

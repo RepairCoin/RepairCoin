@@ -1,6 +1,5 @@
 import "react-native-get-random-values";
 
-import { useEffect } from "react";
 import { StatusBar, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -14,6 +13,8 @@ import { createWallet, walletConnect } from "thirdweb/wallets";
 
 import { ErrorBoundaryProvider } from "../shared/providers/ErrorBoundaryProvider";
 import { PushNotificationProvider } from "../shared/providers/PushNotificationProvider";
+import { RealtimeProvider } from "../shared/providers/RealtimeProvider";
+import { AppBootSplash } from "../shared/components/AppBootSplash";
 import { queryClient } from "../shared/config/queryClient";
 import { client } from "../shared/constants/thirdweb";
 import DevTools from "../shared/components/ui/ReactQueryDevtools";
@@ -48,12 +49,11 @@ export default function RootLayout() {
     "Poppins-ExtraBold": require("../assets/fonts/Poppins-ExtraBold.ttf"),
   });
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
+  // The native splash is hidden by <AppBootSplash/> once that JS overlay has
+  // painted — it then keeps the branded logo on screen until the screen the
+  // user lands on has its data ready. We don't rely on the native splash icon:
+  // Android only draws it on a launcher cold start, so opening from a push
+  // showed the splash background with NO logo.
   if (!fontsLoaded) {
     return null;
   }
@@ -66,6 +66,7 @@ export default function RootLayout() {
               <ThirdwebProvider>
                 <WalletAutoConnect />
                 <PushNotificationProvider>
+                  <RealtimeProvider>
                   <BottomSheetModalProvider>
                     <ToastProvider>
                       <StatusBar
@@ -82,9 +83,13 @@ export default function RootLayout() {
                           gestureEnabled: true,
                         }}
                       />
+                      {/* Rendered after Stack so it overlays every screen
+                          during cold start until the landed screen is ready. */}
+                      <AppBootSplash />
                       <DevTools />
                     </ToastProvider>
                   </BottomSheetModalProvider>
+                  </RealtimeProvider>
                 </PushNotificationProvider>
               </ThirdwebProvider>
             </QueryClientProvider>
