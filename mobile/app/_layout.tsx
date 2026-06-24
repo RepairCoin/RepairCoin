@@ -48,6 +48,12 @@ export default function RootLayout() {
     "Poppins-ExtraBold": require("../assets/fonts/Poppins-ExtraBold.ttf"),
   });
 
+  // Hide the native splash as soon as fonts are ready, then let the JS branded
+  // splash (app/index.tsx — logo on a dark Screen) act as the loading gate
+  // until auth hydrates. We deliberately DON'T lean on the native splash icon:
+  // Android only draws it on a launcher cold start, so opening from a push
+  // showed the splash background with NO logo. The JS <Image> renders on every
+  // launch path, so the logo is always present.
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();

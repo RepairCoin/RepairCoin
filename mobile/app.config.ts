@@ -72,7 +72,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#ffffff",
+          // Brand dark, matching the in-app Screen background (bg-black). White
+          // here is what makes a cold start (esp. opening from a push) flash a
+          // blank white screen before content is ready.
+          backgroundColor: "#000000",
         },
       ],
       "expo-secure-store",
