@@ -87,6 +87,10 @@ export function usePushNotifications() {
   const userTypeRef = useRef(userType);
   const walletAddressRef = useRef(walletAddress);
   const lastHandledResponseId = useRef<string | null>(null);
+  // Holds a tap whose deep link couldn't be resolved yet because auth state
+  // (userType) hadn't hydrated — typical when a tap cold-starts a killed app.
+  // Replayed once userType is available so the redirect isn't lost.
+  const pendingResponseRef = useRef<Notifications.NotificationResponse | null>(null);
 
   useEffect(() => {
     userTypeRef.current = userType;
@@ -257,21 +261,30 @@ export function usePushNotifications() {
       if (lastHandledResponseId.current === responseId) {
         return;
       }
-      lastHandledResponseId.current = responseId;
 
-      if (AppState.currentState !== "active") {
-        return;
-      }
+      // NOTE: do not gate on AppState here. Tapping a native notification while
+      // the app is backgrounded or killed fires this listener during the
+      // foreground transition, when currentState is still "background"/
+      // "inactive" — gating on "active" silently dropped the redirect.
 
+      // Don't redirect away from an in-progress payment flow.
       if (usePaymentStore.getState().activeSession) {
+        lastHandledResponseId.current = responseId;
         return;
       }
 
       const currentUserType = userTypeRef.current;
 
       if (!currentUserType) {
+        // Auth hasn't hydrated yet (cold start from a killed app). Stash the
+        // tap and replay it once userType is available instead of dropping the
+        // deep link. Don't mark it handled yet, or the replay would dedupe out.
+        pendingResponseRef.current = response;
         return;
       }
+
+      lastHandledResponseId.current = responseId;
+      pendingResponseRef.current = null;
 
       const isShop = currentUserType === "shop";
       const notificationType = data?.type;
@@ -439,6 +452,31 @@ export function usePushNotifications() {
       responseListener.current?.remove();
     };
   }, [handleNotificationReceived, handleNotificationResponse]);
+
+  // Handle the notification that LAUNCHED the app from a killed state. The
+  // response listener above isn't guaranteed to fire for the cold-start tap, so
+  // pull it explicitly on mount. Dedupe via lastHandledResponseId prevents
+  // double-routing if the listener also delivers it.
+  useEffect(() => {
+    let isMounted = true;
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (isMounted && response) {
+        handleNotificationResponse(response);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [handleNotificationResponse]);
+
+  // Replay a tap that arrived before auth hydrated (see pendingResponseRef).
+  useEffect(() => {
+    if (userType && pendingResponseRef.current) {
+      const pending = pendingResponseRef.current;
+      pendingResponseRef.current = null;
+      handleNotificationResponse(pending);
+    }
+  }, [userType, handleNotificationResponse]);
 
   useEffect(() => {
     const subscription = Notifications.addPushTokenListener(async () => {
