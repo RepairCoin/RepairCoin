@@ -7,6 +7,7 @@ import { DatabaseService } from '../../../services/DatabaseService';
 import { logger } from '../../../utils/logger';
 import { EmailService } from '../../../services/EmailService';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
+import { isValidTier } from '../../../config/subscriptionPlans';
 
 const router = Router();
 const subscriptionService = new SubscriptionService();
@@ -1165,6 +1166,58 @@ router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, re
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to reactivate subscription'
+    });
+  }
+});
+
+// Change a subscription's plan (tier)
+router.post('/subscriptions/:subscriptionId/change-plan', async (req: Request, res: Response) => {
+  try {
+    const { subscriptionId } = req.params;
+    const { tier } = req.body;
+
+    if (!isValidTier(tier)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid subscription tier. Must be one of: starter, growth, business'
+      });
+    }
+
+    const subQuery = await db.query(
+      'SELECT shop_id FROM shop_subscriptions WHERE id = $1',
+      [subscriptionId]
+    );
+
+    if (subQuery.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subscription not found'
+      });
+    }
+
+    const shopId = subQuery.rows[0].shop_id;
+
+    logger.info('Admin changing subscription plan', { subscriptionId, shopId, tier });
+
+    const result = await subscriptionService.changeSubscriptionTier(shopId, tier);
+
+    res.json({
+      success: true,
+      message: result.isUpgrade
+        ? 'Plan upgraded. The prorated difference was charged to the shop.'
+        : 'Plan will change at the next renewal.',
+      data: result
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to change subscription plan';
+    logger.error('Error changing subscription plan:', message);
+
+    const clientErrors = ['No active subscription found', 'Shop is already subscribed to this plan'];
+    const status = clientErrors.includes(message) ? 400 : 500;
+
+    res.status(status).json({
+      success: false,
+      error: status === 400 ? message : 'Failed to change subscription plan'
     });
   }
 });

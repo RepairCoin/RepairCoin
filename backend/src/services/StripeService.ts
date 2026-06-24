@@ -166,6 +166,48 @@ export class StripeService {
   }
 
   /**
+   * Change the price (tier) of an existing subscription.
+   * Upgrades invoice the prorated difference immediately; downgrades apply the
+   * new price at the next renewal with no proration (no refund mid-cycle).
+   */
+  async changeSubscriptionPrice(
+    subscriptionId: string,
+    newPriceId: string,
+    isUpgrade: boolean
+  ): Promise<Stripe.Subscription> {
+    try {
+      const current = await this.stripe.subscriptions.retrieve(subscriptionId);
+      const itemId = current.items.data[0]?.id;
+      if (!itemId) {
+        throw new Error('Subscription has no items to update');
+      }
+
+      const subscription = await this.stripe.subscriptions.update(subscriptionId, {
+        items: [{ id: itemId, price: newPriceId }],
+        proration_behavior: isUpgrade ? 'always_invoice' : 'none',
+        payment_behavior: 'error_if_incomplete'
+      });
+
+      logger.info('Subscription price changed', {
+        subscriptionId,
+        newPriceId,
+        isUpgrade,
+        status: subscription.status
+      });
+
+      return subscription;
+    } catch (error) {
+      logger.error('Failed to change subscription price', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        subscriptionId,
+        newPriceId,
+        isUpgrade
+      });
+      throw new Error(`Failed to change subscription price: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Cancel subscription at period end
    */
   async cancelSubscription(subscriptionId: string, immediately: boolean = false): Promise<Stripe.Subscription> {

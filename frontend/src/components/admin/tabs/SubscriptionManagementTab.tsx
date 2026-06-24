@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import apiClient from "@/services/api/client";
 import { toast } from "react-hot-toast";
+import { resolvePlanLabel, SUBSCRIPTION_PLANS, SubscriptionTier } from "@/config/subscriptionPlans";
 
 interface Subscription {
   id: number;
@@ -95,6 +96,8 @@ export default function SubscriptionManagementTab() {
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showChangePlanModal, setShowChangePlanModal] = useState(false);
+  const [changePlanTier, setChangePlanTier] = useState<SubscriptionTier | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
 
@@ -294,6 +297,28 @@ export default function SubscriptionManagementTab() {
       await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleChangePlan = async (tier: SubscriptionTier) => {
+    if (!selectedSubscription) return;
+
+    try {
+      setChangePlanTier(tier);
+      const response = await apiClient.post(
+        `/admin/subscription/subscriptions/${selectedSubscription.id}/change-plan`,
+        { tier }
+      );
+      setShowChangePlanModal(false);
+      setSelectedSubscription(null);
+      toast.success(response.message || "Plan changed successfully");
+      await loadSubscriptions(true);
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.error || error?.message || "Failed to change plan";
+      toast.error(errorMessage);
+    } finally {
+      setChangePlanTier(null);
     }
   };
 
@@ -605,6 +630,17 @@ export default function SubscriptionManagementTab() {
 
           {sub.status === "active" && (
             <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedSubscription(sub);
+                  setShowChangePlanModal(true);
+                }}
+                className="p-1 md:p-1.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-lg hover:bg-yellow-500/20 transition-colors"
+                title="Change Plan"
+              >
+                <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1053,6 +1089,112 @@ export default function SubscriptionManagementTab() {
       )}
 
       {/* Pause Modal */}
+      {showChangePlanModal && selectedSubscription && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-lg">
+            <div
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            >
+              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+                Change Plan
+              </p>
+              <button
+                onClick={() => setShowChangePlanModal(false)}
+                disabled={changePlanTier !== null}
+                className="p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-900" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <p className="text-gray-300 mb-4">
+                Change plan for{" "}
+                <span className="text-white font-semibold">
+                  {selectedSubscription.shopName || selectedSubscription.shopId}
+                </span>
+                . Upgrades are charged the prorated difference today; downgrades
+                take effect at the next renewal.
+              </p>
+
+              <div className="space-y-3">
+                {SUBSCRIPTION_PLANS.map((plan) => {
+                  const currentAmount = selectedSubscription.monthlyAmount ?? 0;
+                  const isCurrent =
+                    plan.tier === selectedSubscription.subscriptionType ||
+                    plan.price === currentAmount;
+                  const isUpgrade = plan.price > currentAmount;
+                  const isBusy = changePlanTier !== null;
+
+                  return (
+                    <div
+                      key={plan.tier}
+                      className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${
+                        isCurrent
+                          ? "border-green-600 bg-green-900/10"
+                          : "border-gray-700 bg-gray-900/40"
+                      }`}
+                    >
+                      <div>
+                        <p className="font-semibold text-white">
+                          {plan.label}{" "}
+                          <span className="text-gray-400 font-normal">
+                            · ${plan.price}/mo
+                          </span>
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {isCurrent
+                            ? "Current plan"
+                            : isUpgrade
+                            ? "Upgrade · charged today (prorated)"
+                            : "Downgrade · effective next renewal"}
+                        </p>
+                      </div>
+                      {isCurrent ? (
+                        <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium whitespace-nowrap">
+                          Current
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleChangePlan(plan.tier)}
+                          disabled={isBusy}
+                          className={`px-4 py-2 rounded-3xl text-sm font-medium whitespace-nowrap disabled:opacity-50 transition-colors ${
+                            isUpgrade
+                              ? "bg-[#FFCC00] hover:bg-yellow-500 text-black"
+                              : "bg-gray-700 hover:bg-gray-600 text-white"
+                          }`}
+                        >
+                          {changePlanTier === plan.tier
+                            ? "Updating..."
+                            : isUpgrade
+                            ? "Upgrade"
+                            : "Downgrade"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => setShowChangePlanModal(false)}
+                disabled={changePlanTier !== null}
+                className="px-4 py-2 bg-gray-700 text-white rounded-3xl hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPauseModal && selectedSubscription && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md">
@@ -1286,8 +1428,13 @@ export default function SubscriptionManagementTab() {
                       {getStatusBadge(selectedSubscription)}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">Subscription Type</label>
-                      <p className="text-white font-medium">{selectedSubscription.subscriptionType}</p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Plan</label>
+                      <p className="text-white font-medium">
+                        {resolvePlanLabel({
+                          subscriptionType: selectedSubscription.subscriptionType,
+                          monthlyAmount: selectedSubscription.monthlyAmount,
+                        })}
+                      </p>
                     </div>
                   </div>
                 </div>

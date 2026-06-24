@@ -7,6 +7,7 @@ import { DatabaseService } from '../../../services/DatabaseService';
 import { shopRepository } from '../../../repositories';
 import { eventBus } from '../../../events/EventBus';
 import { EmailService } from '../../../services/EmailService';
+import { DEFAULT_TIER, getMonthlyAmountForPriceId, getPlanByPriceId, isValidTier, resolveCheckoutPriceId } from '../../../config/subscriptionPlans';
 
 const router = Router();
 
@@ -77,7 +78,7 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
         // Check if there's an active Stripe subscription that overrides the cancelled status
         if (shopSub.status === 'cancelled') {
           const activeStripeCheck = await db.query(
-            `SELECT id, stripe_subscription_id, status, current_period_end
+            `SELECT id, stripe_subscription_id, stripe_price_id, status, current_period_end
              FROM stripe_subscriptions
              WHERE shop_id = $1 AND status IN ('active', 'past_due', 'unpaid') AND current_period_end > NOW()
              ORDER BY created_at DESC LIMIT 1`,
@@ -99,7 +100,8 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
               shopId,
               activeStripeCheck.rows[0].stripe_subscription_id,
               activeStripeCheck.rows[0].status,
-              new Date(activeStripeCheck.rows[0].current_period_end)
+              new Date(activeStripeCheck.rows[0].current_period_end),
+              activeStripeCheck.rows[0].stripe_price_id
             );
 
             // Fall through to the Stripe subscription check below (don't return cancelled)
@@ -253,8 +255,9 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
       const now = new Date();
       const monthsDiff = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
       const paymentsMade = Math.max(1, monthsDiff); // At least 1 if subscription is active
-      const monthlyAmount = stripeSubscription.stripePriceId === process.env.STRIPE_MONTHLY_PRICE_ID ? 500 : 0;
-      
+      const plan = getPlanByPriceId(stripeSubscription.stripePriceId);
+      const monthlyAmount = getMonthlyAmountForPriceId(stripeSubscription.stripePriceId);
+
       // Return Stripe subscription data
       res.json({
         success: true,
@@ -263,6 +266,8 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
             id: stripeSubscription.id,
             status: stripeSubscription.status,
             monthlyAmount: monthlyAmount,
+            tier: plan?.tier ?? null,
+            planLabel: plan?.label ?? null,
             subscriptionType: 'stripe_subscription',
             billingMethod: 'credit_card',
             nextPaymentDate: new Date(stripeSubscription.currentPeriodEnd).toISOString(),
@@ -445,7 +450,8 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
         shopId,
         latestSubscription.id,
         latestSubscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
-        currentPeriodEnd
+        currentPeriodEnd,
+        latestSubscription.items.data[0]?.price.id
       );
 
       logger.info('Manually synced subscription from Stripe (created new record + updated shop_subscriptions)', {
@@ -478,7 +484,8 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
         shopId,
         latestSubscription.id,
         syncedSubscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
-        periodEnd
+        periodEnd,
+        latestSubscription.items.data[0]?.price.id
       );
 
       logger.info('Manually synced subscription from Stripe (updated existing record + shop_subscriptions)', {
@@ -553,8 +560,8 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
 router.post('/subscription/subscribe', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
-    const { billingMethod, notes, billingEmail, billingContact, billingPhone } = req.body;
-    
+    const { billingMethod, notes, billingEmail, billingContact, billingPhone, tier } = req.body;
+
     if (!shopId) {
       return res.status(401).json({
         success: false,
@@ -567,6 +574,14 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Billing method, email, and contact name are required'
+      });
+    }
+
+    const selectedTier = tier === undefined ? DEFAULT_TIER : tier;
+    if (!isValidTier(selectedTier)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid subscription tier. Must be one of: starter, growth, business'
       });
     }
 
@@ -634,11 +649,12 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
 
       // Create Stripe checkout session
       const stripe = stripeService.getStripe();
+      const checkoutPriceId = resolveCheckoutPriceId(selectedTier);
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomer.stripeCustomerId,
         payment_method_types: ['card'],
         line_items: [{
-          price: process.env.STRIPE_MONTHLY_PRICE_ID,
+          price: checkoutPriceId,
           quantity: 1
         }],
         mode: 'subscription',
@@ -646,6 +662,7 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
         cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/shop?tab=subscription`,
         metadata: {
           shopId: shopId,
+          tier: selectedTier,
           environment: process.env.NODE_ENV || 'development'
         }
       });
@@ -657,9 +674,9 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
           shopId: shopId,
           stripeCustomerId: stripeCustomer.stripeCustomerId,
           stripeSubscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription.id,
-          stripePriceId: process.env.STRIPE_MONTHLY_PRICE_ID || '',
+          stripePriceId: checkoutPriceId,
           status: 'incomplete', // Will be updated by webhook when payment succeeds
-          metadata: { checkoutSessionId: session.id }
+          metadata: { checkoutSessionId: session.id, tier: selectedTier }
         });
       }
 
@@ -715,6 +732,83 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create subscription'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/shops/subscription/change-plan:
+ *   post:
+ *     summary: Change the tier of the shop's active subscription
+ *     tags: [Shop Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [tier]
+ *             properties:
+ *               tier:
+ *                 type: string
+ *                 enum: [starter, growth, business]
+ *     responses:
+ *       200:
+ *         description: Subscription tier changed
+ */
+router.post('/subscription/change-plan', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { tier } = req.body;
+
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    if (!isValidTier(tier)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid subscription tier. Must be one of: starter, growth, business'
+      });
+    }
+
+    const subscriptionService = getSubscriptionService();
+    const result = await subscriptionService.changeSubscriptionTier(shopId, tier);
+
+    return res.json({
+      success: true,
+      data: {
+        message: result.isUpgrade
+          ? 'Your plan has been upgraded. The prorated difference has been charged to your card.'
+          : 'Your plan will change at your next renewal. No charge today.',
+        isUpgrade: result.isUpgrade,
+        tier: result.newTier,
+        monthlyAmount: result.newAmount,
+        previousAmount: result.previousAmount,
+        effective: result.isUpgrade ? 'immediate' : 'next_renewal',
+        nextPaymentDate: new Date(result.subscription.currentPeriodEnd).toISOString(),
+        subscription: result.subscription
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to change subscription plan';
+    logger.error('Failed to change subscription plan', {
+      error: message,
+      shopId: req.user?.shopId
+    });
+
+    const clientErrors = ['No active subscription found', 'Shop is already subscribed to this plan'];
+    const status = clientErrors.includes(message) ? 400 : 500;
+
+    return res.status(status).json({
+      success: false,
+      error: status === 400 ? message : 'Failed to change subscription plan. Please try again later.'
     });
   }
 });

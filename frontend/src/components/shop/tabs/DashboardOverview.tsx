@@ -18,6 +18,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
 import { unlockAudioPlayback } from "@/lib/audioUnlock";
 import { appointmentsApi, CalendarBooking } from "@/services/api/appointments";
@@ -353,6 +354,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onNavigate,
 }) => {
   const userName = useAuthStore((s) => s.userProfile?.name);
+  // RCG is on-chain; hide its balance in database-only mode (RCG is admin-set).
+  const blockchainEnabled = useBlockchainEnabled();
   // Opens the single Unified Assistant panel + auto-starts its mic (same as the
   // floating VoiceCommandPill on the Profile tab).
   const openWithMic = useUnifiedAssistantStore((s) => s.openWithMic);
@@ -648,7 +651,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {[
               { label: "Total Purchased", value: fmt(wallet.totalPurchased), icon: ShoppingCart },
               { label: "Tokens Issued", value: fmt(wallet.tokensIssued), icon: Coins },
-              { label: "RCG Balance", value: fmt(wallet.rcgBalance), icon: Gem },
+              ...(blockchainEnabled
+                ? [{ label: "RCG Balance", value: fmt(wallet.rcgBalance), icon: Gem }]
+                : []),
             ].map((row) => {
               const Icon = row.icon;
               return (
