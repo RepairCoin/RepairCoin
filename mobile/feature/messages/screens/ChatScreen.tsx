@@ -36,7 +36,6 @@ export default function ChatScreen() {
     handleSend,
     handleGoBack,
     loadMore,
-    handleContentSizeChange,
     refetchConversation,
   } = useChat();
 
@@ -140,7 +139,9 @@ export default function ChatScreen() {
   };
 
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
-    const previousMessage = index > 0 ? messages[index - 1] : undefined;
+    // Inverted list: the chronologically earlier message is the next index. Show
+    // a date divider above the first (oldest) message of each day.
+    const previousMessage = messages[index + 1];
     const showDateDivider = shouldShowDateDivider(item, previousMessage);
     const isOwnMessage = item.senderType === (isCustomer ? "customer" : "shop");
     const isSystemMessage = item.messageType === "system";
@@ -197,6 +198,10 @@ export default function ChatScreen() {
 
         <FlatList
           ref={flatListRef}
+          // Inverted so newest messages sit at the bottom and the view opens
+          // pinned there — no manual scroll-to-end. Data is newest-first.
+          // Skipped when empty so EmptyChat isn't rendered upside down.
+          inverted={messages.length > 0}
           data={messages}
           keyExtractor={(item) => item.messageId}
           renderItem={renderMessage}
@@ -205,23 +210,13 @@ export default function ChatScreen() {
             paddingVertical: 16,
           }}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={handleContentSizeChange}
-          // Load older messages when the user scrolls near the top. loadMore
-          // self-guards against overlap, so calling it repeatedly is safe.
-          onScroll={(e) => {
-            if (
-              e.nativeEvent.contentOffset.y <= 60 &&
-              hasMore &&
-              !isLoadingMore
-            ) {
-              loadMore();
-            }
-          }}
-          scrollEventThrottle={16}
-          // Keep the viewport anchored when older messages are prepended so the
-          // list doesn't jump while loading more.
-          maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
-          ListHeaderComponent={
+          // On an inverted list onEndReached fires at the TOP — load older
+          // messages. loadMore self-guards against overlap.
+          onEndReached={hasMore ? loadMore : undefined}
+          onEndReachedThreshold={0.3}
+          // Footer renders at the top of an inverted list — the older-messages
+          // loading spinner.
+          ListFooterComponent={
             isLoadingMore ? (
               <View className="py-3 items-center">
                 <ActivityIndicator size="small" color="#FFCC00" />
@@ -229,7 +224,6 @@ export default function ChatScreen() {
             ) : null
           }
           ListEmptyComponent={EmptyChat}
-          ListFooterComponent={null}
         />
 
         <MessageInput

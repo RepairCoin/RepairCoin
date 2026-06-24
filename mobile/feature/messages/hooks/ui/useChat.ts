@@ -5,15 +5,18 @@ import { useFocusEffect } from "expo-router";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { realtimeEvents } from "@/shared/utilities/realtimeEvents";
+import { dismissConversationNotifications } from "@/feature/notification/utils/dismissConversationNotifications";
 import { useNotificationUiStore } from "@/shared/store/notification-ui.store";
 import { Message, Conversation, MessageAttachment } from "../../types";
 import { MESSAGE_POLL_INTERVAL } from "@/shared/constants/messaging";
 import { AttachmentFile } from "../../components/MessageInput";
 import { encryptMessage } from "@/shared/utilities/encryption";
 
-// Messages load newest-first from the API and are reversed to ascending
-// (oldest → newest, top → bottom) for display. A full thread can be hundreds of
-// messages, so we page: newest page on open, older pages on scroll-up.
+// Messages render in an INVERTED FlatList (newest at the bottom), so we keep
+// them in descending order — index 0 = newest. The inverted list shows the
+// bottom by default, so there's no manual scroll-to-end. A thread can be
+// hundreds of messages, so we page: newest page on open, older pages when the
+// user scrolls up (onEndReached fires at the top of an inverted list).
 const MESSAGES_PER_PAGE = 30;
 
 export function useChat() {
@@ -36,26 +39,17 @@ export function useChat() {
   const hasMarkedRead = useRef(false);
   // Highest (oldest) page loaded so far — load-more fetches pageRef + 1.
   const pageRef = useRef(1);
-  // Guards against overlapping load-more requests (scroll fires rapidly).
+  // Guards against overlapping load-more requests (onEndReached fires rapidly).
   const loadingMoreRef = useRef(false);
   // Mirror of `messages` for computing new arrivals without stale closures.
   const messagesRef = useRef<Message[]>([]);
-  // When true, the next content-size change scrolls to the bottom. Set on
-  // initial load / send / incoming message; left false when prepending older
-  // pages so the viewport stays put.
-  const shouldScrollToEndRef = useRef(true);
-  // Becomes true once the initial load has scrolled to the bottom. Guards
-  // load-more: on first render the list sits at offset 0 (the top) before the
-  // scroll-to-end runs, which would otherwise trigger an immediate older-page
-  // fetch on open.
-  const initialScrolledRef = useRef(false);
 
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
-  // Fetch a page newest-first, return it reversed to ascending for display.
-  const fetchPageAsc = useCallback(
+  // Fetch a page newest-first (descending) — the order the inverted list wants.
+  const fetchPage = useCallback(
     async (page: number) => {
       const response = await messageApi.getMessages(
         conversationId,
@@ -63,22 +57,23 @@ export function useChat() {
         MESSAGES_PER_PAGE,
         "desc"
       );
-      const asc = [...(response.data || [])].reverse();
-      return { asc, hasMore: response.pagination?.hasMore ?? false };
+      return {
+        desc: response.data || [],
+        hasMore: response.pagination?.hasMore ?? false,
+      };
     },
     [conversationId]
   );
 
-  // Initial load (open / focus): newest page, pinned to bottom, mark read.
+  // Initial load (open / focus): newest page, mark read. The inverted list
+  // already sits at the bottom (newest), so no scrolling is required.
   const fetchMessages = useCallback(async () => {
     if (!conversationId) return;
 
     try {
-      const { asc, hasMore: more } = await fetchPageAsc(1);
+      const { desc, hasMore: more } = await fetchPage(1);
       pageRef.current = 1;
-      shouldScrollToEndRef.current = true;
-      initialScrolledRef.current = false;
-      setMessages(asc);
+      setMessages(desc);
       setHasMore(more);
 
       if (!hasMarkedRead.current) {
@@ -90,30 +85,24 @@ export function useChat() {
     } finally {
       setIsLoading(false);
     }
-  }, [conversationId, fetchPageAsc]);
+  }, [conversationId, fetchPage]);
 
-  // Load-more: fetch the next older page and prepend it. maintainVisible-
-  // ContentPosition on the list keeps the current messages from jumping.
+  // Load-more: fetch the next older page and append it to the end (the oldest
+  // edge / top of the inverted list). Adding below the viewport doesn't shift
+  // what the user is reading.
   const loadMore = useCallback(async () => {
-    if (
-      !conversationId ||
-      loadingMoreRef.current ||
-      !hasMore ||
-      !initialScrolledRef.current
-    )
-      return;
+    if (!conversationId || loadingMoreRef.current || !hasMore) return;
 
     loadingMoreRef.current = true;
     setIsLoadingMore(true);
     try {
       const nextPage = pageRef.current + 1;
-      const { asc, hasMore: more } = await fetchPageAsc(nextPage);
-      if (asc.length > 0) {
-        shouldScrollToEndRef.current = false;
+      const { desc, hasMore: more } = await fetchPage(nextPage);
+      if (desc.length > 0) {
         setMessages((prev) => {
           const ids = new Set(prev.map((m) => m.messageId));
-          const older = asc.filter((m) => !ids.has(m.messageId));
-          return [...older, ...prev];
+          const older = desc.filter((m) => !ids.has(m.messageId));
+          return [...prev, ...older];
         });
         pageRef.current = nextPage;
       }
@@ -124,40 +113,35 @@ export function useChat() {
       loadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [conversationId, hasMore, fetchPageAsc]);
+  }, [conversationId, hasMore, fetchPage]);
 
-  // Realtime / poll: pull the newest page and append only messages we don't
-  // already have, so loaded older pages are preserved and nothing reorders.
+  // Realtime / poll: pull the newest page and prepend only messages we don't
+  // already have (newest at index 0), preserving loaded older pages.
   const refetchLatest = useCallback(async () => {
     if (!conversationId) return;
 
     try {
-      const { asc } = await fetchPageAsc(1);
+      const { desc } = await fetchPage(1);
       const existingIds = new Set(messagesRef.current.map((m) => m.messageId));
-      const fresh = asc.filter((m) => !existingIds.has(m.messageId));
+      const fresh = desc.filter((m) => !existingIds.has(m.messageId));
       if (fresh.length === 0) return;
 
-      shouldScrollToEndRef.current = true;
       setMessages((prev) => {
         const ids = new Set(prev.map((m) => m.messageId));
-        return [...prev, ...fresh.filter((m) => !ids.has(m.messageId))];
+        return [...fresh.filter((m) => !ids.has(m.messageId)), ...prev];
       });
-      // We're viewing the thread, so clear the unread state for these.
+      // We're viewing the thread, so clear the unread state and any tray
+      // notification that slipped through for this sender.
       messageApi.markConversationAsRead(conversationId).catch(() => {});
+      dismissConversationNotifications(conversationId);
     } catch (error) {
       console.error("Failed to refetch messages:", error);
     }
-  }, [conversationId, fetchPageAsc]);
+  }, [conversationId, fetchPage]);
 
-  // Scroll to the bottom when flagged (initial load / send / incoming). Wired to
-  // the list's onContentSizeChange so it runs after new rows are laid out.
-  const handleContentSizeChange = useCallback(() => {
-    if (shouldScrollToEndRef.current) {
-      flatListRef.current?.scrollToEnd({ animated: false });
-      shouldScrollToEndRef.current = false;
-      // First scroll-to-bottom done — load-more is now safe to arm.
-      initialScrolledRef.current = true;
-    }
+  // Jump to the newest message. On an inverted list the bottom is offset 0.
+  const scrollToBottom = useCallback((animated = true) => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated });
   }, []);
 
   const fetchConversation = useCallback(async () => {
@@ -184,6 +168,10 @@ export function useChat() {
       // (navigate away / back / app backgrounded).
       if (conversationId) {
         setActiveConversationId(conversationId);
+        // Clear any already-delivered tray notifications for this sender —
+        // covers landing here directly via a push tap / deep link (not just
+        // the conversation-list tap).
+        dismissConversationNotifications(conversationId);
       }
       return () => setActiveConversationId(null);
     }, [conversationId, fetchConversation, fetchMessages, setActiveConversationId])
@@ -281,15 +269,13 @@ export function useChat() {
 
       if (response.data) {
         const sent = response.data;
-        shouldScrollToEndRef.current = true;
+        // Newest message goes to index 0 (the bottom of the inverted list).
         setMessages((prev) =>
           prev.some((m) => m.messageId === sent.messageId)
             ? prev
-            : [...prev, sent]
+            : [sent, ...prev]
         );
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
+        scrollToBottom();
       }
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -301,10 +287,6 @@ export function useChat() {
 
   const handleGoBack = () => {
     router.back();
-  };
-
-  const scrollToEnd = () => {
-    flatListRef.current?.scrollToEnd({ animated: false });
   };
 
   const otherPartyName = isCustomer ? conversation?.shopName : conversation?.customerName;
@@ -325,8 +307,7 @@ export function useChat() {
     handleSend,
     handleGoBack,
     loadMore,
-    scrollToEnd,
-    handleContentSizeChange,
+    scrollToBottom,
     refetchConversation: fetchConversation,
   };
 }
