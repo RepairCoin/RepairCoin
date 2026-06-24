@@ -184,7 +184,7 @@ export default function PricingHero() {
                   onClick={() => handleSelectPlan(plan.tier)}
                   className="mt-5 w-full bg-[#F7CC00] hover:bg-[#e0b900] text-black font-semibold py-3 rounded-lg transition-colors duration-200"
                 >
-                  Subscribe
+                  Start Free Trial
                 </button>
                 <p className="mt-3 pb-5 text-center text-gray-400 text-xs border-b border-gray-200">
                   14 days Free. No Credit Card.

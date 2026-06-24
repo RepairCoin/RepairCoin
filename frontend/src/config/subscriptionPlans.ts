@@ -67,6 +67,8 @@ export const SUBSCRIBE_TIER_STORAGE_KEY = "rc_subscribe_tier";
 
 export const DEFAULT_TIER: SubscriptionTier = "growth";
 
+export const TRIAL_PERIOD_DAYS = 14;
+
 // The retired single-plan price. Any subscription billed this amount is a
 // grandfathered legacy subscriber (no current tier is priced at $500).
 export const LEGACY_MONTHLY_AMOUNT = 500;
@@ -85,6 +87,7 @@ export function resolvePlanLabel(input: {
   subscriptionType?: string | null;
   monthlyAmount?: number | null;
 }): string {
+  if (input.subscriptionType === "trial") return "Free Trial";
   if (input.monthlyAmount === LEGACY_MONTHLY_AMOUNT) return "Legacy";
   if (input.planLabel) return input.planLabel;
   if (input.tier && isValidTier(input.tier)) return getPlanByTier(input.tier).label;
