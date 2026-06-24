@@ -308,6 +308,10 @@ export interface AdCreative {
   reviewStatus: CreativeReviewStatus;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  /** Two-way sync: the live creative was swapped/edited in Ads Manager and reflected back here,
+   *  bypassing FixFlow's review gate. Surfaced as an "Edited in Ads Manager" badge. */
+  externallyEdited?: boolean;
+  externallyEditedAt?: string | null;
   createdAt: string;
 }
 
@@ -610,12 +614,12 @@ export const scaleCampaignBudget = async (id: string): Promise<AdCampaign> => {
 /** Two-way config sync — pull this campaign's budget/status back FROM Meta into our DB
  *  (Meta is source-of-truth for live). Returns the fresh campaign + which fields changed
  *  (empty when already in sync, the feature is off, or the campaign isn't pushed). */
-export type SyncFromMetaStatus = 'disabled' | 'skipped' | 'synced' | 'in_sync' | 'error';
+export type SyncFromMetaStatus = 'disabled' | 'skipped' | 'synced' | 'in_sync' | 'diverged' | 'error';
 export interface SyncFromMetaResult {
   campaign: AdCampaign;
   status: SyncFromMetaStatus;
   changes: Record<string, unknown>;
-  reason?: 'not_pushed' | 'disconnected';
+  reason?: 'not_pushed' | 'disconnected' | 'meta_archived' | 'meta_deleted';
   error?: string;
 }
 export const syncCampaignFromMeta = async (id: string): Promise<SyncFromMetaResult> => {

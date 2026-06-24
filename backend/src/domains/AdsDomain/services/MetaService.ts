@@ -216,11 +216,12 @@ export class MetaService {
    *  account-currency minor units (the same unit we send). */
   async getAdSet(adsetId: string, userToken: string): Promise<{
     dailyBudgetCents: number | null; optimizationGoal: string | null; status: string | null; effectiveStatus: string | null;
+    targeting: any | null;
   }> {
     this.requireConfig();
     try {
       const res = await axios.get(`${GRAPH}/${adsetId}`, {
-        params: { fields: 'daily_budget,optimization_goal,status,effective_status', access_token: userToken },
+        params: { fields: 'daily_budget,optimization_goal,status,effective_status,targeting', access_token: userToken },
         timeout: 15000,
       });
       const db = res.data?.daily_budget;
@@ -229,10 +230,29 @@ export class MetaService {
         optimizationGoal: res.data?.optimization_goal ?? null,
         status: res.data?.status ?? null,
         effectiveStatus: res.data?.effective_status ?? null,
+        targeting: res.data?.targeting ?? null,
       };
     } catch (err: any) {
       logger.error('MetaService.getAdSet failed', { detail: err?.response?.data || err?.message });
       throw new Error(`get_adset_failed: ${this.fbError(err)}`);
+    }
+  }
+
+  /** Read a live ad's current status + bound creative id (two-way config sync, Phase 2). Used to
+   *  detect a creative swapped/edited directly in Ads Manager: when `creativeId` ≠ the creative id
+   *  we pushed, the creative diverged and we reflect+flag it. */
+  async getAd(adId: string, userToken: string): Promise<{ status: string | null; creativeId: string | null }> {
+    this.requireConfig();
+    try {
+      const res = await axios.get(`${GRAPH}/${adId}`, {
+        params: { fields: 'status,creative{id}', access_token: userToken },
+        timeout: 15000,
+      });
+      const cid = res.data?.creative?.id;
+      return { status: res.data?.status ?? null, creativeId: cid != null ? String(cid) : null };
+    } catch (err: any) {
+      logger.error('MetaService.getAd failed', { detail: err?.response?.data || err?.message });
+      throw new Error(`get_ad_failed: ${this.fbError(err)}`);
     }
   }
 

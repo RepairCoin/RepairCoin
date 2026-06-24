@@ -49,6 +49,9 @@ export interface AdCampaign {
   metaStatus: string | null;
   metaLastSyncedAt: Date | null;
   metaSyncedConfigAt: Date | null;
+  /** Two-way sync (Phase 3): the live ad set's targeting spec, verbatim — read-only fidelity for
+   *  targeting we can't losslessly map to our typed columns. Never reverse-pushed (D4). */
+  metaTargetingRaw: any | null;
 }
 
 export interface MetaObjectIds {
@@ -61,6 +64,8 @@ export interface MetaObjectIds {
   metaLastSyncedAt?: Date | null;
   /** When config was last reconciled FROM Meta (two-way sync) — distinct from metaLastSyncedAt (insights). */
   metaSyncedConfigAt?: Date | null;
+  /** Raw Meta targeting spec (Phase 3 fidelity); stored as JSONB. */
+  metaTargetingRaw?: any | null;
 }
 
 export interface CreateCampaignInput {
@@ -242,6 +247,8 @@ export class CampaignRepository extends BaseRepository {
     if (m.metaStatus !== undefined) col('meta_status', m.metaStatus);
     if (m.metaLastSyncedAt !== undefined) col('meta_last_synced_at', m.metaLastSyncedAt);
     if (m.metaSyncedConfigAt !== undefined) col('meta_synced_config_at', m.metaSyncedConfigAt);
+    // jsonb: stringify a JS object (node-pg would otherwise send "[object Object]"); null stays null.
+    if (m.metaTargetingRaw !== undefined) col('meta_targeting_raw', m.metaTargetingRaw === null ? null : JSON.stringify(m.metaTargetingRaw));
     if (sets.length === 0) return this.findById(id);
     sets.push(`updated_at = now()`);
     params.push(id);
@@ -317,6 +324,7 @@ export class CampaignRepository extends BaseRepository {
       metaStatus: r.meta_status ?? null,
       metaLastSyncedAt: r.meta_last_synced_at ?? null,
       metaSyncedConfigAt: r.meta_synced_config_at ?? null,
+      metaTargetingRaw: r.meta_targeting_raw ?? null,
     };
   }
 }

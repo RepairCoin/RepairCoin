@@ -11,6 +11,7 @@ import { metaService } from './MetaService';
 import { decryptToken } from '../../../utils/tokenCrypto';
 import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
+import { CreativeRepository } from '../repositories/CreativeRepository';
 
 export function isConfigSyncEnabled(): boolean {
   return process.env.ADS_META_CONFIG_SYNC === 'true' && metaService.isConfigured();
@@ -30,16 +31,41 @@ export function mapMetaStatus(metaStatus: string | null | undefined): 'active' |
 
 export interface ReconcileDbState { dailyBudgetCents: number; status: string; metaStatus: string | null; }
 export interface ReconcileMetaState { dailyBudgetCents: number | null; campaignStatus: string | null; }
-export interface ReconcileChanges { dailyBudgetCents?: number; status?: string; metaStatus?: string }
+export interface ReconcileChanges {
+  dailyBudgetCents?: number; status?: string; metaStatus?: string;
+  creativeExternallyEdited?: boolean;
+  objective?: string; targetRadiusMiles?: number;
+}
+
+/** PURE: best-effort radius (in miles, rounded) from a Meta targeting spec. Reads the first custom
+ *  geo location's radius + distance_unit (Meta gives 'mile' or 'kilometer'). Returns null when
+ *  there's no custom-location radius to read. km→mi via /1.609. Unit-testable. */
+export function extractRadiusMiles(targeting: any): number | null {
+  const loc = targeting?.geo_locations?.custom_locations?.[0];
+  const radius = loc?.radius;
+  if (radius == null || radius === '' || isNaN(Number(radius))) return null;
+  const r = Number(radius);
+  const unit = String(loc?.distance_unit || 'mile').toLowerCase();
+  const miles = unit.startsWith('kilom') || unit === 'km' ? r / 1.609 : r;
+  return Math.round(miles);
+}
 
 /** Outcome of a reconcile, so callers can message distinctly (a Meta-read failure is NOT the
- *  same as "already in sync"). */
-export type ReconcileStatus = 'disabled' | 'skipped' | 'synced' | 'in_sync' | 'error';
+ *  same as "already in sync"; a campaign DELETED in Ads Manager is "diverged", not an error). */
+export type ReconcileStatus = 'disabled' | 'skipped' | 'synced' | 'in_sync' | 'diverged' | 'error';
 export interface ReconcileResult {
   status: ReconcileStatus;
   changes: ReconcileChanges;
-  reason?: 'not_pushed' | 'disconnected';
+  reason?: 'not_pushed' | 'disconnected' | 'meta_archived' | 'meta_deleted';
   error?: string;
+}
+
+/** PURE: does a Meta Graph error message indicate the object no longer exists (deleted in Ads
+ *  Manager), as opposed to a transient/permission error? Matches Graph's "does not exist" /
+ *  "Unsupported get request" / subcode 33. Used to treat a 404 as divergence (D5), not an error. */
+export function isMetaObjectGone(message: string | null | undefined): boolean {
+  const m = (message || '').toLowerCase();
+  return m.includes('does not exist') || m.includes('unsupported get request') || m.includes('/33)');
 }
 
 /**
@@ -60,7 +86,8 @@ export function reconcileFields(db: ReconcileDbState, meta: ReconcileMetaState):
 export class MetaConfigSyncService {
   constructor(
     private readonly connections = new MetaConnectionRepository(),
-    private readonly campaigns = new CampaignRepository()
+    private readonly campaigns = new CampaignRepository(),
+    private readonly creatives = new CreativeRepository()
   ) {}
 
   /**
@@ -77,10 +104,24 @@ export class MetaConfigSyncService {
       if (!conn?.userTokenEnc) return { status: 'skipped', reason: 'disconnected', changes: {} };
       const token = decryptToken(conn.userTokenEnc);
 
-      const [adset, campaign] = await Promise.all([
-        metaService.getAdSet(c.metaAdSetId, token),
-        metaService.getCampaign(c.metaCampaignId, token),
-      ]);
+      let adset, campaign;
+      try {
+        [adset, campaign] = await Promise.all([
+          metaService.getAdSet(c.metaAdSetId, token),
+          metaService.getCampaign(c.metaCampaignId, token),
+        ]);
+      } catch (err) {
+        // D5 — a 404 ("does not exist") means the object was deleted in Ads Manager. Reflect it as
+        // archived + halt; never recreate. A transient/permission error re-throws → 'error'.
+        if (isMetaObjectGone((err as Error)?.message)) return this.markDiverged(campaignId, c, 'meta_deleted');
+        throw err;
+      }
+
+      // D5 — object still exists but is archived/deleted on Meta → reflect + halt (don't reverse it).
+      const eff = (campaign.effectiveStatus || '').toUpperCase();
+      if (eff === 'ARCHIVED' || eff === 'DELETED') {
+        return this.markDiverged(campaignId, c, eff === 'DELETED' ? 'meta_deleted' : 'meta_archived');
+      }
 
       const changes = reconcileFields(
         { dailyBudgetCents: c.dailyBudgetCents, status: c.status, metaStatus: c.metaStatus },
@@ -93,9 +134,49 @@ export class MetaConfigSyncService {
           ...(changes.status !== undefined ? { status: changes.status as any } : {}),
         });
       }
-      // Always stamp the sync time (records we checked); update metaStatus when it changed.
+
+      // Phase 2 — creative reflect + flag (D3). If the live ad's bound creative id ≠ the one we
+      // pushed, it was swapped/edited in Ads Manager: pull the new spec into our AI creative row
+      // and flag it (never auto-approve). Re-stamp metaCreativeId so we don't re-detect next run.
+      if (c.metaAdId && c.metaCreativeId) {
+        const ad = await metaService.getAd(c.metaAdId, token).catch(() => null);
+        if (ad?.creativeId && ad.creativeId !== c.metaCreativeId) {
+          const spec = await metaService.getCreativeSpec(ad.creativeId, token);
+          if (spec) {
+            await this.creatives.reflectExternalCreative(campaignId, {
+              headline: spec.headline, body: spec.message, imageUrl: spec.picture,
+            });
+          } else {
+            await this.creatives.flagExternallyEdited(campaignId); // diverged but spec unreadable
+          }
+          await this.campaigns.setMetaObjects(campaignId, { metaCreativeId: ad.creativeId });
+          changes.creativeExternallyEdited = true;
+          logger.info('MetaConfigSync: external creative swap reflected', {
+            campaignId, from: c.metaCreativeId, to: ad.creativeId, specRead: !!spec,
+          });
+        }
+      }
+
+      // Phase 3 — objective + targeting reflect (read-only fidelity; D4: never reverse-push). Reflect
+      // the objective and a best-effort radius (km→mi) into our typed columns for display; the full
+      // targeting spec is stored raw below since rich targeting can't be losslessly round-tripped.
+      const objChanged = !!campaign.objective && campaign.objective !== c.objective;
+      const radiusMi = extractRadiusMiles(adset.targeting);
+      const radiusChanged = radiusMi != null && radiusMi !== c.targetRadiusMiles;
+      if (objChanged || radiusChanged) {
+        await this.campaigns.update(campaignId, {
+          ...(objChanged ? { objective: campaign.objective } : {}),
+          ...(radiusChanged ? { targetRadiusMiles: radiusMi! } : {}),
+        });
+        if (objChanged) changes.objective = campaign.objective!;
+        if (radiusChanged) changes.targetRadiusMiles = radiusMi!;
+      }
+
+      // Always stamp the sync time (records we checked); update metaStatus when it changed; persist
+      // the raw targeting spec (fidelity) whenever Meta returned one.
       await this.campaigns.setMetaObjects(campaignId, {
         ...(changes.metaStatus !== undefined ? { metaStatus: changes.metaStatus } : {}),
+        ...(adset.targeting != null ? { metaTargetingRaw: adset.targeting } : {}),
         metaSyncedConfigAt: new Date(),
       });
 
@@ -109,6 +190,25 @@ export class MetaConfigSyncService {
     }
   }
 
+  /** D5 — the live Meta objects are archived/deleted: reflect the campaign as archived (so in-app
+   *  actions halt) and never recreate. Idempotent (skips the status update if already archived). */
+  private async markDiverged(
+    campaignId: string,
+    c: { status: string },
+    reason: 'meta_archived' | 'meta_deleted'
+  ): Promise<ReconcileResult> {
+    const metaState = reason === 'meta_deleted' ? 'DELETED' : 'ARCHIVED';
+    const changes: ReconcileChanges = {};
+    if (c.status !== 'archived') {
+      await this.campaigns.update(campaignId, { status: 'archived' as any });
+      changes.status = 'archived';
+    }
+    changes.metaStatus = metaState;
+    await this.campaigns.setMetaObjects(campaignId, { metaStatus: metaState, metaSyncedConfigAt: new Date() });
+    logger.warn('MetaConfigSync: campaign diverged on Meta (archived/deleted) — reflected as archived, halting in-app actions', { campaignId, reason });
+    return { status: 'diverged', reason, changes };
+  }
+
   /** Reconcile every pushed campaign for connected shops (nightly). Returns count reached. */
   async reconcileAll(): Promise<number> {
     if (!isConfigSyncEnabled()) return 0;
@@ -116,7 +216,7 @@ export class MetaConfigSyncService {
     let n = 0;
     for (const c of camps) {
       const r = await this.reconcile(c.id);
-      if (r.status === 'synced' || r.status === 'in_sync') n++;
+      if (r.status === 'synced' || r.status === 'in_sync' || r.status === 'diverged') n++;
     }
     logger.info('MetaConfigSync.reconcileAll done', { reached: n, scanned: camps.length });
     return n;

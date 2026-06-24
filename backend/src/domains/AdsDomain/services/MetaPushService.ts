@@ -196,6 +196,8 @@ export class MetaPushService {
     if (!this.enabled()) throw new Error('push_disabled');
     const campaign = await this.campaigns.findById(campaignId);
     if (!campaign?.metaCampaignId) throw new Error('not_a_meta_draft');
+    // D5 — never act on a campaign whose Meta objects were archived/deleted in Ads Manager.
+    if (campaign.status === 'archived') throw new Error('campaign_archived_on_meta: this campaign was archived or removed in Ads Manager; it cannot go live again');
     // Q8 review gate — the AI creative must be approved before it can spend.
     const creative = await this.creativeRepo.findAiByCampaign(campaignId);
     if (!creative || creative.reviewStatus !== 'approved') {
@@ -224,9 +226,12 @@ export class MetaPushService {
     const campaign = await this.campaigns.findById(campaignId);
     if (!campaign) throw new Error('campaign_not_found');
     if (!campaign.isTestBudget || !campaign.fullDailyBudgetCents) throw new Error('not_a_test_budget_campaign');
+    if (campaign.status === 'archived') throw new Error('campaign_archived_on_meta: this campaign was archived or removed in Ads Manager');
     // D6 clobber-guard: pull the latest config from Meta first (no-op unless ADS_META_CONFIG_SYNC),
     // so this scale-up acts on fresh state and stamps the sync rather than racing a manual edit.
-    await metaConfigSyncService.reconcile(campaignId);
+    // D5 — if that reconcile finds the Meta objects gone/archived, halt instead of pushing to dead ids.
+    const rc = await metaConfigSyncService.reconcile(campaignId);
+    if (rc.status === 'diverged') throw new Error('campaign_archived_on_meta: this campaign was archived or removed in Ads Manager');
     const conn = await this.connections.getConnection(campaign.shopId);
     if (!conn?.userTokenEnc) throw new Error('meta_not_connected');
     const token = decryptToken(conn.userTokenEnc);
@@ -259,9 +264,15 @@ export class MetaPushService {
     const campaign = await this.campaigns.findById(campaignId);
     if (!campaign) throw new Error('campaign_not_found');
     const onMeta = !!campaign.metaCampaignId; // pushed (PAUSED) vs local draft
+    // D5 — never edit a campaign whose Meta objects were archived/deleted in Ads Manager.
+    if (onMeta && campaign.status === 'archived') throw new Error('campaign_archived_on_meta: this campaign was archived or removed in Ads Manager');
     // D6 clobber-guard: for a pushed campaign, pull the latest config from Meta first (no-op
     // unless ADS_META_CONFIG_SYNC) so this in-app edit acts on current state, not a stale value.
-    if (onMeta) await metaConfigSyncService.reconcile(campaignId);
+    // D5 — if that reconcile finds the Meta objects gone/archived, halt instead of editing dead ids.
+    if (onMeta) {
+      const rc = await metaConfigSyncService.reconcile(campaignId);
+      if (rc.status === 'diverged') throw new Error('campaign_archived_on_meta: this campaign was archived or removed in Ads Manager');
+    }
     const conn = await this.connections.getConnection(campaign.shopId);
     if (onMeta && (!conn?.userTokenEnc || !conn.adAccountId || !conn.pageId)) throw new Error('meta_not_connected');
     const token = conn?.userTokenEnc ? decryptToken(conn.userTokenEnc) : '';

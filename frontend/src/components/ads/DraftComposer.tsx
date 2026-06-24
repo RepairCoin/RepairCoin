@@ -10,11 +10,11 @@
 //   Regenerate · Approve
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, UploadCloud, Rocket, Sparkles, Wand2, Check, X, Maximize2, ImageUp, Lock } from "lucide-react";
+import { Loader2, UploadCloud, Rocket, Sparkles, Wand2, Check, X, Maximize2, ImageUp, Lock, RefreshCw, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   listCreatives, reviewCreative, regenerateAdImage, updateCampaignDraft,
-  uploadAdCreativeImage, useManualAdImage, getShopMetaAccount,
+  uploadAdCreativeImage, useManualAdImage, getShopMetaAccount, syncCampaignFromMeta,
   pushCampaignToMeta, goLiveCampaign, type AdCampaign, type AdCreative, type ShopMetaAccount,
 } from "@/services/api/ads";
 
@@ -45,6 +45,7 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
   const [metaEnhance, setMetaEnhance] = useState(!!campaign.allowMetaEnhancements);
   const [testBudget, setTestBudget] = useState(!!campaign.isTestBudget);
   const [acct, setAcct] = useState<ShopMetaAccount | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const onMeta = !!campaign.metaCampaignId; // pushed (PAUSED) vs local draft
 
@@ -162,6 +163,41 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
     } finally { setBusy(null); }
   };
 
+  // Two-way sync: pull the latest config from Meta (Ads-Manager edits) into this draft. Works on a
+  // pushed-but-paused draft (it has meta ids); reflects budget/status/objective/radius + creative.
+  const syncFromMeta = async () => {
+    setSyncing(true);
+    try {
+      const r = await syncCampaignFromMeta(campaign.id);
+      if (r.status === "synced") {
+        // Refresh the local form fields from the reconciled campaign so the edits show immediately.
+        setDailyBudget(String((r.campaign.dailyBudgetCents / 100).toFixed(0)));
+        setRadius(r.campaign.targetRadiusMiles != null ? String(r.campaign.targetRadiusMiles) : "");
+        setObjective(r.campaign.objective || "OUTCOME_TRAFFIC");
+        setMetaEnhance(!!r.campaign.allowMetaEnhancements);
+        const n = Object.keys(r.changes || {}).length;
+        toast.success(`Synced from Meta — updated ${n} field${n > 1 ? "s" : ""}.`);
+        await load();        // refresh creative (headline/body/image + external-edit flag)
+        onChanged?.();       // refresh the parent (status/budget on the list)
+      } else if (r.status === "in_sync") {
+        toast.success("Already in sync with Meta.");
+      } else if (r.status === "diverged") {
+        toast.error(r.reason === "meta_deleted"
+          ? "This campaign was deleted in Ads Manager — marked archived."
+          : "This campaign was archived in Ads Manager — marked archived here.");
+        onChanged?.();
+      } else if (r.status === "skipped") {
+        toast(r.reason === "disconnected" ? "Reconnect the shop's Meta account to sync." : "This campaign isn't on Meta yet.");
+      } else if (r.status === "error") {
+        toast.error("Couldn't reach Meta — please try again.");
+      } else {
+        toast("Meta config sync isn't enabled.");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't sync from Meta.");
+    } finally { setSyncing(false); }
+  };
+
   return (
     <div className="rounded-xl border border-[#FFCC00]/40 bg-[#141414] p-4">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
@@ -169,12 +205,21 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
           {onMeta ? "Drafted on Meta (paused) — review & go live" : "Draft — review & launch"}
         </p>
         {onMeta ? (
-          <button onClick={goLive} disabled={busy !== null || !approved} title={approved ? "Activate this campaign on Meta (starts spending)" : "Approve the ad creative below to enable Go live"}
-            className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md transition-colors ${
-              approved ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "bg-gray-700/40 text-gray-500 cursor-not-allowed"
-            } disabled:cursor-not-allowed`}>
-            {busy === "live" ? <Loader2 className="w-4 h-4 animate-spin" /> : approved ? <Rocket className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />} Go live
-          </button>
+          <div className="flex items-center gap-2">
+            {acct?.configSyncEnabled && (
+              <button onClick={syncFromMeta} disabled={syncing || busy !== null}
+                title="Pull the latest budget, status, objective, targeting & creative from Meta Ads Manager"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50">
+                {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh from Meta
+              </button>
+            )}
+            <button onClick={goLive} disabled={busy !== null || !approved} title={approved ? "Activate this campaign on Meta (starts spending)" : "Approve the ad creative below to enable Go live"}
+              className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md transition-colors ${
+                approved ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "bg-gray-700/40 text-gray-500 cursor-not-allowed"
+              } disabled:cursor-not-allowed`}>
+              {busy === "live" ? <Loader2 className="w-4 h-4 animate-spin" /> : approved ? <Rocket className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />} Go live
+            </button>
+          </div>
         ) : (
           <button onClick={push} disabled={busy !== null || !approved} title={approved ? "Create the campaign on Meta (paused)" : "Approve the ad creative below to enable Push to Meta"}
             className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md transition-colors ${
@@ -218,6 +263,12 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
                 <span className={`text-xs px-1.5 py-0.5 rounded ${approved ? "bg-green-500/15 text-green-400" : creative.reviewStatus === "rejected" ? "bg-red-500/15 text-red-400" : "bg-amber-500/15 text-amber-400"}`}>{creative.reviewStatus}</span>
               )}
               <span className="text-xs text-[#FFCC00] inline-flex items-center gap-1"><Sparkles className="w-3 h-3" /> AI</span>
+              {creative?.externallyEdited && (
+                <span title="Edited in Ads Manager — not reviewed by FixFlow. Re-approve to acknowledge."
+                  className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 inline-flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Edited in Ads Manager
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <button onClick={() => setRegenOpen((v) => !v)} disabled={busy !== null || uploading}

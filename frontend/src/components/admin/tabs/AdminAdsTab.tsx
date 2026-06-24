@@ -79,6 +79,12 @@ export const AdminAdsTab: React.FC = () => {
         if (selectedId === c.id) await select(c.id);
       } else if (r.status === "in_sync") {
         toast.success("Already in sync with Meta.");
+      } else if (r.status === "diverged") {
+        toast.error(r.reason === "meta_deleted"
+          ? "This campaign was deleted in Ads Manager — marked archived. It can't go live again."
+          : "This campaign was archived in Ads Manager — marked archived here.");
+        await load();
+        if (selectedId === c.id) await select(c.id);
       } else if (r.status === "skipped") {
         toast(r.reason === "disconnected" ? "Reconnect the shop's Meta account to sync." : "This campaign isn't on Meta yet.");
       } else if (r.status === "error") {

@@ -3,7 +3,9 @@
 **Date:** 2026-06-23
 **Branch:** `deo/ads-system`
 **Scope doc:** `ads-meta-two-way-sync-scope.md` (read first — problem, fields, decisions D1–D6).
-**Status:** plan — no code written. Standing rule: do not commit unless told.
+**Status:** Phase 1 (budget+status) DONE + committed (`5bed8bcad`). **Phases 2 (creative reflect+flag), 3
+(objective+targeting reflect) and 4 (deletion/divergence) BUILT (uncommitted) — feature now COMPLETE.**
+Verified: backend tsc 0, FE tsc 290 baseline, **22/22 sync tests pass**. Standing rule: do not commit unless told.
 
 > **Decisions LOCKED for this build** (the scope's recommended defaults):
 > - **D1** — Meta is **source-of-truth for LIVE campaigns** (a pull overwrites our stored config); the app is
@@ -79,13 +81,20 @@ Meta, confirm Scale-to-full no longer clobbers).
 
 ---
 
-## Phase 2 — Creative reflect + flag (~1d)
+## Phase 2 — Creative reflect + flag (~1d) — ✅ DONE (uncommitted)
 
-- `MetaService.getAd` (`fields=status,creative{id}`); diff `creative.id` vs stored `metaCreativeId`.
-- On change: pull `getCreativeSpec` → update `ad_creatives` (headline/body/image/link/cta) AND set a marker —
-  migration adds `ad_creatives.externally_edited BOOLEAN` (or reuse `review_status='changed_externally'`).
-- FE: **"Edited in Ads Manager — not reviewed by FixFlow"** badge in the live creative view; optional admin
-  "re-approve" to clear it. (D3 — surface the review-gate bypass, never auto-approve.)
+- ✅ `MetaService.getAd(adId, token)` → `{status, creativeId}` (`fields=status,creative{id}`).
+- ✅ `MetaConfigSyncService.reconcile` extended: when `c.metaAdId`+`c.metaCreativeId` exist and the live
+  ad's `creative.id` ≠ stored `metaCreativeId`, pull `getCreativeSpec` → `CreativeRepository.reflectExternalCreative`
+  (headline/body/image, non-empty only; **never touches `review_status`** — D3) and re-stamp `metaCreativeId` so
+  it isn't re-detected. Spec unreadable → `flagExternallyEdited` (flag without content). Adds
+  `changes.creativeExternallyEdited` to the reconcile result.
+- ✅ Migration **179** `ad_creatives.externally_edited BOOLEAN` + `externally_edited_at TIMESTAMPTZ`. Flag is
+  cleared by a local edit (`update`), regenerate (`upsertAi`), or re-review (`review`) — re-arms the review gate.
+- ✅ FE: **"Edited in Ads Manager — not reviewed by FixFlow"** amber badge in `CreativePreview` (live view).
+  `AdCreative.externallyEdited?` added to the FE type. Clearing it = edit the draft (re-review). No separate
+  admin "re-approve" button (re-reviewing already clears it).
+- ✅ Tests: 3 new cases (reflect+restamp, spec-unreadable→flag-only, no-op when ids match) — 11/11 pass.
 
 ## Phase 3 — Targeting + objective (~1d)
 
@@ -93,10 +102,18 @@ Meta, confirm Scale-to-full no longer clobbers).
 - Best-effort map custom_location radius (km→mi) → `targetRadiusMiles`; reflect `objective`.
 - **Do NOT reverse-push** a reverse-mapped targeting (D4 — lossy); the raw JSON is read-only fidelity.
 
-## Phase 4 — Deletion / divergence (~0.5d)
+## Phase 4 — Deletion / divergence (~0.5d) — ✅ DONE (uncommitted)
 
-- If a Meta object is archived/missing (GET 404 / effective_status ARCHIVED): reflect campaign status, **halt
-  in-app actions** on it, never recreate (D5).
+- ✅ Pure `isMetaObjectGone(message)` — distinguishes a deleted-object Graph error ("does not exist" /
+  "Unsupported get request" / subcode 33) from a transient/permission error (so we never wrongly archive).
+- ✅ `reconcile`: a 404 on the adset/campaign GET → `markDiverged`; an `effective_status` of `ARCHIVED`/`DELETED`
+  → `markDiverged`. `markDiverged` reflects the campaign as `archived`, stamps `metaStatus` (`DELETED`/`ARCHIVED`),
+  and returns a new `diverged` status (+ `reason: meta_deleted|meta_archived`). Idempotent. Never recreates.
+- ✅ **Halt in-app actions** (D5): `MetaPushService.goLive` / `scaleToFull` / `updateDraft` now refuse a campaign
+  whose status is `archived`, and `scaleToFull`/`updateDraft` also bail when their D6-guard reconcile returns
+  `diverged` — so we never push to dead Meta ids.
+- ✅ FE: the "Refresh from Meta" action surfaces a `diverged` toast (deleted vs archived) and reloads.
+- ✅ Tests: +6 cases (pure `isMetaObjectGone` ×2, 404→diverged, ARCHIVED→diverged, transient→error-not-archived).
 
 ---
 
