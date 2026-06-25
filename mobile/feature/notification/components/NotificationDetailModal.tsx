@@ -28,7 +28,7 @@ export default function NotificationDetailModal({
 }: NotificationDetailModalProps) {
   if (!notification) return null;
 
-  const style = getNotificationStyle(notification.notificationType);
+  const style = getNotificationStyle(notification.notificationType, notification.metadata);
   const title = getNotificationTitle(
     notification.notificationType,
     notification.metadata
