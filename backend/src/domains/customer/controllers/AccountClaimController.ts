@@ -231,11 +231,12 @@ export const claimAccount = async (req: Request, res: Response): Promise<void> =
         [real.address, placeholder.address]
       );
 
-      // Transfer notifications
+      // Transfer notifications (column is receiver_address — using recipient_address here threw
+      // mid-transaction and silently rolled back the ENTIRE claim, so nothing ever transferred).
       await client.query(
         `UPDATE notifications
-         SET recipient_address = $1
-         WHERE LOWER(recipient_address) = LOWER($2)`,
+         SET receiver_address = $1
+         WHERE LOWER(receiver_address) = LOWER($2)`,
         [real.address, placeholder.address]
       );
 
@@ -247,16 +248,15 @@ export const claimAccount = async (req: Request, res: Response): Promise<void> =
         );
       }
 
-      // Archive the placeholder customer (add suffix to address)
-      const archivedAddress = `${placeholder.address}_archived_${Date.now()}`;
+      // Mark the placeholder as claimed by clearing its contact, so it can no longer be matched or
+      // re-claimed (checkClaimable matches on email/phone). We intentionally do NOT rename the
+      // address: it's the PK and is FK-referenced (e.g. ad_leads.customer_id), and the old
+      // `${address}_archived_${ts}` value overflowed varchar(42) — both of which silently rolled
+      // back the entire claim. Data has already been transferred off this row above.
       await client.query(
-        `UPDATE customers
-         SET address = $1,
-             wallet_address = $1,
-             email = NULL,
-             phone = NULL
-         WHERE LOWER(address) = LOWER($2)`,
-        [archivedAddress, placeholder.address]
+        `UPDATE customers SET email = NULL, phone = NULL
+         WHERE LOWER(address) = LOWER($1)`,
+        [placeholder.address]
       );
 
       await client.query('COMMIT');
