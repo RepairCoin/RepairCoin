@@ -9,7 +9,7 @@ interface NotificationCardProps {
 }
 
 export default function NotificationCard({ notification, onPress }: NotificationCardProps) {
-  const style = getNotificationStyle(notification.notificationType);
+  const style = getNotificationStyle(notification.notificationType, notification.metadata);
 
   // Pressing opens the detail modal (handled by the parent via onPress),
   // matching the web NotificationBell. No navigation away from the list.

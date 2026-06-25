@@ -3,7 +3,53 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from "@expo/v
 import { Notification, NotificationStyle } from "@/feature/notification/types";
 import { NOTIFICATION_ROUTES } from "@/shared/constants/notifications";
 
-export function getNotificationStyle(type: string): NotificationStyle {
+/**
+ * Data-driven display: notifications emitted through the backend
+ * NotificationGateway carry metadata.display = { title, icon, color }. `icon`
+ * is a semantic token mapped here to a vector icon + tint, so new notification
+ * types that reuse a token need NO change to this file. Legacy/un-migrated
+ * types have no metadata.display and fall through to the per-type switch.
+ */
+const DISPLAY_TOKEN_STYLE: Record<string, NotificationStyle> = {
+  cancelled: {
+    icon: <MaterialCommunityIcons name="calendar-remove" size={20} color="#EF4444" />,
+    bgColor: "bg-red-500/20",
+    borderColor: "border-red-500/30",
+  },
+  calendar: {
+    icon: <Ionicons name="calendar-outline" size={20} color="#3B82F6" />,
+    bgColor: "bg-blue-500/20",
+    borderColor: "border-blue-500/30",
+  },
+  alarm: {
+    icon: <Ionicons name="alarm" size={20} color="#8B5CF6" />,
+    bgColor: "bg-purple-500/20",
+    borderColor: "border-purple-500/30",
+  },
+  campaign: {
+    icon: <Ionicons name="megaphone" size={20} color="#EC4899" />,
+    bgColor: "bg-pink-500/20",
+    borderColor: "border-pink-500/30",
+  },
+  reward: {
+    icon: <FontAwesome5 name="coins" size={20} color="#FFCC00" />,
+    bgColor: "bg-yellow-500/20",
+    borderColor: "border-yellow-500/30",
+  },
+  default: {
+    icon: <Ionicons name="notifications" size={20} color="#9CA3AF" />,
+    bgColor: "bg-gray-500/20",
+    borderColor: "border-gray-500/30",
+  },
+};
+
+export function getNotificationStyle(
+  type: string,
+  metadata?: Record<string, any>
+): NotificationStyle {
+  // Prefer the gateway-provided display token; fall back to the legacy switch.
+  const token = metadata?.display?.icon;
+  if (token && DISPLAY_TOKEN_STYLE[token]) return DISPLAY_TOKEN_STYLE[token];
   switch (type) {
     case "reward_issued":
       return {
@@ -97,6 +143,8 @@ export function getNotificationTitle(
   type: string,
   metadata?: Record<string, any>
 ): string {
+  // Prefer the gateway-provided display title; fall back to the legacy switch.
+  if (metadata?.display?.title) return metadata.display.title as string;
   switch (type) {
     case "reward_issued":
       return "Reward Received";
