@@ -627,6 +627,25 @@ export const syncCampaignFromMeta = async (id: string): Promise<SyncFromMetaResu
   return unwrap<SyncFromMetaResult>(res);
 };
 
+// Landing-page magnet overrides (Phase 2). All optional — anything unset auto-composes.
+export interface LandingConfig {
+  headline?: string;
+  subhead?: string;
+  urgencyText?: string;
+  benefitBullets?: string[];
+  ctaLabel?: string;
+  showRating?: boolean;
+  callNowEnabled?: boolean;
+}
+export const getLandingConfig = async (campaignId: string): Promise<LandingConfig> => {
+  const res = await apiClient.get(`/ads/campaigns/${campaignId}/landing-config`);
+  return unwrap<LandingConfig>(res);
+};
+export const updateLandingConfig = async (campaignId: string, config: LandingConfig): Promise<LandingConfig> => {
+  const res = await apiClient.put(`/ads/campaigns/${campaignId}/landing-config`, config);
+  return unwrap<LandingConfig>(res);
+};
+
 // The connected ad account's currency + minimum daily budget — so the budget field is shown in
 // the account's own currency (no $/PHP ambiguity) and validated against the minimum.
 export interface ShopMetaAccount {

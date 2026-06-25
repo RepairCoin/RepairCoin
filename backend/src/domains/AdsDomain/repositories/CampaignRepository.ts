@@ -52,6 +52,20 @@ export interface AdCampaign {
   /** Two-way sync (Phase 3): the live ad set's targeting spec, verbatim — read-only fidelity for
    *  targeting we can't losslessly map to our typed columns. Never reverse-pushed (D4). */
   metaTargetingRaw: any | null;
+  /** Per-campaign landing-page magnet overrides (Phase 2); null → auto-composed defaults. */
+  landingConfig: LandingConfig | null;
+}
+
+/** Shop-controlled landing-page magnet overrides. All optional — anything unset falls back to the
+ *  auto-composed default (offer headline, FixFlow CTA, rating shown, no urgency, no Call-now). */
+export interface LandingConfig {
+  headline?: string;
+  subhead?: string;
+  urgencyText?: string;
+  benefitBullets?: string[];
+  ctaLabel?: string;
+  showRating?: boolean;
+  callNowEnabled?: boolean;
 }
 
 export interface MetaObjectIds {
@@ -198,6 +212,17 @@ export class CampaignRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
+  /** Phase 2 — persist the shop's landing-page magnet overrides (JSONB). Pass null to clear back
+   *  to auto-composed defaults. */
+  async setLandingConfig(id: string, config: LandingConfig | null): Promise<AdCampaign | null> {
+    const res = await this.pool.query(
+      `UPDATE ad_campaigns SET landing_config = $2, updated_at = now()
+        WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
+      [id, config ? JSON.stringify(config) : null]
+    );
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
   /** Safeguard 5 — set/clear the "swap the creative" nudge flag. */
   async setCreativeRefresh(id: string, needs: boolean, reason: string | null = null): Promise<void> {
     await this.pool.query(
@@ -325,6 +350,7 @@ export class CampaignRepository extends BaseRepository {
       metaLastSyncedAt: r.meta_last_synced_at ?? null,
       metaSyncedConfigAt: r.meta_synced_config_at ?? null,
       metaTargetingRaw: r.meta_targeting_raw ?? null,
+      landingConfig: r.landing_config ?? null,
     };
   }
 }

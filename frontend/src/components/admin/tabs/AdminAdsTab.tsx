@@ -16,6 +16,7 @@ import { MarginPanel } from "@/components/ads/MarginPanel";
 import { CampaignRequestsQueue } from "@/components/ads/CampaignRequestsQueue";
 import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
 import { DraftComposer } from "@/components/ads/DraftComposer";
+import { LandingPageSettings } from "@/components/ads/LandingPageSettings";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, regenerateAdImage, scaleCampaignBudget, syncCampaignFromMeta,
@@ -435,6 +436,9 @@ export const AdminAdsTab: React.FC = () => {
               </div>
             </>
           )}
+
+          {/* Landing-page magnet editor — available for both draft and live campaigns */}
+          <LandingPageSettings campaign={selected} />
         </div>
       )}
     </div>
