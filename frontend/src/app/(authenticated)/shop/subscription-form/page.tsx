@@ -13,6 +13,14 @@ import {
 } from "lucide-react";
 import apiClient from '@/services/api/client';
 import { useAuthStore } from '@/stores/authStore';
+import {
+  SUBSCRIPTION_PLANS,
+  SUBSCRIBE_TIER_STORAGE_KEY,
+  DEFAULT_TIER,
+  SubscriptionTier,
+  isValidTier,
+  getPlanByTier,
+} from '@/config/subscriptionPlans';
 
 export default function SubscriptionForm() {
   const router = useRouter();
@@ -38,7 +46,61 @@ export default function SubscriptionForm() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loadingShopData, setLoadingShopData] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>(DEFAULT_TIER);
+  const [trialEligible, setTrialEligible] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
   const dataLoadedRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    apiClient
+      .get("/shops/subscription/trial-eligibility")
+      .then((res) => {
+        if (active) setTrialEligible(!!res?.data?.eligible);
+      })
+      .catch(() => {
+        if (active) setTrialEligible(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleStartTrial = async () => {
+    try {
+      setStartingTrial(true);
+      setError(null);
+      const result = await apiClient.post("/shops/subscription/start-trial", {
+        tier: selectedTier,
+      });
+      if (!result.success) {
+        throw new Error(result.error || "Failed to start free trial");
+      }
+      setSuccessMessage(
+        result.data.message || "Your free trial has started. No credit card required."
+      );
+      setTimeout(() => router.push("/shop?tab=subscription"), 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start free trial");
+    } finally {
+      setStartingTrial(false);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const fromQuery = new URLSearchParams(window.location.search).get("tier");
+    if (isValidTier(fromQuery)) {
+      setSelectedTier(fromQuery);
+      return;
+    }
+    const stored = sessionStorage.getItem(SUBSCRIBE_TIER_STORAGE_KEY);
+    if (isValidTier(stored)) {
+      setSelectedTier(stored);
+    }
+  }, []);
+
+  const selectedPlan = getPlanByTier(selectedTier);
 
   // Load shop data to pre-fill form
   // Use shopId from auth store (available immediately from session cookie)
@@ -104,7 +166,8 @@ export default function SubscriptionForm() {
         billingContact: formData.shopName,
         billingPhone: formData.phone,
         billingAddress: formData.address,
-        notes: 'Monthly subscription enrollment via subscription form'
+        tier: selectedTier,
+        notes: `Monthly subscription enrollment via subscription form (${selectedTier})`
       });
 
       // Check if response is successful
@@ -191,26 +254,42 @@ export default function SubscriptionForm() {
               </p>
             </div>
 
+            {/* Plan selector */}
+            <div className="flex flex-wrap gap-3">
+              {SUBSCRIPTION_PLANS.map((plan) => (
+                <button
+                  key={plan.tier}
+                  type="button"
+                  onClick={() => setSelectedTier(plan.tier)}
+                  className={`px-4 py-2 rounded-xl border text-sm font-medium transition-colors ${
+                    selectedTier === plan.tier
+                      ? "bg-[#FFCC00] text-black border-[#FFCC00]"
+                      : "bg-gray-900/50 text-gray-300 border-gray-700 hover:border-gray-500"
+                  }`}
+                >
+                  {plan.label} · ${plan.price}
+                </button>
+              ))}
+            </div>
+
             {/* Pricing Card */}
             <div className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-2xl p-8 border border-blue-600/50">
-              <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-5xl font-bold text-white">$500</span>
+              <div className="flex items-baseline gap-2 mb-2">
+                <span className="text-5xl font-bold text-white">
+                  ${selectedPlan.price}
+                </span>
                 <span className="text-gray-400">/month</span>
               </div>
+              <p className="text-[#FFCC00] font-semibold mb-4">
+                {selectedPlan.label}
+              </p>
               <p className="text-gray-300 mb-6">
-                Everything you need to start issuing rewards
+                {selectedPlan.includesLabel}
               </p>
 
               {/* Features List */}
               <ul className="space-y-3">
-                {[
-                  "Issue unlimited RCN rewards",
-                  "Access to customer dashboard",
-                  "Real-time analytics",
-                  "Priority support",
-                  "No setup fees",
-                  "Cancel anytime",
-                ].map((feature, index) => (
+                {selectedPlan.features.map((feature, index) => (
                   <li key={index} className="flex items-start gap-3">
                     <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-300">{feature}</span>
@@ -218,6 +297,29 @@ export default function SubscriptionForm() {
                 ))}
               </ul>
             </div>
+
+            {/* Free Trial CTA */}
+            {trialEligible && (
+              <div className="bg-blue-900/20 border border-blue-600/50 rounded-2xl p-6">
+                <p className="text-white font-semibold mb-1">
+                  Not ready to pay? Try it free for 14 days.
+                </p>
+                <p className="text-sm text-gray-400 mb-4">
+                  Full access, no credit card required. Subscribe anytime to
+                  keep your shop running after the trial.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleStartTrial}
+                  disabled={startingTrial}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {startingTrial
+                    ? "Starting your free trial..."
+                    : "Start 14-Day Free Trial"}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Right Side - Form Section */}

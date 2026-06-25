@@ -7,6 +7,8 @@ type NotificationTabsProps = {
   onTabChange: (tab: TabType) => void;
   unreadCount: number;
   onMarkAllAsRead: () => void;
+  /** Live WebSocket status — drives the realtime "connected" indicator dot. */
+  isConnected?: boolean;
 };
 
 export default function NotificationTabs({
@@ -14,12 +16,20 @@ export default function NotificationTabs({
   onTabChange,
   unreadCount,
   onMarkAllAsRead,
+  isConnected = false,
 }: NotificationTabsProps) {
   return (
     <View className="px-4">
       <View className="flex-row justify-between items-center">
         {/* Tabs */}
-        <View className="flex-row">
+        <View className="flex-row items-center">
+          {/* Realtime connection indicator (live = green). Mirrors the web
+              NotificationBell's connection dot. */}
+          <View
+            className={`w-2 h-2 rounded-full mr-2 ${
+              isConnected ? "bg-green-500" : "bg-gray-600"
+            }`}
+          />
           <Pressable
             onPress={() => onTabChange("unread")}
             className={`px-4 py-2 rounded-full mr-2 ${

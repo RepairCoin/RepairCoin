@@ -178,6 +178,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
         tabId: "fraud",
       },
       {
+        title: "Platform Copilot",
+        href: "/admin?tab=copilot",
+        icon: <Bot className="w-5 h-5" />,
+        tabId: "copilot",
+      },
+      {
         title: "Promo Codes",
         href: "/admin?tab=promo-codes",
         icon: <Tag className="w-5 h-5" />,

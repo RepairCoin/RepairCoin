@@ -9,8 +9,21 @@
 import { Router, Request, Response } from 'express';
 import { getSharedPool } from '../../../utils/database-pool';
 import { logger } from '../../../utils/logger';
+import { getFraudScanService } from '../../../services/FraudScanService';
 
 const router = Router();
+
+// POST /api/admin/fraud/scan — run the detection scan on demand.
+// Same engine as the nightly scheduled scan; lets admins trigger/verify it.
+router.post('/fraud/scan', async (_req: Request, res: Response) => {
+  try {
+    const result = await getFraudScanService().runScan();
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('Manual fraud scan failed:', error);
+    res.status(500).json({ success: false, error: 'Fraud scan failed' });
+  }
+});
 
 const VALID_STATUSES = ['open', 'investigating', 'confirmed', 'dismissed'] as const;
 type FindingStatus = (typeof VALID_STATUSES)[number];

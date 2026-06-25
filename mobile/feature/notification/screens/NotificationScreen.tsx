@@ -23,6 +23,7 @@ export default function NotificationScreen() {
     showMenu,
     setShowMenu,
     isRegistered,
+    isConnected,
     unreadCount,
     handleRefresh,
     handleLoadMore,
@@ -65,6 +66,7 @@ export default function NotificationScreen() {
         onTabChange={setActiveTab}
         unreadCount={unreadCount}
         onMarkAllAsRead={handleMarkAllAsRead}
+        isConnected={isConnected}
       />
 
       <FlatList

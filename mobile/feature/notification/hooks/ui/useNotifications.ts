@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Alert } from "react-native";
 import { notificationApi } from "@/feature/notification/services/notification.services";
 import { usePushNotificationContext } from "@/shared/providers/PushNotificationProvider";
+import { useRealtime } from "@/shared/providers/RealtimeProvider";
+import { realtimeEvents } from "@/shared/utilities/realtimeEvents";
 import { useAppToast } from "@/shared/hooks";
 import { Notification, TabType } from "../../types";
 import { NOTIFICATIONS_PER_PAGE } from "@/shared/constants/notifications";
@@ -97,6 +99,21 @@ export function useNotifications() {
     }
   };
 
+  const { isConnected } = useRealtime();
+
+  // Realtime: subscribe to `notification` broadcasts from the shared socket
+  // (RealtimeProvider). Prepend each to the list, deduping by id (matches the
+  // web client's addNotification) so the badge and list update live without a
+  // refetch.
+  useEffect(() => {
+    return realtimeEvents.onNotification((incoming) => {
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === incoming.id)) return prev;
+        return [incoming, ...prev];
+      });
+    });
+  }, []);
+
   const handleTurnOffNotifications = () => {
     setShowMenu(false);
     Alert.alert(
@@ -146,6 +163,7 @@ export function useNotifications() {
     showMenu,
     setShowMenu,
     isRegistered,
+    isConnected,
     unreadCount,
     handleRefresh,
     handleLoadMore,

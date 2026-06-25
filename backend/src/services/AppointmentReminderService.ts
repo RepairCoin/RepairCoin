@@ -574,13 +574,17 @@ export class AppointmentReminderService {
       // Send push notification to customer
       const formattedTime = bookingTime ? this.formatTime(bookingTime) : 'TBD';
 
+      // Rich notification image: prefer the booked service's image, fall back to the shop logo
+      const notificationImage = service.imageUrl || shop.logoUrl;
+
       await this.pushDispatcher.sendBookingConfirmation(
         order.customerAddress,
         shop.name,
         service.serviceName,
         bookingDateTime.toLocaleDateString(),
         formattedTime,
-        orderId
+        orderId,
+        notificationImage
       );
 
       // Send push notification to shop
@@ -592,7 +596,8 @@ export class AppointmentReminderService {
           service.serviceName,
           bookingDateTime.toLocaleDateString(),
           formattedTime,
-          orderId
+          orderId,
+          notificationImage
         );
       }
 

@@ -11,6 +11,7 @@ import {
   Ban,
   Check,
   X,
+  Play,
 } from "lucide-react";
 import {
   listFraudFindings,
@@ -18,6 +19,7 @@ import {
   updateFraudFindingStatus,
   suspendShopForFraud,
   suspendCustomerForFraud,
+  runFraudScan,
   FraudFinding,
   FraudStatus,
   FraudSummary,
@@ -50,6 +52,24 @@ export const AdminFraudTab: React.FC = () => {
   const [activeStatus, setActiveStatus] = useState<FraudStatus | "all">("open");
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+
+  const runScan = async () => {
+    setScanning(true);
+    try {
+      const result = await runFraudScan();
+      toast.success(
+        result
+          ? `Scan complete — ${result.scanned} finding(s), ${result.upserted} saved`
+          : "Scan complete"
+      );
+      await load();
+    } catch {
+      toast.error("Scan failed");
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -126,13 +146,24 @@ export const AdminFraudTab: React.FC = () => {
             </p>
           </div>
         </div>
-        <button
-          onClick={load}
-          className="px-3 py-2 bg-[#101010] border border-gray-700 text-gray-300 rounded-lg hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors flex items-center gap-2 text-sm"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={runScan}
+            disabled={scanning}
+            className="px-3 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-2 text-sm font-medium disabled:opacity-60"
+            title="Run the detection scan now"
+          >
+            {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {scanning ? "Scanning…" : "Run scan now"}
+          </button>
+          <button
+            onClick={load}
+            className="px-3 py-2 bg-[#101010] border border-gray-700 text-gray-300 rounded-lg hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors flex items-center gap-2 text-sm"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}

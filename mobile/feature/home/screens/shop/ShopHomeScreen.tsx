@@ -4,6 +4,7 @@ import { useFocusEffect } from "expo-router";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { DemoBanner } from "@/shared/components/ui/DemoBanner";
 import { useHomeDataUI } from "@/feature/shop/account/hooks";
+import { useEndBootWhenReady } from "@/shared/hooks/useEndBootWhenReady";
 import { ShopTabs } from "@/feature/shop/services/shop.interface";
 import {
   ShopWalletTab,
@@ -15,6 +16,10 @@ import {
 
 export default function Home() {
   const { shopData, growthData, refetch } = useHomeDataUI();
+
+  // Lift the cold-start boot splash once this screen has its data (and is the
+  // focused/landed screen — see useEndBootWhenReady).
+  useEndBootWhenReady(!!shopData);
 
   const [activeTab, setActiveTab] = useState<ShopTabs>("Wallet");
   const shopTabs: ShopTabs[] = ["Wallet", "Analysis", "Promo Code"];

@@ -1,0 +1,64 @@
+export type SubscriptionTier = 'starter' | 'growth' | 'business';
+
+export interface SubscriptionPlan {
+  tier: SubscriptionTier;
+  label: string;
+  amount: number;
+  priceEnvKey: string;
+}
+
+export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
+  starter: { tier: 'starter', label: 'Starter AI', amount: 80, priceEnvKey: 'STRIPE_PRICE_STARTER' },
+  growth: { tier: 'growth', label: 'Growth AI', amount: 299, priceEnvKey: 'STRIPE_PRICE_GROWTH' },
+  business: { tier: 'business', label: 'Business AI', amount: 599, priceEnvKey: 'STRIPE_PRICE_BUSINESS' },
+};
+
+export const DEFAULT_TIER: SubscriptionTier = 'business';
+
+export const LEGACY_MONTHLY_AMOUNT = 500;
+
+export const TRIAL_PERIOD_DAYS = 14;
+
+export function isValidTier(value: unknown): value is SubscriptionTier {
+  return value === 'starter' || value === 'growth' || value === 'business';
+}
+
+export function getPlanByTier(tier: SubscriptionTier): SubscriptionPlan {
+  return SUBSCRIPTION_PLANS[tier];
+}
+
+export function resolveCheckoutPriceId(tier: SubscriptionTier): string {
+  const plan = SUBSCRIPTION_PLANS[tier];
+  const tierPriceId = process.env[plan.priceEnvKey];
+  if (tierPriceId) {
+    return tierPriceId;
+  }
+  const legacyPriceId = process.env.STRIPE_MONTHLY_PRICE_ID;
+  if (legacyPriceId) {
+    return legacyPriceId;
+  }
+  throw new Error(
+    `No Stripe price configured for tier "${tier}" (set ${plan.priceEnvKey} or STRIPE_MONTHLY_PRICE_ID)`
+  );
+}
+
+export function getPlanByPriceId(
+  priceId: string | null | undefined
+): (SubscriptionPlan & { legacy?: boolean }) | undefined {
+  if (!priceId) {
+    return undefined;
+  }
+  for (const plan of Object.values(SUBSCRIPTION_PLANS)) {
+    if (process.env[plan.priceEnvKey] && process.env[plan.priceEnvKey] === priceId) {
+      return plan;
+    }
+  }
+  if (process.env.STRIPE_MONTHLY_PRICE_ID && process.env.STRIPE_MONTHLY_PRICE_ID === priceId) {
+    return { ...SUBSCRIPTION_PLANS[DEFAULT_TIER], amount: LEGACY_MONTHLY_AMOUNT, legacy: true };
+  }
+  return undefined;
+}
+
+export function getMonthlyAmountForPriceId(priceId: string | null | undefined): number {
+  return getPlanByPriceId(priceId)?.amount ?? 0;
+}

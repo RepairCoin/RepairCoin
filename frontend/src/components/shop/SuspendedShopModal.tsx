@@ -88,7 +88,7 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1C1C1C] rounded-2xl max-w-2xl w-full border border-gray-800 shadow-2xl">
+      <div className="bg-[#1C1C1C] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-800 shadow-2xl">
         {/* Header */}
         <div className={`bg-gradient-to-r ${colors.gradient} border-b ${colors.border} px-6 py-4 rounded-t-2xl`}>
           <div className="flex items-center justify-between">

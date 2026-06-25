@@ -39,6 +39,7 @@ import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
 import { ShopPlansBillingTab } from "@/components/shop/tabs/ShopPlansBillingTab";
+import { resolvePlanLabel } from "@/config/subscriptionPlans";
 import { PaymentMethodsTab } from "@/components/shop/tabs/PaymentMethodsTab";
 import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
@@ -148,6 +149,25 @@ function clearCachedShopData(): void {
   }
 }
 
+function describeSubscriptionPlan(sub: any): {
+  label: string;
+  amount: number | null;
+} {
+  const rawAmount = sub?.monthlyAmount;
+  const amount =
+    rawAmount === undefined || rawAmount === null || isNaN(Number(rawAmount))
+      ? null
+      : Number(rawAmount);
+
+  const label = resolvePlanLabel({
+    planLabel: sub?.planLabel,
+    tier: sub?.tier,
+    subscriptionType: sub?.subscriptionType,
+    monthlyAmount: amount,
+  });
+  return { label, amount };
+}
+
 export interface ShopData {
   shopId: string;
   name: string;
@@ -162,6 +182,8 @@ export interface ShopData {
   subscriptionStatus?: string | null;
   subscriptionCancelledAt?: string | null;
   subscriptionEndsAt?: string | null; // When subscription access ends (period end for cancelled subs)
+  subscriptionPlanLabel?: string | null; // e.g. "Business AI — $599/mo", derived from the live subscription
+  subscriptionMonthlyAmount?: number | null;
   category?: string;
   totalTokensIssued: number;
   totalRedemptions: number;
@@ -770,11 +792,14 @@ export default function ShopDashboardClient() {
               // Determine actual status - if cancelAtPeriodEnd is true, treat as cancelled
               const actualStatus = sub.cancelAtPeriodEnd ? 'cancelled' : sub.status;
 
+              const plan = describeSubscriptionPlan(sub);
               enhancedShopData = {
                 ...enhancedShopData,
                 subscriptionStatus: actualStatus,
                 subscriptionCancelledAt: sub.cancelledAt || (sub.cancelAtPeriodEnd ? new Date().toISOString() : null),
                 subscriptionEndsAt: sub.currentPeriodEnd || sub.nextPaymentDate || sub.activatedAt, // Use Stripe's currentPeriodEnd
+                subscriptionMonthlyAmount: plan.amount,
+                subscriptionPlanLabel: plan.amount != null ? `${plan.label} — $${plan.amount}/mo` : plan.label,
               };
 
               console.log('📋 Subscription details loaded:', {
@@ -856,11 +881,14 @@ export default function ShopDashboardClient() {
             if (subResult.success && subResult.data?.currentSubscription) {
               const sub = subResult.data.currentSubscription;
               const actualStatus = sub.cancelAtPeriodEnd ? 'cancelled' : sub.status;
+              const plan = describeSubscriptionPlan(sub);
               enhancedShopData = {
                 ...enhancedShopData,
                 subscriptionStatus: actualStatus,
                 subscriptionCancelledAt: sub.cancelledAt || (sub.cancelAtPeriodEnd ? new Date().toISOString() : null),
                 subscriptionEndsAt: sub.currentPeriodEnd || sub.nextPaymentDate || sub.activatedAt,
+                subscriptionMonthlyAmount: plan.amount,
+                subscriptionPlanLabel: plan.amount != null ? `${plan.label} — $${plan.amount}/mo` : plan.label,
               };
             }
           } catch (subErr) {
@@ -1368,7 +1396,16 @@ export default function ShopDashboardClient() {
             </div>
           )}
 
+          {isMessagesFullHeight && shopData && (
+            <SubscriptionGuard shopData={shopData} showOverlay={false}>
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                <MessagesTab shopId={shopData.shopId} compact />
+              </div>
+            </SubscriptionGuard>
+          )}
+
           {/* Tab Content — keyed wrapper so each tab fades + slides in on switch */}
+          {!isMessagesFullHeight && (
           <FadeSlideIn key={activeTab}>
           {/* Optional brand-setup nudge for skippers (operational + kit not set up). */}
           {activeTab === "overview" &&
@@ -1454,7 +1491,7 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
           {activeTab === "messages" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
+            <SubscriptionGuard shopData={shopData} showOverlay={false}>
               {isMessagesFullHeight ? (
                 <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                   <MessagesTab shopId={shopData.shopId} compact />
@@ -1557,7 +1594,7 @@ export default function ShopDashboardClient() {
 
           {activeTab === "plans" && shopData && (
             <ShopPlansBillingTab
-              planLabel={shopData.subscriptionActive ? "Standard — $500/mo" : undefined}
+              planLabel={shopData.subscriptionActive ? (shopData.subscriptionPlanLabel ?? undefined) : undefined}
               subscriptionActive={shopData.subscriptionActive}
               subscriptionStatus={shopData.subscriptionStatus}
               subscriptionEndsAt={shopData.subscriptionEndsAt}
@@ -1617,6 +1654,7 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
           </FadeSlideIn>
+          )}
 
           {/* Payment Modal (crypto/Thirdweb path; blockchain-only) */}
           {showPayment && currentPurchaseId && blockchainEnabled && (

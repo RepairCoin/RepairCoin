@@ -72,6 +72,20 @@ export async function updateFraudFindingStatus(
   return res.data ?? null;
 }
 
+export interface FraudScanResult {
+  scanned: number;
+  upserted: number;
+  byRule: Record<string, number>;
+}
+
+/** Trigger the detection scan on demand (same engine as the nightly run). */
+export async function runFraudScan(): Promise<FraudScanResult | null> {
+  const res = await apiClient.post<{ data?: FraudScanResult }>(
+    "/admin/fraud/scan"
+  );
+  return res.data ?? null;
+}
+
 export async function getFraudSummary(): Promise<FraudSummary | null> {
   const res = await apiClient.get<{ data?: FraudSummary }>(
     "/admin/fraud/summary"

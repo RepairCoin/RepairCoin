@@ -805,7 +805,7 @@ class RepairCoinApp {
         cleanupService.scheduleCleanup(24, {
           enableTransactionArchiving: false
         });
-        logger.info('🧹 Cleanup service scheduled (daily, webhook cleanup only)');
+        logger.info('🧹 Cleanup service scheduled (daily: webhook logs, refresh tokens, push tokens)');
 
         // Start appointment reminder service - runs every hour for 2h reminder accuracy
         appointmentReminderService.scheduleReminders(1);
@@ -905,7 +905,17 @@ class RepairCoinApp {
             logger.error('Fraud scan error:', error);
           }
         }, 24 * 60 * 60 * 1000); // daily
-        logger.info('🛡️ Fraud detection scan scheduled (daily)');
+        // Also run once shortly after boot so a fresh deploy populates findings
+        // (the 24h interval alone would never fire on frequently-restarted hosts).
+        setTimeout(async () => {
+          try {
+            const { getFraudScanService } = await import('./services/FraudScanService');
+            await getFraudScanService().runScan();
+          } catch (error) {
+            logger.error('Initial fraud scan error:', error);
+          }
+        }, 60 * 1000); // 60s after boot
+        logger.info('🛡️ Fraud detection scan scheduled (daily + once on boot)');
 
         // Start error monitoring
         monitorErrors();
