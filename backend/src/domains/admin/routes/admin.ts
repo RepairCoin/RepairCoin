@@ -508,6 +508,29 @@ import { makePlatformCopilotController } from '../../AIAgentDomain/controllers/P
 const platformCopilot = makePlatformCopilotController();
 router.post('/ai/platform-copilot', (req, res) => { void platformCopilot.ask(req, res); });
 
+// AI Content Moderation (Admin AI #5) — flag inappropriate listings/reviews.
+import { scanContent, deactivateService } from '../../AIAgentDomain/services/contentModeration';
+router.get('/content-moderation/scan', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const result = await scanContent(force);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('Content moderation scan failed:', error);
+    res.status(500).json({ success: false, error: 'Content scan failed' });
+  }
+});
+router.post('/content-moderation/service/:serviceId/deactivate', async (req, res) => {
+  try {
+    const ok = await deactivateService(req.params.serviceId);
+    if (!ok) return res.status(404).json({ success: false, error: 'Service not found' });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to deactivate service:', error);
+    res.status(500).json({ success: false, error: 'Failed to deactivate service' });
+  }
+});
+
 // Support Ticket Triage (Admin AI #4) — suggest category/priority/summary/reply.
 import { getSupportTriage } from '../../AIAgentDomain/services/supportTriage';
 router.get('/support/tickets/:ticketId/ai-triage', async (req, res) => {
