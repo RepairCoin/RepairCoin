@@ -53,7 +53,9 @@ export class CustomerRepository extends BaseRepository {
         suspendedAt: row.suspended_at,
         suspensionReason: row.suspension_reason,
         referralCode: row.referral_code,
-        referredBy: row.referred_by
+        referredBy: row.referred_by,
+        importSource: row.import_source ?? null,
+        externalRef: row.external_ref ?? null
       }));
     } catch (error) {
       logger.error('Error fetching all customers:', error);

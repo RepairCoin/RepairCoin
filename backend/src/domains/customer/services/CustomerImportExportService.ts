@@ -28,6 +28,14 @@ export interface ImportOptions {
   mode: 'add' | 'merge' | 'replace';
   dryRun: boolean;
   onDuplicateWallet?: 'skip' | 'update' | 'error';
+  /** Origin platform tag stored on imported rows (e.g. 'square', 'csv'). Default 'import'. */
+  source?: string;
+  /** Explicit column mapping (ourField → source header) from the AI-suggested + confirmed map.
+   *  Overrides alias auto-detect; unknown/absent headers are ignored. */
+  columnMapping?: Record<string, string>;
+  /** Target shop the imported customers belong to → stamped on customers.home_shop_id so the shop
+   *  "owns" them (admin picks this; required for the migration to attribute customers to a shop). */
+  homeShopId?: string;
 }
 
 export interface ImportResult {
@@ -62,6 +70,14 @@ export interface ValidationReport {
   invalidRows: number;
   errors: ValidationError[];
   warnings: ValidationError[];
+  /** Sanitized rows that passed validation — the set actually imported. */
+  validCustomers: ParsedCustomer[];
+}
+
+/** Normalize a phone to its last 10 digits for tolerant dedup/match across formats. '' if too short. */
+function phoneDedupKey(phone: string): string {
+  const d = (phone || '').replace(/\D/g, '');
+  return d.length >= 10 ? d.slice(-10) : '';
 }
 
 /**
@@ -169,55 +185,32 @@ export class CustomerImportExportService {
       // Step 1: File-level validation
       await this.validateFile(fileBuffer, fileName, fileSize);
 
-      // Step 2: Parse file
-      const parsedCustomers = await parseCustomerExcel(fileBuffer, fileType);
+      // Step 2: Parse file (with the confirmed AI/explicit column mapping, if provided)
+      const parsedCustomers = await parseCustomerExcel(fileBuffer, fileType, options.columnMapping);
 
       if (parsedCustomers.length === 0) {
         throw new Error('File contains no valid customer data');
       }
 
-      if (parsedCustomers.length > 10000) {
-        throw new Error('Maximum 10,000 customers per import. Please split into multiple files.');
+      if (parsedCustomers.length > 50000) {
+        throw new Error('Maximum 50,000 customers per import. Please split into multiple files.');
       }
 
-      // Step 3: Data validation
+      // Step 3: Data validation (collects the valid rows; invalid/contactless are skipped + reported)
       const validationReport = await this.validateImportData(parsedCustomers);
 
-      // If validation failed, return errors
-      if (validationReport.invalidRows > 0) {
-        const result: ImportResult = {
-          success: false,
-          jobId,
-          summary: {
-            totalRows: validationReport.totalRows,
-            validRows: validationReport.validRows,
-            invalidRows: validationReport.invalidRows,
-            imported: 0,
-            updated: 0,
-            skipped: 0,
-            deleted: 0
-          },
-          errors: validationReport.errors,
-          warnings: validationReport.warnings,
-          metadata: {
-            uploadedAt: new Date().toISOString(),
-            uploadedBy,
-            shopId: shopId || undefined,
-            fileName,
-            fileSize,
-            processingTime: (Date.now() - startTime) / 1000,
-            mode: options.mode,
-            dryRun: options.dryRun
-          }
-        };
-
-        // Save import job to database
-        await this.saveImportJob(jobId, shopId, result, 'failed');
-
-        return result;
+      // Hard-fail ONLY when nothing is importable; otherwise skip the invalid rows and import the rest.
+      if (validationReport.validCustomers.length === 0) {
+        throw new Error(
+          'No importable rows: every row was missing a valid wallet AND an email/phone. ' +
+          'Make sure the file has an Email or Phone column.'
+        );
       }
 
-      // If dry run, return validation results without importing
+      // Errors can be huge (e.g. thousands of contactless rows) — store/return a capped sample.
+      const errorSample = validationReport.errors.slice(0, 200);
+
+      // If dry run, return validation results without importing.
       if (options.dryRun) {
         const result: ImportResult = {
           success: true,
@@ -228,11 +221,11 @@ export class CustomerImportExportService {
             invalidRows: validationReport.invalidRows,
             imported: 0,
             updated: 0,
-            skipped: 0,
+            skipped: validationReport.invalidRows,
             deleted: 0
           },
-          errors: validationReport.errors,
-          warnings: validationReport.warnings,
+          errors: errorSample,
+          warnings: validationReport.warnings.slice(0, 200),
           metadata: {
             uploadedAt: new Date().toISOString(),
             uploadedBy,
@@ -250,8 +243,8 @@ export class CustomerImportExportService {
         return result;
       }
 
-      // Step 4: Process import
-      const batchResult = await this.processImportBatch(parsedCustomers, options);
+      // Step 4: Process import (only the valid rows)
+      const batchResult = await this.processImportBatch(validationReport.validCustomers, options);
 
       const result: ImportResult = {
         success: true,
@@ -262,11 +255,11 @@ export class CustomerImportExportService {
           invalidRows: validationReport.invalidRows,
           imported: batchResult.imported,
           updated: batchResult.updated,
-          skipped: batchResult.skipped,
+          skipped: batchResult.skipped + validationReport.invalidRows, // includes contactless/dup rows
           deleted: batchResult.deleted
         },
-        errors: validationReport.errors,
-        warnings: validationReport.warnings,
+        errors: errorSample,
+        warnings: validationReport.warnings.slice(0, 200),
         metadata: {
           uploadedAt: new Date().toISOString(),
           uploadedBy,
@@ -414,42 +407,52 @@ export class CustomerImportExportService {
   ): Promise<ValidationReport> {
     const errors: ValidationError[] = [];
     const warnings: ValidationError[] = [];
-    const validRows: number[] = [];
+    const validCustomers: ParsedCustomer[] = [];
 
-    // Track duplicate wallet addresses within file
-    const walletAddresses = new Set<string>();
+    // Within-file dedup keys: real wallets by address; wallet-less rows by email/phone (the
+    // claim/dedup key) — also avoids the unique-email DB constraint blowing up the batch.
+    const seenWallets = new Set<string>();
+    const seenEmails = new Set<string>();
+    const seenPhones = new Set<string>();
 
     for (const customer of customers) {
-      // Sanitize data (XSS prevention)
       const sanitized = sanitizeCustomerData(customer);
-
-      // Check for duplicates within file
-      const walletKey = sanitized.walletAddress.toLowerCase();
-      const hasDuplicate = walletAddresses.has(walletKey);
-
-      // Validate row
-      const validation = validateCustomerRow(sanitized, walletAddresses);
+      const validation = validateCustomerRow(sanitized, sanitized.walletProvided ? seenWallets : undefined);
+      warnings.push(...validation.warnings);
 
       if (!validation.isValid) {
         errors.push(...validation.errors);
+        continue;
+      }
+
+      // Wallet-less: skip a later row that repeats an email/phone seen earlier in the file.
+      if (!sanitized.walletProvided) {
+        const em = sanitized.email?.toLowerCase();
+        const ph = sanitized.phone ? phoneDedupKey(sanitized.phone) : undefined;
+        if ((em && seenEmails.has(em)) || (ph && seenPhones.has(ph))) {
+          errors.push({
+            row: sanitized.rowIndex, column: 'Email / Phone', value: em || ph || '',
+            message: 'Duplicate contact (email/phone) earlier in the file — skipped',
+            severity: 'error', code: 'DUPLICATE_CONTACT'
+          });
+          continue;
+        }
+        if (em) seenEmails.add(em);
+        if (ph) seenPhones.add(ph);
       } else {
-        validRows.push(customer.rowIndex);
+        seenWallets.add(sanitized.walletAddress.toLowerCase());
       }
 
-      warnings.push(...validation.warnings);
-
-      // Add to set after validation
-      if (!hasDuplicate) {
-        walletAddresses.add(walletKey);
-      }
+      validCustomers.push(sanitized);
     }
 
     return {
       totalRows: customers.length,
-      validRows: validRows.length,
-      invalidRows: customers.length - validRows.length,
+      validRows: validCustomers.length,
+      invalidRows: customers.length - validCustomers.length,
       errors,
-      warnings
+      warnings,
+      validCustomers
     };
   }
 
@@ -460,87 +463,89 @@ export class CustomerImportExportService {
     customers: ParsedCustomer[],
     options: ImportOptions
   ): Promise<{ imported: number; updated: number; skipped: number; deleted: number }> {
-    const client = await this.pool.connect();
+    let imported = 0, updated = 0, skipped = 0, deleted = 0;
+    const source = options.source || 'import';
+    const homeShopId = options.homeShopId || null; // attribute imported customers to the target shop
+    const CHUNK = 500; // chunked transactions: avoids one giant tx timing out on 15k+ rows.
 
-    try {
-      await client.query('BEGIN');
-
-      let imported = 0;
-      let updated = 0;
-      let skipped = 0;
-      let deleted = 0;
-
-      // Handle 'replace' mode: delete all existing customers (ADMIN ONLY - dangerous!)
-      if (options.mode === 'replace') {
-        // WARNING: This deletes ALL customers - should only be used by admin in special cases
-        const deleteResult = await client.query('DELETE FROM customers');
-        deleted = deleteResult.rowCount || 0;
-      }
-
-      // Process each customer
-      for (const customer of customers) {
-        const sanitized = sanitizeCustomerData(customer);
-
-        // Check if customer exists (by wallet address)
-        const existing = await this.findExistingCustomer(client, sanitized.walletAddress);
-
-        if (existing) {
-          if (options.mode === 'merge') {
-            // Update existing customer
-            await this.updateCustomer(client, existing.address, sanitized);
-            updated++;
-          } else if (options.mode === 'add') {
-            // Skip existing customer
-            skipped++;
-          }
-        } else {
-          // Insert new customer
-          await this.insertCustomer(client, sanitized);
-          imported++;
-        }
-      }
-
-      await client.query('COMMIT');
-
-      return { imported, updated, skipped, deleted };
-    } catch (error: any) {
-      await client.query('ROLLBACK');
-      logger.error('Customer import batch failed, transaction rolled back', {
-        error: error.message
-      });
-      throw error;
-    } finally {
-      client.release();
+    // 'replace' mode (admin-only, dangerous): wipe all customers first, its own transaction.
+    if (options.mode === 'replace') {
+      const c = await this.pool.connect();
+      try {
+        await c.query('BEGIN');
+        const r = await c.query('DELETE FROM customers');
+        deleted = r.rowCount || 0;
+        await c.query('COMMIT');
+      } catch (e: any) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
     }
+
+    for (let i = 0; i < customers.length; i += CHUNK) {
+      const chunk = customers.slice(i, i + CHUNK);
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        for (const customer of chunk) {
+          // Real wallet → match by wallet; wallet-less (placeholder) → match by email/phone.
+          const existing = customer.walletProvided
+            ? await this.findExistingByWallet(client, customer.walletAddress)
+            : await this.findExistingByContact(client, customer.email, customer.phone);
+
+          if (existing) {
+            if (options.mode === 'merge') { await this.updateCustomer(client, existing.address, customer, source, homeShopId); updated++; }
+            else { skipped++; } // 'add' → leave the existing customer alone
+          } else {
+            await this.insertCustomer(client, customer, source, homeShopId);
+            imported++;
+          }
+        }
+        await client.query('COMMIT');
+      } catch (error: any) {
+        await client.query('ROLLBACK');
+        logger.error('Customer import chunk failed, rolled back', { chunkStart: i, error: error.message });
+        throw error; // earlier chunks stay committed; re-run skips them ('add' dedups on contact)
+      } finally {
+        client.release();
+      }
+    }
+
+    return { imported, updated, skipped, deleted };
   }
 
-  /**
-   * Find existing customer by wallet address
-   */
-  private async findExistingCustomer(
-    client: PoolClient,
-    walletAddress: string
-  ): Promise<any> {
-    const result = await client.query(
+  /** Find an existing customer by (real) wallet address. */
+  private async findExistingByWallet(client: PoolClient, walletAddress: string): Promise<any> {
+    const r = await client.query(
       'SELECT address FROM customers WHERE LOWER(address) = LOWER($1) LIMIT 1',
       [walletAddress]
     );
-
-    return result.rows.length > 0 ? result.rows[0] : null;
+    return r.rows[0] || null;
   }
 
-  /**
-   * Insert new customer
-   */
-  private async insertCustomer(
-    client: PoolClient,
-    customer: ParsedCustomer
-  ): Promise<void> {
+  /** Find an existing customer by email or phone (wallet-less dedup/claim key; phone normalized to
+   *  its last 10 digits to match across formats). */
+  private async findExistingByContact(client: PoolClient, email?: string, phone?: string): Promise<any> {
+    const em = email ? email.toLowerCase() : '';
+    const tail = phone ? phoneDedupKey(phone) : '';
+    if (!em && !tail) return null;
+    const r = await client.query(
+      `SELECT address FROM customers
+        WHERE ($1 <> '' AND LOWER(email) = $1)
+           OR ($2 <> '' AND right(regexp_replace(coalesce(phone,''), '\\D', '', 'g'), 10) = $2)
+        LIMIT 1`,
+      [em, tail]
+    );
+    return r.rows[0] || null;
+  }
+
+  /** Insert a new customer. Sets wallet_address (= address; NOT NULL in schema — the old insert
+   *  omitted it and would fail) plus migration/marketing fields (D7/D9). */
+  private async insertCustomer(client: PoolClient, customer: ParsedCustomer, source: string, homeShopId: string | null): Promise<void> {
     await client.query(
       `INSERT INTO customers (
-        address, name, first_name, last_name, email, phone,
-        tier, lifetime_earnings, active, referral_code, referred_by, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
+        address, wallet_address, name, first_name, last_name, email, phone,
+        tier, lifetime_earnings, is_active, referral_code, referred_by,
+        import_source, external_ref, marketing_email_consent, lifetime_spend_usd,
+        first_visit_at, last_visit_at, visit_count, home_shop_id, created_at
+      ) VALUES ($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19, NOW())`,
       [
         customer.walletAddress.toLowerCase(),
         customer.name || null,
@@ -552,19 +557,22 @@ export class CustomerImportExportService {
         customer.lifetimeEarnings,
         customer.active,
         customer.referralCode || null,
-        customer.referredBy || null
+        customer.referredBy || null,
+        source,
+        customer.externalRef || null,
+        customer.marketingEmailConsent ?? null,
+        customer.lifetimeSpendUsd ?? null,
+        customer.firstVisitAt || null,
+        customer.lastVisitAt || null,
+        customer.visitCount ?? null,
+        homeShopId
       ]
     );
   }
 
-  /**
-   * Update existing customer
-   */
-  private async updateCustomer(
-    client: PoolClient,
-    walletAddress: string,
-    customer: ParsedCustomer
-  ): Promise<void> {
+  /** Update an existing customer (merge mode) — fills gaps + refreshes migration/marketing fields.
+   *  home_shop_id is only filled when empty (don't reassign a customer who already has a home shop). */
+  private async updateCustomer(client: PoolClient, address: string, customer: ParsedCustomer, source: string, homeShopId: string | null): Promise<void> {
     await client.query(
       `UPDATE customers SET
         name = COALESCE($1, name),
@@ -574,22 +582,38 @@ export class CustomerImportExportService {
         phone = COALESCE($5, phone),
         tier = $6,
         lifetime_earnings = $7,
-        active = $8,
+        is_active = $8,
         referral_code = COALESCE($9, referral_code),
-        referred_by = COALESCE($10, referred_by)
-      WHERE LOWER(address) = LOWER($11)`,
+        referred_by = COALESCE($10, referred_by),
+        import_source = COALESCE(import_source, $11),
+        external_ref = COALESCE($12, external_ref),
+        marketing_email_consent = COALESCE($13, marketing_email_consent),
+        lifetime_spend_usd = COALESCE($14, lifetime_spend_usd),
+        first_visit_at = COALESCE($15, first_visit_at),
+        last_visit_at = COALESCE($16, last_visit_at),
+        visit_count = COALESCE($17, visit_count),
+        home_shop_id = COALESCE(home_shop_id, $19)
+      WHERE LOWER(address) = LOWER($18)`,
       [
-        customer.name,
-        customer.firstName,
-        customer.lastName,
-        customer.email,
-        customer.phone,
+        customer.name || null,
+        customer.firstName || null,
+        customer.lastName || null,
+        customer.email || null,
+        customer.phone || null,
         customer.tier,
         customer.lifetimeEarnings,
         customer.active,
-        customer.referralCode,
-        customer.referredBy,
-        walletAddress
+        customer.referralCode || null,
+        customer.referredBy || null,
+        source,
+        customer.externalRef || null,
+        customer.marketingEmailConsent ?? null,
+        customer.lifetimeSpendUsd ?? null,
+        customer.firstVisitAt || null,
+        customer.lastVisitAt || null,
+        customer.visitCount ?? null,
+        address,
+        homeShopId
       ]
     );
   }
@@ -673,7 +697,7 @@ export class CustomerImportExportService {
         `,
         [
           jobId,
-          shopId || null,
+          shopId, // null for admin-scoped imports (import_jobs.shop_id is nullable; FK skips null)
           'customer',
           status,
           result.metadata.mode,

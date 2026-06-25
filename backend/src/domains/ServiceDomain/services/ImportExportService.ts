@@ -30,6 +30,8 @@ export interface ImportOptions {
   mode: 'add' | 'merge' | 'replace';
   dryRun: boolean;
   onDuplicateName?: 'skip' | 'update' | 'rename' | 'error';
+  /** Explicit column mapping (ourField → source header) from the AI-suggested + confirmed map. */
+  columnMapping?: Record<string, string>;
 }
 
 export interface ImportResult {
@@ -64,6 +66,8 @@ export interface ValidationReport {
   invalidRows: number;
   errors: ValidationError[];
   warnings: ValidationError[];
+  /** Sanitized rows that passed validation — the set actually imported. */
+  validServices: ParsedService[];
 }
 
 /**
@@ -163,56 +167,29 @@ export class ImportExportService {
       // Step 1: File-level validation
       await this.validateFile(fileBuffer, fileName, fileSize);
 
-      // Step 2: Parse file
-      const parsedServices = await parseServiceExcel(fileBuffer, fileType);
+      // Step 2: Parse file (with the confirmed AI/explicit column mapping, if provided)
+      const parsedServices = await parseServiceExcel(fileBuffer, fileType, options.columnMapping);
 
       if (parsedServices.length === 0) {
         throw new Error('File contains no valid service data');
       }
 
-      if (parsedServices.length > 1000) {
-        throw new Error('Maximum 1000 services per import. Please split into multiple files.');
+      if (parsedServices.length > 5000) {
+        throw new Error('Maximum 5000 services per import. Please split into multiple files.');
       }
 
       // Step 3: Business validation (shop qualification)
       await this.validateShopQualification(shopId);
 
-      // Step 4: Data validation
+      // Step 4: Data validation (collects valid rows; invalid ones are skipped + reported)
       const validationReport = await this.validateImportData(parsedServices, shopId);
 
-      // If validation failed, return errors
-      if (validationReport.invalidRows > 0) {
-        const result: ImportResult = {
-          success: false,
-          jobId,
-          summary: {
-            totalRows: validationReport.totalRows,
-            validRows: validationReport.validRows,
-            invalidRows: validationReport.invalidRows,
-            imported: 0,
-            updated: 0,
-            skipped: 0,
-            deleted: 0
-          },
-          errors: validationReport.errors,
-          warnings: validationReport.warnings,
-          metadata: {
-            uploadedAt: new Date().toISOString(),
-            uploadedBy,
-            shopId,
-            fileName,
-            fileSize,
-            processingTime: (Date.now() - startTime) / 1000,
-            mode: options.mode,
-            dryRun: options.dryRun
-          }
-        };
-
-        // Save import job to database
-        await this.saveImportJob(jobId, shopId, result, 'failed');
-
-        return result;
+      // Hard-fail ONLY when nothing is importable; otherwise skip the invalid rows and import the rest.
+      if (validationReport.validServices.length === 0) {
+        throw new Error('No importable rows: every row was missing a service name or a valid price.');
       }
+
+      const errorSample = validationReport.errors.slice(0, 200);
 
       // If dry run, return validation results without importing
       if (options.dryRun) {
@@ -225,11 +202,11 @@ export class ImportExportService {
             invalidRows: validationReport.invalidRows,
             imported: 0,
             updated: 0,
-            skipped: 0,
+            skipped: validationReport.invalidRows,
             deleted: 0
           },
-          errors: validationReport.errors,
-          warnings: validationReport.warnings,
+          errors: errorSample,
+          warnings: validationReport.warnings.slice(0, 200),
           metadata: {
             uploadedAt: new Date().toISOString(),
             uploadedBy,
@@ -247,8 +224,8 @@ export class ImportExportService {
         return result;
       }
 
-      // Step 5: Process import
-      const batchResult = await this.processImportBatch(parsedServices, shopId, options);
+      // Step 5: Process import (only the valid rows)
+      const batchResult = await this.processImportBatch(validationReport.validServices, shopId, options);
 
       const result: ImportResult = {
         success: true,
@@ -259,11 +236,11 @@ export class ImportExportService {
           invalidRows: validationReport.invalidRows,
           imported: batchResult.imported,
           updated: batchResult.updated,
-          skipped: batchResult.skipped,
+          skipped: batchResult.skipped + validationReport.invalidRows, // includes invalid/dup rows
           deleted: batchResult.deleted
         },
-        errors: validationReport.errors,
-        warnings: validationReport.warnings,
+        errors: errorSample,
+        warnings: validationReport.warnings.slice(0, 200),
         metadata: {
           uploadedAt: new Date().toISOString(),
           uploadedBy,
@@ -433,48 +410,56 @@ export class ImportExportService {
   ): Promise<ValidationReport> {
     const errors: ValidationError[] = [];
     const warnings: ValidationError[] = [];
-    const validRows: number[] = [];
+    const validServices: ParsedService[] = [];
+    const validCats = VALID_CATEGORIES as readonly string[];
 
-    // Track duplicate service names
-    const serviceNames = new Map<string, number>();
+    // Track duplicate service names (skip later repeats so a re-import stays clean).
+    const serviceNames = new Set<string>();
 
     for (const service of services) {
-      // Sanitize data (XSS prevention)
       const sanitized = sanitizeServiceData(service);
 
-      // Validate row
+      // Migration-friendly: an external catalog's free-text category rarely matches our fixed set —
+      // default the unrecognized/empty ones to 'other_local_services' (with a warning) instead of
+      // failing the row. Lets a Square/other catalog import without hand-fixing every category.
+      if (!sanitized.category || !validCats.includes(sanitized.category)) {
+        warnings.push({
+          row: service.rowIndex, column: 'Category', value: sanitized.category,
+          message: 'Unrecognized category — defaulted to "other_local_services"',
+          severity: 'warning', code: 'CATEGORY_DEFAULTED'
+        });
+        sanitized.category = 'other_local_services';
+      }
+
       const validation = validateServiceRow(sanitized, shopId, Array.from(VALID_CATEGORIES));
+      warnings.push(...validation.warnings);
 
       if (!validation.isValid) {
         errors.push(...validation.errors);
-      } else {
-        validRows.push(service.rowIndex);
+        continue;
       }
 
-      warnings.push(...validation.warnings);
-
-      // Check for duplicates within file
+      // Within-file duplicate service name → skip the later one.
       const nameKey = sanitized.serviceName.toLowerCase();
       if (serviceNames.has(nameKey)) {
-        warnings.push({
-          row: service.rowIndex,
-          column: 'Service Name',
-          value: sanitized.serviceName,
-          message: `Duplicate service name found in row ${serviceNames.get(nameKey)}`,
-          severity: 'warning',
-          code: 'DUPLICATE_SERVICE_NAME'
+        errors.push({
+          row: service.rowIndex, column: 'Service Name', value: sanitized.serviceName,
+          message: 'Duplicate service name earlier in the file — skipped',
+          severity: 'error', code: 'DUPLICATE_SERVICE_NAME'
         });
-      } else {
-        serviceNames.set(nameKey, service.rowIndex);
+        continue;
       }
+      serviceNames.add(nameKey);
+      validServices.push(sanitized);
     }
 
     return {
       totalRows: services.length,
-      validRows: validRows.length,
-      invalidRows: services.length - validRows.length,
+      validRows: validServices.length,
+      invalidRows: services.length - validServices.length,
       errors,
-      warnings
+      warnings,
+      validServices
     };
   }
 

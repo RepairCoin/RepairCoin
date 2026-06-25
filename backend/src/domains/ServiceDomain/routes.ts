@@ -471,6 +471,24 @@ export function initializeRoutes(stripe: StripeService): Router {
     }
   );
 
+  // AI-suggest a column mapping for a service/catalog file (Phase 3). Headers + samples only.
+  router.post(
+    '/import/suggest-mapping',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { importRateLimiter } = await import('../../middleware/importRateLimit');
+      const { uploadMiddleware } = await import('../../middleware/fileUpload');
+      importRateLimiter(req, res, () => {
+        uploadMiddleware.single('file')(req, res, async (err: any) => {
+          if (err) return res.status(400).json({ success: false, error: err.message });
+          const { suggestServiceMapping } = await import('./controllers/ImportExportController');
+          return suggestServiceMapping(req, res);
+        });
+      });
+    }
+  );
+
   /**
    * @swagger
    * /api/services/import/{jobId}:

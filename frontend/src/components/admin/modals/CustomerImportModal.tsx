@@ -1,10 +1,28 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { X, Upload, FileSpreadsheet, FileText, CheckCircle2, AlertCircle, Download, Info } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Upload, FileSpreadsheet, FileText, CheckCircle2, AlertCircle, Download, Info, Sparkles, Loader2, Store } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { importCustomers, downloadTemplate, downloadFile, generateFilename } from '@/services/api/customerImportExport';
+import { importCustomers, suggestImportMapping, downloadTemplate, downloadFile, generateFilename } from '@/services/api/customerImportExport';
+import { getAdminShops } from '@/services/api/admin';
 import { ImportResult, ImportMode } from '@/types/import';
+
+// Target fields the user can map source columns onto (label → our field name).
+const MAPPABLE_FIELDS: { field: string; label: string }[] = [
+  { field: 'firstName', label: 'First name' },
+  { field: 'lastName', label: 'Last name' },
+  { field: 'name', label: 'Full name' },
+  { field: 'email', label: 'Email' },
+  { field: 'phone', label: 'Phone' },
+  { field: 'marketingEmailConsent', label: 'Email consent' },
+  { field: 'lifetimeSpendUsd', label: 'Lifetime spend ($)' },
+  { field: 'firstVisitAt', label: 'First visit' },
+  { field: 'lastVisitAt', label: 'Last visit' },
+  { field: 'visitCount', label: 'Visit count' },
+  { field: 'externalRef', label: 'Source customer ID' },
+  { field: 'tier', label: 'Tier' },
+  { field: 'walletAddress', label: 'Wallet (optional)' },
+];
 
 interface CustomerImportModalProps {
   isOpen: boolean;
@@ -22,9 +40,47 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
   const [importing, setImporting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  // AI column-mapping (Phase 2)
+  const [mappingHeaders, setMappingHeaders] = useState<string[]>([]);
+  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [mappingNotes, setMappingNotes] = useState<string>('');
+  const [suggesting, setSuggesting] = useState(false);
+  // Target shop: imported customers are stamped onto this shop's home_shop_id (admin picks it).
+  const [shops, setShops] = useState<{ shopId: string; name: string }[]>([]);
+  const [homeShopId, setHomeShopId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    getAdminShops({ active: true } as any)
+      .then((list: any[]) => setShops((list || []).map((s) => ({ shopId: s.shopId || s.shop_id, name: s.name }))))
+      .catch(() => setShops([]));
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleSuggestMapping = async () => {
+    if (!selectedFile) return;
+    setSuggesting(true);
+    try {
+      toast.loading('Reading your file…', { id: 'suggest-map' });
+      const res = await suggestImportMapping(selectedFile);
+      setMappingHeaders(res.headers);
+      setMapping(res.mapping || {});
+      setMappingNotes(res.notes || '');
+      toast.success('Mapping suggested — review & adjust below.', { id: 'suggest-map' });
+    } catch (e: any) {
+      toast.error(e.message || 'Could not suggest a mapping', { id: 'suggest-map' });
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  const importExtra = () => ({
+    columnMapping: Object.keys(mapping).length ? mapping : undefined,
+    source: 'import',
+    homeShopId: homeShopId || undefined,
+  });
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -90,7 +146,7 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
         mode: importMode,
         dryRun,
         onDuplicateName: 'skip'
-      });
+      }, importExtra());
 
       setImportResult(result);
       setViewState('results');
@@ -142,7 +198,7 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
         mode: importMode,
         dryRun: false,
         onDuplicateName: 'skip'
-      });
+      }, importExtra());
 
       setImportResult(result);
       setViewState('results');
@@ -170,11 +226,14 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
     }
   };
 
+  const resetMapping = () => { setMapping({}); setMappingHeaders([]); setMappingNotes(''); };
+
   const handleTryAgain = () => {
     setViewState('upload');
     setSelectedFile(null);
     setImportResult(null);
     setDryRun(true);
+    resetMapping();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -186,6 +245,8 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
     setImportResult(null);
     setDryRun(true);
     setImportMode('add');
+    setHomeShopId('');
+    resetMapping();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -234,6 +295,26 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
           {/* Upload View */}
           {viewState === 'upload' && (
             <div className="space-y-6">
+              {/* Target shop — imported customers are attributed to this shop (home_shop_id) */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
+                  <Store className="w-4 h-4 text-[#FFCC00]" /> Import into shop
+                </label>
+                <select
+                  value={homeShopId}
+                  onChange={(e) => setHomeShopId(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[#101010] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFCC00]"
+                >
+                  <option value="">— Select the shop these customers belong to —</option>
+                  {shops.map((s) => <option key={s.shopId} value={s.shopId}>{s.name} ({s.shopId})</option>)}
+                </select>
+                <p className={`text-xs mt-1 ${homeShopId ? 'text-gray-500' : 'text-amber-400'}`}>
+                  {homeShopId
+                    ? 'Imported customers will be attributed to this shop (their home shop).'
+                    : '⚠ Pick a shop, or imported customers won’t be attributed to any shop (orphaned/global).'}
+                </p>
+              </div>
+
               {/* Template Download Section */}
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                 <div className="flex items-start gap-3">
@@ -317,12 +398,62 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
                         </button>
                       </p>
                       <p className="text-sm text-gray-500">
-                        Supports .xlsx, .xls, and .csv files (max 10MB, max 10,000 rows)
+                        Supports .xlsx, .xls, and .csv files (max 10MB, up to 50,000 rows — no wallet column required)
                       </p>
                     </>
                   )}
                 </div>
               </div>
+
+              {/* AI column mapping (Phase 2) — appears once a file is chosen */}
+              {selectedFile && (
+                <div className="bg-[#101010] border border-gray-800 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#FFCC00]" />
+                      <span className="text-sm font-medium text-gray-200">Column mapping</span>
+                      <span className="text-xs text-gray-500">— match your file&apos;s columns to ours</span>
+                    </div>
+                    <button
+                      onClick={handleSuggestMapping}
+                      disabled={suggesting}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#FFCC00]/10 text-[#FFCC00] hover:bg-[#FFCC00]/20 disabled:opacity-50"
+                    >
+                      {suggesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      {mappingHeaders.length ? 'Re-suggest with AI' : 'Suggest mapping with AI'}
+                    </button>
+                  </div>
+                  {mappingNotes && <p className="text-[11px] text-gray-500 italic">{mappingNotes}</p>}
+                  {mappingHeaders.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {MAPPABLE_FIELDS.map(({ field, label }) => (
+                        <div key={field} className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 w-32 shrink-0">{label}</span>
+                          <select
+                            value={mapping[field] || ''}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setMapping((prev) => {
+                                const next = { ...prev };
+                                if (v) next[field] = v; else delete next[field];
+                                return next;
+                              });
+                            }}
+                            className="flex-1 px-2 py-1.5 bg-[#0F0F0F] border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-[#FFCC00]"
+                          >
+                            <option value="">— ignore —</option>
+                            {mappingHeaders.map((h) => <option key={h} value={h}>{h}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Optional. Click <span className="text-[#FFCC00]">Suggest mapping with AI</span> to auto-map a Square (or other) export — or skip and we&apos;ll auto-detect common column names.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Import Mode Selection */}
               <div>
