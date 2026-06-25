@@ -80,6 +80,132 @@ export function getNotificationStyle(type: string): NotificationStyle {
   }
 }
 
+/**
+ * Human-readable title for a notification type. Mirrors the web
+ * NotificationBell's getNotificationTitle so the detail modal headers match.
+ */
+export function getNotificationTitle(
+  type: string,
+  metadata?: Record<string, any>
+): string {
+  switch (type) {
+    case "reward_issued":
+      return "Reward Received";
+    case "redemption_approval_requested":
+    case "redemption_approval_request":
+      return "Redemption Request";
+    case "redemption_approved":
+      return "Redemption Approved";
+    case "redemption_rejected":
+      return "Redemption Rejected";
+    case "redemption_cancelled":
+      return "Redemption Cancelled";
+    case "token_gifted":
+      return "Tokens Received";
+    case "marketing_campaign":
+      return metadata?.campaignName || "Campaign";
+    case "subscription_cancelled":
+      return "Subscription Cancelled by Admin";
+    case "subscription_self_cancelled":
+      return "Subscription Cancellation Confirmed";
+    case "subscription_paused":
+      return "Subscription Paused";
+    case "subscription_resumed":
+      return "Subscription Resumed";
+    case "subscription_reactivated":
+      return "Subscription Reactivated";
+    case "subscription_expiring":
+      return "Subscription Expiring";
+    case "subscription_expired":
+      return "Subscription Expired";
+    case "subscription_renewed":
+      return "Subscription Renewed";
+    case "support_message_received":
+      return "Support Reply";
+    case "support_ticket_created":
+      return "New Support Ticket";
+    case "support_ticket_updated":
+      return "Support Ticket Updated";
+    case "service_booking_received":
+    case "new_booking":
+      return "New Booking";
+    case "service_order_completed":
+    case "order_completed":
+      return "Order Completed";
+    case "service_payment_failed":
+      return "Payment Failed";
+    case "service_order_cancelled":
+      return "Order Cancelled";
+    case "appointment_reminder":
+    case "upcoming_appointment":
+    case "upcoming_appointment_2h":
+      return "Appointment Reminder";
+    case "booking_confirmed":
+      return "Booking Confirmed";
+    case "reschedule_request_created":
+      return "Reschedule Request";
+    case "reschedule_request_approved":
+      return "Reschedule Approved";
+    case "reschedule_request_rejected":
+      return "Reschedule Rejected";
+    case "reschedule_request_expired":
+      return "Reschedule Expired";
+    case "booking_rescheduled_by_shop":
+      return "Booking Rescheduled";
+    case "shop_suspended":
+      return "Shop Suspended";
+    case "shop_unsuspended":
+      return "Shop Unsuspended";
+    case "new_message":
+      return "New Message";
+    default:
+      return "Notification";
+  }
+}
+
+export type NotificationDetailRow = { label: string; value: string };
+
+/**
+ * Build the "Details" rows for a notification's metadata. Mirrors the
+ * metadata fields the web NotificationModal surfaces.
+ */
+export function getNotificationDetails(
+  metadata?: Record<string, any>
+): NotificationDetailRow[] {
+  if (!metadata) return [];
+
+  const rows: NotificationDetailRow[] = [];
+  const push = (label: string, value: unknown) => {
+    if (value === undefined || value === null || value === "") return;
+    rows.push({ label, value: String(value) });
+  };
+
+  push("Amount", metadata.amount != null ? `${metadata.amount} RCN` : null);
+  push("Shop", metadata.shopName);
+  push("From", metadata.fromCustomerName);
+  push("Subject", metadata.subject);
+  push("Service", metadata.serviceName);
+  push("Customer", metadata.customerName);
+  push("Time", metadata.bookingTime);
+  push(
+    "Date",
+    metadata.bookingDate
+      ? new Date(metadata.bookingDate).toLocaleDateString()
+      : null
+  );
+  push("Total", metadata.totalAmount != null ? `$${metadata.totalAmount}` : null);
+  push(
+    "RCN Earned",
+    metadata.rcnEarned != null ? `${metadata.rcnEarned} RCN` : null
+  );
+  push("Reason", metadata.reason);
+  push("Transaction ID", metadata.transactionId);
+  push("Ticket ID", metadata.ticketId);
+  push("Order ID", metadata.orderId);
+
+  return rows;
+}
+
 export function getNavigationRoute(
   notification: Notification,
   userType: string | null

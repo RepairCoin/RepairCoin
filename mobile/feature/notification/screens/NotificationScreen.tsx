@@ -5,6 +5,7 @@ import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { useNotifications } from "../hooks";
 import {
   NotificationCard,
+  NotificationDetailModal,
   EmptyNotifications,
   NotificationTabs,
   NotificationMenu,
@@ -22,12 +23,15 @@ export default function NotificationScreen() {
     setActiveTab,
     showMenu,
     setShowMenu,
+    selectedNotification,
     isRegistered,
     isConnected,
     unreadCount,
     handleRefresh,
     handleLoadMore,
     handleNotificationPress,
+    handleCloseDetail,
+    handleDeleteNotification,
     handleMarkAllAsRead,
     handleTurnOffNotifications,
     handleTurnOnNotifications,
@@ -96,6 +100,12 @@ export default function NotificationScreen() {
           marginTop: 10,
         }}
         showsVerticalScrollIndicator={false}
+      />
+
+      <NotificationDetailModal
+        notification={selectedNotification}
+        onClose={handleCloseDetail}
+        onDelete={handleDeleteNotification}
       />
     </View>
   );
