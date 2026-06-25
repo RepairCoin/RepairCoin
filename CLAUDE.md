@@ -252,6 +252,14 @@ stripe listen --forward-to localhost:4000/api/shops/webhooks/stripe
 - Transaction handling: Use `BaseRepository.withTransaction()` for multi-step operations
 - Error handling: Throw descriptive errors, middleware handles standardization
 
+**Adding/changing a notification** (in-app + WebSocket + native push):
+- Use the gateway — do NOT hand-wire `createNotification` + `wsManager.sendNotificationToUser` + `pushDispatcher.sendX` (that's how channels get silently dropped).
+- Two steps:
+  1. Add a row to `backend/src/domains/notification/config/notificationRegistry.ts` (declare `channels`, display title/icon, and a `push` builder if it pushes).
+  2. Call `getNotificationGateway().dispatch('<type>', receiverAddress, { message, metadata })`.
+- The gateway fans out to every channel the registry declares; preference gating + `transactional` bypass are handled for you.
+- The `NotificationDomain` event handlers are a FROZEN legacy pattern — don't copy them for new types.
+
 **Frontend**:
 - Use "use client" directive for components with Web3 hooks
 - State management: Zustand stores for global state, local state for component-specific
