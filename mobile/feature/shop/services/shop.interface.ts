@@ -389,3 +389,71 @@ export interface ShopCustomersResponse extends BaseResponse<ShopCustomerData> {}
 export interface ShopCustomerGrowthResponse extends BaseResponse<CustomerGrowthData> {}
 export interface ShopResponse extends BaseResponse<ShopResponseData> {}
 export interface RewardResponse extends BaseResponse<RewardData> {}
+
+// ==================== Moderation: Issue Reports ====================
+export type IssueReportCategory =
+  | "spam"
+  | "fraud"
+  | "harassment"
+  | "inappropriate_review"
+  | "other";
+
+export type IssueReportSeverity = "low" | "medium" | "high";
+
+export type IssueReportStatus =
+  | "pending"
+  | "investigating"
+  | "resolved"
+  | "dismissed";
+
+export interface SubmitIssueReportRequest {
+  category: IssueReportCategory;
+  description: string;
+  severity: IssueReportSeverity;
+  relatedEntityType?: "customer" | "review" | "order";
+  relatedEntityId?: string;
+}
+
+export interface ShopReport {
+  id: string;
+  shopId: string;
+  category: IssueReportCategory;
+  description: string;
+  severity: IssueReportSeverity;
+  status: IssueReportStatus;
+  relatedEntityType?: "customer" | "review" | "order";
+  relatedEntityId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubmitIssueReportResponse extends BaseResponse<ShopReport> {}
+
+// ==================== Moderation: Blocked Customers ====================
+export interface BlockedCustomer {
+  id: string;
+  shopId: string;
+  customerWalletAddress: string;
+  customerName?: string;
+  customerEmail?: string;
+  reason: string;
+  blockedAt: string;
+  blockedBy: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlockCustomerRequest {
+  customerWalletAddress: string;
+  reason: string;
+}
+
+export interface BlockCustomerResponse extends BaseResponse<BlockedCustomer> {}
+export interface BlockedCustomersResponse extends BaseResponse<BlockedCustomer[]> {}
+export interface CustomerBlockStatusResponse
+  extends BaseResponse<{
+    isBlocked: boolean;
+    walletAddress: string;
+    shopId: string;
+  }> {}

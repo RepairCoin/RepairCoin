@@ -15,6 +15,12 @@ import {
   PromoCodeValidateResponse,
   RewardRequest,
   RewardResponse,
+  SubmitIssueReportRequest,
+  SubmitIssueReportResponse,
+  BlockCustomerRequest,
+  BlockCustomerResponse,
+  BlockedCustomersResponse,
+  CustomerBlockStatusResponse,
 } from "./shop.interface";
 import {
   PurchaseHistoryResponse,
@@ -172,6 +178,67 @@ class ShopApi {
       return await apiClient.post(`/shops/${shopId}/issue-reward`, request);
     } catch (error: any) {
       console.error("Failed to issue reward:", error.message);
+      throw error;
+    }
+  }
+
+  // ==================== Moderation: Blocked Customers ====================
+  // Backend derives the shop from the auth token; shopId is not in the path.
+  async blockCustomer(
+    data: BlockCustomerRequest,
+  ): Promise<BlockCustomerResponse> {
+    try {
+      return await apiClient.post(`/shops/moderation/block-customer`, data);
+    } catch (error: any) {
+      console.error("Failed to block customer:", error.message);
+      throw error;
+    }
+  }
+
+  async unblockCustomer(
+    walletAddress: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.delete(
+        `/shops/moderation/blocked-customers/${walletAddress}`,
+      );
+    } catch (error: any) {
+      console.error("Failed to unblock customer:", error.message);
+      throw error;
+    }
+  }
+
+  async getBlockedCustomers(): Promise<BlockedCustomersResponse> {
+    try {
+      return await apiClient.get(`/shops/moderation/blocked-customers`);
+    } catch (error: any) {
+      console.error("Failed to get blocked customers:", error.message);
+      throw error;
+    }
+  }
+
+  async getCustomerBlockStatus(
+    walletAddress: string,
+  ): Promise<CustomerBlockStatusResponse> {
+    try {
+      return await apiClient.get(
+        `/shops/moderation/blocked-customers/${walletAddress}/status`,
+      );
+    } catch (error: any) {
+      console.error("Failed to get block status:", error.message);
+      throw error;
+    }
+  }
+
+  // Submit a moderation issue report (spam / fraud / harassment / etc.).
+  // The backend derives the shop from the auth token; shopId is not in the path.
+  async submitIssueReport(
+    data: SubmitIssueReportRequest,
+  ): Promise<SubmitIssueReportResponse> {
+    try {
+      return await apiClient.post(`/shops/moderation/reports`, data);
+    } catch (error: any) {
+      console.error("Failed to submit issue report:", error.message);
       throw error;
     }
   }
