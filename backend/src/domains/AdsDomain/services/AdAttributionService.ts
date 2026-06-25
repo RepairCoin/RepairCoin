@@ -38,20 +38,38 @@ export interface OrderPaidInput {
   shopId: string;
 }
 
+/** Kanban lifecycle stages an order event can move a lead INTO (never backwards). */
+export type LeadStage = 'booked' | 'paid' | 'completed';
+
+/** Forward-only rank for the Kanban pipeline — an order event only ever advances a lead, so a
+ *  later/duplicate event (or a manual stage already further along) is never downgraded. */
+const STAGE_RANK: Record<string, number> = { new: 0, contacted: 1, booked: 2, paid: 3, completed: 4 };
+
 export class AdAttributionService {
   constructor(private readonly pool: Pool = getSharedPool()) {}
 
-  /** Live path: contact-match a just-paid order to a recent ad lead and link it. No-op when
-   *  disabled / order missing / already attributed / no contact / no match. Non-throwing. */
+  /** Live path: contact-match a just-paid order to a recent ad lead, link it, and advance the
+   *  lead to 'paid'. No-op when disabled / no contact / no match. Non-throwing. */
   async attributeOrderPaid(input: OrderPaidInput): Promise<{ linked: boolean; leadId?: string }> {
+    return this.attributeOrderStage(input, 'paid');
+  }
+
+  /**
+   * General lifecycle attribution: link the order to a recent ad lead (by contact match, or reuse
+   * an existing link) and advance that lead's Kanban status to `stage` (forward-only). Drives the
+   * order_created→booked, order_paid→paid, order_completed→completed auto-advances so the pipeline
+   * reflects reality without the shop dragging cards. No-op when disabled / order missing / no
+   * contact / no match. Non-throwing.
+   */
+  async attributeOrderStage(input: OrderPaidInput, stage: LeadStage): Promise<{ linked: boolean; leadId?: string }> {
     if (!isConversionAttributionEnabled()) return { linked: false };
     try {
-      const ord = await this.pool.query(`SELECT ad_lead_id FROM service_orders WHERE order_id = $1`, [input.orderId]);
-      if (ord.rows.length === 0 || ord.rows[0].ad_lead_id) return { linked: false };
-      const leadId = await this.tryLinkByContact(input.orderId, input.customerAddress, input.shopId);
-      return leadId ? { linked: true, leadId } : { linked: false };
+      const leadId = await this.linkOrGetLead(input.orderId, input.customerAddress, input.shopId);
+      if (!leadId) return { linked: false };
+      await this.advanceLead(leadId, input.customerAddress, stage);
+      return { linked: true, leadId };
     } catch (err) {
-      logger.error('AdAttribution.attributeOrderPaid failed (non-fatal)', err);
+      logger.error('AdAttribution.attributeOrderStage failed (non-fatal)', { stage, error: (err as Error)?.message });
       return { linked: false };
     }
   }
@@ -85,8 +103,8 @@ export class AdAttributionService {
     let linked = 0;
     for (const o of orders.rows) {
       try {
-        const leadId = await this.tryLinkByContact(o.order_id, o.customer_address, o.shop_id);
-        if (leadId) linked++;
+        const leadId = await this.linkOrGetLead(o.order_id, o.customer_address, o.shop_id);
+        if (leadId) { await this.advanceLead(leadId, o.customer_address, 'paid'); linked++; }
       } catch (err) {
         logger.warn('AdAttribution.backfill: one order failed, continuing', { orderId: o.order_id, error: (err as Error)?.message });
       }
@@ -96,11 +114,17 @@ export class AdAttributionService {
   }
 
   /**
-   * Core contact-match + link, shared by the live + backfill paths. Returns the linked lead id,
-   * or null when there's no contact / no match. The order UPDATE is guarded on `ad_lead_id IS
-   * NULL` so it's safe to call on an order that may have been linked concurrently.
+   * Resolve the ad lead for an order: return its existing `ad_lead_id` if already linked, else
+   * contact-match (customer email/phone vs a recent, non-duplicate ad lead for the same shop) and
+   * link it. Returns the lead id, or null when there's no contact / no match / order missing. The
+   * link UPDATE is guarded on `ad_lead_id IS NULL` so it's safe under a concurrent link (we re-read
+   * the winner's lead id rather than dropping the event).
    */
-  private async tryLinkByContact(orderId: string, customerAddress: string, shopId: string): Promise<string | null> {
+  private async linkOrGetLead(orderId: string, customerAddress: string, shopId: string): Promise<string | null> {
+    const ord = await this.pool.query(`SELECT ad_lead_id FROM service_orders WHERE order_id = $1`, [orderId]);
+    if (ord.rows.length === 0) return null;
+    if (ord.rows[0].ad_lead_id) return ord.rows[0].ad_lead_id; // already linked → reuse
+
     const cust = await this.pool.query(
       `SELECT email, phone FROM customers WHERE address = $1`,
       [customerAddress.toLowerCase()]
@@ -133,19 +157,33 @@ export class AdAttributionService {
         WHERE order_id = $2 AND ad_lead_id IS NULL`,
       [leadId, orderId]
     );
-    if ((upd.rowCount ?? 0) === 0) return null; // lost a race — already linked
+    if ((upd.rowCount ?? 0) === 0) {
+      // Lost a race — another event linked it first; reuse whatever won.
+      const re = await this.pool.query(`SELECT ad_lead_id FROM service_orders WHERE order_id = $1`, [orderId]);
+      return re.rows[0]?.ad_lead_id ?? null;
+    }
+    logger.info('AdAttribution: linked order to ad lead', { orderId, leadId, shopId });
+    return leadId;
+  }
 
+  /**
+   * Advance a lead's Kanban status to `stage` — FORWARD ONLY (the SQL rank guard makes this a no-op
+   * if the lead is already at or past `stage`, e.g. an order_paid arriving after a manual
+   * 'completed'). Also back-links the customer + stamps first-response on first touch.
+   */
+  private async advanceLead(leadId: string, customerAddress: string, stage: LeadStage): Promise<void> {
     await this.pool.query(
       `UPDATE ad_leads
-          SET lead_status = 'paid',
+          SET lead_status = $3,
               customer_id = COALESCE(customer_id, $2),
               first_response_at = COALESCE(first_response_at, now()),
               updated_at = now()
-        WHERE id = $1 AND lead_status <> 'completed'`,
-      [leadId, customerAddress.toLowerCase()]
+        WHERE id = $1
+          AND CASE lead_status
+                WHEN 'new' THEN 0 WHEN 'contacted' THEN 1 WHEN 'booked' THEN 2
+                WHEN 'paid' THEN 3 WHEN 'completed' THEN 4 ELSE 0 END < $4`,
+      [leadId, customerAddress.toLowerCase(), stage, STAGE_RANK[stage] ?? 0]
     );
-    logger.info('AdAttribution: linked order to ad lead', { orderId, leadId, shopId });
-    return leadId;
   }
 }
 

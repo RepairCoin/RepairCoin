@@ -54,3 +54,63 @@ describe('AdAttributionService flag gating', () => {
     expect(r).toEqual({ scanned: 0, linked: 0 });
   });
 });
+
+describe('attributeOrderStage — lifecycle auto-advance (booked/paid/completed)', () => {
+  const prev = process.env.ADS_CONVERSION_ATTRIBUTION;
+  beforeEach(() => { process.env.ADS_CONVERSION_ATTRIBUTION = 'true'; });
+  afterEach(() => {
+    if (prev === undefined) delete process.env.ADS_CONVERSION_ATTRIBUTION;
+    else process.env.ADS_CONVERSION_ATTRIBUTION = prev;
+  });
+
+  it('is a no-op (no DB) when the flag is off', async () => {
+    delete process.env.ADS_CONVERSION_ATTRIBUTION;
+    const failPool: any = { query: () => { throw new Error('DB must not be touched when disabled'); } };
+    const r = await new AdAttributionService(failPool)
+      .attributeOrderStage({ orderId: 'o1', customerAddress: '0xabc', shopId: 'peanut' }, 'completed');
+    expect(r.linked).toBe(false);
+  });
+
+  it('reuses an already-linked order and advances the lead to the given stage', async () => {
+    const queries: { sql: string; params: any[] }[] = [];
+    const pool: any = { query: (sql: string, params: any[] = []) => {
+      queries.push({ sql, params });
+      if (/SELECT ad_lead_id FROM service_orders/.test(sql)) return Promise.resolve({ rows: [{ ad_lead_id: 'lead1' }], rowCount: 1 });
+      return Promise.resolve({ rows: [], rowCount: 1 }); // the UPDATE ad_leads advance
+    }};
+    const r = await new AdAttributionService(pool)
+      .attributeOrderStage({ orderId: 'o1', customerAddress: '0xABC', shopId: 'peanut' }, 'completed');
+    expect(r).toEqual({ linked: true, leadId: 'lead1' });
+    const upd = queries.find((q) => /UPDATE ad_leads/.test(q.sql));
+    expect(upd).toBeTruthy();
+    expect(upd!.params).toContain('completed');  // advanced to the requested stage
+    expect(upd!.params).toContain('0xabc');       // customer back-link, lowercased
+  });
+
+  it('contact-matches and links an unlinked order, then advances to booked', async () => {
+    const queries: { sql: string; params: any[] }[] = [];
+    const pool: any = { query: (sql: string, params: any[] = []) => {
+      queries.push({ sql, params });
+      if (/SELECT ad_lead_id FROM service_orders/.test(sql)) return Promise.resolve({ rows: [{ ad_lead_id: null }], rowCount: 1 });
+      if (/FROM customers/.test(sql)) return Promise.resolve({ rows: [{ email: 'a@b.com', phone: '+639170000005' }], rowCount: 1 });
+      if (/FROM ad_leads l/.test(sql)) return Promise.resolve({ rows: [{ id: 'lead9' }], rowCount: 1 });
+      return Promise.resolve({ rowCount: 1 }); // the two UPDATEs (service_orders link + ad_leads advance)
+    }};
+    const r = await new AdAttributionService(pool)
+      .attributeOrderStage({ orderId: 'o2', customerAddress: '0xZ', shopId: 'peanut' }, 'booked');
+    expect(r).toEqual({ linked: true, leadId: 'lead9' });
+    expect(queries.some((q) => /UPDATE service_orders/.test(q.sql) && q.params.includes('lead9'))).toBe(true);
+    expect(queries.some((q) => /UPDATE ad_leads/.test(q.sql) && q.params.includes('booked'))).toBe(true);
+  });
+
+  it('returns not-linked when there is no contact match', async () => {
+    const pool: any = { query: (sql: string) => {
+      if (/SELECT ad_lead_id FROM service_orders/.test(sql)) return Promise.resolve({ rows: [{ ad_lead_id: null }], rowCount: 1 });
+      if (/FROM customers/.test(sql)) return Promise.resolve({ rows: [{ email: '', phone: '' }], rowCount: 1 });
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    }};
+    const r = await new AdAttributionService(pool)
+      .attributeOrderStage({ orderId: 'o3', customerAddress: '0xq', shopId: 'peanut' }, 'paid');
+    expect(r.linked).toBe(false);
+  });
+});
