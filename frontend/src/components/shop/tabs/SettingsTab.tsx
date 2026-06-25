@@ -2,6 +2,25 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useAuthStore } from "@/stores/authStore";
+
+// Permission required to view each Settings sub-section. Accessibility and
+// Notifications are personal prefs every member needs, so they're always shown.
+const SECTION_PERMISSION: Record<string, string | undefined> = {
+  "shop-profile": "shop:manage",
+  accessibility: undefined,
+  notifications: undefined,
+  subscription: "billing:manage",
+  "no-show-policy": "bookings:manage",
+  emails: "shop:manage",
+  password: "shop:manage",
+  "social-media": "shop:manage",
+  calendar: "shop:manage",
+  "ai-assistant": "shop:manage",
+  "brand-kit": "shop:manage",
+  moderation: "customers:view",
+  faq: "shop:manage",
+};
 import { SubscriptionManagement } from "../SubscriptionManagement";
 import { NoShowPolicySettings } from "../NoShowPolicySettings";
 import { EmailSettings } from "../EmailSettings";
@@ -86,6 +105,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   isPaused = false,
 }) => {
   const searchParams = useSearchParams();
+  // Subscribe to userProfile so the section list re-filters when permissions load.
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canViewSection = (id: string) => {
+    const p = SECTION_PERMISSION[id];
+    return !p || hasPermission(p);
+  };
   const [activeTab, setActiveTab] = useState<
     | "shop-profile"
     | "accessibility"
@@ -126,6 +152,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       setActiveTab(section);
     }
   }, [searchParams]);
+
+  // Bounce off a section the member can't view (default 'shop-profile' for staff,
+  // or a deep-linked ?section=). Accessibility is always viewable, so it's safe.
+  useEffect(() => {
+    if (!canViewSection(activeTab)) {
+      setActiveTab("accessibility");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, userProfile]);
 
   // Shop Details State
   const [isEditingShop, setIsEditingShop] = useState(false);
@@ -307,7 +342,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     { id: "shop-profile" as const, label: "Shop Profile", icon: User },
     { id: "accessibility" as const, label: "Accessibility", icon: Settings },
     { id: "notifications" as const, label: "Notifications", icon: Bell },
-  ];
+  ].filter((tab) => canViewSection(tab.id));
 
   const accessTabs = [
     { id: "subscription" as const, label: "Subscription", icon: CreditCard },
@@ -324,7 +359,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     { id: "brand-kit" as const, label: "Brand Kit", icon: Palette },
     { id: "moderation" as const, label: "Moderation", icon: Shield },
     { id: "faq" as const, label: "FAQ & Help", icon: HelpCircle },
-  ];
+  ].filter((tab) => canViewSection(tab.id));
 
   return (
     <div className="bg-[#101010] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">

@@ -6,6 +6,7 @@ import { DatabaseService } from '../../../services/DatabaseService';
 import { getStripeService } from '../../../services/StripeService';
 import { shopRepository } from '../../../repositories';
 import { requireActiveSubscription } from '../../../middleware/auth';
+import { requireShopPermission } from '../../../middleware/permissions';
 
 const router = Router();
 
@@ -83,7 +84,7 @@ const router = Router();
  *       500:
  *         description: Internal server error
  */
-router.post('/initiate', requireActiveSubscription(), async (req: Request, res: Response) => {
+router.post('/initiate', requireShopPermission('billing:manage'), requireActiveSubscription(), async (req: Request, res: Response) => {
   try {
     logger.info('Shop purchase initiate request:', {
       body: req.body,
@@ -363,7 +364,7 @@ router.get('/history/:shopId', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/stripe-checkout', requireActiveSubscription(), async (req: Request, res: Response) => {
+router.post('/stripe-checkout', requireShopPermission('billing:manage'), requireActiveSubscription(), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const rawAmount = req.body.amount;
@@ -631,7 +632,7 @@ router.post('/stripe-checkout', requireActiveSubscription(), async (req: Request
  *       401:
  *         description: Unauthorized
  */
-router.post('/stripe-payment-intent', requireActiveSubscription(), async (req: Request, res: Response) => {
+router.post('/stripe-payment-intent', requireShopPermission('billing:manage'), requireActiveSubscription(), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { amount } = req.body;

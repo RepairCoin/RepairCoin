@@ -44,6 +44,8 @@ export const SHOP_PERMISSIONS: { value: string; label: string }[] = [
   { value: 'analytics:view', label: 'View analytics' },
   { value: 'billing:manage', label: 'Manage billing' },
   { value: 'team:manage', label: 'Manage team' },
+  { value: 'shop:manage', label: 'Manage shop profile & settings' },
+  { value: 'marketing:manage', label: 'Manage marketing & ads' },
 ];
 
 export const getTeamMembers = async (): Promise<TeamMember[]> => {
@@ -51,14 +53,25 @@ export const getTeamMembers = async (): Promise<TeamMember[]> => {
   return res.data || [];
 };
 
-export const inviteMember = async (
-  input: InviteMemberInput
-): Promise<{ member: TeamMember; emailSent: boolean }> => {
-  const res = await apiClient.post<{ success: boolean; data: TeamMember; emailSent: boolean }>(
+export interface InviteResult {
+  member: TeamMember;
+  emailSent: boolean;
+  acceptUrl: string;
+}
+
+export const inviteMember = async (input: InviteMemberInput): Promise<InviteResult> => {
+  const res = await apiClient.post<{ success: boolean; data: TeamMember; emailSent: boolean; acceptUrl: string }>(
     '/shops/team/invite',
     input
   );
-  return { member: res.data, emailSent: res.emailSent };
+  return { member: res.data, emailSent: res.emailSent, acceptUrl: res.acceptUrl };
+};
+
+export const resendInvite = async (memberId: string): Promise<InviteResult> => {
+  const res = await apiClient.post<{ success: boolean; data: TeamMember; emailSent: boolean; acceptUrl: string }>(
+    `/shops/team/${memberId}/resend`
+  );
+  return { member: res.data, emailSent: res.emailSent, acceptUrl: res.acceptUrl };
 };
 
 export const updateMember = async (

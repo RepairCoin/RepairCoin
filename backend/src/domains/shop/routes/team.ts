@@ -4,12 +4,50 @@ import { authMiddleware, requireRole } from '../../../middleware/auth';
 import { requireShopPermission } from '../../../middleware/permissions';
 import { shopTeamRepository, shopRepository } from '../../../repositories';
 import { resendEmailService } from '../../../services/ResendEmailService';
+import { EmailService } from '../../../services/EmailService';
 import { logger } from '../../../utils/logger';
 import { ROLE_TEMPLATES, sanitizePermissions } from '../permissions';
 
 const router = Router();
+const emailService = new EmailService();
 
 const hashToken = (raw: string) => crypto.createHash('sha256').update(raw).digest('hex');
+
+const buildAcceptUrl = (rawToken: string) =>
+  `${process.env.FRONTEND_URL || 'https://repaircoin.ai'}/team/accept?token=${rawToken}`;
+
+const inviteEmailHtml = (role: string, shopName: string | undefined, acceptUrl: string) => `
+  <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+    <h2>You're invited to ${shopName || 'a RepairCoin shop'}</h2>
+    <p>You've been invited to join the team on RepairCoin as <strong>${role}</strong>.</p>
+    <p>Click below to accept and sign in with this email — no crypto wallet setup needed.</p>
+    <p style="margin: 28px 0;">
+      <a href="${acceptUrl}" style="background:#FFCC00;color:#1a1a1a;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Accept invitation</a>
+    </p>
+    <p style="color:#666;font-size:13px;">This invitation expires in 7 days. If you weren't expecting it, you can ignore this email.</p>
+  </div>`;
+
+// Resend is primary; fall back to Gmail SMTP (EmailService) when it fails or is
+// unconfigured. Returns the provider that succeeded, or an error if both failed.
+const sendInviteEmail = async (
+  params: { email: string; role: string; shopName?: string; acceptUrl: string }
+): Promise<{ success: boolean; provider?: 'resend' | 'gmail'; error?: string }> => {
+  const subject = `You've been invited to join ${params.shopName || 'a shop'} on RepairCoin`;
+  const html = inviteEmailHtml(params.role, params.shopName, params.acceptUrl);
+
+  const resend = await resendEmailService.sendEmail({ to: params.email, subject, html });
+  if (resend.success) return { success: true, provider: 'resend' };
+
+  if (emailService.isReady()) {
+    const sent = await emailService.sendContactCampaignEmail(params.email, subject, html);
+    if (sent) {
+      logger.info('Team invite sent via Gmail SMTP fallback', { email: params.email });
+      return { success: true, provider: 'gmail' };
+    }
+  }
+
+  return { success: false, error: resend.error || 'No email provider available' };
+};
 
 const sanitizeMember = (m: any) => ({
   id: m.id,
@@ -112,32 +150,21 @@ router.post('/invite', teamManage, async (req: Request, res: Response) => {
     }
 
     const shop = await shopRepository.getShop(shopId);
-    const baseUrl = process.env.FRONTEND_URL || 'https://repaircoin.ai';
-    const acceptUrl = `${baseUrl}/team/accept?token=${rawToken}`;
-
-    const emailResult = await resendEmailService.sendEmail({
-      to: email,
-      subject: `You've been invited to join ${shop?.name || 'a shop'} on RepairCoin`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
-          <h2>You're invited to ${shop?.name || 'a RepairCoin shop'}</h2>
-          <p>${req.user!.address ? 'A shop owner' : 'Someone'} has invited you to join their team on RepairCoin as <strong>${role}</strong>.</p>
-          <p>Click below to accept and sign in with this email — no crypto wallet setup needed.</p>
-          <p style="margin: 28px 0;">
-            <a href="${acceptUrl}" style="background:#FFCC00;color:#1a1a1a;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Accept invitation</a>
-          </p>
-          <p style="color:#666;font-size:13px;">This invitation expires in 7 days. If you weren't expecting it, you can ignore this email.</p>
-        </div>`,
-    });
+    const acceptUrl = buildAcceptUrl(rawToken);
+    const emailResult = await sendInviteEmail({ email, role, shopName: shop?.name, acceptUrl });
 
     if (!emailResult.success) {
       logger.warn('Team invite email failed to send', { shopId, email, error: emailResult.error });
     }
 
+    // acceptUrl is returned so the owner can copy/share the link even if the email
+    // failed — a bounced invite is never a dead end. The raw token is never stored
+    // (only its hash) and is only ever surfaced here, right after generation.
     res.status(201).json({
       success: true,
       data: sanitizeMember(member),
       emailSent: emailResult.success,
+      acceptUrl,
     });
   } catch (error) {
     logger.error('Error inviting team member:', error);
@@ -229,6 +256,40 @@ router.delete('/:memberId', teamManage, async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error removing team member:', error);
     res.status(500).json({ success: false, error: 'Failed to remove team member' });
+  }
+});
+
+// POST /api/shops/team/:memberId/resend — regenerate token + re-send the invite email
+router.post('/:memberId/resend', teamManage, async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user!.shopId!;
+    const member = await shopTeamRepository.getMemberById(req.params.memberId);
+    if (!member || member.shopId !== shopId) {
+      return res.status(404).json({ success: false, error: 'Team member not found' });
+    }
+    if (member.status !== 'invited') {
+      return res.status(400).json({ success: false, error: 'Only pending invitations can be resent' });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const updated = await shopTeamRepository.updateMember(member.id, {
+      inviteToken: hashToken(rawToken),
+      inviteExpiresAt: expiresAt,
+    });
+
+    const shop = await shopRepository.getShop(shopId);
+    const acceptUrl = buildAcceptUrl(rawToken);
+    const emailResult = await sendInviteEmail({ email: member.email, role: member.role, shopName: shop?.name, acceptUrl });
+
+    if (!emailResult.success) {
+      logger.warn('Team invite resend email failed', { shopId, email: member.email, error: emailResult.error });
+    }
+
+    res.json({ success: true, data: sanitizeMember(updated), emailSent: emailResult.success, acceptUrl });
+  } catch (error) {
+    logger.error('Error resending team invite:', error);
+    res.status(500).json({ success: false, error: 'Failed to resend invitation' });
   }
 });
 

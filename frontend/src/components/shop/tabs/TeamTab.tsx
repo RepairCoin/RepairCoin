@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { Users, UserPlus, Trash2, Pencil, Ban, X } from "lucide-react";
+import { Users, UserPlus, Trash2, Pencil, Ban, X, Mail, Copy, Check } from "lucide-react";
 import {
   getTeamMembers,
   inviteMember,
+  resendInvite,
   updateMember,
   suspendMember,
   removeMember,
   SHOP_PERMISSIONS,
   type TeamMember,
   type TeamRole,
+  type InviteResult,
 } from "@/services/api/team";
 
 interface TeamTabProps {
@@ -43,6 +45,7 @@ export function TeamTab({ shopId }: TeamTabProps) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
+  const [inviteLink, setInviteLink] = useState<InviteResult | null>(null);
 
   useEffect(() => {
     loadMembers();
@@ -84,6 +87,17 @@ export function TeamTab({ shopId }: TeamTabProps) {
     }
   };
 
+  const handleResend = async (member: TeamMember) => {
+    try {
+      const result = await resendInvite(member.id);
+      setInviteLink(result);
+      toast.success(result.emailSent ? "Invitation resent" : "Invite link regenerated (email failed to send)");
+      loadMembers();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to resend invitation");
+    }
+  };
+
   const openInvite = () => {
     setEditing(null);
     setShowModal(true);
@@ -113,6 +127,25 @@ export function TeamTab({ shopId }: TeamTabProps) {
             <UserPlus className="w-5 h-5" /> Invite member
           </button>
         </div>
+
+        {inviteLink && (
+          <div className="bg-[#101010] border border-[#303236] rounded-lg p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className={`w-4 h-4 ${inviteLink.emailSent ? "text-green-400" : "text-orange-400"}`} />
+                <span className={inviteLink.emailSent ? "text-green-300" : "text-orange-300"}>
+                  {inviteLink.emailSent
+                    ? `Invitation emailed to ${inviteLink.member.email}. You can also share this link:`
+                    : `Email couldn't be sent to ${inviteLink.member.email}. Share this link manually:`}
+                </span>
+              </div>
+              <button onClick={() => setInviteLink(null)} className="text-gray-400 hover:text-white shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <CopyLink url={inviteLink.acceptUrl} />
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-12">
@@ -167,6 +200,15 @@ export function TeamTab({ shopId }: TeamTabProps) {
                       <div className="flex items-center justify-end gap-2">
                         {m.role !== "owner" && (
                           <>
+                            {m.status === "invited" && (
+                              <button
+                                onClick={() => handleResend(m)}
+                                className="p-1.5 rounded hover:bg-[#303236] text-blue-300"
+                                title="Resend invitation"
+                              >
+                                <Mail className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => openEdit(m)}
                               className="p-1.5 rounded hover:bg-[#303236] text-gray-300"
@@ -206,8 +248,9 @@ export function TeamTab({ shopId }: TeamTabProps) {
         <MemberModal
           member={editing}
           onClose={() => setShowModal(false)}
-          onSaved={() => {
+          onSaved={(result) => {
             setShowModal(false);
+            if (result) setInviteLink(result);
             loadMembers();
           }}
         />
@@ -216,10 +259,39 @@ export function TeamTab({ shopId }: TeamTabProps) {
   );
 }
 
+function CopyLink({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Couldn't copy link");
+    }
+  };
+  return (
+    <div className="flex items-center gap-2 mt-3">
+      <input
+        readOnly
+        value={url}
+        onFocus={(e) => e.target.select()}
+        className="flex-1 px-3 py-2 rounded-md bg-[#1a1b1e] border border-[#303236] text-gray-300 text-sm font-mono"
+      />
+      <button
+        onClick={copy}
+        className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[#FFCC00] text-black text-sm font-medium hover:bg-[#FFD700] shrink-0"
+      >
+        {copied ? <><Check className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy</>}
+      </button>
+    </div>
+  );
+}
+
 interface MemberModalProps {
   member: TeamMember | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (result?: InviteResult) => void;
 }
 
 function MemberModal({ member, onClose, onSaved }: MemberModalProps) {
@@ -258,16 +330,17 @@ function MemberModal({ member, onClose, onSaved }: MemberModalProps) {
           permissions: role === "custom" ? permissions : undefined,
         });
         toast.success("Member updated");
+        onSaved();
       } else {
-        const { emailSent } = await inviteMember({
+        const result = await inviteMember({
           email,
           name: name || undefined,
           role,
           permissions: role === "custom" ? permissions : undefined,
         });
-        toast.success(emailSent ? "Invitation sent" : "Member invited (email failed to send)");
+        toast.success(result.emailSent ? "Invitation sent" : "Member invited — copy the link to share");
+        onSaved(result);
       }
-      onSaved();
     } catch (error: any) {
       toast.error(error?.message || "Failed to save member");
     } finally {

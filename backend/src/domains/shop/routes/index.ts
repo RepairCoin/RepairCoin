@@ -81,8 +81,8 @@ router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
 router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSyncRoutes); // Payment sync routes
 router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
-router.use('/reports', authMiddleware, requireRole(['shop']), reportsRoutes); // Reports routes
-router.use('/moderation', authMiddleware, requireRole(['shop']), moderationRoutes); // Moderation routes
+router.use('/reports', authMiddleware, requireRole(['shop']), requireShopPermission('analytics:view'), reportsRoutes); // Reports routes
+router.use('/moderation', authMiddleware, requireRole(['shop']), requireShopPermission('customers:view'), moderationRoutes); // Moderation routes
 router.use('/team', teamRoutes); // Team management (auth handled per-route: accept is public)
 router.use('/calendar', calendarRoutes); // Calendar integration routes (auth handled in route file)
 router.use('/gmail', gmailRoutes); // Gmail integration routes (auth handled in route file)
@@ -671,6 +671,7 @@ router.put('/:shopId/details',
   authMiddleware,
   requireRole(['shop']),
   requireShopOwnership,
+  requireShopPermission('shop:manage'),
   validateEmail('email'),
   validateShopUniqueness({ email: true, wallet: false, excludeField: 'shopId' }),
   async (req: Request, res: Response) => {
@@ -821,6 +822,7 @@ router.put('/:shopId/details',
 router.put('/:shopId',
   requireShopOrAdmin,
   requireShopOwnership,
+  requireShopPermission('shop:manage'),
   validateEmail('email'),
   validateShopUniqueness({ email: true, wallet: false, excludeField: 'shopId' }),
   async (req: Request, res: Response) => {

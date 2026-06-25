@@ -3,6 +3,7 @@ import { ShopRepository } from '../../../repositories/ShopRepository';
 import { TokenService } from '../../token/services/TokenService';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { logger } from '../../../utils/logger';
+import { requireShopPermission } from '../../../middleware/permissions';
 
 const router = Router();
 const shopRepository = new ShopRepository();
@@ -65,7 +66,7 @@ router.get('/info', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // Create deposit request
-router.post('/', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/', requireShopPermission('billing:manage'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const walletAddress = req.user?.address;
     const { amount } = req.body;

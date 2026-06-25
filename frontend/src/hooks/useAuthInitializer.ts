@@ -121,12 +121,14 @@ interface CachedSession {
     email?: string;
     avatarUrl?: string;
     isActive: boolean;
-    tier?: string;
+    tier?: 'bronze' | 'silver' | 'gold';
     shopId?: string;
     registrationDate?: string;
     suspended: boolean;
     suspendedAt?: string;
     suspensionReason?: string;
+    permissions?: string[];
+    isTeamMember?: boolean;
   } | null;
 }
 
@@ -170,6 +172,7 @@ function setCachedSession(profile: CachedSession['profile']): void {
     // Ignore errors
   }
 }
+
 
 /**
  * Clear cached session.
@@ -393,7 +396,9 @@ export function useAuthInitializer() {
             registrationDate: userData.createdAt || userData.created_at,
             suspended: userData.suspended || false,
             suspendedAt: userData.suspendedAt,
-            suspensionReason: userData.suspensionReason
+            suspensionReason: userData.suspensionReason,
+            permissions: userData.permissions,
+            isTeamMember: userData.isTeamMember
           };
           setUserProfile(profile);
           setCachedSession(profile);
@@ -583,7 +588,9 @@ export function useAuthInitializer() {
               registrationDate: userData.createdAt || userData.created_at,
               suspended: userData.suspended || false,
               suspendedAt: userData.suspendedAt,
-              suspensionReason: userData.suspensionReason
+              suspensionReason: userData.suspensionReason,
+              permissions: userData.permissions,
+              isTeamMember: userData.isTeamMember
             };
             setUserProfile(profile);
             setCachedSession(profile); // Cache for rapid refresh resilience

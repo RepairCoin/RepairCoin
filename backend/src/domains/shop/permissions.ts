@@ -17,6 +17,8 @@ export const SHOP_PERMISSIONS = [
   'analytics:view',    // Shop analytics dashboards
   'billing:manage',    // Subscription, RCN purchases, payment methods
   'team:manage',       // Invite/edit/remove team members
+  'shop:manage',       // Shop profile, location, settings, integrations
+  'marketing:manage',  // Marketing campaigns and ads
 ] as const;
 
 export type ShopPermission = (typeof SHOP_PERMISSIONS)[number];

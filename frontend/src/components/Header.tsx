@@ -221,6 +221,8 @@ const Header: React.FC = () => {
                       isActive: userData.active,
                       shopId: userData.shopId,
                       registrationDate: userData.createdAt,
+                      permissions: userData.permissions,
+                      isTeamMember: userData.isTeamMember,
                     });
                     console.log('🟦 [Header] Auth store updated with shop profile');
                   }
