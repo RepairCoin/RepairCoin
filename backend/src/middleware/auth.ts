@@ -2,7 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
-import { customerRepository, shopRepository, adminRepository, refreshTokenRepository } from '../repositories';
+import { customerRepository, shopRepository, adminRepository, refreshTokenRepository, shopTeamRepository } from '../repositories';
 import { AdminService } from '../domains/admin/services/AdminService';
 import { getSubscriptionEnforcementService } from '../services/SubscriptionEnforcementService';
 import { getCookieDomain } from '../utils/cookies';
@@ -11,6 +11,8 @@ interface BaseJWTPayload {
   address: string;
   role: 'admin' | 'shop' | 'customer';
   shopId?: string;
+  permissions?: string[];   // shop members only; absent ⇒ legacy owner = ['*']
+  teamMemberId?: string;    // present only for non-owner shop team members
   iat: number;
   exp: number;
 }
@@ -35,6 +37,8 @@ declare global {
         address: string;
         role: string;
         shopId?: string;
+        permissions?: string[];
+        teamMemberId?: string;
         tokenId?: string;
       };
     }
@@ -181,7 +185,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           const newAccessToken = generateAccessToken({
             address: refreshDecoded.address,
             role: refreshDecoded.role,
-            shopId: refreshDecoded.shopId
+            shopId: refreshDecoded.shopId,
+            permissions: refreshDecoded.permissions,
+            teamMemberId: refreshDecoded.teamMemberId
           }, refreshDecoded.tokenId);
 
           // Set new access token in cookie
@@ -299,7 +305,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         const newAccessToken = generateAccessToken({
           address: decoded.address,
           role: decoded.role,
-          shopId: decoded.shopId
+          shopId: decoded.shopId,
+          permissions: decoded.permissions,
+          teamMemberId: decoded.teamMemberId
         }, 'tokenId' in decoded ? decoded.tokenId : undefined);
 
         // Set cookie options
@@ -386,11 +394,14 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       }
     }
 
-    // Set user in request object
+    // Set user in request object. Shop tokens predating team management carry no
+    // permissions claim — treat them as the owner ('*') so existing sessions keep full access.
     req.user = {
       address: decoded.address,
       role: decoded.role,
       shopId: decoded.shopId,
+      permissions: decoded.role === 'shop' ? (decoded.permissions ?? ['*']) : decoded.permissions,
+      teamMemberId: decoded.teamMemberId,
       tokenId
     };
     
@@ -540,6 +551,15 @@ async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean
         if (!shop) {
           logger.warn('Shop not found', { shopId: tokenPayload.shopId });
           return false;
+        }
+        // Team members must still be active; a suspended/removed member is rejected
+        // even while their access token is unexpired.
+        if (tokenPayload.teamMemberId) {
+          const member = await shopTeamRepository.getMemberById(tokenPayload.teamMemberId);
+          if (!member || member.status !== 'active' || member.shopId !== tokenPayload.shopId) {
+            logger.warn('Team member inactive or mismatched', { teamMemberId: tokenPayload.teamMemberId });
+            return false;
+          }
         }
         // Allow unverified/inactive shops to access dashboard with limited features
         // Individual endpoints can enforce stricter checks if needed

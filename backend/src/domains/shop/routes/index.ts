@@ -1,6 +1,7 @@
 // backend/src/routes/shops.ts
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership, requireActiveSubscription } from '../../../middleware/auth';
+import { requireShopPermission } from '../../../middleware/permissions';
 import { optionalAuthMiddleware } from '../../../middleware/optionalAuth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric, validateStringType } from '../../../middleware/errorHandler';
 import { validateShopUniqueness } from '../../../middleware/validation';
@@ -1236,6 +1237,7 @@ router.post('/:shopId/redeem',
   authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
+  requireShopPermission('rewards:redeem'),
   requireActiveSubscription(), // Enforce subscription for processing redemptions
   validateRequired(['customerAddress', 'amount']),
   validateEthereumAddress('customerAddress'),
@@ -2017,6 +2019,7 @@ router.post('/:shopId/issue-reward',
   authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
+  requireShopPermission('rewards:issue'),
   requireActiveSubscription(), // Enforce subscription for issuing rewards
   validateRequired(['customerAddress', 'repairAmount']),
   validateEthereumAddress('customerAddress'),
