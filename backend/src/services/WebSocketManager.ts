@@ -535,3 +535,18 @@ export class WebSocketManager {
     }, 60000); // Clean up every minute
   }
 }
+
+// Module-level accessor so per-request services (e.g. PaymentService, which is
+// constructed per-route rather than as a singleton) can broadcast in-app
+// notifications without threading the manager through every constructor.
+// Mirrors the getPushNotificationDispatcher() singleton pattern. The instance
+// is registered once during app startup, after the WebSocket server is created.
+let wsManagerInstance: WebSocketManager | null = null;
+
+export function setWebSocketManagerInstance(manager: WebSocketManager): void {
+  wsManagerInstance = manager;
+}
+
+export function getWebSocketManager(): WebSocketManager | null {
+  return wsManagerInstance;
+}

@@ -4,6 +4,7 @@ import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { StripeService } from '../../../services/StripeService';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { getPushNotificationDispatcher, PushNotificationDispatcher } from '../../../services/PushNotificationDispatcher';
+import { getWebSocketManager } from '../../../services/WebSocketManager';
 import { EmailService } from '../../../services/EmailService';
 import { RcnRedemptionService } from './RcnRedemptionService';
 import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
@@ -1421,7 +1422,7 @@ export class PaymentService {
           // lives in metadata.reason. bypassPreferences: this is a transactional
           // cancellation + refund, so it must always reach the customer even if
           // they've muted general order updates.
-          await this.notificationService.createNotification({
+          const cancellationNotification = await this.notificationService.createNotification({
             senderAddress: 'SYSTEM',
             receiverAddress: order.customerAddress,
             notificationType: 'service_order_cancelled',
@@ -1437,6 +1438,18 @@ export class PaymentService {
               timestamp: new Date().toISOString()
             }
           }, { bypassPreferences: true });
+
+          // In-app realtime broadcast. createNotification only persists to the
+          // DB; without this the mobile in-app list (which updates purely from
+          // WS broadcasts) would not show the cancellation until the user
+          // reopened the notifications screen. Web already refetches on focus,
+          // but broadcasting keeps both clients instant and consistent.
+          if (cancellationNotification.id !== 'suppressed') {
+            getWebSocketManager()?.sendNotificationToUser(
+              order.customerAddress,
+              cancellationNotification
+            );
+          }
 
           // Native push notification (web + mobile). The shop cancellation only
           // persisted an in-app notification before — no push was ever sent, so
