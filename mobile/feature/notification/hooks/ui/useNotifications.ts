@@ -17,6 +17,8 @@ export function useNotifications() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("unread");
   const [showMenu, setShowMenu] = useState(false);
+  const [selectedNotification, setSelectedNotification] =
+    useState<Notification | null>(null);
 
   const { showSuccess, showWarning } = useAppToast();
 
@@ -76,6 +78,10 @@ export function useNotifications() {
   };
 
   const handleNotificationPress = async (notification: Notification) => {
+    // Open the detail modal (mirrors the web NotificationBell, which shows a
+    // modal with the full notification instead of navigating away).
+    setSelectedNotification({ ...notification, isRead: true });
+
     if (!notification.isRead) {
       try {
         await notificationApi.markAsRead(notification.id);
@@ -87,6 +93,22 @@ export function useNotifications() {
       } catch (error) {
         console.error("Failed to mark notification as read:", error);
       }
+    }
+  };
+
+  const handleCloseDetail = () => setSelectedNotification(null);
+
+  const handleDeleteNotification = async (notificationId: string) => {
+    // Optimistically remove, then sync with the server.
+    setNotifications((prev) =>
+      (prev || []).filter((n) => n.id !== notificationId)
+    );
+    try {
+      await notificationApi.deleteNotification(notificationId);
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
+      // Re-fetch to restore correct state if the delete failed.
+      fetchNotifications(1, true);
     }
   };
 
@@ -162,12 +184,15 @@ export function useNotifications() {
     setActiveTab,
     showMenu,
     setShowMenu,
+    selectedNotification,
     isRegistered,
     isConnected,
     unreadCount,
     handleRefresh,
     handleLoadMore,
     handleNotificationPress,
+    handleCloseDetail,
+    handleDeleteNotification,
     handleMarkAllAsRead,
     handleTurnOffNotifications,
     handleTurnOnNotifications,

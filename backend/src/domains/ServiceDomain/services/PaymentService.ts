@@ -3,6 +3,8 @@ import { OrderRepository, ServiceOrder } from '../../../repositories/OrderReposi
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { StripeService } from '../../../services/StripeService';
 import { NotificationService } from '../../notification/services/NotificationService';
+import { getPushNotificationDispatcher, PushNotificationDispatcher } from '../../../services/PushNotificationDispatcher';
+import { getWebSocketManager } from '../../../services/WebSocketManager';
 import { EmailService } from '../../../services/EmailService';
 import { RcnRedemptionService } from './RcnRedemptionService';
 import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
@@ -142,6 +144,7 @@ export class PaymentService {
   private serviceRepository: ServiceRepository;
   private stripeService: StripeService;
   private notificationService: NotificationService;
+  private pushDispatcher: PushNotificationDispatcher;
   private emailService: EmailService;
   private rcnRedemptionService: RcnRedemptionService;
   private appointmentRepository: AppointmentRepository;
@@ -154,6 +157,7 @@ export class PaymentService {
     this.serviceRepository = new ServiceRepository();
     this.stripeService = stripeService;
     this.notificationService = new NotificationService();
+    this.pushDispatcher = getPushNotificationDispatcher();
     this.emailService = new EmailService();
     this.rcnRedemptionService = new RcnRedemptionService();
     this.appointmentRepository = new AppointmentRepository();
@@ -1412,10 +1416,16 @@ export class PaymentService {
             ? `. Refund: ${refundDetails.join(', ')}`
             : '';
 
-          await this.notificationService.createNotification({
+          // Canonical 'service_order_cancelled' type so the web/mobile clients
+          // render the correct icon + title (the old 'service_cancelled_by_shop'
+          // was mapped nowhere, hence the generic 📬). The "by shop" distinction
+          // lives in metadata.reason. bypassPreferences: this is a transactional
+          // cancellation + refund, so it must always reach the customer even if
+          // they've muted general order updates.
+          const cancellationNotification = await this.notificationService.createNotification({
             senderAddress: 'SYSTEM',
             receiverAddress: order.customerAddress,
-            notificationType: 'service_cancelled_by_shop',
+            notificationType: 'service_order_cancelled',
             message: `Your booking for ${service.serviceName} at ${shop.name} has been cancelled by the shop${refundMessage}`,
             metadata: {
               orderId,
@@ -1427,7 +1437,36 @@ export class PaymentService {
               stripeRefunded,
               timestamp: new Date().toISOString()
             }
-          });
+          }, { bypassPreferences: true });
+
+          // In-app realtime broadcast. createNotification only persists to the
+          // DB; without this the mobile in-app list (which updates purely from
+          // WS broadcasts) would not show the cancellation until the user
+          // reopened the notifications screen. Web already refetches on focus,
+          // but broadcasting keeps both clients instant and consistent.
+          if (cancellationNotification.id !== 'suppressed') {
+            getWebSocketManager()?.sendNotificationToUser(
+              order.customerAddress,
+              cancellationNotification
+            );
+          }
+
+          // Native push notification (web + mobile). The shop cancellation only
+          // persisted an in-app notification before — no push was ever sent, so
+          // customers never got a native banner. Failures here must not abort
+          // the cancellation (refund already processed).
+          try {
+            const refundSummary = refundDetails.length > 0 ? refundDetails.join(', ') : undefined;
+            await this.pushDispatcher.sendBookingCancelledToCustomer(
+              order.customerAddress,
+              shop.name,
+              service.serviceName,
+              orderId,
+              refundSummary
+            );
+          } catch (pushError) {
+            logger.error('Failed to send shop cancellation push notification:', pushError);
+          }
 
           // 5. Send email notification to customer
           const customer = await customerRepository.getCustomer(order.customerAddress);

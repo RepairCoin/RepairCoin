@@ -2,6 +2,8 @@
 import { logger } from '../utils/logger';
 import { EmailService } from './EmailService';
 import { NotificationService } from '../domains/notification/services/NotificationService';
+import { CreateNotificationParams } from '../repositories/NotificationRepository';
+import { WebSocketManager } from './WebSocketManager';
 import { getPushNotificationDispatcher, PushNotificationDispatcher } from './PushNotificationDispatcher';
 import { OrderRepository } from '../repositories/OrderRepository';
 import { ShopRepository } from '../repositories/ShopRepository';
@@ -95,6 +97,7 @@ export class AppointmentReminderService {
   private shopRepository: ShopRepository;
   private customerRepository: CustomerRepository;
   private serviceRepository: ServiceRepository;
+  private wsManager: WebSocketManager | null = null;
   private scheduledIntervalId: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
   // In-memory dedup for the daily shop digest — tracks the ISO date (YYYY-MM-DD)
@@ -111,6 +114,32 @@ export class AppointmentReminderService {
     this.shopRepository = new ShopRepository();
     this.customerRepository = new CustomerRepository();
     this.serviceRepository = new ServiceRepository();
+  }
+
+  /**
+   * Inject the shared WebSocketManager so the in-app notifications this service
+   * creates are pushed to connected clients in real time. Wired in app.ts after
+   * the WS server is up. Without this, notifications created here are persisted
+   * but only surface on the next REST fetch — which is why mobile (whose in-app
+   * list updates purely from WS broadcasts) never showed booking confirmations.
+   */
+  public setWebSocketManager(wsManager: WebSocketManager): void {
+    this.wsManager = wsManager;
+  }
+
+  /**
+   * Create an in-app notification and broadcast it over WebSocket so it appears
+   * live on web and mobile (matching how NotificationDomain handlers behave).
+   * Preference-suppressed notifications come back with id 'suppressed' and are
+   * not broadcast.
+   */
+  private async createAndBroadcastNotification(
+    params: CreateNotificationParams
+  ): Promise<void> {
+    const notification = await this.notificationService.createNotification(params);
+    if (this.wsManager && notification.id !== 'suppressed') {
+      this.wsManager.sendNotificationToUser(params.receiverAddress, notification);
+    }
   }
 
   /**
@@ -307,7 +336,7 @@ export class AppointmentReminderService {
 
       const message = `Reminder: You have an appointment tomorrow at ${data.shopName} for ${data.serviceName} at ${this.formatTime(data.bookingTimeSlot)}`;
 
-      await this.notificationService.createNotification({
+      await this.createAndBroadcastNotification({
         senderAddress: 'SYSTEM',
         receiverAddress: data.customerAddress,
         notificationType: 'appointment_reminder',
@@ -349,7 +378,7 @@ export class AppointmentReminderService {
 
       const message = `Starting soon! Your ${data.serviceName} appointment at ${data.shopName} is in about 2 hours at ${this.formatTime(data.bookingTimeSlot)}. Please start making your way!`;
 
-      await this.notificationService.createNotification({
+      await this.createAndBroadcastNotification({
         senderAddress: 'SYSTEM',
         receiverAddress: data.customerAddress,
         notificationType: 'appointment_reminder_2h',
@@ -382,7 +411,7 @@ export class AppointmentReminderService {
 
       const message = `Upcoming appointment tomorrow: ${data.customerName || 'Customer'} - ${data.serviceName} at ${this.formatTime(data.bookingTimeSlot)}`;
 
-      await this.notificationService.createNotification({
+      await this.createAndBroadcastNotification({
         senderAddress: 'SYSTEM',
         receiverAddress: data.shopId,
         notificationType: 'upcoming_appointment',
@@ -416,7 +445,7 @@ export class AppointmentReminderService {
 
       const message = `Appointment starting soon: ${data.customerName || 'Customer'} - ${data.serviceName} at ${this.formatTime(data.bookingTimeSlot)} (in ~2 hours)`;
 
-      await this.notificationService.createNotification({
+      await this.createAndBroadcastNotification({
         senderAddress: 'SYSTEM',
         receiverAddress: data.shopId,
         notificationType: 'upcoming_appointment_2h',
@@ -554,7 +583,7 @@ export class AppointmentReminderService {
       }
 
       // Send in-app notification to customer
-      await this.notificationService.createNotification({
+      await this.createAndBroadcastNotification({
         senderAddress: 'SYSTEM',
         receiverAddress: order.customerAddress,
         notificationType: 'booking_confirmed',
@@ -1092,7 +1121,7 @@ export class AppointmentReminderService {
 
       const message = `Note: ${data.customerName || 'Customer'}'s ${reminderTypeLabel} reminder for their ${data.serviceName} appointment was not sent because they have Quiet Hours enabled (${this.formatTime(quietHoursStart)} - ${this.formatTime(quietHoursEnd)}). Consider reaching out directly if needed.`;
 
-      await this.notificationService.createNotification({
+      await this.createAndBroadcastNotification({
         senderAddress: 'SYSTEM',
         receiverAddress: data.shopId,
         notificationType: 'reminder_skipped_quiet_hours',
