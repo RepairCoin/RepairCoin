@@ -63,6 +63,16 @@ export class NotificationGateway {
     const metadata = params.metadata || {};
     const senderAddress = params.senderAddress || 'SYSTEM';
 
+    // Resolve the display title (may be a metadata-dependent builder) once, so
+    // both the persisted metadata.display and the push fallback title agree.
+    const resolvedDisplay = {
+      ...config.display,
+      title:
+        typeof config.display.title === 'function'
+          ? config.display.title(metadata)
+          : config.display.title,
+    };
+
     let notification: Notification | null = null;
     let suppressed = false;
 
@@ -75,7 +85,7 @@ export class NotificationGateway {
           receiverAddress,
           notificationType: type,
           message: params.message,
-          metadata: { ...metadata, display: config.display },
+          metadata: { ...metadata, display: resolvedDisplay },
         },
         { bypassPreferences: config.transactional }
       );
@@ -101,10 +111,11 @@ export class NotificationGateway {
     if (config.channels.includes('push') && config.push) {
       try {
         await this.pushDispatcher.sendToUser(receiverAddress, {
-          title: config.push.title ? config.push.title(metadata) : config.display.title,
+          title: config.push.title ? config.push.title(metadata) : resolvedDisplay.title,
           body: config.push.body ? config.push.body(metadata) : params.message,
           channelId: config.push.channelId,
           priority: config.push.priority,
+          imageUrl: config.push.imageUrl ? config.push.imageUrl(metadata) : undefined,
           data: { type, ...metadata },
         });
       } catch (err) {

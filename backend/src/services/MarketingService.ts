@@ -7,12 +7,11 @@ import {
   MarketingTemplate,
   CampaignRewardConfig
 } from '../repositories/MarketingCampaignRepository';
-import { NotificationRepository, CreateNotificationParams } from '../repositories/NotificationRepository';
+import { NotificationGateway, getNotificationGateway } from '../domains/notification/services/NotificationGateway';
 import { CustomerRepository } from '../repositories/CustomerRepository';
 import { ServiceRepository } from '../repositories/ServiceRepository';
 import { ShopRepository } from '../repositories/ShopRepository';
 import { EmailService } from './EmailService';
-import { WebSocketManager } from './WebSocketManager';
 import { PaginatedResult, PaginationParams } from '../repositories/BaseRepository';
 import { eventBus, createDomainEvent } from '../events/EventBus';
 import { campaignRewardService } from './CampaignRewardService';
@@ -62,19 +61,17 @@ function generateCouponCode(name: string): string {
 
 export class MarketingService {
   private campaignRepo: MarketingCampaignRepository;
-  private notificationRepo: NotificationRepository;
+  private notificationGateway: NotificationGateway;
   private customerRepo: CustomerRepository;
   private serviceRepo: ServiceRepository;
   private emailService: EmailService;
-  private wsManager: WebSocketManager | null;
 
-  constructor(wsManager?: WebSocketManager) {
+  constructor() {
     this.campaignRepo = new MarketingCampaignRepository();
-    this.notificationRepo = new NotificationRepository();
+    this.notificationGateway = getNotificationGateway();
     this.customerRepo = new CustomerRepository();
     this.serviceRepo = new ServiceRepository();
     this.emailService = new EmailService();
-    this.wsManager = wsManager || null;
   }
 
   // Campaign CRUD
@@ -672,11 +669,10 @@ export class MarketingService {
     shopInfo: ShopInfo
   ): Promise<boolean> {
     try {
-      // Create notification in database
-      const notificationParams: CreateNotificationParams = {
+      // Delivery (currently persist-only — see marketing_campaign in the
+      // notification registry) is driven by the gateway.
+      await this.notificationGateway.dispatch('marketing_campaign', recipient.walletAddress, {
         senderAddress: shopInfo.walletAddress,
-        receiverAddress: recipient.walletAddress,
-        notificationType: 'marketing_campaign',
         message: this.generateNotificationMessage(campaign, shopInfo),
         metadata: {
           campaignId: campaign.id,
@@ -690,14 +686,7 @@ export class MarketingService {
           serviceId: campaign.serviceId,
           designContent: campaign.designContent
         }
-      };
-
-      const notification = await this.notificationRepo.create(notificationParams);
-
-      // Send via WebSocket if available
-      if (this.wsManager) {
-        this.wsManager.sendNotificationToUser(recipient.walletAddress, notification);
-      }
+      });
 
       return true;
     } catch (error) {

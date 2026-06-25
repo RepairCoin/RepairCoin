@@ -29,7 +29,8 @@ export type DeliveryChannel = 'persist' | 'ws' | 'push';
  * icon on mobile), so reusing an existing token needs ZERO client edits.
  */
 export interface NotificationDisplay {
-  title: string;
+  /** Static title, or a builder for titles that depend on metadata (e.g. campaign name). */
+  title: string | ((metadata: Record<string, any>) => string);
   /** Semantic icon token, e.g. 'cancelled' | 'reward' | 'calendar'. Mapped client-side. */
   icon: string;
   /** Hex accent color (mobile icon/background tint). Optional. */
@@ -43,6 +44,13 @@ export interface NotificationPushConfig {
   title?: (metadata: Record<string, any>) => string;
   /** Push body; defaults to the in-app `message` when omitted. */
   body?: (metadata: Record<string, any>) => string;
+  /**
+   * Rich notification image (Android big-picture / web icon). Returns a URL
+   * from metadata, or undefined. Push bodies that need pre-formatted date/time
+   * should read `*Label` metadata fields (e.g. bookingTimeLabel) — metadata
+   * keeps the raw values so the clients can format for in-app display.
+   */
+  imageUrl?: (metadata: Record<string, any>) => string | undefined;
 }
 
 export interface NotificationTypeConfig {
@@ -89,7 +97,8 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
     push: {
       channelId: NotificationChannels.APPOINTMENTS,
       body: (m) =>
-        `Your ${m.serviceName} at ${m.shopName} is confirmed for ${m.bookingDate} at ${m.bookingTime}`,
+        `Your ${m.serviceName} at ${m.shopName} is confirmed for ${m.bookingDateLabel} at ${m.bookingTimeLabel}`,
+      imageUrl: (m) => m.imageUrl,
     },
   },
   appointment_reminder: {
@@ -99,7 +108,7 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
       channelId: NotificationChannels.APPOINTMENTS,
       priority: 'high',
       title: () => 'Appointment Tomorrow',
-      body: (m) => `Reminder: ${m.serviceName} at ${m.shopName} at ${m.bookingTime}`,
+      body: (m) => `Reminder: ${m.serviceName} at ${m.shopName} at ${m.bookingTimeLabel}`,
     },
   },
   // NOTE: the _2h and upcoming_* reminders are persist+ws only — they have
@@ -126,8 +135,12 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
   },
 
   // ── Marketing campaigns (migrated from MarketingService) ──────────────────
+  // Persist-only to PRESERVE existing behavior: MarketingService's WS broadcast
+  // was dead code (its wsManager was never injected at any construction site),
+  // so campaigns have only ever persisted. Enabling live broadcast is a
+  // deliberate opt-in — add 'ws' here — not a silent side effect of migration.
   marketing_campaign: {
-    channels: ['persist', 'ws'],
-    display: { title: 'Campaign', icon: 'campaign', color: '#EC4899' },
+    channels: ['persist'],
+    display: { title: (m) => m.campaignName || 'Campaign', icon: 'campaign', color: '#EC4899' },
   },
 };

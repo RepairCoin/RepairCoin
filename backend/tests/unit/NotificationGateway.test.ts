@@ -91,12 +91,21 @@ describe('NotificationGateway.dispatch', () => {
     expect(mockSendToUser).not.toHaveBeenCalled();
   });
 
-  it('honors a persist+ws type with no push (marketing_campaign)', async () => {
+  it('honors a persist-only type (marketing_campaign: no ws, no push)', async () => {
     const gw = makeGateway();
-    await gw.dispatch('marketing_campaign', '0xabc', { message: 'Big sale', metadata: {} });
+    await gw.dispatch('marketing_campaign', '0xabc', { message: 'Big sale', metadata: { campaignName: 'Summer' } });
 
-    expect(mockSendNotificationToUser).toHaveBeenCalledTimes(1);
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1);
+    expect(mockSendNotificationToUser).not.toHaveBeenCalled();
     expect(mockSendToUser).not.toHaveBeenCalled();
+  });
+
+  it('resolves a dynamic display title from metadata (marketing campaign name)', async () => {
+    const gw = makeGateway();
+    await gw.dispatch('marketing_campaign', '0xabc', { message: 'Big sale', metadata: { campaignName: 'Summer Sale' } });
+
+    const [params] = mockCreateNotification.mock.calls[0] as any[];
+    expect(params.metadata.display.title).toBe('Summer Sale');
   });
 
   it('builds the push payload from the registry (title/body/channel/data)', async () => {

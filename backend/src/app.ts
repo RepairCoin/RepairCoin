@@ -764,12 +764,9 @@ class RepairCoinApp {
       logger.info('✅ WebSocket manager attached to AIAgentDomain');
     }
 
-    // Attach WebSocket manager to AppointmentReminderService so the in-app
-    // notifications it creates (booking confirmations, appointment reminders,
-    // upcoming-appointment alerts) are pushed live to web and mobile clients,
-    // not just persisted for the next REST fetch.
-    appointmentReminderService.setWebSocketManager(this.wsManager);
-    logger.info('✅ WebSocket manager attached to AppointmentReminderService');
+    // AppointmentReminderService now emits through NotificationGateway, which
+    // broadcasts over the WebSocket singleton (setWebSocketManagerInstance
+    // above) — no per-service WS injection needed.
 
     this.server.listen(port, () => {
       console.log('\n==============================================');
