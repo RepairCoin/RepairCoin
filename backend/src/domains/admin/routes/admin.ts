@@ -508,6 +508,20 @@ import { makePlatformCopilotController } from '../../AIAgentDomain/controllers/P
 const platformCopilot = makePlatformCopilotController();
 router.post('/ai/platform-copilot', (req, res) => { void platformCopilot.ask(req, res); });
 
+// Support Ticket Triage (Admin AI #4) — suggest category/priority/summary/reply.
+import { getSupportTriage } from '../../AIAgentDomain/services/supportTriage';
+router.get('/support/tickets/:ticketId/ai-triage', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const triage = await getSupportTriage(req.params.ticketId, force);
+    if (!triage) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    res.json({ success: true, data: triage });
+  } catch (error) {
+    logger.error('Error generating support triage:', error);
+    res.status(500).json({ success: false, error: 'Failed to triage ticket' });
+  }
+});
+
 // Shop Approval Assistant (Admin AI #3) — AI screening for a pending shop.
 import { getShopScreening } from '../../AIAgentDomain/services/shopScreening';
 router.get('/shops/:shopId/ai-screening', async (req, res) => {
