@@ -300,6 +300,7 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
       case 'service_payment_failed':
         return '❌';
       case 'service_order_cancelled':
+      case 'service_cancelled_by_shop':
         return '🚫';
       case 'appointment_reminder':
       case 'upcoming_appointment':
@@ -361,6 +362,7 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
       case 'service_payment_failed':
         return 'Payment Failed';
       case 'service_order_cancelled':
+      case 'service_cancelled_by_shop':
         return 'Order Cancelled';
       case 'appointment_reminder':
       case 'upcoming_appointment':

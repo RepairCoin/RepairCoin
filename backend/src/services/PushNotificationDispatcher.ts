@@ -135,6 +135,23 @@ export class PushNotificationDispatcher {
     });
   }
 
+  async sendBookingCancelledToCustomer(
+    customerAddress: string,
+    shopName: string,
+    serviceName: string,
+    orderId: string,
+    refundSummary?: string
+  ): Promise<SendPushResult> {
+    const refundText = refundSummary ? ` Refund: ${refundSummary}` : '';
+    return this.sendToUser(customerAddress, {
+      title: 'Booking Cancelled',
+      body: `${shopName} cancelled your ${serviceName} booking.${refundText}`,
+      channelId: NotificationChannels.APPOINTMENTS,
+      priority: 'high',
+      data: { type: 'service_order_cancelled', orderId, shopName, serviceName },
+    });
+  }
+
   async sendNewBookingToShop(
     shopAddress: string,
     customerName: string,

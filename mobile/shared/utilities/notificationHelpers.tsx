@@ -57,6 +57,15 @@ export function getNotificationStyle(type: string): NotificationStyle {
         bgColor: "bg-green-500/20",
         borderColor: "border-green-500/30",
       };
+    case "service_order_cancelled":
+    // Legacy type kept as an alias so notifications created before the
+    // consolidation to 'service_order_cancelled' still render correctly.
+    case "service_cancelled_by_shop":
+      return {
+        icon: <MaterialCommunityIcons name="calendar-remove" size={20} color="#EF4444" />,
+        bgColor: "bg-red-500/20",
+        borderColor: "border-red-500/30",
+      };
     case "subscription_expiring":
       return {
         icon: <Ionicons name="warning" size={20} color="#F59E0B" />,
@@ -135,6 +144,7 @@ export function getNotificationTitle(
     case "service_payment_failed":
       return "Payment Failed";
     case "service_order_cancelled":
+    case "service_cancelled_by_shop":
       return "Order Cancelled";
     case "appointment_reminder":
     case "upcoming_appointment":
