@@ -508,6 +508,20 @@ import { makePlatformCopilotController } from '../../AIAgentDomain/controllers/P
 const platformCopilot = makePlatformCopilotController();
 router.post('/ai/platform-copilot', (req, res) => { void platformCopilot.ask(req, res); });
 
+// Shop Approval Assistant (Admin AI #3) — AI screening for a pending shop.
+import { getShopScreening } from '../../AIAgentDomain/services/shopScreening';
+router.get('/shops/:shopId/ai-screening', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const screening = await getShopScreening(req.params.shopId, force);
+    if (!screening) return res.status(404).json({ success: false, error: 'Shop not found' });
+    res.json({ success: true, data: screening });
+  } catch (error) {
+    logger.error('Error generating shop screening:', error);
+    res.status(500).json({ success: false, error: 'Failed to screen shop' });
+  }
+});
+
 // Daily Executive Briefing (Platform Copilot Phase 3) — cached once/day.
 import { getExecutiveBriefing } from '../../AIAgentDomain/services/platform/executiveBriefing';
 router.get('/ai/briefing', async (req, res) => {
