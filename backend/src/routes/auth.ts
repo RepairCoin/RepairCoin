@@ -598,6 +598,43 @@ router.post('/check-user', async (req, res) => {
       emailType: typeof email
     });
 
+    // TEAM MEMBER: recognize an active staff member (by wallet, then email).
+    // Owners are handled by the shop checks above/below; staff land here.
+    try {
+      const staff = await shopTeamRepository.getActiveMemberByWallet(normalizedAddress)
+        || (email && typeof email === 'string' && email.includes('@')
+            ? await shopTeamRepository.getActiveMemberByEmail(email)
+            : null);
+      if (staff && staff.role !== 'owner') {
+        const staffShop = await shopRepository.getShop(staff.shopId);
+        if (staffShop) {
+          return res.json({
+            exists: true,
+            type: 'shop',
+            isTeamMember: true,
+            user: {
+              id: staffShop.shopId,
+              shopId: staffShop.shopId,
+              address: normalizedAddress,
+              walletAddress: normalizedAddress,
+              name: staff.name || staffShop.name,
+              shopName: staffShop.name,
+              email: staff.email,
+              role: 'shop',
+              permissions: staff.permissions,
+              active: staffShop.active,
+              isActive: staffShop.active,
+              verified: staffShop.verified,
+              logoUrl: staffShop.logoUrl,
+              createdAt: staffShop.joinDate,
+            }
+          });
+        }
+      }
+    } catch (error) {
+      logger.debug('Team member check failed in check-user', { address: normalizedAddress });
+    }
+
     if (email && typeof email === 'string' && email.includes('@')) {
       try {
         const shopByEmail = await shopRepository.getShopByEmail(email);

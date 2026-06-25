@@ -213,6 +213,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           icon: <Megaphone className="w-5 h-5" />,
           tabId: "marketing",
         },
+        {
+          title: "Team",
+          href: "/shop?tab=team",
+          icon: <UsersIcon className="w-5 h-5" />,
+          tabId: "team",
+        },
         // Ads is reached via the Plans & Billing hub (AI Ads card → ?tab=ads),
         // so the standalone sidebar link is removed to avoid a duplicate entry.
         {

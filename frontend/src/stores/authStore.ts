@@ -19,6 +19,8 @@ export interface UserProfile {
   suspended?: boolean;
   suspendedAt?: string;
   suspensionReason?: string;
+  permissions?: string[];   // shop team members; absent ⇒ owner = full access
+  isTeamMember?: boolean;
   // Note: token is stored in httpOnly cookie, not in profile
 }
 
@@ -58,6 +60,9 @@ export interface AuthState {
   setAuthInitialized: (initialized: boolean) => void;
   setWalletMismatchPending: (pending: boolean) => void;
   resetAuth: () => void;
+
+  // Permission check for shop team members (owners/admins ⇒ always true)
+  hasPermission: (permission: string) => boolean;
 
   // Centralized authentication actions
   login: (address: string, email?: string) => Promise<void>;
@@ -133,6 +138,15 @@ export const useAuthStore = create<AuthState>()(
       // Set wallet mismatch pending (to prevent logout when disconnecting mismatched wallet)
       setWalletMismatchPending: (pending) => {
         set({ walletMismatchPending: pending }, false, 'setWalletMismatchPending');
+      },
+
+      // Permission check — owners (no permissions claim) and admins get everything
+      hasPermission: (permission) => {
+        const profile = get().userProfile;
+        if (!profile) return false;
+        if (profile.type === 'admin') return true;
+        const perms = profile.permissions ?? ['*'];
+        return perms.includes('*') || perms.includes(permission);
       },
 
       // Reset all auth state
@@ -281,7 +295,9 @@ export const useAuthStore = create<AuthState>()(
             registrationDate: userData.createdAt || userData.created_at,
             suspended: userData.suspended || false,
             suspendedAt: userData.suspendedAt,
-            suspensionReason: userData.suspensionReason
+            suspensionReason: userData.suspensionReason,
+            permissions: userData.permissions,
+            isTeamMember: userData.isTeamMember || false
           };
 
           // Update state with profile

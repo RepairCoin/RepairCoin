@@ -132,6 +132,26 @@ export class ShopTeamRepository extends BaseRepository {
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
+  async getByShopAndEmail(shopId: string, email: string): Promise<ShopTeamMember | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM shop_team_members WHERE shop_id = $1 AND LOWER(email) = LOWER($2) LIMIT 1`,
+      [shopId, email]
+    );
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
+  /** Look up a pending, unexpired invite by its hashed token. */
+  async getByInviteTokenHash(tokenHash: string): Promise<ShopTeamMember | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM shop_team_members
+       WHERE invite_token = $1 AND status = 'invited'
+         AND (invite_expires_at IS NULL OR invite_expires_at > NOW())
+       LIMIT 1`,
+      [tokenHash]
+    );
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
   /** Active member by wallet — login resolution step 2 (§5.1). */
   async getActiveMemberByWallet(walletAddress: string): Promise<ShopTeamMember | null> {
     const result = await this.pool.query(

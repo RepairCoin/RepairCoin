@@ -68,6 +68,7 @@ import depositRoutes from './deposit';
 import purchaseSyncRoutes from './purchase-sync';
 import paymentMethodsRoutes from './paymentMethods';
 import moderationRoutes from './moderation';
+import teamRoutes from './team';
 import calendarRoutes from '../../ShopDomain/routes/calendar.routes';
 import gmailRoutes from '../../ShopDomain/routes/gmail.routes';
 
@@ -82,6 +83,7 @@ router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSync
 router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
 router.use('/reports', authMiddleware, requireRole(['shop']), reportsRoutes); // Reports routes
 router.use('/moderation', authMiddleware, requireRole(['shop']), moderationRoutes); // Moderation routes
+router.use('/team', teamRoutes); // Team management (auth handled per-route: accept is public)
 router.use('/calendar', calendarRoutes); // Calendar integration routes (auth handled in route file)
 router.use('/gmail', gmailRoutes); // Gmail integration routes (auth handled in route file)
 
