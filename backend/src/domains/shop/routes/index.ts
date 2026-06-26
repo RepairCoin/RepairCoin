@@ -742,16 +742,21 @@ router.put('/:shopId/details',
 
       // Handle location updates - coordinates are stored in separate database columns
       if (location !== undefined) {
-        // Validate and set coordinates if provided
-        if (location.lat !== undefined) {
+        // Validate and set coordinates if provided. Treat undefined/null/empty
+        // string as "not provided" so a details update without coordinates
+        // (e.g. just changing the name) doesn't fail on an empty lat/lng.
+        const hasValue = (v: unknown) =>
+          v !== undefined && v !== null && `${v}`.trim() !== '';
+
+        if (hasValue(location.lat)) {
           const lat = typeof location.lat === 'string' ? parseFloat(location.lat) : location.lat;
           if (isNaN(lat) || lat < -90 || lat > 90) {
             throw new Error(`Invalid latitude value: ${location.lat}. Must be a number between -90 and 90.`);
           }
           updates.locationLat = lat;
         }
-        
-        if (location.lng !== undefined) {
+
+        if (hasValue(location.lng)) {
           const lng = typeof location.lng === 'string' ? parseFloat(location.lng) : location.lng;
           if (isNaN(lng) || lng < -180 || lng > 180) {
             throw new Error(`Invalid longitude value: ${location.lng}. Must be a number between -180 and 180.`);

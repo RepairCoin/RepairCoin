@@ -175,16 +175,33 @@ export default function CustomerProfileScreen() {
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity
-                onPress={() => router.push("/shop/blocked-customers" as any)}
-                className="flex-row items-center justify-center py-3 mt-3"
-                activeOpacity={0.7}
-              >
-                <Ionicons name="list-outline" size={16} color="#9CA3AF" />
-                <Text className="text-gray-400 font-medium text-sm ml-2">
-                  View blocked customers
-                </Text>
-              </TouchableOpacity>
+              <View className="flex-row justify-center gap-4 mt-3">
+                <TouchableOpacity
+                  onPress={() => router.push("/shop/blocked-customers" as any)}
+                  className="flex-row items-center py-3"
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="list-outline" size={16} color="#9CA3AF" />
+                  <Text className="text-gray-400 font-medium text-sm ml-2">
+                    Blocked customers
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => router.push("/shop/my-reports" as any)}
+                  className="flex-row items-center py-3"
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="document-text-outline"
+                    size={16}
+                    color="#9CA3AF"
+                  />
+                  <Text className="text-gray-400 font-medium text-sm ml-2">
+                    My reports
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </>
           )}
         </View>
