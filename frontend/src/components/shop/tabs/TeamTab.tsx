@@ -184,12 +184,12 @@ export function TeamTab({ shopId }: TeamTabProps) {
                       <div className="text-sm text-gray-400">{m.email}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${roleBadge[m.role] || roleBadge.custom}`}>
+                      <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${roleBadge[m.role] || roleBadge.custom}`}>
                         {m.role}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadge[m.status] || ""}`}>
+                      <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${statusBadge[m.status] || ""}`}>
                         {m.status}
                       </span>
                     </td>

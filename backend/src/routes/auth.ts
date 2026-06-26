@@ -194,6 +194,8 @@ interface ResolvedShopUser {
   teamMemberId?: string;
   isOwner: boolean;
   linkedByEmail: boolean;
+  /** The team member's own name (staff only); owners fall back to the shop name. */
+  memberName?: string | null;
   /** Wallet to stamp on the token: original shop wallet for email-linked owners, else the connecting wallet. */
   walletForToken: string;
 }
@@ -220,6 +222,7 @@ const resolveShopUser = async (address: string, email?: string): Promise<Resolve
         shop, shopId: shop.shopId,
         permissions: isOwner ? ['*'] : memberByWallet.permissions,
         teamMemberId: isOwner ? undefined : memberByWallet.id,
+        memberName: isOwner ? undefined : memberByWallet.name,
         isOwner, linkedByEmail: false, walletForToken: normalized,
       };
     }
@@ -239,6 +242,7 @@ const resolveShopUser = async (address: string, email?: string): Promise<Resolve
           shop, shopId: shop.shopId,
           permissions: isOwner ? ['*'] : memberByEmail.permissions,
           teamMemberId: isOwner ? undefined : memberByEmail.id,
+          memberName: isOwner ? undefined : memberByEmail.name,
           isOwner, linkedByEmail: true, walletForToken: normalized,
         };
       }
@@ -1410,7 +1414,8 @@ router.post('/shop', authLimiter, async (req, res) => {
           address: shop.walletAddress, // Original registered wallet (has RCG tokens)
           walletAddress: shop.walletAddress,
           connectedWallet: linkedByEmail ? normalizedAddress : shop.walletAddress, // Current session wallet
-          name: shop.name,
+          // Staff are greeted by their own name, but keep the shop logo as the avatar.
+          name: resolved.memberName || shop.name,
           email: shop.email,
           logoUrl: shop.logoUrl,
           role: 'shop',

@@ -10,6 +10,8 @@ export interface UserProfile {
   address: string;
   type: 'customer' | 'shop' | 'admin';
   name?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
   avatarUrl?: string;
   isActive?: boolean;
@@ -287,6 +289,8 @@ export const useAuthStore = create<AuthState>()(
             address: userData.walletAddress || userData.address || address,
             type: userCheck.type as 'customer' | 'shop' | 'admin',
             name: userData.name || userData.shopName,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
             email: userData.email,
             avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
             isActive: userData.active !== false,

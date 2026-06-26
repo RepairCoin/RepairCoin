@@ -731,6 +731,18 @@ export default function ShopDashboardClient() {
     }
   }, [shopData?.shopId]);
 
+  // Permission guard: a team member who navigates directly to a tab they lack
+  // permission for (e.g. via ?tab=) is bounced to Overview. Owners/admins pass.
+  // Must stay above the early returns below so the hook order is stable.
+  useEffect(() => {
+    if (!userProfile || userType !== "shop") return;
+    const required = SHOP_TAB_PERMISSIONS[activeTab];
+    if (required && !hasPermission(required)) {
+      toast.error("You don't have access to that section");
+      setActiveTab("overview");
+    }
+  }, [activeTab, userProfile, userType, hasPermission]);
+
   const loadShopData = async (forceRefresh = false) => {
     // Get shopId from multiple sources (priority order)
     const shopIdFromSession = userProfile?.shopId;
@@ -1311,17 +1323,6 @@ export default function ShopDashboardClient() {
   const FULL_HEIGHT_MESSAGES_ENABLED = true;
   const isMessagesTab = activeTab === "messages";
   const isMessagesFullHeight = FULL_HEIGHT_MESSAGES_ENABLED && isMessagesTab;
-
-  // Permission guard: a team member who navigates directly to a tab they lack
-  // permission for (e.g. via ?tab=) is bounced to Overview. Owners/admins pass.
-  useEffect(() => {
-    if (!userProfile || userType !== "shop") return;
-    const required = SHOP_TAB_PERMISSIONS[activeTab];
-    if (required && !hasPermission(required)) {
-      toast.error("You don't have access to that section");
-      setActiveTab("overview");
-    }
-  }, [activeTab, userProfile, userType, hasPermission]);
 
   // Main dashboard
   return (

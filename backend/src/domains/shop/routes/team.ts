@@ -18,9 +18,9 @@ const buildAcceptUrl = (rawToken: string) =>
 
 const inviteEmailHtml = (role: string, shopName: string | undefined, acceptUrl: string) => `
   <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
-    <h2>You're invited to ${shopName || 'a RepairCoin shop'}</h2>
-    <p>You've been invited to join the team on RepairCoin as <strong>${role}</strong>.</p>
-    <p>Click below to accept and sign in with this email — no crypto wallet setup needed.</p>
+    <h2>You're invited to ${shopName || 'a FixFlow shop'}</h2>
+    <p>You've been invited to join the team on FixFlow as <strong>${role}</strong>.</p>
+    <p>Click below to accept and sign in with this email</p>
     <p style="margin: 28px 0;">
       <a href="${acceptUrl}" style="background:#FFCC00;color:#1a1a1a;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Accept invitation</a>
     </p>
