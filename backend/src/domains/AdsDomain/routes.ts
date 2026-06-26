@@ -7,6 +7,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { authMiddleware, requireRole } from '../../middleware/auth';
+import { requireShopPermission } from '../../middleware/permissions';
 import {
   createCampaign, listCampaigns, getCampaign, updateCampaign, deleteCampaign,
   listShopCampaigns, getShopCapacity,
@@ -55,7 +56,7 @@ import { taxonomyFor } from './services/industryTaxonomies';
 export function initializeRoutes(): Router {
   const router = Router();
   const admin = [authMiddleware, requireRole(['admin'])];
-  const shop = [authMiddleware, requireRole(['shop'])];
+  const shop = [authMiddleware, requireRole(['shop']), requireShopPermission('marketing:manage')];
   // Multipart for the designer-image upload on a campaign creative (memory → DO Spaces).
   const creativeUpload = multer({
     storage: multer.memoryStorage(),

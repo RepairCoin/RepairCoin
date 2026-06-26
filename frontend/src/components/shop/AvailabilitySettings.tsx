@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, Settings, Plus, Trash2, Loader2, Save, Check, AlertCircle } from 'lucide-react';
 import { appointmentsApi, ShopAvailability, TimeSlotConfig, DateOverride } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
+import { useAuthStore } from '@/stores/authStore';
 
 type TabType = 'hours' | 'settings' | 'overrides';
 
@@ -23,6 +24,10 @@ interface AvailabilitySettingsProps {
 }
 
 export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shopId }) => {
+  // Editing availability/time-slots/overrides requires bookings:manage.
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canManage = !!userProfile && hasPermission('bookings:manage');
   const [activeTab, setActiveTab] = useState<TabType>('hours');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -236,7 +241,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                   <span className="text-sm text-gray-400">Open</span>
                 </label>
               </div>
-              {isOpen && (
+              {isOpen && canManage && (
                 <button
                   onClick={() => setEditingDay(isEditing ? null : day.value)}
                   className="text-sm text-[#FFCC00] hover:text-[#FFD700] transition-colors"
@@ -375,6 +380,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
         <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-6 space-y-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">Time Slot Settings</h3>
+            {canManage && (
             <button
               onClick={() => configEditing ? handleUpdateConfig() : setConfigEditing(true)}
               disabled={saving}
@@ -394,6 +400,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 'Edit Settings'
               )}
             </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -614,6 +621,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
           </div>
         )}
 
+        {canManage && (
         <button
           onClick={handleCreateOverride}
           disabled={saving || !newOverride.overrideDate}
@@ -631,6 +639,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
             </>
           )}
         </button>
+        )}
       </div>
 
       {/* Existing Overrides */}
@@ -676,6 +685,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                   </p>
                 )}
               </div>
+              {canManage && (
               <button
                 onClick={() => handleDeleteOverride(override.overrideDate)}
                 disabled={saving}
@@ -683,6 +693,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
               >
                 <Trash2 className="w-5 h-5" />
               </button>
+              )}
             </div>
           ))
         )}

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Clock, CheckCircle, Calendar, Package, Info, MoreVertical, XCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import { MockBooking, getStatusLabel, getStatusColor, formatDate, formatTime12Hour, truncateAddress } from "./mockData";
+import { useAuthStore } from "@/stores/authStore";
 
 interface BookingCardProps {
   booking: MockBooking;
@@ -342,7 +343,12 @@ export const BookingCard: React.FC<BookingCardProps> = ({
     return actions;
   };
 
-  const hasActions = ['requested', 'paid', 'approved', 'scheduled'].includes(booking.status);
+  // Booking actions (approve/reschedule/complete/cancel/no-show) require
+  // bookings:manage; bookings:view-only members see bookings without action buttons.
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const canManageBookings = useAuthStore((s) => s.hasPermission)('bookings:manage');
+  const hasActions = !!userProfile && canManageBookings &&
+    ['requested', 'paid', 'approved', 'scheduled'].includes(booking.status);
 
   return (
     <div

@@ -200,9 +200,12 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
                       type: 'shop',
                       name: userData.name,
                       email: userData.email,
+                      avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
                       isActive: userData.active,
                       shopId: userData.shopId,
                       registrationDate: userData.createdAt,
+                      permissions: userData.permissions,
+                      isTeamMember: userData.isTeamMember,
                     });
                     console.log('🟩 [DualAuthConnect] Auth store updated with shop profile, shopId:', userData.shopId);
                   }

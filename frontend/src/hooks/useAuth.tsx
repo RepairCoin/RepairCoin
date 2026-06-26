@@ -73,7 +73,9 @@ export const useAuth = () => {
         isActive: userData.active !== false,
         tier: userData.tier || null,
         shopId: userData.shopId || userData.shop_id || null,
-        registrationDate: userData.createdAt || userData.created_at || userData.join_date || new Date().toISOString()
+        registrationDate: userData.createdAt || userData.created_at || userData.join_date || new Date().toISOString(),
+        permissions: userData.permissions,
+        isTeamMember: userData.isTeamMember
       };
 
       return profile;

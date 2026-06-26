@@ -3,6 +3,27 @@ import { Request, Response, NextFunction } from 'express';
 import { ResponseHelper } from '../utils/responseHelper';
 import { adminRepository } from '../repositories';
 import { logger } from '../utils/logger';
+import { hasPermission } from '../domains/shop/permissions';
+
+/**
+ * Gate a shop route on a granular team permission. Admins bypass. Shop tokens without
+ * an explicit permissions claim (owners / pre-team-management sessions) default to '*'.
+ */
+export const requireShopPermission = (permission: string) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return ResponseHelper.error(res, 'Authentication required', 401);
+    }
+    if (req.user.role === 'admin') {
+      return next();
+    }
+    const perms = req.user.permissions ?? ['*'];
+    if (hasPermission(perms, permission)) {
+      return next();
+    }
+    return ResponseHelper.error(res, `Permission denied. Required permission: ${permission}`, 403);
+  };
+};
 
 export const requirePermission = (permission: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {

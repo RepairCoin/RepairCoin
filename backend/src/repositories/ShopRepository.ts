@@ -2,6 +2,7 @@ import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { PoolClient } from 'pg';
 import { logger } from '../utils/logger';
 import { getShopStatus, ShopStatus } from '../utils/shopStatus';
+import { ShopTeamRepository } from './ShopTeamRepository';
 
 interface ShopData {
   shopId: string;
@@ -156,6 +157,14 @@ export class ShopRepository extends BaseRepository {
     }
   }
 
+  // Lazily-instantiated team repo for owner-seeding. Imported as a class (not the
+  // index.ts singleton) to avoid a repositories/index ↔ ShopRepository import cycle.
+  private teamRepo?: ShopTeamRepository;
+  private getTeamRepo(): ShopTeamRepository {
+    if (!this.teamRepo) this.teamRepo = new ShopTeamRepository();
+    return this.teamRepo;
+  }
+
   async createShop(shop: ShopData & { location?: any }): Promise<{ id: string }> {
     try {
       const query = `
@@ -211,6 +220,28 @@ export class ShopRepository extends BaseRepository {
 
       // Auto-create time slot configuration for new shop
       await this.createDefaultTimeSlotConfig(createdShopId);
+
+      // Auto-seed the shop owner as a team member (Team Management Phase 1).
+      // Non-fatal by design: a failure here must NEVER block shop registration
+      // (shared by both web and mobile). Missing owner rows are also backfilled
+      // by migration 173, so this is belt-and-suspenders.
+      if (shop.walletAddress) {
+        try {
+          const ownerName =
+            [shop.firstName, shop.lastName].filter(Boolean).join(' ').trim() || shop.name;
+          await this.getTeamRepo().seedOwner({
+            shopId: createdShopId,
+            walletAddress: shop.walletAddress,
+            email: shop.email,
+            name: ownerName || null,
+          });
+        } catch (seedError) {
+          logger.error('Failed to seed owner team member for new shop (non-fatal):', {
+            shopId: createdShopId,
+            error: seedError instanceof Error ? seedError.message : seedError,
+          });
+        }
+      }
 
       logger.info('Shop created successfully with time slot config', { shopId: shop.shopId });
       return { id: createdShopId };

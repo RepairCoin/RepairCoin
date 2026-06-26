@@ -30,6 +30,7 @@ import {
 import { CreatePurchaseOrderModal } from "./modals/CreatePurchaseOrderModal";
 import { PurchaseOrderDetailModal } from "./modals/PurchaseOrderDetailModal";
 import { ReceiveItemsModal } from "./modals/ReceiveItemsModal";
+import { useAuthStore } from "@/stores/authStore";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -43,6 +44,10 @@ interface PurchaseOrdersTabProps {
 }
 
 export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
+  // PO create/receive/cancel/delete require pos:manage; pos:view-only members read only.
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canManage = !!userProfile && hasPermission("pos:manage");
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [stats, setStats] = useState<PurchaseOrderStats | null>(null);
   const [vendors, setVendors] = useState<InventoryVendor[]>([]);
@@ -244,13 +249,15 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
           <h2 className="text-2xl font-bold text-white">Purchase Orders</h2>
           <p className="text-sm text-gray-400 mt-1">Manage your inventory purchase orders</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors font-medium"
-        >
-          <Plus className="w-5 h-5" />
-          Create Purchase Order
-        </button>
+        {canManage && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors font-medium"
+          >
+            <Plus className="w-5 h-5" />
+            Create Purchase Order
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -294,7 +301,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
               ? "Try adjusting your filters"
               : "Create your first purchase order to start tracking inventory restocking"}
           </p>
-          {!searchQuery && statusFilter === "all" && (
+          {canManage && !searchQuery && statusFilter === "all" && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center gap-2 px-6 py-3 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors font-medium"
@@ -380,7 +387,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
                             View Details
                           </DropdownMenuItem>
 
-                          {po.status === "draft" && (
+                          {canManage && po.status === "draft" && (
                             <DropdownMenuItem
                               onClick={() => handleAdvanceStatus(po, "sent", "Purchase order marked as sent")}
                               className="gap-2 px-4 py-2 text-sm text-blue-400 rounded-none cursor-pointer focus:bg-[#252525] focus:text-blue-400"
@@ -390,7 +397,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
                             </DropdownMenuItem>
                           )}
 
-                          {po.status === "sent" && (
+                          {canManage && po.status === "sent" && (
                             <DropdownMenuItem
                               onClick={() => handleAdvanceStatus(po, "confirmed", "Purchase order confirmed")}
                               className="gap-2 px-4 py-2 text-sm text-purple-400 rounded-none cursor-pointer focus:bg-[#252525] focus:text-purple-400"
@@ -400,7 +407,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
                             </DropdownMenuItem>
                           )}
 
-                          {(po.status === "confirmed" || po.status === "partially_received") && (
+                          {canManage && (po.status === "confirmed" || po.status === "partially_received") && (
                             <DropdownMenuItem
                               onClick={() => handleReceiveItems(po)}
                               className="gap-2 px-4 py-2 text-sm text-green-400 rounded-none cursor-pointer focus:bg-[#252525] focus:text-green-400"
@@ -410,7 +417,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
                             </DropdownMenuItem>
                           )}
 
-                          {po.status !== "received" && po.status !== "cancelled" && (
+                          {canManage && po.status !== "received" && po.status !== "cancelled" && (
                             <DropdownMenuItem
                               onClick={() => handleCancelPO(po)}
                               className="gap-2 px-4 py-2 text-sm text-orange-400 rounded-none cursor-pointer focus:bg-[#252525] focus:text-orange-400"
@@ -420,7 +427,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
                             </DropdownMenuItem>
                           )}
 
-                          {po.status === "draft" && (
+                          {canManage && po.status === "draft" && (
                             <>
                               <DropdownMenuSeparator className="bg-gray-700 my-0" />
                               <DropdownMenuItem

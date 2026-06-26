@@ -9,6 +9,7 @@ import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
+import { SHOP_TAB_PERMISSIONS } from "@/config/shopTabPermissions";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import ThirdwebPayment from "../ThirdwebPayment";
 import "@/styles/animations.css";
@@ -37,6 +38,7 @@ import { LowStockAlertsTab } from "@/components/shop/tabs/LowStockAlertsTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
+import { TeamTab } from "@/components/shop/tabs/TeamTab";
 import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
 import { ShopPlansBillingTab } from "@/components/shop/tabs/ShopPlansBillingTab";
 import { resolvePlanLabel } from "@/config/subscriptionPlans";
@@ -238,6 +240,7 @@ export default function ShopDashboardClient() {
   const blockchainEnabled = useBlockchainEnabled();
   const searchParams = useSearchParams();
   const { isAuthenticated, userType, isLoading: authLoading, authInitialized, userProfile } = useAuthStore();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
   const { existingApplication } = useShopRegistration();
 
   // shopData starts null - loaded via useEffect to avoid SSR hydration mismatch
@@ -727,6 +730,18 @@ export default function ShopDashboardClient() {
       checkPendingPurchases();
     }
   }, [shopData?.shopId]);
+
+  // Permission guard: a team member who navigates directly to a tab they lack
+  // permission for (e.g. via ?tab=) is bounced to Overview. Owners/admins pass.
+  // Must stay above the early returns below so the hook order is stable.
+  useEffect(() => {
+    if (!userProfile || userType !== "shop") return;
+    const required = SHOP_TAB_PERMISSIONS[activeTab];
+    if (required && !hasPermission(required)) {
+      toast.error("You don't have access to that section");
+      setActiveTab("overview");
+    }
+  }, [activeTab, userProfile, userType, hasPermission]);
 
   const loadShopData = async (forceRefresh = false) => {
     // Get shopId from multiple sources (priority order)
@@ -1585,6 +1600,10 @@ export default function ShopDashboardClient() {
             <SubscriptionGuard shopData={shopData}>
               <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
             </SubscriptionGuard>
+          )}
+
+          {activeTab === "team" && shopData && (
+            <TeamTab shopId={shopData.shopId} />
           )}
 
           {/* Ads System (Stage 1) — read-only campaign performance for this shop */}
