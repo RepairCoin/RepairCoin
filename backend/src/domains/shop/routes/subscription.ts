@@ -1012,7 +1012,7 @@ router.post('/subscription/start-trial', requireShopPermission('billing:manage')
  *       401:
  *         description: Unauthorized
  */
-router.post('/subscription/checkout-mobile', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
+router.post('/subscription/checkout-mobile', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { billingEmail, billingContact } = req.body;
@@ -1059,7 +1059,7 @@ router.post('/subscription/checkout-mobile', requireShopPermission('billing:mana
   }
 });
 
-router.post('/subscription/subscribe-mobile', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
+router.post('/subscription/subscribe-mobile', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { billingEmail, billingContact } = req.body;
