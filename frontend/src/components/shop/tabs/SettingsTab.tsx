@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 
 // Permission required to view each Settings sub-section. Accessibility and
@@ -53,6 +53,7 @@ import {
   Calendar,
   Bot,
   Palette,
+  Clock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
@@ -104,6 +105,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   isSuspended = false,
   isPaused = false,
 }) => {
+  const router = useRouter();
   const searchParams = useSearchParams();
   // Subscribe to userProfile so the section list re-filters when permissions load.
   const userProfile = useAuthStore((s) => s.userProfile);
@@ -415,6 +417,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               ))}
             </nav>
           </div>
+
+          {/* Appointments Section — links out to the dedicated availability page */}
+          {hasPermission("bookings:manage") && (
+            <div className="mt-6">
+              <p className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Appointments
+              </p>
+              <nav className="space-y-1 mt-1">
+                <button
+                  onClick={() => router.push("/shop/availability")}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-[#1a1a1a] transition-all duration-200 whitespace-nowrap"
+                >
+                  <Clock className="w-4 h-4 flex-shrink-0" />
+                  Availability Settings
+                </button>
+              </nav>
+            </div>
+          )}
         </div>
 
         {/* Content Area */}

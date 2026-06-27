@@ -174,6 +174,21 @@ export const appointmentsApi = {
     return (response as unknown as { success: boolean; data: ShopAvailability[] }).data;
   },
 
+  // Public: Get a shop's date overrides (closed/holiday dates) for the booking calendar
+  async getShopDateOverrides(
+    shopId: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<DateOverride[]> {
+    const response = await apiClient.get<{ success: boolean; data: DateOverride[] }>(
+      `/services/appointments/shop-date-overrides/${shopId}`,
+      {
+        params: { startDate, endDate }
+      }
+    );
+    return (response as unknown as { success: boolean; data: DateOverride[] }).data;
+  },
+
   // Public: Get time slot configuration by shop ID (for customers)
   async getPublicTimeSlotConfig(shopId: string): Promise<TimeSlotConfig | null> {
     const response = await apiClient.get<{ success: boolean; data: TimeSlotConfig | null }>(

@@ -331,7 +331,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
             {isEditing && (
               <div className="mt-4 flex justify-end">
                 <button
-                  onClick={() => handleUpdateAvailability(day.value, dayAvailability)}
+                  onClick={() => handleUpdateAvailability(day.value, dayAvailability || {})}
                   disabled={saving}
                   className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
@@ -569,8 +569,9 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
               type="date"
               value={newOverride.overrideDate}
               onChange={(e) => setNewOverride({ ...newOverride, overrideDate: e.target.value })}
+              onClick={(e) => e.currentTarget.showPicker?.()}
               min={new Date().toISOString().split('T')[0]}
-              className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+              className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
             />
           </div>
 
@@ -606,7 +607,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 type="time"
                 value={newOverride.customOpenTime}
                 onChange={(e) => setNewOverride({ ...newOverride, customOpenTime: e.target.value })}
-                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+                onClick={(e) => e.currentTarget.showPicker?.()}
+                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
               />
             </div>
             <div>
@@ -615,7 +617,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 type="time"
                 value={newOverride.customCloseTime}
                 onChange={(e) => setNewOverride({ ...newOverride, customCloseTime: e.target.value })}
-                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+                onClick={(e) => e.currentTarget.showPicker?.()}
+                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
               />
             </div>
           </div>
