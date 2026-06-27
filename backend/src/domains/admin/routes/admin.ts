@@ -508,6 +508,57 @@ import { makePlatformCopilotController } from '../../AIAgentDomain/controllers/P
 const platformCopilot = makePlatformCopilotController();
 router.post('/ai/platform-copilot', (req, res) => { void platformCopilot.ask(req, res); });
 
+// AI Content Moderation (Admin AI #5) — flag inappropriate listings/reviews.
+import { scanContent, deactivateService } from '../../AIAgentDomain/services/contentModeration';
+router.get('/content-moderation/scan', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const result = await scanContent(force);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('Content moderation scan failed:', error);
+    res.status(500).json({ success: false, error: 'Content scan failed' });
+  }
+});
+router.post('/content-moderation/service/:serviceId/deactivate', async (req, res) => {
+  try {
+    const ok = await deactivateService(req.params.serviceId);
+    if (!ok) return res.status(404).json({ success: false, error: 'Service not found' });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to deactivate service:', error);
+    res.status(500).json({ success: false, error: 'Failed to deactivate service' });
+  }
+});
+
+// Support Ticket Triage (Admin AI #4) — suggest category/priority/summary/reply.
+import { getSupportTriage } from '../../AIAgentDomain/services/supportTriage';
+router.get('/support/tickets/:ticketId/ai-triage', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const triage = await getSupportTriage(req.params.ticketId, force);
+    if (!triage) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    res.json({ success: true, data: triage });
+  } catch (error) {
+    logger.error('Error generating support triage:', error);
+    res.status(500).json({ success: false, error: 'Failed to triage ticket' });
+  }
+});
+
+// Shop Approval Assistant (Admin AI #3) — AI screening for a pending shop.
+import { getShopScreening } from '../../AIAgentDomain/services/shopScreening';
+router.get('/shops/:shopId/ai-screening', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const screening = await getShopScreening(req.params.shopId, force);
+    if (!screening) return res.status(404).json({ success: false, error: 'Shop not found' });
+    res.json({ success: true, data: screening });
+  } catch (error) {
+    logger.error('Error generating shop screening:', error);
+    res.status(500).json({ success: false, error: 'Failed to screen shop' });
+  }
+});
+
 // Daily Executive Briefing (Platform Copilot Phase 3) — cached once/day.
 import { getExecutiveBriefing } from '../../AIAgentDomain/services/platform/executiveBriefing';
 router.get('/ai/briefing', async (req, res) => {

@@ -14,6 +14,7 @@ import { ShopsManagementTab } from "@/components/admin/tabs/ShopsManagementTab";
 import { AdvancedTreasuryTab } from "@/components/admin/tabs/AdvancedTreasuryTab";
 import { AdminFraudTab } from "@/components/admin/tabs/AdminFraudTab";
 import { PlatformCopilotPanel } from "@/components/admin/PlatformCopilotPanel";
+import { AdminContentModerationTab } from "@/components/admin/tabs/AdminContentModerationTab";
 import { AnalyticsTab } from "@/components/admin/tabs/AnalyticsTab";
 import SubscriptionManagementTab from "@/components/admin/tabs/SubscriptionManagementTab";
 import PromoCodesAnalyticsTab from "@/components/admin/tabs/PromoCodesAnalyticsTab";
@@ -378,6 +379,12 @@ export default function AdminDashboardClient() {
           {activeTab === "copilot" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "copilot"}>
                 <PlatformCopilotPanel />
+              </LazyTabWrapper>
+            )}
+
+          {activeTab === "content-moderation" && hasAdminAccess && (
+              <LazyTabWrapper isActive={activeTab === "content-moderation"}>
+                <AdminContentModerationTab />
               </LazyTabWrapper>
             )}
 

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck } from "lucide-react";
 import { SettingsIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
@@ -182,6 +182,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
         href: "/admin?tab=copilot",
         icon: <Bot className="w-5 h-5" />,
         tabId: "copilot",
+      },
+      {
+        title: "Content Moderation",
+        href: "/admin?tab=content-moderation",
+        icon: <ShieldCheck className="w-5 h-5" />,
+        tabId: "content-moderation",
       },
       {
         title: "Promo Codes",

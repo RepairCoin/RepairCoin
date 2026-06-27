@@ -251,13 +251,22 @@ const FindingCard: React.FC<{
   onDismiss: () => void;
   onConfirmSuspend: () => void;
 }> = ({ finding: f, busy, onInvestigate, onDismiss, onConfirmSuspend }) => {
-  const subject =
-    f.subject_type === "shop"
-      ? `Shop: ${f.shop_id}`
-      : f.subject_type === "customer"
-        ? `Customer: ${f.customer_address}`
-        : "Pair";
+  const [expanded, setExpanded] = useState(false);
   const isReviewed = f.status === "confirmed" || f.status === "dismissed";
+
+  // Always show whatever subject IDs the finding carries — for a `pair`
+  // (self-dealing) that's BOTH the shop and the wallet, so an admin knows
+  // exactly who "Confirm & Suspend" will act on.
+  const subjectRows: { label: string; value: string; href?: string }[] = [];
+  if (f.shop_id) {
+    subjectRows.push({ label: "Shop", value: f.shop_id, href: "/admin?tab=shops-management" });
+  }
+  if (f.customer_address) {
+    subjectRows.push({ label: "Wallet", value: f.customer_address, href: "/admin?tab=customers" });
+  }
+  if (subjectRows.length === 0) {
+    subjectRows.push({ label: "Subject", value: f.subject_type });
+  }
 
   return (
     <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-4">
@@ -273,9 +282,35 @@ const FindingCard: React.FC<{
             <span className="text-xs text-gray-500 uppercase tracking-wide px-2 py-0.5 rounded bg-gray-800">
               {f.status}
             </span>
+            {f.recommended_action && (
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full border ${
+                  f.recommended_action === "freeze"
+                    ? "bg-red-500/15 text-red-400 border-red-500/40"
+                    : f.recommended_action === "investigate"
+                      ? "bg-blue-500/15 text-blue-400 border-blue-500/40"
+                      : "bg-gray-500/15 text-gray-400 border-gray-500/40"
+                }`}
+                title="The detection engine's recommended action"
+              >
+                ⚑ {f.recommended_action}
+              </span>
+            )}
           </div>
           <p className="text-sm text-gray-300 break-words">{f.explanation}</p>
-          <p className="text-xs text-gray-500 mt-1 break-all">{subject}</p>
+          {/* Subject IDs — shop + wallet shown explicitly (pair shows both) */}
+          <div className="mt-1.5 space-y-0.5">
+            {subjectRows.map((s) => (
+              <div key={s.label} className="text-xs break-all">
+                <span className="text-gray-500">{s.label}: </span>
+                {s.href ? (
+                  <a href={s.href} className="text-[#FFCC00] hover:underline">{s.value}</a>
+                ) : (
+                  <span className="text-gray-300">{s.value}</span>
+                )}
+              </div>
+            ))}
+          </div>
           {/* Metrics */}
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
             {Object.entries(f.metrics || {}).map(([k, v]) => (
@@ -288,6 +323,30 @@ const FindingCard: React.FC<{
             <p className="text-xs text-gray-500 mt-2 italic">
               Note: {f.resolution_note}
             </p>
+          )}
+
+          {/* Drill-down: window + timestamps + review trail */}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="mt-2 text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            {expanded ? "▾ Hide details" : "▸ Details"}
+          </button>
+          {expanded && (
+            <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] text-gray-400">
+              <div><span className="text-gray-500">Rule key:</span> {f.rule_key}</div>
+              <div><span className="text-gray-500">Detected:</span> {new Date(f.created_at).toLocaleString()}</div>
+              {f.window_start && (
+                <div><span className="text-gray-500">Window:</span> {new Date(f.window_start).toLocaleDateString()} → {f.window_end ? new Date(f.window_end).toLocaleDateString() : "now"}</div>
+              )}
+              <div><span className="text-gray-500">Recommended:</span> {f.recommended_action ?? "—"}</div>
+              {f.reviewed_by && (
+                <div className="break-all"><span className="text-gray-500">Reviewed by:</span> {f.reviewed_by}</div>
+              )}
+              {f.reviewed_at && (
+                <div><span className="text-gray-500">Reviewed at:</span> {new Date(f.reviewed_at).toLocaleString()}</div>
+              )}
+            </div>
           )}
         </div>
 
