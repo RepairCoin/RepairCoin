@@ -6,7 +6,19 @@ import { m } from "framer-motion";
 import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
 import { useModalStore } from "@/stores/modalStore";
 
-export default function CTASection() {
+interface CTASectionProps {
+  line1?: string;
+  line2?: string;
+  description?: string;
+  ctaLabel?: string;
+}
+
+export default function CTASection({
+  line1 = "One Platform.",
+  line2 = "Endless Possibilities.",
+  description = "From bookings and customer management to rewards and AI insights, FixFlow gives you everything you need to succeed.",
+  ctaLabel = "Start Free Trial →",
+}: CTASectionProps = {}) {
   const { openWelcomeModal } = useModalStore();
 
   return (
@@ -24,10 +36,10 @@ export default function CTASection() {
       <div className="max-w-3xl mx-auto px-4 lg:px-8 relative z-10 text-center space-y-6 sm:space-y-8">
         <AnimateOnScroll>
           <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
-            One Platform.
+            {line1}
             <br />
             <span className="relative inline-block">
-              Endless Possibilities.
+              {line2}
               <svg
                 className="absolute -bottom-8 left-1/4 w-1/2 h-[18px]"
                 viewBox="0 0 311 8"
@@ -53,8 +65,7 @@ export default function CTASection() {
 
         <AnimateOnScroll delay={0.3}>
           <p className="text-gray-400 text-base sm:text-lg max-w-xl mx-auto pt-2 sm:pt-4">
-            From bookings and customer management to rewards and AI insights,
-            FixFlow gives you everything you need to succeed.
+            {description}
           </p>
 
           <div className="flex justify-center mt-6 sm:mt-8">
@@ -62,7 +73,7 @@ export default function CTASection() {
               onClick={openWelcomeModal}
               className="btn-shimmer bg-[#F7CC00] hover:bg-[#E5BB00] text-black font-semibold px-8 sm:px-10 py-3.5 sm:py-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl text-base sm:text-lg"
             >
-              Start Free Trial &rarr;
+              {ctaLabel}
             </button>
           </div>
         </AnimateOnScroll>
