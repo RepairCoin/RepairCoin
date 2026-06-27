@@ -314,7 +314,16 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
             cancelAtPeriodEnd: stripeSubscription.cancelAtPeriodEnd || false,
             currentPeriodEnd: stripeSubscription.currentPeriodEnd ? new Date(stripeSubscription.currentPeriodEnd).toISOString() : null,
             paymentsMade: paymentsMade,
-            totalPaid: paymentsMade * monthlyAmount
+            totalPaid: paymentsMade * monthlyAmount,
+            // Pending downgrade scheduled for the next renewal (if any)
+            scheduledDowngrade: stripeSubscription.scheduledTier
+              ? {
+                  tier: stripeSubscription.scheduledTier,
+                  effectiveAt: stripeSubscription.scheduledChangeAt
+                    ? new Date(stripeSubscription.scheduledChangeAt).toISOString()
+                    : (stripeSubscription.currentPeriodEnd ? new Date(stripeSubscription.currentPeriodEnd).toISOString() : null)
+                }
+              : null
           },
           hasActiveSubscription: true
         }
@@ -819,17 +828,22 @@ router.post('/subscription/change-plan', requireShopPermission('billing:manage')
     const subscriptionService = getSubscriptionService();
     const result = await subscriptionService.changeSubscriptionTier(shopId, tier);
 
+    const messageByOutcome: Record<typeof result.outcome, string> = {
+      upgraded: 'Your plan has been upgraded. The prorated difference has been charged to your card.',
+      downgrade_scheduled: 'Your plan will change at your next renewal. No charge today.',
+      downgrade_canceled: 'Your scheduled downgrade has been cancelled. Your current plan stays unchanged — no charge.',
+    };
+
     return res.json({
       success: true,
       data: {
-        message: result.isUpgrade
-          ? 'Your plan has been upgraded. The prorated difference has been charged to your card.'
-          : 'Your plan will change at your next renewal. No charge today.',
+        message: messageByOutcome[result.outcome],
         isUpgrade: result.isUpgrade,
+        outcome: result.outcome,
         tier: result.newTier,
         monthlyAmount: result.newAmount,
         previousAmount: result.previousAmount,
-        effective: result.isUpgrade ? 'immediate' : 'next_renewal',
+        effective: result.outcome === 'upgraded' ? 'immediate' : 'next_renewal',
         nextPaymentDate: new Date(result.subscription.currentPeriodEnd).toISOString(),
         subscription: result.subscription
       }

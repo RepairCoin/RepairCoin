@@ -1170,6 +1170,11 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
       sourceLocation: (subscription as any).current_period_end ? 'subscription' : 'items.data[0]'
     });
 
+    // Keep stripe_price_id in sync with the live price. This matters when a
+    // scheduled downgrade applies at renewal: Stripe switches the price and fires
+    // this webhook, so the DB must pick up the new (lower) price id.
+    const livePriceId = subscription.items?.data?.[0]?.price?.id ?? null;
+
     // Update stripe_subscriptions table
     const query = `
       UPDATE stripe_subscriptions
@@ -1180,8 +1185,9 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
         cancel_at_period_end = $4,
         canceled_at = $5,
         ended_at = $6,
+        stripe_price_id = COALESCE($7, stripe_price_id),
         updated_at = CURRENT_TIMESTAMP
-      WHERE stripe_subscription_id = $7
+      WHERE stripe_subscription_id = $8
       RETURNING shop_id
     `;
 
@@ -1192,10 +1198,25 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
       subscription.cancel_at_period_end,
       subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
       subscription.ended_at ? new Date(subscription.ended_at * 1000) : null,
+      livePriceId,
       subscription.id
     ];
 
     const result = await db.query(query, values);
+
+    // Once a scheduled downgrade has actually applied (the live price is now the
+    // scheduled tier's price), clear the pending-downgrade marker.
+    if (livePriceId) {
+      const livePlan = getPlanByPriceId(livePriceId);
+      if (livePlan?.tier) {
+        await db.query(
+          `UPDATE stripe_subscriptions
+           SET scheduled_tier = NULL, scheduled_change_at = NULL
+           WHERE stripe_subscription_id = $1 AND scheduled_tier = $2`,
+          [subscription.id, livePlan.tier]
+        );
+      }
+    }
 
     // Update shop operational_status based on subscription status
     if (result.rows.length > 0) {
