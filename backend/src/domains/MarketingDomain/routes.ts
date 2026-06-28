@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { MarketingController } from './controllers/MarketingController';
 import { authMiddleware, requireRole } from '../../middleware/auth';
+import { requireShopPermission } from '../../middleware/permissions';
 
 const router = Router();
 
@@ -46,6 +47,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/campaigns',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.getCampaigns
   );
 
@@ -93,6 +95,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/campaigns',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.createCampaign
   );
 
@@ -118,6 +121,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/stats',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.getStats
   );
 
@@ -148,6 +152,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/audience-count',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.getAudienceCount
   );
 
@@ -188,6 +193,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/customers',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.getShopCustomers
   );
 
@@ -213,6 +219,7 @@ export function initializeRoutes(): Router {
     '/campaigns/:campaignId',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.getCampaign
   );
 
@@ -238,6 +245,7 @@ export function initializeRoutes(): Router {
     '/campaigns/:campaignId',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.updateCampaign
   );
 
@@ -263,6 +271,7 @@ export function initializeRoutes(): Router {
     '/campaigns/:campaignId',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.deleteCampaign
   );
 
@@ -288,6 +297,7 @@ export function initializeRoutes(): Router {
     '/campaigns/:campaignId/send',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.sendCampaign
   );
 
@@ -296,6 +306,7 @@ export function initializeRoutes(): Router {
     '/campaigns/:campaignId/retry-rewards',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.retryRewards
   );
 
@@ -304,6 +315,7 @@ export function initializeRoutes(): Router {
     '/campaigns/:campaignId/reward-precheck',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.rewardPrecheck
   );
 
@@ -341,6 +353,7 @@ export function initializeRoutes(): Router {
     '/campaigns/:campaignId/schedule',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.scheduleCampaign
   );
 
@@ -366,6 +379,7 @@ export function initializeRoutes(): Router {
     '/campaigns/:campaignId/cancel',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.cancelCampaign
   );
 
@@ -412,6 +426,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/contacts',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.getContacts
   );
 
@@ -458,6 +473,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/contacts',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.createContact
   );
 
@@ -509,6 +525,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/contacts/import',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.importContacts
   );
 
@@ -534,6 +551,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/contacts/stats',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.getContactStats
   );
 
@@ -559,6 +577,7 @@ export function initializeRoutes(): Router {
     '/contacts/:contactId',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.updateContact
   );
 
@@ -584,6 +603,7 @@ export function initializeRoutes(): Router {
     '/contacts/:contactId',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.deleteContact
   );
 
@@ -628,6 +648,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/contacts/send-email',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.sendContactEmailCampaign
   );
 
@@ -671,6 +692,7 @@ export function initializeRoutes(): Router {
     '/shops/:shopId/contacts/test-email',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.sendTestEmail
   );
 
@@ -701,6 +723,7 @@ export function initializeRoutes(): Router {
     '/templates',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.getTemplates
   );
 
@@ -726,6 +749,7 @@ export function initializeRoutes(): Router {
     '/templates/:templateId',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
     controller.getTemplate
   );
 

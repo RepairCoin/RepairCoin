@@ -3,6 +3,7 @@ import { getSubscriptionService } from '../../../services/SubscriptionService';
 import { getStripeService } from '../../../services/StripeService';
 import { logger } from '../../../utils/logger';
 import { authMiddleware } from '../../../middleware/auth';
+import { requireShopPermission } from '../../../middleware/permissions';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopRepository } from '../../../repositories';
 import { eventBus } from '../../../events/EventBus';
@@ -313,7 +314,16 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
             cancelAtPeriodEnd: stripeSubscription.cancelAtPeriodEnd || false,
             currentPeriodEnd: stripeSubscription.currentPeriodEnd ? new Date(stripeSubscription.currentPeriodEnd).toISOString() : null,
             paymentsMade: paymentsMade,
-            totalPaid: paymentsMade * monthlyAmount
+            totalPaid: paymentsMade * monthlyAmount,
+            // Pending downgrade scheduled for the next renewal (if any)
+            scheduledDowngrade: stripeSubscription.scheduledTier
+              ? {
+                  tier: stripeSubscription.scheduledTier,
+                  effectiveAt: stripeSubscription.scheduledChangeAt
+                    ? new Date(stripeSubscription.scheduledChangeAt).toISOString()
+                    : (stripeSubscription.currentPeriodEnd ? new Date(stripeSubscription.currentPeriodEnd).toISOString() : null)
+                }
+              : null
           },
           hasActiveSubscription: true
         }
@@ -594,7 +604,7 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/subscription/subscribe', async (req: Request, res: Response) => {
+router.post('/subscription/subscribe', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { billingMethod, notes, billingEmail, billingContact, billingPhone, tier } = req.body;
@@ -796,7 +806,7 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
  *       200:
  *         description: Subscription tier changed
  */
-router.post('/subscription/change-plan', async (req: Request, res: Response) => {
+router.post('/subscription/change-plan', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { tier } = req.body;
@@ -818,17 +828,22 @@ router.post('/subscription/change-plan', async (req: Request, res: Response) => 
     const subscriptionService = getSubscriptionService();
     const result = await subscriptionService.changeSubscriptionTier(shopId, tier);
 
+    const messageByOutcome: Record<typeof result.outcome, string> = {
+      upgraded: 'Your plan has been upgraded. The prorated difference has been charged to your card.',
+      downgrade_scheduled: 'Your plan will change at your next renewal. No charge today.',
+      downgrade_canceled: 'Your scheduled downgrade has been cancelled. Your current plan stays unchanged — no charge.',
+    };
+
     return res.json({
       success: true,
       data: {
-        message: result.isUpgrade
-          ? 'Your plan has been upgraded. The prorated difference has been charged to your card.'
-          : 'Your plan will change at your next renewal. No charge today.',
+        message: messageByOutcome[result.outcome],
         isUpgrade: result.isUpgrade,
+        outcome: result.outcome,
         tier: result.newTier,
         monthlyAmount: result.newAmount,
         previousAmount: result.previousAmount,
-        effective: result.isUpgrade ? 'immediate' : 'next_renewal',
+        effective: result.outcome === 'upgraded' ? 'immediate' : 'next_renewal',
         nextPaymentDate: new Date(result.subscription.currentPeriodEnd).toISOString(),
         subscription: result.subscription
       }
@@ -917,7 +932,7 @@ router.get('/subscription/trial-eligibility', async (req: Request, res: Response
  *                 type: string
  *                 enum: [starter, growth, business]
  */
-router.post('/subscription/start-trial', async (req: Request, res: Response) => {
+router.post('/subscription/start-trial', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { tier } = req.body;
@@ -1313,7 +1328,7 @@ router.post('/subscription/subscribe-mobile', async (req: Request, res: Response
  *       401:
  *         description: Unauthorized
  */
-router.post('/subscription/cancel', async (req: Request, res: Response) => {
+router.post('/subscription/cancel', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { reason } = req.body;
@@ -1425,7 +1440,7 @@ router.post('/subscription/cancel', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/subscription/reactivate', async (req: Request, res: Response) => {
+router.post('/subscription/reactivate', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     
@@ -1632,7 +1647,7 @@ router.post('/subscription/reactivate', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-router.post('/:shopId/subscription', async (req: Request, res: Response) => {
+router.post('/:shopId/subscription', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const { shopId } = req.params;
     const { email, name, paymentMethodId } = req.body;
@@ -1806,7 +1821,7 @@ router.get('/:shopId/subscription', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/:shopId/subscription/setup-intent', async (req: Request, res: Response) => {
+router.post('/:shopId/subscription/setup-intent', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const { shopId } = req.params;
 
@@ -1893,7 +1908,7 @@ router.post('/:shopId/subscription/setup-intent', async (req: Request, res: Resp
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:shopId/subscription', async (req: Request, res: Response) => {
+router.delete('/:shopId/subscription', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const { shopId } = req.params;
     const { immediately = false } = req.body;
@@ -2375,7 +2390,7 @@ router.post('/subscription/payment/confirm', async (req: Request, res: Response)
 
 // DEPRECATED: Commitment cancellation endpoint - use DELETE /:shopId/subscription instead
 /*
-router.post('/subscription/cancel', async (req: Request, res: Response) => {
+router.post('/subscription/cancel', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { reason } = req.body;

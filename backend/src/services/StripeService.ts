@@ -208,6 +208,136 @@ export class StripeService {
   }
 
   /**
+   * Schedule a price change to take effect at the END of the current billing
+   * period (used for downgrades). The live price is left untouched, so the shop
+   * keeps the tier it already paid for until renewal and is NOT charged now —
+   * and re-upgrading before renewal is a no-op (see releaseSubscriptionSchedule),
+   * which avoids the double-charge from changing the live price mid-cycle.
+   */
+  async scheduleDowngradeAtPeriodEnd(
+    subscriptionId: string,
+    newPriceId: string
+  ): Promise<Stripe.SubscriptionSchedule> {
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+      const item = subscription.items.data[0];
+      if (!item) {
+        throw new Error('Subscription has no items to update');
+      }
+      const currentPriceId = item.price.id;
+
+      // Reuse an existing schedule if one is already attached, else create one
+      // mirroring the live subscription.
+      let scheduleId =
+        typeof subscription.schedule === 'string'
+          ? subscription.schedule
+          : subscription.schedule?.id;
+      if (!scheduleId) {
+        const created = await this.stripe.subscriptionSchedules.create({
+          from_subscription: subscriptionId,
+        });
+        scheduleId = created.id;
+      }
+
+      // Period boundaries live on the item in the Basil API (with subscription-level fallback).
+      const periodStart =
+        (item as any).current_period_start ?? (subscription as any).current_period_start;
+      const periodEnd =
+        (item as any).current_period_end ?? (subscription as any).current_period_end;
+
+      const schedule = await this.stripe.subscriptionSchedules.update(scheduleId, {
+        end_behavior: 'release', // revert to a normal subscription after the switch
+        phases: [
+          {
+            // Current tier runs untouched until the end of the paid period.
+            items: [{ price: currentPriceId, quantity: 1 }],
+            start_date: periodStart,
+            end_date: periodEnd,
+          },
+          {
+            // New (lower) tier takes over at renewal, billed in full — no proration.
+            items: [{ price: newPriceId, quantity: 1 }],
+            proration_behavior: 'none',
+          },
+        ],
+      });
+
+      logger.info('Scheduled downgrade at period end', {
+        subscriptionId,
+        scheduleId,
+        currentPriceId,
+        newPriceId,
+      });
+
+      return schedule;
+    } catch (error) {
+      logger.error('Failed to schedule downgrade', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        subscriptionId,
+        newPriceId,
+      });
+      throw new Error(
+        `Failed to schedule downgrade: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Release any schedule attached to the subscription, reverting it to a plain
+   * subscription on its current (live) price. Cancels a pending scheduled
+   * downgrade. No-op when there is no schedule. Returns the live price id that
+   * remains in effect (or null if it couldn't be resolved).
+   */
+  async releaseSubscriptionSchedule(subscriptionId: string): Promise<string | null> {
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+      const scheduleId =
+        typeof subscription.schedule === 'string'
+          ? subscription.schedule
+          : subscription.schedule?.id;
+      if (scheduleId) {
+        await this.stripe.subscriptionSchedules.release(scheduleId);
+        logger.info('Released subscription schedule', { subscriptionId, scheduleId });
+      }
+      return subscription.items.data[0]?.price.id ?? null;
+    } catch (error) {
+      logger.error('Failed to release subscription schedule', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        subscriptionId,
+      });
+      throw new Error(
+        `Failed to release subscription schedule: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * The future price id a pending schedule will switch to (the last phase), or
+   * null if the subscription has no schedule. Used to detect a pending downgrade.
+   */
+  async getPendingScheduledPriceId(subscriptionId: string): Promise<string | null> {
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+      const scheduleRef = subscription.schedule;
+      if (!scheduleRef) return null;
+      const schedule =
+        typeof scheduleRef === 'string'
+          ? await this.stripe.subscriptionSchedules.retrieve(scheduleRef)
+          : scheduleRef;
+      if (schedule.status === 'released' || schedule.status === 'canceled') return null;
+      const lastPhase = schedule.phases?.[schedule.phases.length - 1];
+      const priceRef = lastPhase?.items?.[0]?.price;
+      return typeof priceRef === 'string' ? priceRef : (priceRef as any)?.id ?? null;
+    } catch (error) {
+      logger.error('Failed to read pending scheduled price', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        subscriptionId,
+      });
+      return null;
+    }
+  }
+
+  /**
    * Cancel subscription at period end
    */
   async cancelSubscription(subscriptionId: string, immediately: boolean = false): Promise<Stripe.Subscription> {

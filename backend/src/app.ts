@@ -53,7 +53,7 @@ import { bookingCleanupService } from './services/BookingCleanupService';
 // WebSocket imports
 import { Server as WebSocketServer } from 'ws';
 import { Server as HTTPServer } from 'http';
-import { WebSocketManager } from './services/WebSocketManager';
+import { WebSocketManager, setWebSocketManagerInstance } from './services/WebSocketManager';
 
 // Your existing route imports (for non-domain routes)
 import healthRoutes from './routes/health';
@@ -729,6 +729,10 @@ class RepairCoinApp {
     const wss = new WebSocketServer({ server: this.server });
     this.wsManager = new WebSocketManager(wss);
 
+    // Register the singleton accessor so per-request services (PaymentService,
+    // constructed per-route) can broadcast in-app notifications.
+    setWebSocketManagerInstance(this.wsManager);
+
     // Attach WebSocket manager to NotificationDomain
     const notificationDomain = domainRegistry.getAllDomains().find(
       d => d.name === 'notifications'
@@ -759,6 +763,10 @@ class RepairCoinApp {
       aiAgentDomain.setWebSocketManager(this.wsManager);
       logger.info('✅ WebSocket manager attached to AIAgentDomain');
     }
+
+    // AppointmentReminderService now emits through NotificationGateway, which
+    // broadcasts over the WebSocket singleton (setWebSocketManagerInstance
+    // above) — no per-service WS injection needed.
 
     this.server.listen(port, () => {
       console.log('\n==============================================');

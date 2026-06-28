@@ -1,7 +1,27 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuthStore } from "@/stores/authStore";
+
+// Permission required to view each Settings sub-section. Accessibility and
+// Notifications are personal prefs every member needs, so they're always shown.
+const SECTION_PERMISSION: Record<string, string | undefined> = {
+  "shop-profile": "shop:manage",
+  accessibility: undefined,
+  notifications: undefined,
+  subscription: "billing:manage",
+  "no-show-policy": "bookings:manage",
+  emails: "shop:manage",
+  password: "shop:manage",
+  "social-media": "shop:manage",
+  calendar: "shop:manage",
+  "ai-assistant": "shop:manage",
+  "brand-kit": "shop:manage",
+  "customer-rewards": "shop:manage",
+  moderation: "customers:view",
+  faq: "shop:manage",
+};
 import { SubscriptionManagement } from "../SubscriptionManagement";
 import { NoShowPolicySettings } from "../NoShowPolicySettings";
 import { EmailSettings } from "../EmailSettings";
@@ -37,6 +57,7 @@ import {
   Bot,
   Palette,
   Gift,
+  Clock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
@@ -88,7 +109,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   isSuspended = false,
   isPaused = false,
 }) => {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  // Subscribe to userProfile so the section list re-filters when permissions load.
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canViewSection = (id: string) => {
+    const p = SECTION_PERMISSION[id];
+    return !p || hasPermission(p);
+  };
   const [activeTab, setActiveTab] = useState<
     | "shop-profile"
     | "accessibility"
@@ -130,6 +159,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       setActiveTab(section);
     }
   }, [searchParams]);
+
+  // Bounce off a section the member can't view (default 'shop-profile' for staff,
+  // or a deep-linked ?section=). Accessibility is always viewable, so it's safe.
+  useEffect(() => {
+    if (!canViewSection(activeTab)) {
+      setActiveTab("accessibility");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, userProfile]);
 
   // Shop Details State
   const [isEditingShop, setIsEditingShop] = useState(false);
@@ -311,7 +349,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     { id: "shop-profile" as const, label: "Shop Profile", icon: User },
     { id: "accessibility" as const, label: "Accessibility", icon: Settings },
     { id: "notifications" as const, label: "Notifications", icon: Bell },
-  ];
+  ].filter((tab) => canViewSection(tab.id));
 
   const accessTabs = [
     { id: "subscription" as const, label: "Subscription", icon: CreditCard },
@@ -329,7 +367,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     { id: "customer-rewards" as const, label: "Customer Rewards", icon: Gift },
     { id: "moderation" as const, label: "Moderation", icon: Shield },
     { id: "faq" as const, label: "FAQ & Help", icon: HelpCircle },
-  ];
+  ].filter((tab) => canViewSection(tab.id));
 
   return (
     <div className="bg-[#101010] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
@@ -385,6 +423,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               ))}
             </nav>
           </div>
+
+          {/* Appointments Section — links out to the dedicated availability page */}
+          {hasPermission("bookings:manage") && (
+            <div className="mt-6">
+              <p className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Appointments
+              </p>
+              <nav className="space-y-1 mt-1">
+                <button
+                  onClick={() => router.push("/shop/availability")}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-[#1a1a1a] transition-all duration-200 whitespace-nowrap"
+                >
+                  <Clock className="w-4 h-4 flex-shrink-0" />
+                  Availability Settings
+                </button>
+              </nav>
+            </div>
+          )}
         </div>
 
         {/* Content Area */}

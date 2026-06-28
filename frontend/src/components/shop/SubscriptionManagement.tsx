@@ -56,6 +56,7 @@ interface Subscription {
   currentPeriodEnd?: string;
   termMonths?: number;
   totalCommitment?: number;
+  scheduledDowngrade?: { tier: string; effectiveAt: string | null } | null;
 }
 
 interface SubscriptionManagementProps {
@@ -629,6 +630,26 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
               </p>
             </div>
           </div>
+
+          {/* Pending downgrade notice */}
+          {subscription.scheduledDowngrade && (
+            <div className="mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Calendar className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-300">
+                  Your plan will change to{" "}
+                  <span className="font-semibold capitalize">
+                    {subscription.scheduledDowngrade.tier}
+                  </span>{" "}
+                  {subscription.scheduledDowngrade.effectiveAt
+                    ? `on ${new Date(subscription.scheduledDowngrade.effectiveAt).toLocaleDateString()}`
+                    : "at your next renewal"}
+                  . You keep your current plan until then, with no charge today.
+                  Re-select your current plan to cancel this change.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Cancel/Reactivate Button - Hidden for suspended/paused shops */}
           {!isSuspended && !isPaused && (

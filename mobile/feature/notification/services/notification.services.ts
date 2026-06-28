@@ -146,6 +146,32 @@ class NotificationApi {
       throw error;
     }
   }
+
+  /**
+   * Delete a single notification
+   */
+  async deleteNotification(notificationId: string): Promise<{ message: string }> {
+    try {
+      return await apiClient.delete<{ message: string }>(
+        `/notifications/${notificationId}`
+      );
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete all notifications
+   */
+  async deleteAllNotifications(): Promise<{ message: string }> {
+    try {
+      return await apiClient.delete<{ message: string }>("/notifications");
+    } catch (error) {
+      console.error("Failed to delete all notifications:", error);
+      throw error;
+    }
+  }
   // ==========================================
   // Appointment Notification Preferences
   // ==========================================

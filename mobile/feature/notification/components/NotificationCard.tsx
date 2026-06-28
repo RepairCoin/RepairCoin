@@ -1,9 +1,7 @@
 import { View, Text, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { formatDistanceToNow } from "date-fns";
 import { Notification } from "../types";
-import { getNotificationStyle, getNavigationRoute } from "@/shared/utilities/notificationHelpers";
+import { getNotificationStyle } from "@/shared/utilities/notificationHelpers";
 
 interface NotificationCardProps {
   notification: Notification;
@@ -11,19 +9,12 @@ interface NotificationCardProps {
 }
 
 export default function NotificationCard({ notification, onPress }: NotificationCardProps) {
-  const router = useRouter();
-  const { userType } = useAuthStore();
-  const style = getNotificationStyle(notification.notificationType);
+  const style = getNotificationStyle(notification.notificationType, notification.metadata);
 
+  // Pressing opens the detail modal (handled by the parent via onPress),
+  // matching the web NotificationBell. No navigation away from the list.
   const handlePress = () => {
-    if (onPress) {
-      onPress();
-    }
-
-    const route = getNavigationRoute(notification, userType);
-    if (route) {
-      router.push(route as any);
-    }
+    onPress?.();
   };
 
   const timeAgo = formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true });

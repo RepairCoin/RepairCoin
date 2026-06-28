@@ -1,5 +1,4 @@
 import { View } from "react-native";
-import ShareQRCodeModal from "@/feature/qrcode/components/ShareQRCodeModal";
 import { useQRCode } from "../hooks";
 import {
   QRCodeHeader,
@@ -12,16 +11,15 @@ export default function QRCodeScreen() {
   const {
     walletAddress,
     copied,
-    modalVisible,
     copyToClipboard,
     formatAddress,
     handleGoBack,
-    closeShareModal,
+    handleShare,
   } = useQRCode();
 
   return (
     <View className="w-full h-full px-4 bg-white">
-      <QRCodeHeader onBack={handleGoBack} />
+      <QRCodeHeader onBack={handleGoBack} onShare={handleShare} />
 
       <QRCodeDisplay walletAddress={walletAddress} />
 
@@ -32,12 +30,6 @@ export default function QRCodeScreen() {
         formattedAddress={formatAddress(walletAddress)}
         copied={copied}
         onPress={copyToClipboard}
-      />
-
-      <ShareQRCodeModal
-        visible={modalVisible}
-        requestClose={closeShareModal}
-        walletAddress={walletAddress}
       />
     </View>
   );

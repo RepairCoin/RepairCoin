@@ -3,6 +3,7 @@ import { OrderRepository, ServiceOrder } from '../../../repositories/OrderReposi
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { StripeService } from '../../../services/StripeService';
 import { NotificationService } from '../../notification/services/NotificationService';
+import { NotificationGateway, getNotificationGateway } from '../../notification/services/NotificationGateway';
 import { EmailService } from '../../../services/EmailService';
 import { RcnRedemptionService } from './RcnRedemptionService';
 import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
@@ -142,6 +143,7 @@ export class PaymentService {
   private serviceRepository: ServiceRepository;
   private stripeService: StripeService;
   private notificationService: NotificationService;
+  private notificationGateway: NotificationGateway;
   private emailService: EmailService;
   private rcnRedemptionService: RcnRedemptionService;
   private appointmentRepository: AppointmentRepository;
@@ -154,6 +156,7 @@ export class PaymentService {
     this.serviceRepository = new ServiceRepository();
     this.stripeService = stripeService;
     this.notificationService = new NotificationService();
+    this.notificationGateway = getNotificationGateway();
     this.emailService = new EmailService();
     this.rcnRedemptionService = new RcnRedemptionService();
     this.appointmentRepository = new AppointmentRepository();
@@ -1412,10 +1415,13 @@ export class PaymentService {
             ? `. Refund: ${refundDetails.join(', ')}`
             : '';
 
-          await this.notificationService.createNotification({
-            senderAddress: 'SYSTEM',
-            receiverAddress: order.customerAddress,
-            notificationType: 'service_cancelled_by_shop',
+          // One dispatch fans out to all channels the registry configures for
+          // 'service_order_cancelled': persist (transactional → always
+          // delivered even if the customer muted order updates) + WS in-app
+          // broadcast + native push (web + mobile). The canonical type drives
+          // the correct icon/title on both clients; the "by shop" distinction
+          // lives in metadata.reason. refundSummary feeds the push body.
+          await this.notificationGateway.dispatch('service_order_cancelled', order.customerAddress, {
             message: `Your booking for ${service.serviceName} at ${shop.name} has been cancelled by the shop${refundMessage}`,
             metadata: {
               orderId,
@@ -1425,6 +1431,7 @@ export class PaymentService {
               notes: cancellationNotes,
               rcnRefunded,
               stripeRefunded,
+              refundSummary: refundDetails.length > 0 ? refundDetails.join(', ') : undefined,
               timestamp: new Date().toISOString()
             }
           });

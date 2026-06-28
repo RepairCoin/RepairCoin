@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, Settings, Plus, Trash2, Loader2, Save, Check, AlertCircle } from 'lucide-react';
 import { appointmentsApi, ShopAvailability, TimeSlotConfig, DateOverride } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
+import { useAuthStore } from '@/stores/authStore';
 
 type TabType = 'hours' | 'settings' | 'overrides';
 
@@ -23,6 +24,10 @@ interface AvailabilitySettingsProps {
 }
 
 export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shopId }) => {
+  // Editing availability/time-slots/overrides requires bookings:manage.
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canManage = !!userProfile && hasPermission('bookings:manage');
   const [activeTab, setActiveTab] = useState<TabType>('hours');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -236,7 +241,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                   <span className="text-sm text-gray-400">Open</span>
                 </label>
               </div>
-              {isOpen && (
+              {isOpen && canManage && (
                 <button
                   onClick={() => setEditingDay(isEditing ? null : day.value)}
                   className="text-sm text-[#FFCC00] hover:text-[#FFD700] transition-colors"
@@ -326,7 +331,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
             {isEditing && (
               <div className="mt-4 flex justify-end">
                 <button
-                  onClick={() => handleUpdateAvailability(day.value, dayAvailability)}
+                  onClick={() => handleUpdateAvailability(day.value, dayAvailability || {})}
                   disabled={saving}
                   className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
@@ -375,6 +380,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
         <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-6 space-y-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">Time Slot Settings</h3>
+            {canManage && (
             <button
               onClick={() => configEditing ? handleUpdateConfig() : setConfigEditing(true)}
               disabled={saving}
@@ -394,6 +400,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 'Edit Settings'
               )}
             </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -562,8 +569,9 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
               type="date"
               value={newOverride.overrideDate}
               onChange={(e) => setNewOverride({ ...newOverride, overrideDate: e.target.value })}
+              onClick={(e) => e.currentTarget.showPicker?.()}
               min={new Date().toISOString().split('T')[0]}
-              className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+              className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
             />
           </div>
 
@@ -599,7 +607,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 type="time"
                 value={newOverride.customOpenTime}
                 onChange={(e) => setNewOverride({ ...newOverride, customOpenTime: e.target.value })}
-                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+                onClick={(e) => e.currentTarget.showPicker?.()}
+                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
               />
             </div>
             <div>
@@ -608,12 +617,14 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 type="time"
                 value={newOverride.customCloseTime}
                 onChange={(e) => setNewOverride({ ...newOverride, customCloseTime: e.target.value })}
-                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+                onClick={(e) => e.currentTarget.showPicker?.()}
+                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
               />
             </div>
           </div>
         )}
 
+        {canManage && (
         <button
           onClick={handleCreateOverride}
           disabled={saving || !newOverride.overrideDate}
@@ -631,6 +642,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
             </>
           )}
         </button>
+        )}
       </div>
 
       {/* Existing Overrides */}
@@ -676,6 +688,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                   </p>
                 )}
               </div>
+              {canManage && (
               <button
                 onClick={() => handleDeleteOverride(override.overrideDate)}
                 disabled={saving}
@@ -683,6 +696,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
               >
                 <Trash2 className="w-5 h-5" />
               </button>
+              )}
             </div>
           ))
         )}

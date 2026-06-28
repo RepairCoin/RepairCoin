@@ -428,6 +428,7 @@ export interface ShopReport {
 }
 
 export interface SubmitIssueReportResponse extends BaseResponse<ShopReport> {}
+export interface ShopReportsResponse extends BaseResponse<ShopReport[]> {}
 
 // ==================== Moderation: Blocked Customers ====================
 export interface BlockedCustomer {

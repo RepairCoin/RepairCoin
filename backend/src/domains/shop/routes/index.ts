@@ -1,6 +1,7 @@
 // backend/src/routes/shops.ts
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership, requireActiveSubscription } from '../../../middleware/auth';
+import { requireShopPermission } from '../../../middleware/permissions';
 import { optionalAuthMiddleware } from '../../../middleware/optionalAuth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric, validateStringType } from '../../../middleware/errorHandler';
 import { validateShopUniqueness } from '../../../middleware/validation';
@@ -68,6 +69,7 @@ import purchaseSyncRoutes from './purchase-sync';
 import paymentMethodsRoutes from './paymentMethods';
 import moderationRoutes from './moderation';
 import welcomeRcnRoutes from './welcomeRcn';
+import teamRoutes from './team';
 import calendarRoutes from '../../ShopDomain/routes/calendar.routes';
 import gmailRoutes from '../../ShopDomain/routes/gmail.routes';
 
@@ -80,9 +82,10 @@ router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
 router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSyncRoutes); // Payment sync routes
 router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
-router.use('/reports', authMiddleware, requireRole(['shop']), reportsRoutes); // Reports routes
-router.use('/moderation', authMiddleware, requireRole(['shop']), moderationRoutes); // Moderation routes
-router.use('/welcome-rcn', authMiddleware, requireRole(['shop']), welcomeRcnRoutes); // Welcome-RCN-on-claim settings
+router.use('/reports', authMiddleware, requireRole(['shop']), requireShopPermission('analytics:view'), reportsRoutes); // Reports routes
+router.use('/moderation', authMiddleware, requireRole(['shop']), requireShopPermission('customers:view'), moderationRoutes); // Moderation routes
+router.use('/team', teamRoutes); // Team management (auth handled per-route: accept is public)
+router.use('/welcome-rcn', authMiddleware, requireRole(['shop']), requireShopPermission('shop:manage'), welcomeRcnRoutes); // Welcome-RCN-on-claim settings
 router.use('/calendar', calendarRoutes); // Calendar integration routes (auth handled in route file)
 router.use('/gmail', gmailRoutes); // Gmail integration routes (auth handled in route file)
 
@@ -670,6 +673,7 @@ router.put('/:shopId/details',
   authMiddleware,
   requireRole(['shop']),
   requireShopOwnership,
+  requireShopPermission('shop:manage'),
   validateEmail('email'),
   validateShopUniqueness({ email: true, wallet: false, excludeField: 'shopId' }),
   async (req: Request, res: Response) => {
@@ -744,16 +748,21 @@ router.put('/:shopId/details',
 
       // Handle location updates - coordinates are stored in separate database columns
       if (location !== undefined) {
-        // Validate and set coordinates if provided
-        if (location.lat !== undefined) {
+        // Validate and set coordinates if provided. Treat undefined/null/empty
+        // string as "not provided" so a details update without coordinates
+        // (e.g. just changing the name) doesn't fail on an empty lat/lng.
+        const hasValue = (v: unknown) =>
+          v !== undefined && v !== null && `${v}`.trim() !== '';
+
+        if (hasValue(location.lat)) {
           const lat = typeof location.lat === 'string' ? parseFloat(location.lat) : location.lat;
           if (isNaN(lat) || lat < -90 || lat > 90) {
             throw new Error(`Invalid latitude value: ${location.lat}. Must be a number between -90 and 90.`);
           }
           updates.locationLat = lat;
         }
-        
-        if (location.lng !== undefined) {
+
+        if (hasValue(location.lng)) {
           const lng = typeof location.lng === 'string' ? parseFloat(location.lng) : location.lng;
           if (isNaN(lng) || lng < -180 || lng > 180) {
             throw new Error(`Invalid longitude value: ${location.lng}. Must be a number between -180 and 180.`);
@@ -820,6 +829,7 @@ router.put('/:shopId/details',
 router.put('/:shopId',
   requireShopOrAdmin,
   requireShopOwnership,
+  requireShopPermission('shop:manage'),
   validateEmail('email'),
   validateShopUniqueness({ email: true, wallet: false, excludeField: 'shopId' }),
   async (req: Request, res: Response) => {
@@ -1238,6 +1248,7 @@ router.post('/:shopId/redeem',
   authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
+  requireShopPermission('rewards:redeem'),
   requireActiveSubscription(), // Enforce subscription for processing redemptions
   validateRequired(['customerAddress', 'amount']),
   validateEthereumAddress('customerAddress'),
@@ -2019,6 +2030,7 @@ router.post('/:shopId/issue-reward',
   authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
+  requireShopPermission('rewards:issue'),
   requireActiveSubscription(), // Enforce subscription for issuing rewards
   validateRequired(['customerAddress', 'repairAmount']),
   validateEthereumAddress('customerAddress'),

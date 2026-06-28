@@ -17,6 +17,7 @@ import {
   RewardResponse,
   SubmitIssueReportRequest,
   SubmitIssueReportResponse,
+  ShopReportsResponse,
   BlockCustomerRequest,
   BlockCustomerResponse,
   BlockedCustomersResponse,
@@ -239,6 +240,16 @@ class ShopApi {
       return await apiClient.post(`/shops/moderation/reports`, data);
     } catch (error: any) {
       console.error("Failed to submit issue report:", error.message);
+      throw error;
+    }
+  }
+
+  // List the shop's submitted moderation reports.
+  async getShopReports(): Promise<ShopReportsResponse> {
+    try {
+      return await apiClient.get(`/shops/moderation/reports`);
+    } catch (error: any) {
+      console.error("Failed to get shop reports:", error.message);
       throw error;
     }
   }

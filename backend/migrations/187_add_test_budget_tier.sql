@@ -1,4 +1,4 @@
--- 173 — Safeguard 4 (test-budget tier). A campaign can start at a lower "test" daily budget;
+-- 187 — Safeguard 4 (test-budget tier). A campaign can start at a lower "test" daily budget;
 -- after a window of positive ROI it's flagged ready to scale to the full budget (admin confirms).
 --   is_test_budget            = running at the reduced test budget
 --   full_daily_budget_cents   = the target full daily budget to scale up to

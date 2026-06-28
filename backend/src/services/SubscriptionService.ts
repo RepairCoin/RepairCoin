@@ -21,6 +21,10 @@ export interface SubscriptionData {
   metadata: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
+  /** Pending downgrade target tier (scheduled to apply at period end), if any. */
+  scheduledTier?: string | null;
+  /** When the pending downgrade applies (next renewal), if any. */
+  scheduledChangeAt?: Date | null;
 }
 
 export interface CustomerData {
@@ -911,10 +915,27 @@ export class SubscriptionService extends BaseRepository {
     }
   }
 
+  /** Clear the persisted pending-downgrade marker for a subscription. */
+  private async clearScheduledDowngrade(stripeSubscriptionId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE stripe_subscriptions
+       SET scheduled_tier = NULL, scheduled_change_at = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE stripe_subscription_id = $1`,
+      [stripeSubscriptionId]
+    );
+  }
+
   /**
    * Change the tier of a shop's active subscription.
-   * Upgrades take effect immediately and invoice the prorated difference now.
-   * Downgrades apply at the next renewal (no refund for the current cycle).
+   *
+   * - Upgrades take effect immediately and invoice the prorated difference now.
+   * - Downgrades are SCHEDULED to apply at the next renewal via a Stripe
+   *   subscription schedule — the live price is left unchanged, so the shop keeps
+   *   the tier it paid for this cycle and is not charged now.
+   * - Re-selecting the current (live) tier while a downgrade is pending releases
+   *   the schedule (cancels the downgrade) with no charge. This is what prevents
+   *   the downgrade→re-upgrade double-charge: the price basis never drops
+   *   mid-cycle, so climbing back up never re-bills the difference.
    */
   async changeSubscriptionTier(shopId: string, newTier: SubscriptionTier): Promise<{
     subscription: SubscriptionData;
@@ -922,6 +943,7 @@ export class SubscriptionService extends BaseRepository {
     newTier: SubscriptionTier;
     newAmount: number;
     previousAmount: number;
+    outcome: 'upgraded' | 'downgrade_scheduled' | 'downgrade_canceled';
   }> {
     const subscription = await this.getActiveSubscription(shopId);
     if (!subscription) {
@@ -929,13 +951,60 @@ export class SubscriptionService extends BaseRepository {
     }
 
     const newPriceId = resolveCheckoutPriceId(newTier);
-    if (newPriceId === subscription.stripePriceId) {
-      throw new Error('Shop is already subscribed to this plan');
-    }
-
     const previousAmount = getMonthlyAmountForPriceId(subscription.stripePriceId);
     const newAmount = getPlanByTier(newTier).amount;
+
+    // Re-selecting the live tier: only valid if it cancels a pending downgrade.
+    if (newPriceId === subscription.stripePriceId) {
+      const pending = await this.stripeService.getPendingScheduledPriceId(
+        subscription.stripeSubscriptionId
+      );
+      if (!pending) {
+        throw new Error('Shop is already subscribed to this plan');
+      }
+      await this.stripeService.releaseSubscriptionSchedule(subscription.stripeSubscriptionId);
+      await this.clearScheduledDowngrade(subscription.stripeSubscriptionId);
+      eventBus.publish({
+        type: 'subscription.tier_changed',
+        aggregateId: shopId,
+        timestamp: new Date(),
+        source: 'SubscriptionService',
+        version: 1,
+        data: { subscriptionId: subscription.stripeSubscriptionId, newTier, newPriceId, isUpgrade: false, previousAmount, newAmount, outcome: 'downgrade_canceled' }
+      });
+      logger.info('Scheduled downgrade cancelled', { shopId, subscriptionId: subscription.stripeSubscriptionId, newTier });
+      return { subscription, isUpgrade: false, newTier, newAmount, previousAmount, outcome: 'downgrade_canceled' };
+    }
+
     const isUpgrade = newAmount > previousAmount;
+
+    // ---- Downgrade: schedule at period end; do NOT touch the live price/DB now. ----
+    if (!isUpgrade) {
+      await this.stripeService.scheduleDowngradeAtPeriodEnd(
+        subscription.stripeSubscriptionId,
+        newPriceId
+      );
+      await this.pool.query(
+        `UPDATE stripe_subscriptions
+         SET scheduled_tier = $1, scheduled_change_at = $2, updated_at = CURRENT_TIMESTAMP
+         WHERE stripe_subscription_id = $3`,
+        [newTier, subscription.currentPeriodEnd, subscription.stripeSubscriptionId]
+      );
+      eventBus.publish({
+        type: 'subscription.tier_changed',
+        aggregateId: shopId,
+        timestamp: new Date(),
+        source: 'SubscriptionService',
+        version: 1,
+        data: { subscriptionId: subscription.stripeSubscriptionId, newTier, newPriceId, isUpgrade: false, previousAmount, newAmount, outcome: 'downgrade_scheduled' }
+      });
+      logger.info('Subscription downgrade scheduled', { shopId, subscriptionId: subscription.stripeSubscriptionId, newTier, effectiveAt: subscription.currentPeriodEnd });
+      return { subscription, isUpgrade: false, newTier, newAmount, previousAmount, outcome: 'downgrade_scheduled' };
+    }
+
+    // ---- Upgrade: release any pending downgrade, then apply immediately + prorated. ----
+    await this.stripeService.releaseSubscriptionSchedule(subscription.stripeSubscriptionId);
+    await this.clearScheduledDowngrade(subscription.stripeSubscriptionId);
 
     // Update price in Stripe BEFORE acquiring a connection
     const updatedStripeSubscription = await this.stripeService.changeSubscriptionPrice(
@@ -1003,7 +1072,7 @@ export class SubscriptionService extends BaseRepository {
         newAmount
       });
 
-      return { subscription: updatedSubscription, isUpgrade, newTier, newAmount, previousAmount };
+      return { subscription: updatedSubscription, isUpgrade, newTier, newAmount, previousAmount, outcome: 'upgraded' as const };
     } catch (error) {
       await client.query('ROLLBACK');
       logger.error('Failed to change subscription tier', {
@@ -1034,7 +1103,9 @@ export class SubscriptionService extends BaseRepository {
       trialEnd: row.trial_end,
       metadata: row.metadata || {},
       createdAt: row.created_at,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
+      scheduledTier: row.scheduled_tier ?? null,
+      scheduledChangeAt: row.scheduled_change_at ?? null
     };
   }
 

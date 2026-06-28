@@ -1,10 +1,24 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAppToast } from "@/shared/hooks/useAppToast";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
+import { queryKeys } from "@/shared/config/queryClient";
 import { shopApi } from "@/feature/shop/services/shop.services";
 import { SubmitIssueReportRequest } from "@/feature/shop/services/shop.interface";
 
+// List the shop's submitted moderation reports.
+export function useShopReports() {
+  return useQuery({
+    queryKey: queryKeys.shopReports(),
+    queryFn: async () => {
+      const res = await shopApi.getShopReports();
+      return res?.data ?? [];
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
 export function useSubmitIssueReport(onSuccess?: () => void) {
+  const qc = useQueryClient();
   const { showSuccess, showError } = useAppToast();
   const { guard, reset } = useSubmitGuard();
 
@@ -14,6 +28,7 @@ export function useSubmitIssueReport(onSuccess?: () => void) {
     },
     onSuccess: () => {
       showSuccess("Report submitted. Status: pending review.");
+      qc.invalidateQueries({ queryKey: queryKeys.shopReports() });
       onSuccess?.();
     },
     onError: (error: any) => {

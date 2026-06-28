@@ -11,6 +11,28 @@ interface NotificationModalProps {
   onDelete: (id: string) => void;
 }
 
+// Data-driven display: notifications emitted through the backend
+// NotificationGateway carry metadata.display = { title, icon, color }. The
+// `icon` is a semantic token mapped to an emoji here, so new notification types
+// that reuse a token need NO change to these components. Legacy/un-migrated
+// types have no metadata.display and fall back to the per-type switches below.
+const DISPLAY_ICON_EMOJI: Record<string, string> = {
+  cancelled: '🚫',
+  calendar: '📅',
+  alarm: '⏰',
+  campaign: '📢',
+  reward: '🎉',
+  default: '📬',
+};
+
+const displayIconEmoji = (metadata: any): string | null => {
+  const token = metadata?.display?.icon;
+  return token && DISPLAY_ICON_EMOJI[token] ? DISPLAY_ICON_EMOJI[token] : null;
+};
+
+const displayTitle = (metadata: any): string | null =>
+  (metadata?.display?.title as string) || null;
+
 // Render a design block for marketing campaigns
 const renderMarketingBlock = (block: any, metadata: any) => {
   const style = block.style || {};
@@ -262,6 +284,9 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
   const isMarketingCampaign = notification.notificationType === 'marketing_campaign';
 
   const getNotificationIcon = (type: string) => {
+    // Prefer the gateway-provided display token; fall back to the legacy switch.
+    const fromDisplay = displayIconEmoji(notification.metadata);
+    if (fromDisplay) return fromDisplay;
     switch (type) {
       case 'reward_issued':
         return '🎉';
@@ -300,6 +325,7 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
       case 'service_payment_failed':
         return '❌';
       case 'service_order_cancelled':
+      case 'service_cancelled_by_shop':
         return '🚫';
       case 'appointment_reminder':
       case 'upcoming_appointment':
@@ -323,6 +349,9 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
   };
 
   const getNotificationTitle = (type: string) => {
+    // Prefer the gateway-provided display title; fall back to the legacy switch.
+    const fromDisplay = displayTitle(notification.metadata);
+    if (fromDisplay) return fromDisplay;
     switch (type) {
       case 'reward_issued':
         return 'Reward Received';
@@ -361,6 +390,7 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
       case 'service_payment_failed':
         return 'Payment Failed';
       case 'service_order_cancelled':
+      case 'service_cancelled_by_shop':
         return 'Order Cancelled';
       case 'appointment_reminder':
       case 'upcoming_appointment':
@@ -707,7 +737,10 @@ export const NotificationBell: React.FC<{ variant?: 'default' | 'subtle' }> = ({
   const { notifications, unreadCount, isConnected } = useNotificationStore();
   const { markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } = useNotificationActions();
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type: string, metadata?: any) => {
+    // Prefer the gateway-provided display token; fall back to the legacy switch.
+    const fromDisplay = displayIconEmoji(metadata);
+    if (fromDisplay) return fromDisplay;
     switch (type) {
       case 'reward_issued':
         return '🎉';
@@ -850,7 +883,7 @@ export const NotificationBell: React.FC<{ variant?: 'default' | 'subtle' }> = ({
                         <div className="flex items-start gap-3">
                           {/* Icon */}
                           <div className="flex-shrink-0 text-2xl">
-                            {getNotificationIcon(notification.notificationType)}
+                            {getNotificationIcon(notification.notificationType, notification.metadata)}
                           </div>
 
                           {/* Content */}

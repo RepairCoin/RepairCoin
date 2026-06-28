@@ -12,6 +12,7 @@ import NoShowPolicyController from './controllers/NoShowPolicyController';
 import EmailPreferencesController from './controllers/EmailPreferencesController';
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
+import { requireShopPermission } from '../../middleware/permissions';
 import { requireActiveSubscription } from '../../middleware/subscriptionGuard';
 import { StripeService } from '../../services/StripeService';
 import { paymentLimiter, orderLimiter } from '../../middleware/rateLimiter';
@@ -81,6 +82,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('services:manage'),
     requireActiveSubscription(),
     serviceController.createService
   );
@@ -594,6 +596,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/:id',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('services:manage'),
     requireActiveSubscription(),
     serviceController.updateService
   );
@@ -623,6 +626,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/:id',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('services:manage'),
     requireActiveSubscription(),
     serviceController.deleteService
   );
@@ -836,6 +840,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/shop',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:view'),
     orderController.getShopOrders
   );
 
@@ -856,6 +861,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/shop/counts',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:view'),
     orderController.getShopOrderCounts
   );
 
@@ -876,6 +882,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/pending-approval',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:view'),
     orderController.getPendingApprovalBookings
   );
 
@@ -898,6 +905,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/expired-unpaid',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:view'),
     orderController.getExpiredUnpaidBookings
   );
 
@@ -967,6 +975,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/:id/status',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     orderController.updateOrderStatus
   );
 
@@ -1044,6 +1053,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/:id/shop-cancel',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     orderController.cancelOrderByShop
   );
 
@@ -1088,6 +1098,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/:id/mark-no-show',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     orderController.markNoShow
   );
 
@@ -1095,6 +1106,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/:id/mark-paid',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     orderController.markOrderPaid
   );
 
@@ -1130,6 +1142,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/:id/approve',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     orderController.approveBooking
   );
 
@@ -1183,6 +1196,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/:id/reschedule',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     orderController.rescheduleBooking
   );
 
@@ -1234,6 +1248,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/bulk-cancel',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     orderController.bulkCancelOrders
   );
 
@@ -1265,6 +1280,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/orders/cancel-all-expired',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     orderController.cancelAllExpiredUnpaid
   );
 
@@ -1694,6 +1710,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/analytics/shop',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('analytics:view'),
     analyticsController.getShopAnalytics
   );
 
@@ -1714,6 +1731,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/analytics/shop/overview',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('analytics:view'),
     analyticsController.getShopOverview
   );
 
@@ -1740,6 +1758,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/analytics/shop/top-services',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('analytics:view'),
     analyticsController.getTopServices
   );
 
@@ -1766,6 +1785,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/analytics/shop/trends',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('analytics:view'),
     analyticsController.getShopOrderTrends
   );
 
@@ -1786,6 +1806,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/analytics/shop/categories',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('analytics:view'),
     analyticsController.getShopCategoryBreakdown
   );
 
@@ -1835,6 +1856,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/analytics/shop/group-performance',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('analytics:view'),
     analyticsController.getGroupPerformance
   );
 
@@ -1842,6 +1864,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/analytics/shop/bookings',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('analytics:view'),
     analyticsController.getBookingAnalytics
   );
 
@@ -2017,6 +2040,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/analytics/shop/export',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('analytics:view'),
     analyticsController.exportShopAnalytics
   );
 
@@ -2041,6 +2065,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/analytics/categories/export',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('analytics:view'),
     analyticsController.exportCategoryBreakdown
   );
 
@@ -2072,6 +2097,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/analytics/trends/export',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('analytics:view'),
     analyticsController.exportOrderTrends
   );
 
@@ -2302,6 +2328,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/appointments/shop-availability',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     appointmentController.updateShopAvailability
   );
 
@@ -2358,6 +2385,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/appointments/time-slot-config',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     appointmentController.updateTimeSlotConfig
   );
 
@@ -2378,6 +2406,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/appointments/time-slot-config',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     appointmentController.deleteTimeSlotConfig
   );
 
@@ -2446,6 +2475,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/appointments/date-overrides',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     appointmentController.createDateOverride
   );
 
@@ -2471,6 +2501,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/appointments/date-overrides/:date',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     appointmentController.deleteDateOverride
   );
 
@@ -2563,6 +2594,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/:serviceId/duration',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     appointmentController.updateServiceDuration
   );
 
@@ -2795,6 +2827,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/appointments/reschedule-request/:requestId/approve',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     appointmentController.approveRescheduleRequest
   );
 
@@ -2829,6 +2862,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/appointments/reschedule-request/:requestId/reject',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
     appointmentController.rejectRescheduleRequest
   );
 
@@ -3201,6 +3235,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/:serviceId/groups/:groupId',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('services:manage'),
     (req, res) => serviceGroupController.linkServiceToGroup(req, res)
   );
 
@@ -3232,6 +3267,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/:serviceId/groups/:groupId',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('services:manage'),
     (req, res) => serviceGroupController.unlinkServiceFromGroup(req, res)
   );
 
@@ -3295,6 +3331,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/:serviceId/groups/:groupId/rewards',
     authMiddleware,
     requireRole(['shop']),
+    requireShopPermission('services:manage'),
     (req, res) => serviceGroupController.updateGroupRewards(req, res)
   );
 
@@ -3658,6 +3695,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/shops/:shopId/no-show-policy',
     authMiddleware,
     requireRole(['shop', 'admin']),
+    requireShopPermission('bookings:manage'),
     NoShowPolicyController.updateShopPolicy.bind(NoShowPolicyController)
   );
 
@@ -3798,6 +3836,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/shops/:shopId/email-preferences',
     authMiddleware,
     requireRole(['shop', 'admin']),
+    requireShopPermission('shop:manage'),
     EmailPreferencesController.updateShopPreferences.bind(EmailPreferencesController)
   );
 

@@ -2,6 +2,7 @@
 import { logger } from '../utils/logger';
 import { EmailService } from './EmailService';
 import { NotificationService } from '../domains/notification/services/NotificationService';
+import { NotificationGateway, getNotificationGateway } from '../domains/notification/services/NotificationGateway';
 import { getPushNotificationDispatcher, PushNotificationDispatcher } from './PushNotificationDispatcher';
 import { OrderRepository } from '../repositories/OrderRepository';
 import { ShopRepository } from '../repositories/ShopRepository';
@@ -90,6 +91,7 @@ const EMAIL_RETRY_CONFIG = {
 export class AppointmentReminderService {
   private emailService: EmailService;
   private notificationService: NotificationService;
+  private notificationGateway: NotificationGateway;
   private pushDispatcher: PushNotificationDispatcher;
   private orderRepository: OrderRepository;
   private shopRepository: ShopRepository;
@@ -106,6 +108,7 @@ export class AppointmentReminderService {
   constructor() {
     this.emailService = new EmailService();
     this.notificationService = new NotificationService();
+    this.notificationGateway = getNotificationGateway();
     this.pushDispatcher = getPushNotificationDispatcher();
     this.orderRepository = new OrderRepository();
     this.shopRepository = new ShopRepository();
@@ -307,10 +310,7 @@ export class AppointmentReminderService {
 
       const message = `Reminder: You have an appointment tomorrow at ${data.shopName} for ${data.serviceName} at ${this.formatTime(data.bookingTimeSlot)}`;
 
-      await this.notificationService.createNotification({
-        senderAddress: 'SYSTEM',
-        receiverAddress: data.customerAddress,
-        notificationType: 'appointment_reminder',
+      await this.notificationGateway.dispatch('appointment_reminder', data.customerAddress, {
         message,
         metadata: {
           orderId: data.orderId,
@@ -319,19 +319,11 @@ export class AppointmentReminderService {
           serviceName: data.serviceName,
           bookingDate: bookingDateTime.toISOString(),
           bookingTime: data.bookingTimeSlot,
+          bookingTimeLabel: this.formatTime(data.bookingTimeSlot),
           reminderType: '24h',
           timestamp: new Date().toISOString()
         }
       });
-
-      // Send push notification
-      await this.pushDispatcher.sendAppointmentReminder(
-        data.customerAddress,
-        data.shopName,
-        data.serviceName,
-        this.formatTime(data.bookingTimeSlot),
-        data.orderId
-      );
     } catch (error) {
       logger.error('Error sending 24h in-app notification:', error);
       throw error;
@@ -349,10 +341,7 @@ export class AppointmentReminderService {
 
       const message = `Starting soon! Your ${data.serviceName} appointment at ${data.shopName} is in about 2 hours at ${this.formatTime(data.bookingTimeSlot)}. Please start making your way!`;
 
-      await this.notificationService.createNotification({
-        senderAddress: 'SYSTEM',
-        receiverAddress: data.customerAddress,
-        notificationType: 'appointment_reminder_2h',
+      await this.notificationGateway.dispatch('appointment_reminder_2h', data.customerAddress, {
         message,
         metadata: {
           orderId: data.orderId,
@@ -382,10 +371,7 @@ export class AppointmentReminderService {
 
       const message = `Upcoming appointment tomorrow: ${data.customerName || 'Customer'} - ${data.serviceName} at ${this.formatTime(data.bookingTimeSlot)}`;
 
-      await this.notificationService.createNotification({
-        senderAddress: 'SYSTEM',
-        receiverAddress: data.shopId,
-        notificationType: 'upcoming_appointment',
+      await this.notificationGateway.dispatch('upcoming_appointment', data.shopId, {
         message,
         metadata: {
           orderId: data.orderId,
@@ -416,10 +402,7 @@ export class AppointmentReminderService {
 
       const message = `Appointment starting soon: ${data.customerName || 'Customer'} - ${data.serviceName} at ${this.formatTime(data.bookingTimeSlot)} (in ~2 hours)`;
 
-      await this.notificationService.createNotification({
-        senderAddress: 'SYSTEM',
-        receiverAddress: data.shopId,
-        notificationType: 'upcoming_appointment_2h',
+      await this.notificationGateway.dispatch('upcoming_appointment_2h', data.shopId, {
         message,
         metadata: {
           orderId: data.orderId,
@@ -553,12 +536,16 @@ export class AppointmentReminderService {
         await this.emailService['sendEmail'](customer.email, subject, html);
       }
 
-      // Send in-app notification to customer
-      await this.notificationService.createNotification({
-        senderAddress: 'SYSTEM',
-        receiverAddress: order.customerAddress,
-        notificationType: 'booking_confirmed',
-        message: `Your appointment for ${service.serviceName} at ${shop.name} has been confirmed for ${bookingDateTime.toLocaleDateString()} at ${bookingTime ? this.formatTime(bookingTime) : 'TBD'}`,
+      const formattedTime = bookingTime ? this.formatTime(bookingTime) : 'TBD';
+
+      // Rich notification image: prefer the booked service's image, fall back to the shop logo
+      const notificationImage = service.imageUrl || shop.logoUrl;
+
+      // In-app (persist + ws) + native push (with rich image) to customer, in
+      // one dispatch. bookingDateLabel/bookingTimeLabel feed the push body;
+      // raw bookingDate/bookingTime stay for the clients' own formatting.
+      await this.notificationGateway.dispatch('booking_confirmed', order.customerAddress, {
+        message: `Your appointment for ${service.serviceName} at ${shop.name} has been confirmed for ${bookingDateTime.toLocaleDateString()} at ${formattedTime}`,
         metadata: {
           orderId,
           shopId: order.shopId,
@@ -566,26 +553,13 @@ export class AppointmentReminderService {
           serviceName: service.serviceName,
           bookingDate: bookingDateTime.toISOString(),
           bookingTime: bookingTime,
+          bookingDateLabel: bookingDateTime.toLocaleDateString(),
+          bookingTimeLabel: formattedTime,
+          imageUrl: notificationImage,
           totalAmount: order.totalAmount,
           timestamp: new Date().toISOString()
         }
       });
-
-      // Send push notification to customer
-      const formattedTime = bookingTime ? this.formatTime(bookingTime) : 'TBD';
-
-      // Rich notification image: prefer the booked service's image, fall back to the shop logo
-      const notificationImage = service.imageUrl || shop.logoUrl;
-
-      await this.pushDispatcher.sendBookingConfirmation(
-        order.customerAddress,
-        shop.name,
-        service.serviceName,
-        bookingDateTime.toLocaleDateString(),
-        formattedTime,
-        orderId,
-        notificationImage
-      );
 
       // Send push notification to shop
       const shopWalletAddress = shop.walletAddress;
@@ -1092,10 +1066,7 @@ export class AppointmentReminderService {
 
       const message = `Note: ${data.customerName || 'Customer'}'s ${reminderTypeLabel} reminder for their ${data.serviceName} appointment was not sent because they have Quiet Hours enabled (${this.formatTime(quietHoursStart)} - ${this.formatTime(quietHoursEnd)}). Consider reaching out directly if needed.`;
 
-      await this.notificationService.createNotification({
-        senderAddress: 'SYSTEM',
-        receiverAddress: data.shopId,
-        notificationType: 'reminder_skipped_quiet_hours',
+      await this.notificationGateway.dispatch('reminder_skipped_quiet_hours', data.shopId, {
         message,
         metadata: {
           orderId: data.orderId,
