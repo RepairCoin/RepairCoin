@@ -5,11 +5,27 @@
 
 import { Request, Response } from 'express';
 import { CustomerImportExportService } from '../services/CustomerImportExportService';
+import { customerImportMappingService } from '../services/CustomerImportMappingService';
+import { extractHeadersAndSamples } from '../../../utils/customerExcelParser';
 import { getFileType, validateFileSignature } from '../../../middleware/fileUpload';
 import { generateFilename } from '../../../utils/customerExcelGenerator';
 import { logger } from '../../../utils/logger';
 
 const importExportService = new CustomerImportExportService();
+
+/** Parse the multipart `columnMapping` field (a JSON string) into a {field: header} object. */
+function parseColumnMapping(raw: any): Record<string, string> | undefined {
+  if (!raw) return undefined;
+  try {
+    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(obj)) if (typeof v === 'string' && v.trim()) out[k] = v.trim();
+      return Object.keys(out).length ? out : undefined;
+    }
+  } catch { /* ignore malformed mapping */ }
+  return undefined;
+}
 
 /**
  * Export customers to Excel or CSV
@@ -218,7 +234,13 @@ export async function importCustomers(req: Request, res: Response): Promise<void
       {
         mode,
         dryRun,
-        onDuplicateWallet
+        onDuplicateWallet,
+        // Origin tag stored on imported rows (e.g. 'square'); defaults to 'import' in the service.
+        source: typeof req.body.source === 'string' ? req.body.source.trim().slice(0, 40) : undefined,
+        // Confirmed AI/explicit column mapping (JSON string in multipart form).
+        columnMapping: parseColumnMapping(req.body.columnMapping),
+        // Target shop these customers belong to (admin-picked) → stamped on home_shop_id.
+        homeShopId: typeof req.body.homeShopId === 'string' && req.body.homeShopId.trim() ? req.body.homeShopId.trim() : undefined
       }
     );
 
@@ -254,6 +276,47 @@ export async function importCustomers(req: Request, res: Response): Promise<void
       error: 'Import failed',
       message: error.message
     });
+  }
+}
+
+/**
+ * AI-suggest a column mapping for an uploaded file (Phase 2 — "just give the file").
+ * POST /api/customers/import/suggest-mapping
+ * Reads only the headers + a few sample rows and returns a proposed {field → header} mapping for
+ * the human to confirm before the real import. Does NOT import anything.
+ */
+export async function suggestImportMapping(req: Request, res: Response): Promise<void> {
+  try {
+    const { role, shopId } = req.user as any;
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded', message: 'Upload a .xlsx, .xls, or .csv file' });
+      return;
+    }
+    const fileName = req.file.originalname;
+    if (!validateFileSignature(req.file.buffer, fileName)) {
+      res.status(422).json({ success: false, error: 'Invalid file format', message: 'File signature does not match extension.' });
+      return;
+    }
+    const fileType = getFileType(fileName);
+    if (!fileType) {
+      res.status(422).json({ success: false, error: 'Invalid file format', message: 'File must be .xlsx, .xls, or .csv' });
+      return;
+    }
+
+    const { headers, samples } = extractHeadersAndSamples(req.file.buffer, fileType, 5);
+    if (headers.length === 0) {
+      res.status(422).json({ success: false, error: 'Empty file', message: 'No header row found.' });
+      return;
+    }
+
+    // Spend-cap is per-shop; admin imports (no shopId) skip the cap.
+    const suggestion = await customerImportMappingService.suggestMapping(headers, samples, role === 'admin' ? null : shopId);
+
+    res.status(200).json({ success: true, headers, mapping: suggestion.mapping, unmapped: suggestion.unmapped, notes: suggestion.notes });
+  } catch (error: any) {
+    const status = error.status || 500;
+    logger.error('suggestImportMapping failed', { error: error.message });
+    res.status(status).json({ success: false, error: 'Mapping suggestion failed', message: error.message });
   }
 }
 

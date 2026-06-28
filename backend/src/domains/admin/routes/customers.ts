@@ -78,7 +78,39 @@ router.get('/grouped-by-shop',
           lastTransactionDate: tx.last_transaction,
           totalTransactions: parseInt(tx.transaction_count),
           isActive: customerData.isActive !== false,
-          joinDate: customerData.joinDate
+          joinDate: customerData.joinDate,
+          importSource: customerData.importSource ?? null,
+          isPlaceholder: customerAddress.startsWith('0xmanual')
+        });
+      });
+
+      // Also group customers assigned to a shop via home_shop_id (e.g. imported/migrated customers
+      // that have no transactions yet) so they show under their shop, not as "without shops".
+      const homeShopAddrs = new Set<string>();
+      const homeShopRows = await db.query(
+        `SELECT LOWER(address) AS address, home_shop_id, name, email, tier,
+                COALESCE(lifetime_earnings, 0)::float AS lifetime_earnings, is_active, created_at, import_source
+           FROM customers WHERE home_shop_id IS NOT NULL`
+      );
+      homeShopRows.rows.forEach((c: any) => {
+        const addr = c.address;
+        homeShopAddrs.add(addr);
+        const shopId = c.home_shop_id;
+        if (!shopCustomerMap.has(shopId)) shopCustomerMap.set(shopId, []);
+        const bucket = shopCustomerMap.get(shopId);
+        if (bucket.some((x: any) => String(x.address).toLowerCase() === addr)) return; // already via transactions
+        bucket.push({
+          address: addr,
+          name: c.name,
+          email: c.email,
+          tier: c.tier,
+          lifetimeEarnings: parseFloat(c.lifetime_earnings) || 0,
+          lastTransactionDate: null,
+          totalTransactions: 0,
+          isActive: c.is_active !== false,
+          joinDate: c.created_at,
+          importSource: c.import_source ?? null,
+          isPlaceholder: addr.startsWith('0xmanual')
         });
       });
 
@@ -93,17 +125,25 @@ router.get('/grouped-by-shop',
         }))
         .sort((a, b) => b.totalCustomers - a.totalCustomers);
 
-      // Find customers without any shop transactions
+      // Find customers with neither shop transactions NOR a home shop (truly unattached).
       const customersWithoutShops = allCustomers
-        .filter(customer => !customersWithTransactions.has(customer.address.toLowerCase()))
+        .filter(customer => !customersWithTransactions.has(customer.address.toLowerCase())
+          && !homeShopAddrs.has(customer.address.toLowerCase()))
         .map(customer => ({
           address: customer.address,
           name: customer.name,
+          // include contact so the admin search (name/email) finds imported/wallet-less customers
+          email: (customer as any).email,
+          first_name: (customer as any).first_name,
+          last_name: (customer as any).last_name,
+          phone: (customer as any).phone,
           tier: customer.tier,
           lifetimeEarnings: customer.lifetimeEarnings || 0,
           isActive: customer.isActive !== false,
           joinDate: customer.joinDate,
-          referralCode: customer.referralCode
+          referralCode: customer.referralCode,
+          importSource: (customer as any).importSource ?? null,
+          isPlaceholder: String(customer.address).toLowerCase().startsWith('0xmanual')
         }));
 
       res.json({

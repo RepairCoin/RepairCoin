@@ -8,8 +8,15 @@
 
 import { OrchestratorTool } from "./types";
 import { proposePurchaseOrder } from "./tools/proposePurchaseOrder";
+import { rememberThis } from "./tools/rememberThis";
 
-const ORCHESTRATOR_TOOLS: readonly OrchestratorTool[] = [proposePurchaseOrder];
+// remember_this is always registered (so dispatch can resolve it), but the
+// UnifiedAssistantController only OFFERS it to the model when ENABLE_AI_MEMORY
+// is on — so it costs nothing when the feature is off.
+const ORCHESTRATOR_TOOLS: readonly OrchestratorTool[] = [
+  proposePurchaseOrder,
+  rememberThis,
+];
 
 const BY_NAME = new Map<string, OrchestratorTool>(
   ORCHESTRATOR_TOOLS.map((t) => [t.name, t])

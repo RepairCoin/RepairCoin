@@ -38,6 +38,13 @@ export type MarketingToolDisplay =
       kind: "audience_summary";
       label: string;
       resolvedCount: number;
+      /**
+       * How many resolved recipients actually have an email address — the
+       * real ceiling for an email send. Surfaced for imported/Square cohorts
+       * (often phone-dominant) where resolvedCount >> reachable. Optional so
+       * older backend responses still type-check.
+       */
+      reachableByEmail?: number;
       audienceType: string;
       audienceFilters: Record<string, unknown>;
       sampleNames?: string[];
@@ -81,6 +88,12 @@ export type MarketingToolDisplay =
       /** Coupon — a bonus-RCN code redeemed on the next visit. code is null at
        *  draft (minted at send); shown as "code added when sent". */
       coupon?: { code: string | null; bonusRcn: number; expiresAt: string } | null;
+      /** Welcome-on-claim RCN baked into an imported_winback draft (granted when the
+       *  customer claims). Present only for win-back drafts with it active. */
+      welcomeRewardRcn?: number;
+      /** Label of the real CTA button block in the email (e.g. "Claim Your Account" on
+       *  imported_winback drafts) — present so the preview can render it. */
+      claimCtaLabel?: string;
     }
   | {
       // Inline send-confirm chip for an existing draft. Tap fires the

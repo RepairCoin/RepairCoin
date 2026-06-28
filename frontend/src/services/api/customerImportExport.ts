@@ -67,7 +67,8 @@ export const downloadTemplate = async (format: 'xlsx' | 'csv' = 'xlsx'): Promise
  */
 export const importCustomers = async (
   file: File,
-  options: ImportOptions
+  options: ImportOptions,
+  extra?: { columnMapping?: Record<string, string>; source?: string; homeShopId?: string }
 ): Promise<ImportResult> => {
   try {
     const formData = new FormData();
@@ -77,6 +78,11 @@ export const importCustomers = async (
     if (options.onDuplicateName) {
       formData.append('onDuplicateWallet', options.onDuplicateName);
     }
+    if (extra?.columnMapping && Object.keys(extra.columnMapping).length) {
+      formData.append('columnMapping', JSON.stringify(extra.columnMapping));
+    }
+    if (extra?.source) formData.append('source', extra.source);
+    if (extra?.homeShopId) formData.append('homeShopId', extra.homeShopId);
 
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/customers/import`,
@@ -98,6 +104,30 @@ export const importCustomers = async (
     console.error('Error importing customers:', error);
     throw error;
   }
+};
+
+export interface MappingSuggestion {
+  success: boolean;
+  headers: string[];
+  mapping: Record<string, string>; // ourField -> source header
+  unmapped: string[];
+  notes?: string;
+}
+
+/**
+ * AI-suggest a column mapping for a file (Phase 2). Reads only headers + samples server-side and
+ * returns a proposed {field → header} map for the user to confirm before importing.
+ */
+export const suggestImportMapping = async (file: File): Promise<MappingSuggestion> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/customers/import/suggest-mapping`,
+    { method: 'POST', credentials: 'include', body: formData }
+  );
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Mapping suggestion failed');
+  return data;
 };
 
 /**
@@ -144,6 +174,7 @@ export const customerImportExportApi = {
   exportCustomers,
   downloadTemplate,
   importCustomers,
+  suggestImportMapping,
   getImportStatus,
   downloadFile,
   generateFilename,

@@ -60,7 +60,7 @@ export interface MarketingCampaign {
   previewText: string | null;
   designContent: Record<string, any>;
   templateId: string | null;
-  audienceType: 'all_customers' | 'select_customers' | 'top_spenders' | 'frequent_visitors' | 'active_customers' | 'custom';
+  audienceType: 'all_customers' | 'select_customers' | 'top_spenders' | 'frequent_visitors' | 'active_customers' | 'custom' | 'imported_winback';
   audienceFilters: Record<string, any>;
   deliveryMethod: 'email' | 'in_app' | 'both';
   scheduledAt: Date | null;

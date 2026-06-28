@@ -19,7 +19,7 @@ import { AdEnrollmentCTA } from "@/components/ads/AdEnrollmentCTA";
 import { CampaignBriefFields, briefToApi, emptyBrief, type BriefValue } from "@/components/ads/CampaignBriefFields";
 import {
   listShopCampaigns, getShopCampaignPerformance, getShopCapacity,
-  listMyCampaignRequests, submitCampaignRequest, getMySubscription, getMetaConnection, fmtUsd, fmtRoi,
+  listMyCampaignRequests, submitCampaignRequest, getMySubscription, getMetaConnection, fmtMoney, fmtRoi,
   type AdCampaign, type CampaignPerformance, type ShopCapacity, type AdCampaignRequest,
   type FlatTierName, type MetaConnection,
 } from "@/services/api/ads";
@@ -228,8 +228,8 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
                       >
                         <p className="text-sm font-medium text-white">{c.name}</p>
                         <p className="text-xs text-gray-500 capitalize">
-                          {c.status} · {fmtUsd(c.dailyBudgetCents)}/day
-                          {monthly != null && <span className="normal-case"> · ${(monthly / 100).toFixed(0)}/mo</span>}
+                          {c.status} · {fmtMoney(c.dailyBudgetCents, c.currency ?? metaConn?.currency)}/day
+                          {monthly != null && <span className="normal-case"> · {fmtMoney(monthly, c.currency ?? metaConn?.currency)}/mo</span>}
                         </p>
                       </button>
                     );
@@ -243,7 +243,7 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
                       </div>
                       {(r.monthlyBudgetCents != null || r.declineReason) && (
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {r.monthlyBudgetCents != null && <>${(r.monthlyBudgetCents / 100).toFixed(0)}/mo</>}
+                          {r.monthlyBudgetCents != null && <>{fmtMoney(r.monthlyBudgetCents, metaConn?.currency)}/mo</>}
                           {r.declineReason && <span className="text-red-400/80"> · {r.declineReason}</span>}
                         </p>
                       )}
@@ -271,13 +271,13 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
                         <TrendingUp className="w-5 h-5 text-[#FFCC00]" /> Performance
                       </h3>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <Stat label="Spend" value={fmtUsd(perf.roi.totalSpendCents)} />
-                        <Stat label="Revenue" value={fmtUsd(perf.roi.totalRevenueCents)} />
+                        <Stat label="Spend" value={fmtMoney(perf.roi.totalSpendCents, metaConn?.currency)} />
+                        <Stat label="Revenue" value={fmtMoney(perf.roi.totalRevenueCents, metaConn?.currency)} />
                         <Stat label="ROI" value={fmtRoi(perf.roi.roi)} accent />
                         <Stat label="Bookings" value={String(perf.roi.totalBookings)} />
                         <Stat label="Leads" value={String(perf.roi.totalLeads)} />
-                        <Stat label="Cost / Lead" value={fmtUsd(perf.roi.cplCents)} />
-                        <Stat label="Cost / Booking" value={fmtUsd(perf.roi.cpbCents)} />
+                        <Stat label="Cost / Lead" value={fmtMoney(perf.roi.cplCents, metaConn?.currency)} />
+                        <Stat label="Cost / Booking" value={fmtMoney(perf.roi.cpbCents, metaConn?.currency)} />
                         <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
                       </div>
                       <div className="mt-5">

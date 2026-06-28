@@ -10,15 +10,22 @@
 //   Regenerate · Approve
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, UploadCloud, Rocket, Sparkles, Wand2, Check, X, Maximize2, ImageUp } from "lucide-react";
+import { Loader2, UploadCloud, Rocket, Sparkles, Wand2, Check, X, Maximize2, ImageUp, Lock, RefreshCw, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   listCreatives, reviewCreative, regenerateAdImage, updateCampaignDraft,
-  uploadAdCreativeImage, useManualAdImage,
-  pushCampaignToMeta, goLiveCampaign, type AdCampaign, type AdCreative,
+  uploadAdCreativeImage, useManualAdImage, getShopMetaAccount, syncCampaignFromMeta,
+  pushCampaignToMeta, goLiveCampaign, type AdCampaign, type AdCreative, type ShopMetaAccount,
 } from "@/services/api/ads";
 
 const inputCls = "w-full px-2.5 py-1.5 bg-[#0F0F0F] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00]";
+
+// Human label for the Meta objective that will actually be created.
+const OBJECTIVE_LABELS: Record<string, string> = {
+  OUTCOME_TRAFFIC: "Website clicks (link clicks → landing page)",
+  OUTCOME_AWARENESS: "Awareness (reach)",
+  OUTCOME_ENGAGEMENT: "Messages (Messenger)",
+};
 
 export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => void }> = ({ campaign, onChanged }) => {
   const [creative, setCreative] = useState<AdCreative | null>(null);
@@ -35,6 +42,10 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
   const [dailyBudget, setDailyBudget] = useState(String((campaign.dailyBudgetCents / 100).toFixed(0)));
   const [radius, setRadius] = useState(campaign.targetRadiusMiles != null ? String(campaign.targetRadiusMiles) : "");
   const [objective, setObjective] = useState(campaign.objective || "OUTCOME_TRAFFIC");
+  const [metaEnhance, setMetaEnhance] = useState(!!campaign.allowMetaEnhancements);
+  const [testBudget, setTestBudget] = useState(!!campaign.isTestBudget);
+  const [acct, setAcct] = useState<ShopMetaAccount | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const onMeta = !!campaign.metaCampaignId; // pushed (PAUSED) vs local draft
 
@@ -51,8 +62,19 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
   }, [campaign.id, regenOpen]);
 
   useEffect(() => { void load(); }, [campaign.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The connected ad account's currency + minimum, so the budget is shown in the right currency.
+  useEffect(() => {
+    let alive = true;
+    getShopMetaAccount(campaign.shopId).then((a) => { if (alive) setAcct(a); }).catch(() => {});
+    return () => { alive = false; };
+  }, [campaign.shopId]);
 
   const approved = creative?.reviewStatus === "approved";
+  // Warn if the entered daily budget is below the account's minimum (account currency).
+  const budgetBelowMin =
+    acct?.minDailyBudgetCents != null &&
+    !Number.isNaN(parseFloat(dailyBudget)) &&
+    Math.round(parseFloat(dailyBudget) * 100) < acct.minDailyBudgetCents;
 
   const saveDetails = async () => {
     const edits: any = {};
@@ -61,6 +83,8 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
     const r = parseInt(radius, 10);
     if (!Number.isNaN(r) && r !== campaign.targetRadiusMiles) edits.radiusMiles = r;
     if (!onMeta && objective !== (campaign.objective || "OUTCOME_TRAFFIC")) edits.objective = objective;
+    if (metaEnhance !== !!campaign.allowMetaEnhancements) edits.allowMetaEnhancements = metaEnhance;
+    if (!onMeta && testBudget !== !!campaign.isTestBudget) edits.isTestBudget = testBudget;
     if (headline.trim() && headline.trim() !== (creative?.headline || "")) edits.headline = headline.trim();
     if (primaryText.trim() && primaryText.trim() !== (creative?.body || "")) edits.primaryText = primaryText.trim();
     if (Object.keys(edits).length === 0) { toast("Nothing to update."); return; }
@@ -139,6 +163,41 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
     } finally { setBusy(null); }
   };
 
+  // Two-way sync: pull the latest config from Meta (Ads-Manager edits) into this draft. Works on a
+  // pushed-but-paused draft (it has meta ids); reflects budget/status/objective/radius + creative.
+  const syncFromMeta = async () => {
+    setSyncing(true);
+    try {
+      const r = await syncCampaignFromMeta(campaign.id);
+      if (r.status === "synced") {
+        // Refresh the local form fields from the reconciled campaign so the edits show immediately.
+        setDailyBudget(String((r.campaign.dailyBudgetCents / 100).toFixed(0)));
+        setRadius(r.campaign.targetRadiusMiles != null ? String(r.campaign.targetRadiusMiles) : "");
+        setObjective(r.campaign.objective || "OUTCOME_TRAFFIC");
+        setMetaEnhance(!!r.campaign.allowMetaEnhancements);
+        const n = Object.keys(r.changes || {}).length;
+        toast.success(`Synced from Meta — updated ${n} field${n > 1 ? "s" : ""}.`);
+        await load();        // refresh creative (headline/body/image + external-edit flag)
+        onChanged?.();       // refresh the parent (status/budget on the list)
+      } else if (r.status === "in_sync") {
+        toast.success("Already in sync with Meta.");
+      } else if (r.status === "diverged") {
+        toast.error(r.reason === "meta_deleted"
+          ? "This campaign was deleted in Ads Manager — marked archived."
+          : "This campaign was archived in Ads Manager — marked archived here.");
+        onChanged?.();
+      } else if (r.status === "skipped") {
+        toast(r.reason === "disconnected" ? "Reconnect the shop's Meta account to sync." : "This campaign isn't on Meta yet.");
+      } else if (r.status === "error") {
+        toast.error("Couldn't reach Meta — please try again.");
+      } else {
+        toast("Meta config sync isn't enabled.");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't sync from Meta.");
+    } finally { setSyncing(false); }
+  };
+
   return (
     <div className="rounded-xl border border-[#FFCC00]/40 bg-[#141414] p-4">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
@@ -146,18 +205,40 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
           {onMeta ? "Drafted on Meta (paused) — review & go live" : "Draft — review & launch"}
         </p>
         {onMeta ? (
-          <button onClick={goLive} disabled={busy !== null || !approved} title={approved ? "" : "Approve the creative first"}
-            className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-40 disabled:cursor-not-allowed">
-            {busy === "live" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} Go live
-          </button>
+          <div className="flex items-center gap-2">
+            {acct?.configSyncEnabled && (
+              <button onClick={syncFromMeta} disabled={syncing || busy !== null}
+                title="Pull the latest budget, status, objective, targeting & creative from Meta Ads Manager"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50">
+                {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh from Meta
+              </button>
+            )}
+            <button onClick={goLive} disabled={busy !== null || !approved} title={approved ? "Activate this campaign on Meta (starts spending)" : "Approve the ad creative below to enable Go live"}
+              className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md transition-colors ${
+                approved ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "bg-gray-700/40 text-gray-500 cursor-not-allowed"
+              } disabled:cursor-not-allowed`}>
+              {busy === "live" ? <Loader2 className="w-4 h-4 animate-spin" /> : approved ? <Rocket className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />} Go live
+            </button>
+          </div>
         ) : (
-          <button onClick={push} disabled={busy !== null || !approved} title={approved ? "" : "Approve the creative first"}
-            className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md bg-[#FFCC00] text-black hover:bg-[#E6B800] disabled:opacity-40 disabled:cursor-not-allowed">
-            {busy === "push" ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />} Push to Meta
+          <button onClick={push} disabled={busy !== null || !approved} title={approved ? "Create the campaign on Meta (paused)" : "Approve the ad creative below to enable Push to Meta"}
+            className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md transition-colors ${
+              approved ? "bg-[#FFCC00] text-black hover:bg-[#E6B800]" : "bg-gray-700/40 text-gray-500 cursor-not-allowed"
+            } disabled:cursor-not-allowed`}>
+            {busy === "push" ? <Loader2 className="w-4 h-4 animate-spin" /> : approved ? <UploadCloud className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />} Push to Meta
           </button>
         )}
       </div>
-      {campaign.notes && <p className="text-xs text-gray-500 mb-3">What the shop asked for: <span className="text-gray-300">{campaign.notes}</span></p>}
+      {!approved && (
+        <p className="text-[11px] text-amber-400/90 mb-1 flex items-center gap-1">
+          <Lock className="w-3 h-3" /> {onMeta ? "Go live" : "Push to Meta"} is locked until you approve the ad creative below.
+        </p>
+      )}
+      {campaign.notes && <p className="text-xs text-gray-500">What the shop asked for: <span className="text-gray-300">{campaign.notes}</span></p>}
+      <p className="text-xs text-gray-500 mb-3">
+        Objective on Meta: <span className="text-gray-300">{OBJECTIVE_LABELS[objective] || objective}</span>
+        {onMeta && <span className="text-gray-600"> · locked after push</span>}
+      </p>
 
       {loading ? (
         <div className="flex items-center gap-2 text-gray-400 text-sm py-4"><Loader2 className="w-4 h-4 animate-spin" /> Loading draft…</div>
@@ -182,6 +263,12 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
                 <span className={`text-xs px-1.5 py-0.5 rounded ${approved ? "bg-green-500/15 text-green-400" : creative.reviewStatus === "rejected" ? "bg-red-500/15 text-red-400" : "bg-amber-500/15 text-amber-400"}`}>{creative.reviewStatus}</span>
               )}
               <span className="text-xs text-[#FFCC00] inline-flex items-center gap-1"><Sparkles className="w-3 h-3" /> AI</span>
+              {creative?.externallyEdited && (
+                <span title="Edited in Ads Manager — not reviewed by FixFlow. Re-approve to acknowledge."
+                  className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 inline-flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Edited in Ads Manager
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <button onClick={() => setRegenOpen((v) => !v)} disabled={busy !== null || uploading}
@@ -240,10 +327,38 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
                 Optimizes for clicks to the shop&apos;s landing page, where the lead form captures the customer.
               </p>
             </div>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" className="mt-0.5 accent-[#FFCC00]" checked={metaEnhance} onChange={(e) => setMetaEnhance(e.target.checked)} />
+              <span className="text-xs text-gray-300">
+                Allow Meta AI creative enhancements
+                <span className="block text-[11px] text-gray-500">
+                  After approval, lets Meta auto-generate on-delivery variations (image expansion, background, text) of your approved ad. Off = your approved creative only.
+                </span>
+              </span>
+            </label>
+            {!onMeta && (
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" className="mt-0.5 accent-[#FFCC00]" checked={testBudget} onChange={(e) => setTestBudget(e.target.checked)} />
+                <span className="text-xs text-gray-300">
+                  Start as a test budget
+                  <span className="block text-[11px] text-gray-500">
+                    Launches at ~40% of the daily budget (floored at the account minimum). After ~30 days of break-even ROI, you&apos;re prompted to scale to the full budget.
+                  </span>
+                </span>
+              </label>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Daily budget</label>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Daily budget{acct?.currency ? ` (${acct.currency})` : ""}
+                </label>
                 <input className={inputCls} type="number" value={dailyBudget} onChange={(e) => setDailyBudget(e.target.value)} />
+                {acct?.minDailyBudgetCents != null && (
+                  <p className={`text-[11px] mt-1 ${budgetBelowMin ? "text-amber-400" : "text-gray-500"}`}>
+                    {budgetBelowMin ? "⚠ Below the account minimum — " : "Account minimum: "}
+                    {acct.currency || ""} {(acct.minDailyBudgetCents / 100).toFixed(2)}/day
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Radius (mi)</label>

@@ -18,6 +18,12 @@ export interface AdCampaign {
   dailyBudgetCents: number;
   status: CampaignStatus;
   objective?: string | null; // OUTCOME_TRAFFIC | OUTCOME_AWARENESS | OUTCOME_ENGAGEMENT (admin picker)
+  allowMetaEnhancements?: boolean; // opt-in Meta Advantage+ creative enhancements
+  needsCreativeRefresh?: boolean;  // Safeguard 5: underperforming → nudge a free creative swap
+  creativeRefreshReason?: string | null;
+  isTestBudget?: boolean;          // Safeguard 4: running at the reduced test budget
+  fullDailyBudgetCents?: number | null;
+  testBudgetUpgradeReady?: boolean; // window passed + ROI ok → nudge scale-up
   aiAgentEnabled: boolean;
   notes: string | null;
   createdAt: string;
@@ -26,6 +32,7 @@ export interface AdCampaign {
   metaCampaignId?: string | null;
   metaStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ACTIVE
   targetRadiusMiles?: number | null;
+  currency?: string | null; // joined from shops.meta_currency — the connected ad account's currency
 }
 
 export interface CampaignRoi {
@@ -301,6 +308,10 @@ export interface AdCreative {
   reviewStatus: CreativeReviewStatus;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  /** Two-way sync: the live creative was swapped/edited in Ads Manager and reflected back here,
+   *  bypassing FixFlow's review gate. Surfaced as an "Edited in Ads Manager" badge. */
+  externallyEdited?: boolean;
+  externallyEditedAt?: string | null;
   createdAt: string;
 }
 
@@ -558,6 +569,10 @@ export interface CampaignDraftEdit {
   manualImageUrl?: string;
   /** Meta objective picker (pre-push only): OUTCOME_TRAFFIC | OUTCOME_AWARENESS. */
   objective?: string;
+  /** Opt into Meta Advantage+ creative enhancements (applies on the next creative push). */
+  allowMetaEnhancements?: boolean;
+  /** Safeguard 4 — start at a reduced test budget (pre-push only). */
+  isTestBudget?: boolean;
 }
 export const updateCampaignDraft = async (id: string, edits: CampaignDraftEdit): Promise<AdCampaign> => {
   // Regenerating the image runs gpt-image-1 → allow up to 4 min.
@@ -589,6 +604,62 @@ export const pushCampaignToMeta = async (id: string): Promise<AdCampaign> => {
 export const goLiveCampaign = async (id: string): Promise<{ campaignId: string; status: string }> => {
   const res = await apiClient.post(`/ads/campaigns/${id}/go-live`, {});
   return unwrap(res);
+};
+/** Safeguard 4 — scale a test-budget campaign up to its full daily budget. */
+export const scaleCampaignBudget = async (id: string): Promise<AdCampaign> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/scale-to-full`, {});
+  return unwrap<AdCampaign>(res);
+};
+
+/** Two-way config sync — pull this campaign's budget/status back FROM Meta into our DB
+ *  (Meta is source-of-truth for live). Returns the fresh campaign + which fields changed
+ *  (empty when already in sync, the feature is off, or the campaign isn't pushed). */
+export type SyncFromMetaStatus = 'disabled' | 'skipped' | 'synced' | 'in_sync' | 'diverged' | 'error';
+export interface SyncFromMetaResult {
+  campaign: AdCampaign;
+  status: SyncFromMetaStatus;
+  changes: Record<string, unknown>;
+  reason?: 'not_pushed' | 'disconnected' | 'meta_archived' | 'meta_deleted';
+  error?: string;
+}
+export const syncCampaignFromMeta = async (id: string): Promise<SyncFromMetaResult> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/sync-from-meta`, {});
+  return unwrap<SyncFromMetaResult>(res);
+};
+
+// Landing-page magnet overrides (Phase 2). All optional — anything unset auto-composes.
+export interface LandingConfig {
+  headline?: string;
+  subhead?: string;
+  urgencyText?: string;
+  benefitBullets?: string[];
+  ctaLabel?: string;
+  showRating?: boolean;
+  callNowEnabled?: boolean;
+}
+export const getLandingConfig = async (campaignId: string): Promise<LandingConfig> => {
+  const res = await apiClient.get(`/ads/campaigns/${campaignId}/landing-config`);
+  return unwrap<LandingConfig>(res);
+};
+export const updateLandingConfig = async (campaignId: string, config: LandingConfig): Promise<LandingConfig> => {
+  const res = await apiClient.put(`/ads/campaigns/${campaignId}/landing-config`, config);
+  return unwrap<LandingConfig>(res);
+};
+
+// The connected ad account's currency + minimum daily budget — so the budget field is shown in
+// the account's own currency (no $/PHP ambiguity) and validated against the minimum.
+export interface ShopMetaAccount {
+  connected: boolean;
+  currency?: string | null;
+  minDailyBudgetCents?: number | null;
+  accountActive?: boolean;
+  hasFunding?: boolean;
+  /** Two-way config-sync feature flag — gates the admin "Refresh from Meta" button. */
+  configSyncEnabled?: boolean;
+}
+export const getShopMetaAccount = async (shopId: string): Promise<ShopMetaAccount> => {
+  const res = await apiClient.get(`/ads/shops/${shopId}/meta-account`);
+  return unwrap<ShopMetaAccount>(res);
 };
 // §9.6 — admin marks a shop's ad account connected/disconnected (build precondition).
 export const setShopAdsAccount = async (shopId: string, connected: boolean) => {
@@ -634,6 +705,7 @@ export interface MetaConnection {
   hasToken: boolean;      // OAuth done but no account/Page picked yet
   adAccountId: string | null;
   pageId: string | null;
+  currency?: string | null; // the connected ad account's currency (ISO code) — for the shop budget label
   leadgenTosAccepted?: boolean | null; // has the Page accepted Meta's Lead Gen ToS? (null = unknown)
 }
 export interface MetaAdAccount { id: string; accountId: string; name: string; status?: number; }
@@ -690,6 +762,22 @@ export const listShopAwaitingLeads = async (): Promise<AdLead[]> => {
 
 export const fmtUsd = (cents: number | null | undefined): string =>
   cents == null ? '—' : `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+// SHOP ad money (budget / spend / revenue / CPL / CPB) shown in the connected ad account's
+// own currency — avoids the "$ vs PHP" ambiguity. Falls back to USD when currency is unknown
+// (legacy rows / not connected). Use fmtUsd for FixFlow's OWN fees/COGS, which are always USD.
+export const fmtMoney = (cents: number | null | undefined, currency?: string | null): string => {
+  if (cents == null) return '—';
+  const ccy = (currency || 'USD').toUpperCase();
+  try {
+    return (cents / 100).toLocaleString(undefined, {
+      style: 'currency', currency: ccy, minimumFractionDigits: 0, maximumFractionDigits: 0,
+    });
+  } catch {
+    // Unknown/invalid ISO code → plain number + code suffix.
+    return `${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${ccy}`;
+  }
+};
 
 export const fmtRoi = (roi: number | null): string =>
   roi == null ? '—' : `${(roi * 100).toFixed(0)}%`;

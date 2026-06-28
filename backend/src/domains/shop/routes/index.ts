@@ -68,6 +68,7 @@ import depositRoutes from './deposit';
 import purchaseSyncRoutes from './purchase-sync';
 import paymentMethodsRoutes from './paymentMethods';
 import moderationRoutes from './moderation';
+import welcomeRcnRoutes from './welcomeRcn';
 import teamRoutes from './team';
 import calendarRoutes from '../../ShopDomain/routes/calendar.routes';
 import gmailRoutes from '../../ShopDomain/routes/gmail.routes';
@@ -84,6 +85,7 @@ router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes 
 router.use('/reports', authMiddleware, requireRole(['shop']), requireShopPermission('analytics:view'), reportsRoutes); // Reports routes
 router.use('/moderation', authMiddleware, requireRole(['shop']), requireShopPermission('customers:view'), moderationRoutes); // Moderation routes
 router.use('/team', teamRoutes); // Team management (auth handled per-route: accept is public)
+router.use('/welcome-rcn', authMiddleware, requireRole(['shop']), requireShopPermission('shop:manage'), welcomeRcnRoutes); // Welcome-RCN-on-claim settings
 router.use('/calendar', calendarRoutes); // Calendar integration routes (auth handled in route file)
 router.use('/gmail', gmailRoutes); // Gmail integration routes (auth handled in route file)
 

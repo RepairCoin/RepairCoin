@@ -70,7 +70,8 @@ export const downloadTemplate = async (format: 'xlsx' | 'csv' = 'xlsx'): Promise
  */
 export const importServices = async (
   file: File,
-  options: ImportOptions
+  options: ImportOptions,
+  extra?: { columnMapping?: Record<string, string> }
 ): Promise<ImportResult> => {
   try {
     const formData = new FormData();
@@ -79,6 +80,9 @@ export const importServices = async (
     formData.append('dryRun', String(options.dryRun));
     if (options.onDuplicateName) {
       formData.append('onDuplicateName', options.onDuplicateName);
+    }
+    if (extra?.columnMapping && Object.keys(extra.columnMapping).length) {
+      formData.append('columnMapping', JSON.stringify(extra.columnMapping));
     }
 
     const response = await fetch(
@@ -101,6 +105,27 @@ export const importServices = async (
     console.error('Error importing services:', error);
     throw error;
   }
+};
+
+export interface ServiceMappingSuggestion {
+  success: boolean;
+  headers: string[];
+  mapping: Record<string, string>;
+  unmapped: string[];
+  notes?: string;
+}
+
+/** AI-suggest a column mapping for a service/catalog file (Phase 3). Headers + samples only. */
+export const suggestServiceMapping = async (file: File): Promise<ServiceMappingSuggestion> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/services/import/suggest-mapping`,
+    { method: 'POST', credentials: 'include', body: formData }
+  );
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Mapping suggestion failed');
+  return data;
 };
 
 /**
@@ -181,6 +206,7 @@ export const serviceImportExportApi = {
   exportServices,
   downloadTemplate,
   importServices,
+  suggestServiceMapping,
   getImportStatus,
   sendTestImport,
   downloadFile,

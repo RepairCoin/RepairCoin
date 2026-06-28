@@ -11,6 +11,9 @@ import csvParser from 'csv-parser';
 export interface ParsedCustomer {
   rowIndex: number; // 1-indexed for user-friendly error messages
   walletAddress: string;
+  /** false when the wallet was auto-generated (0xMANUAL… placeholder) because the file had none —
+   *  a migrated/wallet-less customer keyed on email/phone, not a real on-chain wallet. */
+  walletProvided: boolean;
   name?: string;
   firstName?: string;
   lastName?: string;
@@ -21,6 +24,13 @@ export interface ParsedCustomer {
   active: boolean;
   referralCode?: string;
   referredBy?: string;
+  // Migration / marketing fields (Phase 1, D7/D9)
+  externalRef?: string;            // source system's customer id (e.g. Square Customer ID)
+  marketingEmailConsent?: boolean; // from "Email Subscription Status"
+  lifetimeSpendUsd?: number;       // USD spent at prior POS (NOT RCN)
+  firstVisitAt?: string;
+  lastVisitAt?: string;
+  visitCount?: number;
 }
 
 export interface ValidationError {
@@ -44,17 +54,27 @@ export interface ColumnMapping {
 
 // Column name aliases (flexible column name matching)
 const COLUMN_ALIASES: { [key: string]: string[] } = {
-  walletAddress: ['Wallet Address', 'wallet_address', 'WalletAddress', 'Address', 'Wallet', 'Customer Address'],
+  // NOTE: 'Address' intentionally removed — it collides with street-address columns (e.g. Square's
+  // "Street Address 1") and would mis-map a physical address into the wallet field. Wallet is
+  // optional now; rows without one get a 0xMANUAL… placeholder (keyed on email/phone).
+  walletAddress: ['Wallet Address', 'wallet_address', 'WalletAddress', 'Wallet', 'Customer Wallet'],
   name: ['Name', 'name', 'Full Name', 'FullName', 'Customer Name'],
   firstName: ['First Name', 'first_name', 'FirstName', 'Given Name'],
   lastName: ['Last Name', 'last_name', 'LastName', 'Surname', 'Family Name'],
-  email: ['Email', 'email', 'Email Address', 'E-mail', 'EmailAddress'],
-  phone: ['Phone', 'phone', 'Phone Number', 'PhoneNumber', 'Mobile', 'Telephone'],
+  email: ['Email', 'email', 'Email Address', 'E-mail', 'EmailAddress', 'E-mail Address'],
+  phone: ['Phone', 'phone', 'Phone Number', 'PhoneNumber', 'Mobile', 'Mobile Number', 'Telephone', 'Contact Number', 'Cell', 'Cell Phone'],
   tier: ['Tier', 'tier', 'Customer Tier', 'Level', 'Membership'],
   lifetimeEarnings: ['Lifetime Earnings', 'lifetime_earnings', 'LifetimeEarnings', 'Total Earnings', 'Earnings'],
   active: ['Active Status', 'Active', 'active', 'Status', 'Enabled', 'IsActive'],
   referralCode: ['Referral Code', 'referral_code', 'ReferralCode', 'Code', 'Promo Code'],
-  referredBy: ['Referred By', 'referred_by', 'ReferredBy', 'Referrer', 'Referral Source']
+  referredBy: ['Referred By', 'referred_by', 'ReferredBy', 'Referrer', 'Referral Source'],
+  // Migration / marketing fields (D7/D9)
+  externalRef: ['Square Customer ID', 'Reference ID', 'Customer ID', 'External ID', 'reference_id'],
+  marketingEmailConsent: ['Email Subscription Status', 'Email Subscription', 'Subscribed', 'Marketing Consent', 'Email Opt-in'],
+  lifetimeSpendUsd: ['Lifetime Spend', 'Total Spend', 'Lifetime Value', 'Amount Spent'],
+  firstVisitAt: ['First Visit', 'First Visit Date', 'first_visit'],
+  lastVisitAt: ['Last Visit', 'Last Visit Date', 'last_visit'],
+  visitCount: ['Transaction Count', 'Visit Count', 'Visits', 'Total Visits', 'Number of Visits']
 };
 
 /**
@@ -62,23 +82,47 @@ const COLUMN_ALIASES: { [key: string]: string[] } = {
  */
 export async function parseCustomerExcel(
   buffer: Buffer,
-  fileType: 'xlsx' | 'xls' | 'csv'
+  fileType: 'xlsx' | 'xls' | 'csv',
+  mappingOverride?: ColumnMapping
 ): Promise<ParsedCustomer[]> {
   try {
     if (fileType === 'csv') {
-      return await parseCSV(buffer);
+      return await parseCSV(buffer, mappingOverride);
     } else {
-      return parseExcel(buffer);
+      return parseExcel(buffer, mappingOverride);
     }
   } catch (error: any) {
     throw new Error(`Failed to parse file: ${error.message}`);
   }
 }
 
+/** Lightweight peek for AI mapping: the file's header row + the first `n` sample rows (as
+ *  header→value objects). Uses XLSX for both xlsx/xls AND csv (it sniffs delimiters). */
+export function extractHeadersAndSamples(
+  buffer: Buffer,
+  _fileType: 'xlsx' | 'xls' | 'csv',
+  n = 5
+): { headers: string[]; samples: Record<string, string>[] } {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) return { headers: [], samples: [] };
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '', blankrows: false }) as any[][];
+  if (rows.length === 0) return { headers: [], samples: [] };
+  const headers = (rows[0] as any[]).map((h) => String(h).trim());
+  const samples: Record<string, string>[] = [];
+  for (let i = 1; i < rows.length && samples.length < n; i++) {
+    const row = rows[i];
+    const obj: Record<string, string> = {};
+    headers.forEach((h, idx) => { obj[h] = row[idx] != null ? String(row[idx]) : ''; });
+    samples.push(obj);
+  }
+  return { headers, samples };
+}
+
 /**
  * Parse Excel file (.xlsx, .xls)
  */
-function parseExcel(buffer: Buffer): ParsedCustomer[] {
+function parseExcel(buffer: Buffer, mappingOverride?: ColumnMapping): ParsedCustomer[] {
   // Read workbook from buffer
   const workbook = XLSX.read(buffer, { type: 'buffer' });
 
@@ -103,7 +147,7 @@ function parseExcel(buffer: Buffer): ParsedCustomer[] {
 
   // First row is headers
   const headers = rawData[0] as string[];
-  const columnMapping = mapColumnHeaders(headers);
+  const columnMapping = mapColumnHeaders(headers, mappingOverride);
 
   // Parse data rows (skip header)
   const parsedCustomers: ParsedCustomer[] = [];
@@ -129,7 +173,7 @@ function parseExcel(buffer: Buffer): ParsedCustomer[] {
 /**
  * Parse CSV file
  */
-function parseCSV(buffer: Buffer): Promise<ParsedCustomer[]> {
+function parseCSV(buffer: Buffer, mappingOverride?: ColumnMapping): Promise<ParsedCustomer[]> {
   return new Promise((resolve, reject) => {
     const parsedCustomers: ParsedCustomer[] = [];
     const errors: Error[] = [];
@@ -143,7 +187,7 @@ function parseCSV(buffer: Buffer): Promise<ParsedCustomer[]> {
       .pipe(csvParser())
       .on('headers', (headerRow: string[]) => {
         headers = headerRow;
-        columnMapping = mapColumnHeaders(headers);
+        columnMapping = mapColumnHeaders(headers, mappingOverride);
         rowIndex++; // Move to first data row
       })
       .on('data', (row: any) => {
@@ -174,7 +218,7 @@ function parseCSV(buffer: Buffer): Promise<ParsedCustomer[]> {
 /**
  * Map column headers to internal field names
  */
-export function mapColumnHeaders(headers: string[]): ColumnMapping {
+export function mapColumnHeaders(headers: string[], override?: ColumnMapping): ColumnMapping {
   const mapping: ColumnMapping = {};
 
   for (const [internalName, aliases] of Object.entries(COLUMN_ALIASES)) {
@@ -184,6 +228,16 @@ export function mapColumnHeaders(headers: string[]): ColumnMapping {
         mapping[internalName] = normalizedHeader;
         break;
       }
+    }
+  }
+
+  // Explicit override (e.g. AI-suggested + human-confirmed mapping) wins over alias auto-detect.
+  // Only honor entries whose source header actually exists in the file (drop hallucinations).
+  if (override) {
+    for (const [field, srcHeader] of Object.entries(override)) {
+      if (!srcHeader) { delete mapping[field]; continue; }
+      const actual = headers.find((h) => String(h).trim().toLowerCase() === String(srcHeader).trim().toLowerCase());
+      if (actual) mapping[field] = actual.trim();
     }
   }
 
@@ -212,26 +266,62 @@ function mapRowToCustomer(
     customer[internalName] = rowObj[headerName];
   }
 
-  // Skip empty rows (no wallet address)
-  if (!customer.walletAddress || String(customer.walletAddress).trim() === '') {
+  const rawWallet = customer.walletAddress ? String(customer.walletAddress).trim() : '';
+  const walletProvided = rawWallet !== '';
+  const email = customer.email ? sanitizeEmail(customer.email) : undefined;
+  const phone = customer.phone ? sanitizePhone(customer.phone) : undefined;
+  const hasContact = walletProvided || !!email || !!phone;
+  const hasName = !!(customer.name || customer.firstName || customer.lastName);
+
+  // Truly blank row (no contact AND no name) → skip silently. A named-but-contactless row is kept so
+  // validation flags it MISSING_CONTACT and it shows in the skipped report (D6), not vanishes.
+  if (!hasContact && !hasName) {
     return null;
   }
 
-  // Parse and sanitize data
+  const firstName = customer.firstName ? sanitizeString(customer.firstName) : undefined;
+  const lastName = customer.lastName ? sanitizeString(customer.lastName) : undefined;
+  // Always populate `name` (the display + search field): use the file's full-name column, else
+  // compose from first/last. Without this, imported customers show as "Anonymous" and the admin
+  // name search can't find them.
+  const fullName = customer.name ? sanitizeString(customer.name)
+    : ([firstName, lastName].filter(Boolean).join(' ') || undefined);
+
+  // Wallet-less migration (D1): email/phone present but no real wallet → 0xMANUAL… placeholder
+  // (claimable later). Contactless-but-named → empty wallet, flagged + skipped at validation.
   return {
     rowIndex,
-    walletAddress: sanitizeWalletAddress(customer.walletAddress),
-    name: customer.name ? sanitizeString(customer.name) : undefined,
-    firstName: customer.firstName ? sanitizeString(customer.firstName) : undefined,
-    lastName: customer.lastName ? sanitizeString(customer.lastName) : undefined,
-    email: customer.email ? sanitizeEmail(customer.email) : undefined,
-    phone: customer.phone ? sanitizePhone(customer.phone) : undefined,
+    walletAddress: walletProvided ? sanitizeWalletAddress(rawWallet) : (hasContact ? generatePlaceholderWallet() : ''),
+    walletProvided,
+    name: fullName,
+    firstName,
+    lastName,
+    email,
+    phone,
     tier: parseTier(customer.tier),
     lifetimeEarnings: parseLifetimeEarnings(customer.lifetimeEarnings),
     active: parseBoolean(customer.active),
     referralCode: customer.referralCode ? sanitizeString(customer.referralCode) : undefined,
-    referredBy: customer.referredBy ? sanitizeString(customer.referredBy) : undefined
+    referredBy: customer.referredBy ? sanitizeString(customer.referredBy) : undefined,
+    externalRef: customer.externalRef ? sanitizeString(customer.externalRef) : undefined,
+    marketingEmailConsent: parseConsent(customer.marketingEmailConsent),
+    lifetimeSpendUsd: parseMoneyOrUndef(customer.lifetimeSpendUsd),
+    firstVisitAt: parseDateOrUndef(customer.firstVisitAt),
+    lastVisitAt: parseDateOrUndef(customer.lastVisitAt),
+    visitCount: parseIntOrUndef(customer.visitCount),
   };
+}
+
+/** Placeholder EVM-shaped marker for a wallet-less imported customer (matches the manual-booking
+ *  convention). NOT a real wallet — claimable later by email/phone. */
+function generatePlaceholderWallet(): string {
+  const hex = Array.from({ length: 34 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  return ('0xMANUAL' + hex).slice(0, 42);
+}
+
+/** True when the wallet is a generated placeholder (skip on-chain-format validation for these). */
+export function isPlaceholderWallet(address: string): boolean {
+  return !!address && address.toLowerCase().startsWith('0xmanual');
 }
 
 /**
@@ -244,36 +334,38 @@ export function validateCustomerRow(
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];
 
-  // Required field: Wallet Address
-  if (!customer.walletAddress || customer.walletAddress.trim() === '') {
+  if (customer.walletProvided) {
+    // A real wallet was supplied → it must be a valid on-chain address.
+    if (!isValidWalletAddress(customer.walletAddress)) {
+      errors.push({
+        row: customer.rowIndex,
+        column: 'Wallet Address',
+        value: customer.walletAddress,
+        message: 'Invalid wallet address format. Must be 42 characters starting with 0x',
+        severity: 'error',
+        code: 'INVALID_WALLET_ADDRESS'
+      });
+    }
+    // Duplicate-wallet check only applies to real wallets (placeholders are unique by design).
+    if (existingWallets && existingWallets.has(customer.walletAddress.toLowerCase())) {
+      errors.push({
+        row: customer.rowIndex,
+        column: 'Wallet Address',
+        value: customer.walletAddress,
+        message: 'Duplicate wallet address found in import file',
+        severity: 'error',
+        code: 'DUPLICATE_WALLET_ADDRESS'
+      });
+    }
+  } else if (!customer.email && !customer.phone) {
+    // Wallet-less row with no contact → can't be keyed/claimed/deduped.
     errors.push({
       row: customer.rowIndex,
-      column: 'Wallet Address',
-      value: customer.walletAddress,
-      message: 'Wallet address is required',
+      column: 'Email / Phone',
+      value: '',
+      message: 'A wallet-less customer needs an email or phone to be imported',
       severity: 'error',
-      code: 'MISSING_REQUIRED_FIELD'
-    });
-  } else if (!isValidWalletAddress(customer.walletAddress)) {
-    errors.push({
-      row: customer.rowIndex,
-      column: 'Wallet Address',
-      value: customer.walletAddress,
-      message: 'Invalid wallet address format. Must be 42 characters starting with 0x',
-      severity: 'error',
-      code: 'INVALID_WALLET_ADDRESS'
-    });
-  }
-
-  // Check for duplicate wallet in import file
-  if (existingWallets && existingWallets.has(customer.walletAddress.toLowerCase())) {
-    errors.push({
-      row: customer.rowIndex,
-      column: 'Wallet Address',
-      value: customer.walletAddress,
-      message: 'Duplicate wallet address found in import file',
-      severity: 'error',
-      code: 'DUPLICATE_WALLET_ADDRESS'
+      code: 'MISSING_CONTACT'
     });
   }
 
@@ -415,6 +507,36 @@ function parseBoolean(value: any): boolean {
 
   const normalized = String(value).toLowerCase().trim();
   return ['true', '1', 'yes', 'active', 'enabled'].includes(normalized);
+}
+
+/** Marketing-email consent (e.g. Square "Email Subscription Status"). Returns undefined when the
+ *  column is absent/blank (unknown — campaigns should treat unknown as NOT consented). Only an
+ *  explicit subscribed/opt-in value is `true`; anything else (Unsubscribed/Never/Pending) is `false`. */
+function parseConsent(value: any): boolean | undefined {
+  if (value === undefined || value === null || String(value).trim() === '') return undefined;
+  const n = String(value).toLowerCase().trim();
+  if (['subscribed', 'true', '1', 'yes', 'opted in', 'opted-in', 'optin', 'opt-in', 'subscribe'].includes(n)) return true;
+  return false;
+}
+
+/** Money like "$1,234.56" → 1234.56; undefined when absent/unparseable. */
+function parseMoneyOrUndef(value: any): number | undefined {
+  if (value === undefined || value === null || String(value).trim() === '') return undefined;
+  const n = parseFloat(String(value).replace(/[$,]/g, '').trim());
+  return isNaN(n) ? undefined : Math.round(n * 100) / 100;
+}
+
+/** Parse a date-ish cell to an ISO string; undefined when absent/unparseable. */
+function parseDateOrUndef(value: any): string | undefined {
+  if (value === undefined || value === null || String(value).trim() === '') return undefined;
+  const d = new Date(String(value).trim());
+  return isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+function parseIntOrUndef(value: any): number | undefined {
+  if (value === undefined || value === null || String(value).trim() === '') return undefined;
+  const n = parseInt(String(value).replace(/[^0-9-]/g, ''), 10);
+  return isNaN(n) ? undefined : n;
 }
 
 function isValidWalletAddress(address: string): boolean {

@@ -13,6 +13,7 @@ import { AdBillingService } from './AdBillingService';
 import { SubscriptionService } from './SubscriptionService';
 import { MetaConnectionService } from './MetaConnectionService';
 import { MetaInsightsService } from './MetaInsightsService';
+import { MetaConfigSyncService } from './MetaConfigSyncService';
 import { metaPushService } from './MetaPushService';
 
 // Q9: unconverted leads are retained 180 days, then hard-deleted nightly.
@@ -28,7 +29,8 @@ export class SafeguardScheduler {
     private readonly billing = new AdBillingService(),
     private readonly subscriptions = new SubscriptionService(),
     private readonly metaConnections = new MetaConnectionService(),
-    private readonly metaInsights = new MetaInsightsService()
+    private readonly metaInsights = new MetaInsightsService(),
+    private readonly metaConfigSync = new MetaConfigSyncService()
   ) {}
 
   start(): void {
@@ -60,6 +62,10 @@ export class SafeguardScheduler {
       // fresh spend (no-op unless ADS_META_PUSH_ENABLED + a configured Meta App).
       const insightsSynced = await this.metaInsights.syncAll();
       if (insightsSynced > 0) logger.info(`Ads Meta insights: synced ${insightsSynced} campaign(s)`);
+      // Two-way config sync: pull budget/status back FROM Meta so the dashboard reflects manual
+      // Ads-Manager edits (no-op unless ADS_META_CONFIG_SYNC + a configured Meta App).
+      const configReconciled = await this.metaConfigSync.reconcileAll();
+      if (configReconciled > 0) logger.info(`Ads Meta config sync: reconciled ${configReconciled} campaign(s)`);
       const decisions = await this.evaluator.runNightly();
       const acted = decisions.filter((d) => d.action !== 'none').length;
       if (acted > 0) logger.info(`Ads safeguard scheduler: acted on ${acted} campaign(s)`);

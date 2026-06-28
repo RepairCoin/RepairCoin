@@ -18,6 +18,7 @@ import { NotificationRepository } from '../../../repositories/NotificationReposi
 import { AdBillingService } from '../services/AdBillingService';
 import { parseBrief } from '../services/briefValidation';
 import { metaPushService } from '../services/MetaPushService';
+import { metaConfigSyncService } from '../services/MetaConfigSyncService';
 import { shopRepository } from '../../../repositories';
 import { imageStorageService } from '../../../services/ImageStorageService';
 
@@ -226,6 +227,38 @@ export async function pushCampaignToMeta(req: Request, res: Response): Promise<v
   }
 }
 
+// POST /campaigns/:id/scale-to-full (admin) — Safeguard 4: scale a test-budget campaign up to
+// its full daily budget after the nightly check flagged it ready.
+export async function scaleCampaignBudget(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const campaign = await campaigns.findById(campaignId);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    await metaPushService.scaleToFull(campaignId); // throws → 502
+    void postEvent(campaign.shopId, `Campaign "${campaign.name}" scaled to full budget.`);
+    res.json({ success: true, data: await campaigns.findById(campaignId) });
+  } catch (err: any) {
+    logger.error('CampaignRequestController.scaleCampaignBudget failed', err?.message || err);
+    res.status(502).json({ success: false, error: 'scale_failed', message: err?.message || 'Failed to scale the budget.' });
+  }
+}
+
+// POST /campaigns/:id/sync-from-meta (admin) — two-way config sync: pull the campaign's current
+// budget/status back FROM Meta into our DB (Meta is source-of-truth for live). Returns the fresh
+// campaign + the applied changes. No-op (changes {}) when ADS_META_CONFIG_SYNC is off.
+export async function syncCampaignFromMeta(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const campaign = await campaigns.findById(campaignId);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    const result = await metaConfigSyncService.reconcile(campaignId);
+    res.json({ success: true, data: { campaign: await campaigns.findById(campaignId), ...result } });
+  } catch (err: any) {
+    logger.error('CampaignRequestController.syncCampaignFromMeta failed', err?.message || err);
+    res.status(502).json({ success: false, error: 'sync_failed', message: err?.message || 'Failed to sync from Meta.' });
+  }
+}
+
 // POST /campaigns/:id/go-live (admin) — Option B: activate a PAUSED Meta draft after review.
 // Verifies a funding source, activates campaign/adset/ad on Meta, flips our campaign → active
 // + the request → live (billing starts §9.2).
@@ -259,6 +292,8 @@ export async function updateCampaignDraft(req: Request, res: Response): Promise<
       radiusMiles: req.body?.radiusMiles,
       objective: typeof req.body?.objective === 'string' ? req.body.objective : undefined,
       manualImageUrl: typeof req.body?.manualImageUrl === 'string' ? req.body.manualImageUrl : undefined,
+      allowMetaEnhancements: typeof req.body?.allowMetaEnhancements === 'boolean' ? req.body.allowMetaEnhancements : undefined,
+      isTestBudget: typeof req.body?.isTestBudget === 'boolean' ? req.body.isTestBudget : undefined,
       headline: req.body?.headline,
       primaryText: req.body?.primaryText,
       regenerateImage: req.body?.regenerateImage === true,

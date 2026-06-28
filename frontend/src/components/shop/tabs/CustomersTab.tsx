@@ -39,6 +39,8 @@ interface Customer {
   lastTransactionDate?: string;
   totalTransactions: number;
   isRegular: boolean;
+  importSource?: string | null;
+  isPlaceholder?: boolean;
 }
 
 interface CustomersTabProps {
@@ -201,6 +203,8 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
           c.last_earned_date,
         totalTransactions: c.total_transactions || c.transaction_count || 0,
         isRegular: (c.total_transactions || c.transaction_count || 0) >= 5,
+        importSource: c.importSource ?? c.import_source ?? null,
+        isPlaceholder: c.isPlaceholder ?? c.is_placeholder ?? false,
       }));
 
       setCustomers(transformedCustomers);
@@ -643,9 +647,19 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
                         )}
                       </div>
                       <div className="flex flex-col">
-                        <p className="text-sm font-semibold text-white">
-                          {customer.name || "Anonymous Customer"}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-white">
+                            {customer.name || "Anonymous Customer"}
+                          </p>
+                          {customer.importSource && (
+                            <span
+                              title={`Imported from ${customer.importSource}${customer.isPlaceholder ? " · not yet claimed" : ""}`}
+                              className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                            >
+                              Imported
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm font-medium text-white/55">
                           {formatAddress(customer.address)}
                         </p>
@@ -695,9 +709,19 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-white truncate">
-                          {customer.name || "Anonymous Customer"}
-                        </p>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">
+                            {customer.name || "Anonymous Customer"}
+                          </p>
+                          {customer.importSource && (
+                            <span
+                              title={`Imported from ${customer.importSource}${customer.isPlaceholder ? " · not yet claimed" : ""}`}
+                              className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30 shrink-0"
+                            >
+                              Imported
+                            </span>
+                          )}
+                        </div>
                         <TierBadge tier={customer.tier} />
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-white/55">

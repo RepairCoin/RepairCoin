@@ -53,6 +53,8 @@ import {
   getOrchestratorOwnTools,
   getOrchestratorOwnToolByName,
 } from "../services/orchestrator/registry";
+import { AiMemoryService, isAiMemoryEnabled, getAiMemoryService, formatMemoryBlock } from "../services/AiMemoryService";
+import type { AiMemory } from "../../../repositories/AiMemoryRepository";
 import { getDefaultHelpCorpusLoader } from "../services/HelpCorpusLoader";
 import { SUPPORT_FALLBACK_COPY } from "../services/HelpPromptBuilder";
 import {
@@ -177,6 +179,24 @@ async function fetchShopTimezone(
   }
 }
 
+/**
+ * AI Memory (Phase 1): render the owner's recalled standing instructions as a
+ * non-cached system block. These are INTENT, not data — the prompt frames them
+ * so the assistant honors them without citing them as metrics.
+ */
+function buildMemoryBlock(memories: AiMemory[]): string {
+  return formatMemoryBlock(memories);
+}
+
+/** Latest user message text (the retrieval hint for memory recall). */
+function lastUserText(messages: InsightsMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "user" && typeof m.content === "string") return m.content;
+  }
+  return "";
+}
+
 /** Normalized dispatch result — both registries share this shape. */
 interface UnifiedDispatch {
   ok: boolean;
@@ -291,6 +311,7 @@ export interface UnifiedAssistantDeps {
   spendCap?: SpendCapEnforcer;
   auditLogger?: OrchestrateAuditLogger;
   pool?: Pool;
+  memory?: AiMemoryService;
 }
 
 export interface UnifiedToolCallSummary {
@@ -311,6 +332,7 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
   const spendCap = deps.spendCap ?? new SpendCapEnforcer();
   const auditLogger = deps.auditLogger ?? new OrchestrateAuditLogger();
   const pool = deps.pool ?? getSharedPool();
+  const memory = deps.memory ?? getAiMemoryService();
   let anthropic: AnthropicClient | null = deps.anthropic ?? null;
 
   return {
@@ -369,16 +391,26 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
         const model: ClaudeModel = spendCheck.useCheaperModel
           ? ORCHESTRATE_MODEL_CHEAP
           : ORCHESTRATE_MODEL_DEFAULT;
-        const tools = getOrchestratorTools();
+        // AI Memory (Phase 1) is flag-gated: only OFFER remember_this to the model
+        // when ENABLE_AI_MEMORY is on, so it costs nothing when the feature is off.
+        const memoryEnabled = isAiMemoryEnabled();
+        const tools = memoryEnabled
+          ? getOrchestratorTools()
+          : getOrchestratorTools().filter((t) => t.name !== "remember_this");
         // System prompt is assembled as ordered blocks, cache-stable prefix
         // first so the prompt cache stays warm:
         //   1. main rules         (cache: true — stable)
         //   2. help knowledge     (cache: true — stable; folded-in How-To corpus)
         //   3. branding name      (cache: false — varies per shop, kept LAST)
         const helpBlock = getHelpKnowledgeBlock();
-        const [assistantName, shopTimezone] = await Promise.all([
+        const [assistantName, shopTimezone, ownerMemories] = await Promise.all([
           fetchAssistantName(pool, shopId),
           fetchShopTimezone(pool, shopId),
+          // Recall the owner's standing instructions (no-op + [] when flag off).
+          // Hint = the latest user message so retrieval favors relevant memories.
+          memoryEnabled
+            ? memory.recall(shopId, { hint: lastUserText(messages) })
+            : Promise.resolve([] as AiMemory[]),
         ]);
         const systemPrompt: { text: string; cache: boolean }[] = [
           { text: ORCHESTRATE_SYSTEM_PROMPT, cache: true },
@@ -399,6 +431,14 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           text: `Your name is "${effectiveName}" — use it when you refer to yourself.`,
           cache: false,
         });
+        // AI Memory (Phase 1): inject the owner's recalled standing instructions.
+        // Non-cached (varies per shop + edits) and bounded to the top-K by recall().
+        if (ownerMemories.length > 0) {
+          systemPrompt.push({
+            text: buildMemoryBlock(ownerMemories),
+            cache: false,
+          });
+        }
         if (attachedImageUrl) {
           // Per-turn, non-cached: tells the assistant an image rode in with this
           // message so it picks the right image tool instead of asking for a URL.

@@ -19,6 +19,19 @@ export interface AdCampaign {
   /** Admin-selected Meta objective (OUTCOME_TRAFFIC | OUTCOME_AWARENESS | OUTCOME_ENGAGEMENT).
    *  Null → push derives it from the request goal. */
   objective: string | null;
+  /** Opt-in: push the creative with Meta Advantage+ standard enhancements (default false). */
+  allowMetaEnhancements: boolean;
+  /** Safeguard 5: set when a nightly check finds the campaign underperforming → nudge a free swap. */
+  needsCreativeRefresh: boolean;
+  creativeRefreshReason: string | null;
+  /** Safeguard 4 — test-budget tier. */
+  isTestBudget: boolean;
+  fullDailyBudgetCents: number | null;
+  testBudgetStartedAt: Date | null;
+  testBudgetUpgradeReady: boolean;
+  /** The shop's ad-account currency (ISO), joined from shops.meta_currency — for displaying
+   *  ad money (budget/spend/etc.) in the right currency. Null until the account is connected. */
+  currency: string | null;
   aiAgentEnabled: boolean;
   notes: string | null;
   startedAt: Date | null;
@@ -35,6 +48,24 @@ export interface AdCampaign {
   metaLeadFormId: string | null;
   metaStatus: string | null;
   metaLastSyncedAt: Date | null;
+  metaSyncedConfigAt: Date | null;
+  /** Two-way sync (Phase 3): the live ad set's targeting spec, verbatim — read-only fidelity for
+   *  targeting we can't losslessly map to our typed columns. Never reverse-pushed (D4). */
+  metaTargetingRaw: any | null;
+  /** Per-campaign landing-page magnet overrides (Phase 2); null → auto-composed defaults. */
+  landingConfig: LandingConfig | null;
+}
+
+/** Shop-controlled landing-page magnet overrides. All optional — anything unset falls back to the
+ *  auto-composed default (offer headline, FixFlow CTA, rating shown, no urgency, no Call-now). */
+export interface LandingConfig {
+  headline?: string;
+  subhead?: string;
+  urgencyText?: string;
+  benefitBullets?: string[];
+  ctaLabel?: string;
+  showRating?: boolean;
+  callNowEnabled?: boolean;
 }
 
 export interface MetaObjectIds {
@@ -45,6 +76,10 @@ export interface MetaObjectIds {
   metaLeadFormId?: string | null;
   metaStatus?: string | null;
   metaLastSyncedAt?: Date | null;
+  /** When config was last reconciled FROM Meta (two-way sync) — distinct from metaLastSyncedAt (insights). */
+  metaSyncedConfigAt?: Date | null;
+  /** Raw Meta targeting spec (Phase 3 fidelity); stored as JSONB. */
+  metaTargetingRaw?: any | null;
 }
 
 export interface CreateCampaignInput {
@@ -68,6 +103,11 @@ export interface UpdateCampaignInput {
   dailyBudgetCents?: number;
   status?: AdCampaign['status'];
   objective?: string | null;
+  allowMetaEnhancements?: boolean;
+  isTestBudget?: boolean;
+  fullDailyBudgetCents?: number | null;
+  testBudgetStartedAt?: Date | null;
+  testBudgetUpgradeReady?: boolean;
   aiAgentEnabled?: boolean;
   notes?: string | null;
 }
@@ -105,17 +145,19 @@ export class CampaignRepository extends BaseRepository {
 
   async findById(id: string): Promise<AdCampaign | null> {
     const res = await this.pool.query(
-      `SELECT * FROM ad_campaigns WHERE id = $1 AND deleted_at IS NULL`,
+      `SELECT c.*, sh.meta_currency AS currency
+         FROM ad_campaigns c LEFT JOIN shops sh ON sh.shop_id = c.shop_id
+        WHERE c.id = $1 AND c.deleted_at IS NULL`,
       [id]
     );
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
   async list(filter: ListCampaignsFilter): Promise<{ items: AdCampaign[]; total: number }> {
-    const where: string[] = ['deleted_at IS NULL'];
+    const where: string[] = ['c.deleted_at IS NULL'];
     const params: any[] = [];
-    if (filter.shopId) { params.push(filter.shopId); where.push(`shop_id = $${params.length}`); }
-    if (filter.status) { params.push(filter.status); where.push(`status = $${params.length}`); }
+    if (filter.shopId) { params.push(filter.shopId); where.push(`c.shop_id = $${params.length}`); }
+    if (filter.status) { params.push(filter.status); where.push(`c.status = $${params.length}`); }
     const whereSql = where.join(' AND ');
 
     const page = filter.page ?? 1;
@@ -123,12 +165,14 @@ export class CampaignRepository extends BaseRepository {
     const offset = this.getPaginationOffset(page, limit);
 
     const countRes = await this.pool.query(
-      `SELECT COUNT(*)::int AS n FROM ad_campaigns WHERE ${whereSql}`,
+      `SELECT COUNT(*)::int AS n FROM ad_campaigns c WHERE ${whereSql}`,
       params
     );
     const dataRes = await this.pool.query(
-      `SELECT * FROM ad_campaigns WHERE ${whereSql}
-       ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      `SELECT c.*, sh.meta_currency AS currency
+         FROM ad_campaigns c LEFT JOIN shops sh ON sh.shop_id = c.shop_id
+        WHERE ${whereSql}
+        ORDER BY c.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]
     );
     return { items: dataRes.rows.map((r) => this.mapRow(r)), total: countRes.rows[0].n };
@@ -144,6 +188,11 @@ export class CampaignRepository extends BaseRepository {
     if (input.targetUnits !== undefined) col('target_units', input.targetUnits);
     if (input.dailyBudgetCents !== undefined) col('daily_budget_cents', input.dailyBudgetCents);
     if (input.objective !== undefined) col('objective', input.objective);
+    if (input.allowMetaEnhancements !== undefined) col('allow_meta_enhancements', input.allowMetaEnhancements);
+    if (input.isTestBudget !== undefined) col('is_test_budget', input.isTestBudget);
+    if (input.fullDailyBudgetCents !== undefined) col('full_daily_budget_cents', input.fullDailyBudgetCents);
+    if (input.testBudgetStartedAt !== undefined) col('test_budget_started_at', input.testBudgetStartedAt);
+    if (input.testBudgetUpgradeReady !== undefined) col('test_budget_upgrade_ready', input.testBudgetUpgradeReady);
     if (input.aiAgentEnabled !== undefined) col('ai_agent_enabled', input.aiAgentEnabled);
     if (input.notes !== undefined) col('notes', input.notes);
     // status transitions also stamp the matching timestamp
@@ -161,6 +210,26 @@ export class CampaignRepository extends BaseRepository {
       params
     );
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
+  /** Phase 2 — persist the shop's landing-page magnet overrides (JSONB). Pass null to clear back
+   *  to auto-composed defaults. */
+  async setLandingConfig(id: string, config: LandingConfig | null): Promise<AdCampaign | null> {
+    const res = await this.pool.query(
+      `UPDATE ad_campaigns SET landing_config = $2, updated_at = now()
+        WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
+      [id, config ? JSON.stringify(config) : null]
+    );
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
+  /** Safeguard 5 — set/clear the "swap the creative" nudge flag. */
+  async setCreativeRefresh(id: string, needs: boolean, reason: string | null = null): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_campaigns SET needs_creative_refresh = $2, creative_refresh_reason = $3, updated_at = now()
+        WHERE id = $1 AND deleted_at IS NULL`,
+      [id, needs, needs ? reason : null]
+    );
   }
 
   async softDelete(id: string): Promise<boolean> {
@@ -202,6 +271,9 @@ export class CampaignRepository extends BaseRepository {
     if (m.metaLeadFormId !== undefined) col('meta_lead_form_id', m.metaLeadFormId);
     if (m.metaStatus !== undefined) col('meta_status', m.metaStatus);
     if (m.metaLastSyncedAt !== undefined) col('meta_last_synced_at', m.metaLastSyncedAt);
+    if (m.metaSyncedConfigAt !== undefined) col('meta_synced_config_at', m.metaSyncedConfigAt);
+    // jsonb: stringify a JS object (node-pg would otherwise send "[object Object]"); null stays null.
+    if (m.metaTargetingRaw !== undefined) col('meta_targeting_raw', m.metaTargetingRaw === null ? null : JSON.stringify(m.metaTargetingRaw));
     if (sets.length === 0) return this.findById(id);
     sets.push(`updated_at = now()`);
     params.push(id);
@@ -253,6 +325,14 @@ export class CampaignRepository extends BaseRepository {
       dailyBudgetCents: r.daily_budget_cents,
       status: r.status,
       objective: r.objective ?? null,
+      allowMetaEnhancements: r.allow_meta_enhancements === true,
+      needsCreativeRefresh: r.needs_creative_refresh === true,
+      creativeRefreshReason: r.creative_refresh_reason ?? null,
+      isTestBudget: r.is_test_budget === true,
+      fullDailyBudgetCents: r.full_daily_budget_cents != null ? Number(r.full_daily_budget_cents) : null,
+      testBudgetStartedAt: r.test_budget_started_at ?? null,
+      testBudgetUpgradeReady: r.test_budget_upgrade_ready === true,
+      currency: r.currency ?? null,
       aiAgentEnabled: r.ai_agent_enabled,
       notes: r.notes,
       startedAt: r.started_at,
@@ -268,6 +348,9 @@ export class CampaignRepository extends BaseRepository {
       metaLeadFormId: r.meta_lead_form_id ?? null,
       metaStatus: r.meta_status ?? null,
       metaLastSyncedAt: r.meta_last_synced_at ?? null,
+      metaSyncedConfigAt: r.meta_synced_config_at ?? null,
+      metaTargetingRaw: r.meta_targeting_raw ?? null,
+      landingConfig: r.landing_config ?? null,
     };
   }
 }

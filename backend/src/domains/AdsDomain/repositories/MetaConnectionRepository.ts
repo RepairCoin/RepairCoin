@@ -17,6 +17,7 @@ export interface MetaConnection {
   pageTokenEnc: string | null;
   businessId: string | null;
   pixelId: string | null;
+  currency: string | null;
   connected: boolean;
 }
 
@@ -66,10 +67,15 @@ export class MetaConnectionRepository extends BaseRepository {
     await this.pool.query(`UPDATE shops SET meta_pixel_id = $2 WHERE shop_id = $1`, [shopId, pixelId]);
   }
 
+  /** Store the ad account's currency (ISO code) so ad money displays in the right currency. */
+  async saveCurrency(shopId: string, currency: string): Promise<void> {
+    await this.pool.query(`UPDATE shops SET meta_currency = $2 WHERE shop_id = $1`, [shopId, currency]);
+  }
+
   async getConnection(shopId: string): Promise<MetaConnection | null> {
     const res = await this.pool.query(
       `SELECT meta_oauth_token, meta_oauth_refresh_token, meta_oauth_expires_at,
-              meta_ad_account_id, meta_page_id, meta_page_token, meta_business_id, meta_pixel_id, ads_account_connected
+              meta_ad_account_id, meta_page_id, meta_page_token, meta_business_id, meta_pixel_id, meta_currency, ads_account_connected
          FROM shops WHERE shop_id = $1`,
       [shopId]
     );
@@ -85,6 +91,7 @@ export class MetaConnectionRepository extends BaseRepository {
       pageTokenEnc: r.meta_page_token ?? null,
       businessId: r.meta_business_id ?? null,
       pixelId: r.meta_pixel_id ?? null,
+      currency: r.meta_currency ?? null,
       connected: r.ads_account_connected === true,
     };
   }

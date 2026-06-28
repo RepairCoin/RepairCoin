@@ -40,7 +40,8 @@ import {
 import {
   submitCampaignRequest, listMyCampaignRequests, listCampaignRequests,
   buildCampaignFromRequest, declineCampaignRequest, setAdsAccountConnected,
-  pushCampaignToMeta, goLiveCampaign, updateCampaignDraft, uploadCreativeImage,
+  pushCampaignToMeta, goLiveCampaign, updateCampaignDraft, uploadCreativeImage, scaleCampaignBudget,
+  syncCampaignFromMeta,
 } from './controllers/CampaignRequestController';
 import {
   getMySubscription, changeMyTier, cancelMySubscription,
@@ -48,9 +49,9 @@ import {
 import {
   getMetaConnectUrl, handleMetaOauthCallback, listMyMetaAccounts, selectMyMetaAccount,
   getMyMetaConnection, disconnectMyMeta, handleMetaDeauthorize, handleMetaDataDeletion,
-  triggerMetaInsightsSync,
+  triggerMetaInsightsSync, getShopMetaAccount,
 } from './controllers/MetaConnectController';
-import { getCampaignLanding } from './controllers/LandingController';
+import { getCampaignLanding, getLandingConfig, updateLandingConfig } from './controllers/LandingController';
 import { taxonomyFor } from './services/industryTaxonomies';
 
 export function initializeRoutes(): Router {
@@ -124,8 +125,13 @@ export function initializeRoutes(): Router {
   router.post('/campaigns/:id/creative-image', ...admin, creativeUpload.single('image'), uploadCreativeImage); // manual designer image → public URL
   router.post('/campaigns/:id/push', ...admin, pushCampaignToMeta);             // prepare→push: create PAUSED Meta objects from a reviewed draft
   router.post('/campaigns/:id/go-live', ...admin, goLiveCampaign);              // push P5: activate a PAUSED draft
+  router.post('/campaigns/:id/scale-to-full', ...admin, scaleCampaignBudget);   // Safeguard 4: test budget → full
+  router.post('/campaigns/:id/sync-from-meta', ...admin, syncCampaignFromMeta); // two-way config sync: pull budget/status from Meta
   router.patch('/campaigns/:id/draft', ...admin, updateCampaignDraft);          // push P5: edit budget/radius/creative (draft or paused)
+  router.get('/campaigns/:id/landing-config', ...admin, getLandingConfig);       // landing magnet overrides (editor)
+  router.put('/campaigns/:id/landing-config', ...admin, updateLandingConfig);    // save landing magnet overrides
   router.post('/shops/:shopId/ads-account', ...admin, setAdsAccountConnected);  // §9.6 connect gate
+  router.get('/shops/:shopId/meta-account', ...admin, getShopMetaAccount);       // account currency + min daily budget
   router.post('/meta/sync-insights', ...admin, triggerMetaInsightsSync);        // push P3: import Meta spend/impr/clicks now
 
   // ---- Admin: A/B experiments (Stage 5) ----

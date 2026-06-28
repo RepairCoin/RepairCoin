@@ -5,7 +5,7 @@
 // show what's running (image + copy), with click-to-enlarge. No edit controls here.
 
 import React, { useEffect, useState } from "react";
-import { Loader2, ImageIcon, Maximize2, X } from "lucide-react";
+import { Loader2, ImageIcon, Maximize2, X, AlertTriangle } from "lucide-react";
 import { listCreatives, type AdCreative } from "@/services/api/ads";
 
 export const CreativePreview: React.FC<{ campaignId: string }> = ({ campaignId }) => {
@@ -33,6 +33,15 @@ export const CreativePreview: React.FC<{ campaignId: string }> = ({ campaignId }
         <p className="text-sm font-medium text-gray-300">Current ad</p>
         <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400">{creative.reviewStatus}</span>
       </div>
+      {creative.externallyEdited && (
+        <div className="flex items-start gap-2 mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-200/90">
+            <span className="font-medium text-amber-300">Edited in Ads Manager</span> — this creative was changed
+            directly on Meta and has not been reviewed by FixFlow. Edit it in the draft to bring it back under review.
+          </p>
+        </div>
+      )}
       <div className="flex items-start gap-3 rounded-lg border border-white/10 bg-[#1A1A1A] p-3">
         {creative.imageUrl && (
           <button

@@ -18,6 +18,7 @@ const SECTION_PERMISSION: Record<string, string | undefined> = {
   calendar: "shop:manage",
   "ai-assistant": "shop:manage",
   "brand-kit": "shop:manage",
+  "customer-rewards": "shop:manage",
   moderation: "customers:view",
   faq: "shop:manage",
 };
@@ -30,6 +31,8 @@ import { ModerationSettings } from "../ModerationSettings";
 import { ShopFAQSection } from "../ShopFAQSection";
 import CalendarIntegrationSettings from "../CalendarIntegrationSettings";
 import { AISalesAgentSettings } from "../AISalesAgentSettings";
+import { AiMemorySettings } from "../AiMemorySettings";
+import { WelcomeRcnSettings } from "../WelcomeRcnSettings";
 import { BrandKitSettings } from "../BrandKitSettings";
 import {
   Store,
@@ -53,6 +56,7 @@ import {
   Calendar,
   Bot,
   Palette,
+  Gift,
   Clock,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -128,6 +132,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     | "faq"
     | "ai-assistant"
     | "brand-kit"
+    | "customer-rewards"
   >("shop-profile");
   // crossShopEnabled state removed - universal redemption is now always enabled
   const [error] = useState<string | null>(null);
@@ -359,6 +364,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     { id: "calendar" as const, label: "Calendar Integration", icon: Calendar },
     { id: "ai-assistant" as const, label: "AI Assistant", icon: Bot },
     { id: "brand-kit" as const, label: "Brand Kit", icon: Palette },
+    { id: "customer-rewards" as const, label: "Customer Rewards", icon: Gift },
     { id: "moderation" as const, label: "Moderation", icon: Shield },
     { id: "faq" as const, label: "FAQ & Help", icon: HelpCircle },
   ].filter((tab) => canViewSection(tab.id));
@@ -837,8 +843,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {/* AI Assistant Tab Content */}
           {activeTab === "ai-assistant" && (
-            <div>
+            <div className="space-y-6">
               <AISalesAgentSettings />
+              <AiMemorySettings />
+            </div>
+          )}
+
+          {/* Customer Rewards Tab Content */}
+          {activeTab === "customer-rewards" && (
+            <div className="space-y-6">
+              <WelcomeRcnSettings />
             </div>
           )}
 

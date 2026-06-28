@@ -9,6 +9,8 @@
 
 import { Request, Response } from 'express';
 import { getSharedPool } from '../../../utils/database-pool';
+import { logger } from '../../../utils/logger';
+import { isWelcomeRcnEnabled, resolveWelcomeRcnAmount } from '../../../config/welcomeRcn';
 
 const pool = getSharedPool();
 
@@ -161,7 +163,7 @@ export const claimAccount = async (req: Request, res: Response): Promise<void> =
 
     // Get the real customer
     const realCustomer = await pool.query(
-      'SELECT address, email, phone FROM customers WHERE LOWER(address) = LOWER($1)',
+      'SELECT address, email, phone, welcome_rcn_granted_at FROM customers WHERE LOWER(address) = LOWER($1)',
       [customerAddress]
     );
 
@@ -172,7 +174,7 @@ export const claimAccount = async (req: Request, res: Response): Promise<void> =
 
     // Get the placeholder customer
     const placeholderCustomer = await pool.query(
-      'SELECT address, email, phone, name FROM customers WHERE LOWER(address) = LOWER($1)',
+      'SELECT address, email, phone, name, import_source, home_shop_id FROM customers WHERE LOWER(address) = LOWER($1)',
       [placeholderAddress]
     );
 
@@ -204,6 +206,10 @@ export const claimAccount = async (req: Request, res: Response): Promise<void> =
     try {
       await client.query('BEGIN');
 
+      // Welcome-RCN amount actually granted on this claim (0 = none). Set inside the
+      // SAVEPOINT block below; read after COMMIT for the notification + response.
+      let welcomeRcnGranted = 0;
+
       // Transfer service orders to real customer
       const ordersResult = await client.query(
         `UPDATE service_orders
@@ -231,11 +237,12 @@ export const claimAccount = async (req: Request, res: Response): Promise<void> =
         [real.address, placeholder.address]
       );
 
-      // Transfer notifications
+      // Transfer notifications (column is receiver_address — using recipient_address here threw
+      // mid-transaction and silently rolled back the ENTIRE claim, so nothing ever transferred).
       await client.query(
         `UPDATE notifications
-         SET recipient_address = $1
-         WHERE LOWER(recipient_address) = LOWER($2)`,
+         SET receiver_address = $1
+         WHERE LOWER(receiver_address) = LOWER($2)`,
         [real.address, placeholder.address]
       );
 
@@ -247,24 +254,129 @@ export const claimAccount = async (req: Request, res: Response): Promise<void> =
         );
       }
 
-      // Archive the placeholder customer (add suffix to address)
-      const archivedAddress = `${placeholder.address}_archived_${Date.now()}`;
+      // Mark the placeholder as claimed by clearing its contact, so it can no longer be matched or
+      // re-claimed (checkClaimable matches on email/phone). We intentionally do NOT rename the
+      // address: it's the PK and is FK-referenced (e.g. ad_leads.customer_id), and the old
+      // `${address}_archived_${ts}` value overflowed varchar(42) — both of which silently rolled
+      // back the entire claim. Data has already been transferred off this row above.
       await client.query(
-        `UPDATE customers
-         SET address = $1,
-             wallet_address = $1,
-             email = NULL,
-             phone = NULL
-         WHERE LOWER(address) = LOWER($2)`,
-        [archivedAddress, placeholder.address]
+        `UPDATE customers SET email = NULL, phone = NULL
+         WHERE LOWER(address) = LOWER($1)`,
+        [placeholder.address]
       );
 
+      // Welcome RCN on claim — the migration conversion incentive. Granted only when this is an
+      // IMPORTED placeholder (Square→FixFlow win-back), behind ENABLE_WELCOME_RCN, shop-funded
+      // and opt-in. Off-chain credit only (no on-chain mint). One grant per customer, EVER.
+      //
+      // Wrapped in a SAVEPOINT so a grant failure (e.g. shop balance race) rolls back ONLY the
+      // grant, never the claim itself — the claim is the contract; the reward is best-effort.
+      // The customer-facing notification is sent AFTER commit (also best-effort) so it can never
+      // roll back the grant. See docs/.../welcome-rcn-on-claim-scope.md.
+      const fundingShopId: string | null = placeholder.home_shop_id || null;
+      if (
+        isWelcomeRcnEnabled() &&
+        placeholder.import_source &&
+        !real.welcome_rcn_granted_at &&
+        fundingShopId
+      ) {
+        await client.query('SAVEPOINT welcome_rcn');
+        try {
+          // Lock the funding shop row so concurrent grants can't double-spend its balance.
+          const shopRes = await client.query(
+            `SELECT welcome_rcn_enabled, welcome_rcn_amount, COALESCE(purchased_rcn_balance, 0) AS balance
+               FROM shops WHERE shop_id = $1 FOR UPDATE`,
+            [fundingShopId]
+          );
+          const shopRow = shopRes.rows[0];
+          if (shopRow && shopRow.welcome_rcn_enabled === true) {
+            const override =
+              shopRow.welcome_rcn_amount != null ? parseFloat(shopRow.welcome_rcn_amount) : null;
+            const amount = resolveWelcomeRcnAmount(override);
+            const balance = parseFloat(shopRow.balance) || 0;
+
+            if (amount > 0 && balance >= amount) {
+              // Credit the customer — the `welcome_rcn_granted_at IS NULL` guard in the WHERE makes
+              // this the atomic one-grant-per-customer gate (wins any concurrent claim race).
+              const credited = await client.query(
+                `UPDATE customers
+                    SET current_rcn_balance = COALESCE(current_rcn_balance, 0) + $1,
+                        welcome_rcn_granted_at = now()
+                  WHERE LOWER(address) = LOWER($2) AND welcome_rcn_granted_at IS NULL
+                  RETURNING address`,
+                [amount, real.address]
+              );
+
+              if (credited.rows.length > 0) {
+                await client.query(
+                  `INSERT INTO customer_rcn_sources (
+                     customer_address, source_type, source_shop_id, amount,
+                     transaction_id, is_redeemable, metadata
+                   ) VALUES ($1, 'migration_welcome', $2, $3, $4, true, $5)`,
+                  [
+                    real.address.toLowerCase(),
+                    fundingShopId,
+                    amount,
+                    `welcome_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                    JSON.stringify({
+                      reason: 'Welcome RCN on account claim (migration)',
+                      claimedFrom: placeholder.address,
+                      importSource: placeholder.import_source,
+                    }),
+                  ]
+                );
+                // Debit the shop's purchased RCN balance (it funds its own win-back).
+                await client.query(
+                  `UPDATE shops SET purchased_rcn_balance = COALESCE(purchased_rcn_balance, 0) - $1
+                    WHERE shop_id = $2`,
+                  [amount, fundingShopId]
+                );
+                welcomeRcnGranted = amount;
+              }
+            }
+          }
+          await client.query('RELEASE SAVEPOINT welcome_rcn');
+        } catch (grantErr) {
+          await client.query('ROLLBACK TO SAVEPOINT welcome_rcn');
+          welcomeRcnGranted = 0;
+          logger.warn('Welcome RCN grant skipped (claim still succeeds)', {
+            customerAddress: real.address,
+            fundingShopId,
+            error: grantErr instanceof Error ? grantErr.message : String(grantErr),
+          });
+        }
+      }
+
       await client.query('COMMIT');
+
+      // Notify the customer about their welcome RCN — AFTER commit, best-effort. A notification
+      // failure must never undo a committed grant, so it runs outside the transaction and any
+      // error is swallowed (the RCN is already in their balance regardless).
+      if (welcomeRcnGranted > 0) {
+        try {
+          await pool.query(
+            `INSERT INTO notifications (sender_address, receiver_address, notification_type, message, metadata)
+             VALUES ($1, $2, 'welcome_rcn', $3, $4)`,
+            [
+              (fundingShopId || 'system').toLowerCase(),
+              real.address.toLowerCase(),
+              `Welcome to FixFlow! You've received ${welcomeRcnGranted} RCN as a welcome reward — it's already in your balance.`,
+              JSON.stringify({ amount: welcomeRcnGranted, reason: 'migration_welcome', shopId: fundingShopId }),
+            ]
+          );
+        } catch (notifyErr) {
+          logger.warn('Welcome RCN notification failed (grant unaffected)', {
+            customerAddress: real.address,
+            error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+          });
+        }
+      }
 
       res.json({
         success: true,
         message: 'Account claimed successfully',
         transferredOrders,
+        welcomeRcnGranted,
         claimedFrom: placeholder.address,
         claimedTo: real.address
       });

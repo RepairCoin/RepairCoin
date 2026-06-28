@@ -5,7 +5,7 @@
 // shop Ads tab's campaign rail (ShopAdsTab). Controlled — parent owns the value.
 
 import React, { useEffect, useState } from "react";
-import { CAMPAIGN_GOALS, type CampaignBrief, type CampaignGoal } from "@/services/api/ads";
+import { CAMPAIGN_GOALS, getMetaConnection, type CampaignBrief, type CampaignGoal } from "@/services/api/ads";
 import { getShopServices, type ShopService } from "@/services/api/services";
 
 export interface BriefValue {
@@ -34,6 +34,9 @@ export const CampaignBriefFields: React.FC<{
   onChange: (v: BriefValue) => void;
 }> = ({ shopId, value, onChange }) => {
   const [services, setServices] = useState<ShopService[]>([]);
+  // The shop's connected ad-account currency — so the budget reads in their own currency,
+  // not an assumed "$". Null until loaded / when no account is connected.
+  const [currency, setCurrency] = useState<string | null>(null);
 
   useEffect(() => {
     let on = true;
@@ -44,6 +47,7 @@ export const CampaignBriefFields: React.FC<{
         setServices(list.filter((s) => s.active));
       })
       .catch(() => {});
+    getMetaConnection().then((c) => { if (on) setCurrency(c.currency ?? null); }).catch(() => {});
     return () => { on = false; };
   }, [shopId]);
 
@@ -77,7 +81,7 @@ export const CampaignBriefFields: React.FC<{
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="text-xs text-gray-400">
-          Monthly ad budget ($)
+          Monthly ad budget{currency ? ` (${currency})` : ""}
           <input type="number" min={0} value={value.budgetUsd} onChange={(e) => set({ budgetUsd: e.target.value })} placeholder="e.g. 3000"
             className="mt-1 w-full px-2.5 py-1.5 bg-[#141414] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00]" />
         </label>
@@ -90,7 +94,7 @@ export const CampaignBriefFields: React.FC<{
 
       <label className="block text-xs text-gray-400">
         Special offer to feature
-        <input type="text" value={value.offer} onChange={(e) => set({ offer: e.target.value })} placeholder="e.g. $49 screen repair this month"
+        <input type="text" value={value.offer} onChange={(e) => set({ offer: e.target.value })} placeholder="e.g. 20% off screen repair this month"
           className="mt-1 w-full px-2.5 py-1.5 bg-[#141414] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00]" />
       </label>
 

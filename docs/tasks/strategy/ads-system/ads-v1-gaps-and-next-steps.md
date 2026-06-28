@@ -1,6 +1,6 @@
 # Ads System — v1 Gaps & Next Steps
 
-_Last updated: 2026-06-21_
+_Last updated: 2026-06-23_
 
 Tracks the known gaps in the centralized Ads System after the prepare → push → go-live flow,
 the review-gate, and the admin UX refactor. Everything here is **functional-but-incomplete** or
@@ -33,31 +33,75 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
 - [x] Connect-Meta OAuth; flat-tier billing accrual; push proven live on Meta
 
 ### B. v1 "Ship" gate — REMAINING (mostly external + QA)
+- [ ] 🔴 **P0 — Conversion attribution (`service_orders.ad_lead_id` is never written)** — booking/checkout never
+  tags an order with its ad lead, so the roll-up's bookings/revenue JOIN matches nothing → **ROI / Revenue /
+  Bookings / True-Margin are structurally always 0** (True ROI reads −100% with any AI cost), even for a real
+  converting campaign. NOT caused by the Kanban (the math ignores `lead_status`). Fix = auto-link order→lead at
+  booking (deterministic landing "Book online" + contact-match fallback) + Kanban auto-advance. SCOPED:
+  `ads-conversion-attribution-scope.md` (v1 ~2d). **Must land before ROI/True-Margin are trusted.**
 - [ ] **Meta App Review** — write scopes (`ads_management`/`pages_manage_ads`/`leads_retrieval`) so **real (non-app-role) shops** can connect & run ads _(external)_
 - [ ] **Deploy branch to staging** — set `ADS_LANDING_BASE_URL` + `META_*` env; was GitHub-blocked
 - [ ] **Staging `schema_migrations` reconciliation** — shared DB has 165/167 as our OLD versions; main's 165/167 + our 168/169 must all apply
 - [ ] **Browser QA pass** — draft-staging, landing page, AI-card, unified-assistant fix are headless-verified only
 - [ ] **Verify customer "Book online"** end-to-end now that the chain-hiding merge landed (was wallet-blocked)
-- [ ] **Service-aware AI copy** — ad copy should name the promoted service (landing page already shows it) _(~0.5d, buildable)_
+- [x] **Service-aware AI copy** ✅ BUILT (`eb8d5957d`) — `AdCreativeService.promotedServices()` pulls
+  name/category/description from `promoteServiceIds`; the copy prompt makes the ad ABOUT the service ("write what
+  they actually are, don't reinterpret the names") and weaves a service name into the headline when it fits.
 - [x] **Meta Pixel "Lead" event — TRACKING** ✅ — pixel auto-created/resolved on the shop's ad account at
   connection (migration 170, `meta_pixel_id`); landing page fires `PageView` + `Lead` on submit (no App Review)
-- [ ] **Meta Pixel "Lead" event — OPTIMIZATION** (follow-up) — switch the ad set to optimize for the Lead conversion:
-  `optimization_goal: OFFSITE_CONVERSIONS` + `promoted_object: { pixel_id, custom_event_type: LEAD }` (needs pixel
-  to have collected events first → that's why tracking ships first). Tunes delivery toward form-submitters, not clickers. _(~0.5d)_
-- [ ] UX polish — clearer disabled "Push to Meta" state; show resolved objective in DraftComposer _(~0.5d)_
+- [x] **Meta Pixel "Lead" event — OPTIMIZATION** ✅ BUILT 2026-06-23 (flag `ADS_OPTIMIZE_FOR_LEAD`, default OFF).
+  When on + the shop has a pixel, `buildCampaignSpec` upgrades a Website-clicks campaign to an **`OUTCOME_LEADS`
+  website-conversion** campaign — `optimization_goal: OFFSITE_CONVERSIONS` + `promoted_object: { pixel_id,
+  custom_event_type: LEAD }` — still linking to OUR landing page (no instant form; `MetaPushService` skips it for
+  this flavor). No-pixel / Awareness fall back unchanged. +3 unit tests; Layer-2 dry-run confirmed the exact ad-set
+  body. **Live validation gated on the pixel having Lead events first** (Meta under-delivers/rejects
+  OFFSITE_CONVERSIONS before then — exactly why tracking shipped first and this defaults OFF).
+- [x] **UX polish** ✅ BUILT 2026-06-22 — Push to Meta / Go live now show a clear locked state (grey + lock icon +
+  "locked until you approve the ad creative" hint) when the creative isn't approved; DraftComposer shows the resolved
+  "Objective on Meta: …" line (Website clicks / Awareness / Messages).
 
 ### C. Full Vision — REMAINING (larger scope / commercial)
 - [ ] **Messenger objective** (click-to-Messenger + AI replies in Messenger — the narrative moat): objective + Page webhook + Send API _(needs `pages_messaging` App Review)_
 - [ ] **Live lead transport** (SMS/WhatsApp/Messenger send) — wire a provider + flip `ADS_LEAD_TRANSPORT_ENABLED` (currently record-only)
 - [ ] **Stripe collection go-live** — real key + saved payment methods + flip `ADS_BILLING_STRIPE_ENABLED` + `invoice.payment_succeeded` reconciliation webhook
-- [ ] **Safeguard 4 — test-budget tier** (start small, then scale)
-- [ ] **Safeguard 5 — free creative iteration** (swap underperforming creative free)
-- [ ] **Safeguard 6 — money-back / ROI refund** (promise = 1× ROI in 60d → refund flat fee; needs threshold + legal decision)
-- [ ] **Budget currency FX** — USD↔account-currency conversion (v1 enters native currency)
-- [ ] **Creative image cost → True Margin** — log gpt-image-1 cost to `ad_ai_costs` so COGS isn't understated _(~0.5d)_
+- [ ] **Safeguards 4–6** — SCOPED (see `ads-safeguards-4-6-scope.md`, restated for flat tiers):
+  - **5 free creative iteration:** ✅ BUILT 2026-06-22 — nightly `SafeguardEvaluator.shouldRefreshCreative` (default $200 spend
+    / $50 CPL ceiling, env-tunable `ADS_CREATIVE_REFRESH_SPEND_CENTS`/`_CPL_CENTS`) flags `needs_creative_refresh` (migration 172);
+    admin live-view banner "Refresh creative (free)" → regenerate; flag clears on swap. +4 unit tests. Fires once a campaign delivers.
+  - **4 test-budget tier:** ✅ BUILT 2026-06-22 — opt-in "Start as a test budget" toggle; push launches the ad set at
+    ~40% of the daily budget floored at the account min (env `ADS_TEST_BUDGET_PERCENT`), stores the full target; nightly
+    check (window `ADS_TEST_BUDGET_WINDOW_DAYS`=30 + ROAS ≥ `ADS_TEST_BUDGET_MIN_ROAS`=1) flags `test_budget_upgrade_ready`
+    → admin "Scale to full budget" banner (migration 173, +3 unit tests). Auto-scale prompt fires once delivering.
+  - **6 money-back / ROI refund:** gated on Stripe-live + 60-day ROI data + commercial threshold (D3) + **legal review (D4)**.
+- [x] **Budget currency — full currency-aware sweep** ✅ BUILT 2026-06-22 — every SHOP-FACING ad-money value now renders
+  in the connected ad account's own currency (no more assumed "$"). The account currency is captured at account selection
+  (`shops.meta_currency`, migration 174) and **self-heals** for pre-existing connections: both `getShopMetaAccount` (admin)
+  and `getMyMetaConnection` (shop) backfill the column from `getAccountStatus` the first time the account is viewed.
+  - Backend: `MetaConnection.currency` + `saveCurrency`; `AdCampaign.currency` joined from `shops.meta_currency` in
+    `CampaignRepository.findById`/`list`; exposed on `getMyMetaConnection`.
+  - Frontend: `fmtMoney(cents, currency)` helper (Intl currency, falls back to USD/code suffix). Applied to the admin
+    campaign list (Budget/day), per-campaign perf stats + daily rows + test-budget scale banner, the shop's own campaign
+    list + perf card + request rows, the shop request form's "Monthly ad budget" label + neutralised the "$49" offer
+    placeholder, and the admin manual-metrics "Spend/Revenue" labels. DraftComposer was already currency-aware.
+  - DELIBERATELY left in USD: FixFlow's OWN fees/COGS — the flat-tier ad-management billing (`BillingPanel`), True Margin
+    AI-cost/ROI (`MarginPanel`, USD-based COGS), and cross-shop/industry platform roll-ups (`IndustryAnalytics`,
+    all-shops summary) which can mix currencies. Enrollment-request review stays USD (often pre-Meta-connection → no currency).
+  NOTE: this is currency-AWARE *display* (each account's own currency), not a USD↔account-currency *conversion*. A live
+  FX-rate provider was deemed unnecessary (the natural unit is the account currency). True FX conversion + normalising the
+  USD/account-currency mix inside True Margin remain later options.
+- [x] **Creative image cost → True Margin** ✅ BUILT 2026-06-22 — `AdCreativeService.build` logs the gpt-image-1 image
+  cost (`kind:'creative_image'`) AND the AI copy cost (`kind:'creative_copy'`) to `ad_ai_costs` with the campaign id, so
+  per-campaign True Margin (`getCampaignCostCents` sums all kinds) reflects the full creative COGS. Best-effort; campaignId
+  threaded through `prepareCreative` + the regenerate path.
 - [ ] **Tiered subscription** $99/$299/$599 — still flat $500/mo (separate pricing-alignment workstream)
 - [ ] Native `OUTCOME_LEADS` instant-form ads (re-enable once `leads_retrieval` approved + form/ToS hardened)
+- [ ] **Two-way Meta ⇄ app config sync** — today config is one-way (app → Meta); manual Ads-Manager edits
+  (budget/creative/targeting/status) don't sync back + can be clobbered by in-app actions. SCOPED:
+  `ads-meta-two-way-sync-scope.md` (D1 Meta-as-source-of-truth for live; nightly + on-demand pull; v1 = budget+status ~1–1.5d).
 - [ ] **Video creatives** — see scoped section below
+- [x] **Meta Advantage+ creative enhancements (opt-in)** ✅ BUILT — default-off `allow_meta_enhancements`
+  (migration 171) + DraftComposer toggle; `createAdCreative` adds `degrees_of_freedom_spec.standard_enhancements`
+  OPT_IN when on. ⏳ Research task (per-account/objective feature eligibility) still open. See scoped section below.
 
 ---
 
@@ -81,16 +125,56 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
 
 **Prereq:** the manual image-upload affordance (DONE — `POST /ads/campaigns/:id/creative-image` + `manualImageUrl` draft edit). The DB enum already includes `'video'`.
 
+---
+
+## Meta Advantage+ creative enhancements (scoped — Phase 2, exec Part 4)
+
+**Status:** 🔵 Scoped, not built. **Exec direction (`c:\dev\exec.txt` Part 4):** Meta has its own AI creative
+generation, and it's good — but **do NOT replace our OpenAI/Stability flow**. Keep **FixFlow creative-first**
+(our review gate + brand control); add Meta AI as an **optional, post-approval enhancement** behind a toggle.
+Setup: **FixFlow AI = the brand-safe approved ad; Meta AI = optimizes variations after approval.**
+
+**What it actually is** — NOT a "generate an image via API" call. It's **Advantage+ Creative enhancements** applied
+to *our existing approved* creative at delivery: **image expansion / outpainting** (fit more placements),
+**background generation**, **text variations**, brightness/crop. Enabled via **`degrees_of_freedom_spec` /
+`creative_features_spec`** flags on the ad creative at push; Meta does the enhancing on delivery.
+
+**⚠️ Why opt-in + post-approval (exec caution):** Meta's auto-enhancements can drift **off-brand** if fully
+automatic (documented strange outputs when automation is too loose) — so they must **never bypass our approve gate**.
+
+**Two parts (exec asked for both):**
+1. **Research task** ✅ DONE 2026-06-22 (probed live on `act_3077737815616411`, PHP, OUTCOME_TRAFFIC):
+   - **⚠️ Correction:** Meta does **NOT** auto-drop ineligible features (earlier assumption was wrong) — **a single
+     ineligible feature invalidates the WHOLE creative** (error 2490472). So we must send **only eligible** features.
+   - **Eligible (enroll OPT_IN):** `image_brightness_and_contrast`, `image_enhancement`, `image_touchups`,
+     `image_auto_crop`, `image_uncrop`, `adapt_to_placement`, `enhance_cta`, `text_optimizations`, `add_text_overlay`,
+     `image_templates`.
+   - **Rejected:** `text_generation` ("Creative Invalid for Text Generation") — **this was in our old default and caused
+     all the 2490472 errors**; `image_background_gen` ("No catalog selected" — needs a product catalog).
+   - **New safe default** (`ADS_META_ENHANCEMENT_FEATURES`): `image_brightness_and_contrast,image_touchups,enhance_cta`.
+   - Eligibility is per-account — the probe (push each feature individually on v22, read back `degrees_of_freedom_spec`)
+     is the way to find a new account's set. Still requires `META_GRAPH_VERSION=v22.0` (enhancements don't exist on v19).
+2. **Build** ✅ DONE 2026-06-22 — `ad_campaigns.allow_meta_enhancements` (migration 171, default **false**) +
+   DraftComposer toggle "Allow Meta AI creative enhancements"; `MetaService.createAdCreative` adds
+   `degrees_of_freedom_spec: { creative_features_spec: { standard_enhancements: { enroll_status: 'OPT_IN' } } }` when
+   the flag is on (push + creative-edit paths). Our approved image stays the base; Meta only varies it on delivery.
+
+**Prereq:** none new — rides on the existing approved-creative push. ⚠️ The build is headless/structural only — needs a
+live delivering ad to confirm Meta actually applies enhancements (that's the open research task).
+
+---
+
 **Biggest single unlock = Meta App Review** — it gates real-shop onboarding, the Messenger objective, and live transport at once.
 
 ---
 
-## P0 — Click → lead loop is not closed (highest impact)
+## P0 — Click → lead loop → ✅ RESOLVED (2026-06-21)
 
-**Status:** ❌ Not built. **Impact:** a launched ad currently leads nowhere useful; no leads are
-captured automatically, so the Leads Kanban stays empty unless leads are added by hand.
+**Status:** ✅ Built. The public landing page `/l/[campaignId]` (+ `GET /ads/landing/:id`) hosts `<AdLeadForm/>`
+→ posts to `/ads/leads/webform` with `campaignId` + UTM → lead lands in the Kanban, and it's set as the ad's
+`linkUrl` at push. Dual CTA (Book online / lead form). The history below is kept for context.
 
-**Root cause:**
+**Root cause (historical):**
 - The ad's link (`linkUrl`) resolves to `shop.website` → `META_DEFAULT_LINK_URL` → `FRONTEND_URL`
   (the **login-gated app**) → `https://repaircoin.ai`. None of these is a purpose-built capture page.
 - `AdLeadForm.tsx` exists only as a **component** — it is **not rendered on any route/page**.
@@ -105,21 +189,17 @@ captured automatically, so the Leads Kanban stays empty unless leads are added b
 
 ---
 
-## P1 — Selected services are captured but unused
+## P1 — Selected services are captured but unused → ✅ RESOLVED (2026-06-23)
 
-**Status:** ⚠️ Partial. **Impact:** the ad is generic to the shop/offer; it doesn't promote or link
-to the specific service(s) the shop chose.
+**Status:** ✅ Done. The promoted service(s) now drive both the creative and the landing page.
 
-**Root cause:** `promoteServiceIds` is stored on the request/enrollment and read back in the repos,
-but it is **never read** by `AdCreativeService` (creative copy/image use shop + industry + brand voice
-+ offer/goal only), the targeting, or the landing `linkUrl`.
+**What shipped:**
+- Landing page renders the actual promoted services (name/price) — P0 landing page (`/l/[campaignId]`).
+- `AdCreativeService.promotedServices()` feeds service name/category/description into the AI **copy + image**
+  prompts so the ad is ABOUT the service, not the generic shop/industry (`eb8d5957d`).
 
-**Fix (pairs with P0):**
-- Landing page renders the actual promoted services (name, photo, price).
-- Optionally feed the service name(s) into the AI copy prompt so the creative matches.
-- Optionally deep-link the ad to the service(s).
-
-**Effort:** ~0.5–1 day (mostly inside the P0 landing page + an `AdCreativeService` prompt tweak).
+**Still optional (not built):** deep-linking the ad to a specific service page (today it links to the campaign
+landing page, which lists the promoted services). Low priority — the landing page already surfaces them.
 
 ---
 
@@ -200,29 +280,27 @@ forms remain a later option (code supports it via `ensureLeadForm`).
 
 ## P2 — Budget currency: no USD↔account-currency conversion
 
-**Status:** ⚠️ v1 simplification. **Impact:** on a non-USD ad account (e.g. PHP), the daily-budget
-number is interpreted in the **account's currency** — admins must enter a value valid for that currency.
+**Status:** ✅ display resolved (full currency-aware sweep, 2026-06-22) · ⚠️ no FX *conversion* (v1 simplification).
+**Impact:** on a non-USD ad account (e.g. PHP), every shop-facing ad-money value now renders in the account's
+own currency (no assumed "$"), and the daily-budget integer is entered/interpreted in that same currency.
 
 **Root cause:** Meta reads the budget integer in the account currency. We send our cents value as-is.
-We now **validate** against the account's `min_daily_budget` and surface a clear message (no more raw
-error 1885272), but we do **not** convert USD → the account currency.
+We **validate** against the account's `min_daily_budget` (clear message, no raw error 1885272) and now
+**display** every shop-facing value in the account currency — but we do **not** numerically convert USD → it.
 
-**Fix:** fetch `currency` + `min_daily_budget` (already done at push), display the account currency in
-the DraftComposer budget field, and optionally apply an FX rate for true multi-currency. **Effort:** ~1 day.
+**Done:** `shops.meta_currency` (migration 174, self-healing backfill), `AdCampaign.currency` join, `fmtMoney()`
+applied across admin + shop ad-money displays. **Remaining (optional):** a live FX rate for true multi-currency
+normalisation + folding the USD AI-COGS vs account-currency spend mismatch out of True Margin. **Effort:** ~1 day.
 
 ---
 
-## P3 — Creative image cost not in True Margin
+## P3 — Creative image cost not in True Margin → ✅ RESOLVED (2026-06-22)
 
-**Status:** ⚠️ Minor accounting gap. **Impact:** True Margin's "AI cost (COGS)" understates FixFlow's
-real cost — it counts lead-outreach AI only.
-
-**Root cause:** `ad_ai_costs` records lead AI (draft/auto-answer). The `gpt-image-1` creative generation
-cost goes to the shop AI budget / image audit log, **not** `ad_ai_costs`, so it's absent from per-campaign
-True Margin.
-
-**Fix:** log the image-gen cost to `ad_ai_costs` (with the campaign id) at prepare/regenerate time.
-**Effort:** ~0.5 day.
+**Status:** ✅ Done (`d6a152a1b`). `AdCreativeService.build` logs the gpt-image-1 image cost
+(`kind:'creative_image'`) AND the AI copy cost (`kind:'creative_copy'`) to `ad_ai_costs` with the campaign id,
+threaded through `prepareCreative` + the regenerate path. `getCampaignCostCents` sums all kinds, so per-campaign
+True Margin now reflects the full creative COGS (verified ~6.35¢ logged on a regenerate). Best-effort; only logs
+on NEW generations (no backfill of pre-existing creatives).
 
 ---
 
@@ -243,9 +321,20 @@ True Margin.
   Ad-Management Billing moved to the per-shop inbox view.
 - Nightly Meta insights sync → `ad_performance_daily` (spend/impressions/clicks).
 
-## Suggested order
-**Objective picker + persisted objective** (now — makes the choice first-class) → **P0 landing page**
-(unblocks the clicks pipeline) → **P1 service-aware creative** (rides on the landing page) → **App Review for
-`pages_messaging`** (parallel, external) → **Messenger path** (objective + webhook + Send API, when App Review
-clears — this is the narrative moat) → **Pixel "Lead" event** (clicks lead-quality) → **currency display** /
-**polish + image-cost accounting**.
+## Suggested order (remaining, as of 2026-06-23)
+
+Done already: objective picker, P0 landing page, service-aware creative, Pixel "Lead" **tracking + optimization**
+(flag-gated), currency sweep, image-cost accounting, UX polish, Safeguards 1–5. What's left, in order:
+
+0. 🔴 **P0 — Conversion attribution** (`ads-conversion-attribution-scope.md`, ~2d) — without it ROI/Revenue/
+   True-Margin are always 0; everything ROI-related downstream is meaningless until this lands. Do first.
+1. **QA + deploy** — browser QA pass, deploy branch to staging (+ `ADS_LANDING_BASE_URL`/`META_*` env),
+   `schema_migrations` reconciliation, verify customer "Book online", confirm Advantage+ on a live delivering ad.
+2. **Meta App Review** (external, the big unlock) — write scopes + `pages_messaging`; gates real-shop onboarding,
+   Messenger, and live transport at once. Submit in parallel with QA.
+3. ~~Pixel "Lead" optimization~~ ✅ BUILT (flag-gated) — flip `ADS_OPTIMIZE_FOR_LEAD=true` once the pixel has Lead events.
+4. **Messenger path** (objective + webhook + Send API) — when App Review clears; the narrative moat.
+5. **Live lead transport** (provider + `ADS_LEAD_TRANSPORT_ENABLED`) — when App Review clears for Messenger/WhatsApp.
+6. **Stripe collection go-live** → then **Safeguard 6** (ROI money-back).
+7. **Later / optional:** video creatives (~2–4d), FX conversion + True-Margin currency normalization,
+   tiered subscription ($99/$299/$599 — the pricing-alignment workstream WS1).

@@ -51,6 +51,10 @@ export const CampaignReviewModal: React.FC<{
   /** Banner embedded at the top of the email, if any — rendered in the
    *  preview so the shop sees the actual image before sending. */
   bannerImageUrl?: string | null;
+  /** When set, the email has a real CTA button block (e.g. the imported-customer
+   *  win-back "Claim Your Account" button) — rendered in the preview so the shop
+   *  sees it, since the preview otherwise only shows the text body. */
+  claimCtaLabel?: string | null;
   onSent: (result: CampaignDeliveryResult) => void;
 }> = ({
   open,
@@ -61,6 +65,7 @@ export const CampaignReviewModal: React.FC<{
   audienceLabel,
   recipientCount,
   bannerImageUrl,
+  claimCtaLabel,
   onSent,
 }) => {
   const [subject, setSubject] = useState(initialSubject);
@@ -191,6 +196,14 @@ export const CampaignReviewModal: React.FC<{
                 <div className="mt-2 text-sm text-gray-700 whitespace-pre-line break-words">
                   {body}
                 </div>
+                {claimCtaLabel && (
+                  // Mirrors the real email's button block (MarketingService renderBlock 'button').
+                  <div className="mt-4 text-center">
+                    <span className="inline-block rounded-md bg-[#eab308] px-6 py-3 text-sm font-bold text-black">
+                      {claimCtaLabel}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

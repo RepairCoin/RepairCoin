@@ -11,6 +11,7 @@
 
 import { logger } from '../../../utils/logger';
 import { metaService } from './MetaService';
+import { metaConfigSyncService } from './MetaConfigSyncService';
 import { buildCampaignSpec, asMetaObjective } from './metaTargeting';
 import { adCreativeService, AdCreativeService, publicUrl } from './AdCreativeService';
 import { decryptToken } from '../../../utils/tokenCrypto';
@@ -44,7 +45,7 @@ export class MetaPushService {
    *  ad_creatives row for review. No Meta call. Used at Build (prepare) and on regenerate.
    *  Throws if the image can't be generated (e.g. ai_images_enabled off) so Build can surface it. */
   async prepareCreative(shopId: string, request: AdCampaignRequest, campaignId: string, campaignName: string, imagePrompt?: string): Promise<void> {
-    const creative = await this.creatives.build(shopId, request, campaignName, { imagePrompt, landingUrl: landingUrlFor(campaignId) });
+    const creative = await this.creatives.build(shopId, request, campaignName, { imagePrompt, landingUrl: landingUrlFor(campaignId), campaignId });
     await this.creativeRepo.upsertAi({
       campaignId, imageUrl: creative.imageUrl, headline: creative.headline,
       body: creative.primaryText, landingUrl: creative.linkUrl, generationPrompt: creative.imagePrompt,
@@ -91,9 +92,23 @@ export class MetaPushService {
       targetRadiusMiles: campaign.targetRadiusMiles,
       lat: geo.lat,
       lng: geo.lng,
+      // Pixel "Lead" optimization (opt-in). Off by default — Meta under-delivers / rejects
+      // OFFSITE_CONVERSIONS before the pixel has Lead events, so tracking ships first and ops
+      // flips this on once events accrue. Only applies when the shop actually has a pixel.
+      optimizeForPixelLead: process.env.ADS_OPTIMIZE_FOR_LEAD === 'true',
+      pixelId: conn.pixelId,
     });
     // Use the REVIEWED daily budget on the campaign (not monthly/30) — the admin set it.
-    const dailyBudgetCents = campaign.dailyBudgetCents || spec.dailyBudgetCents;
+    const fullDaily = campaign.dailyBudgetCents || spec.dailyBudgetCents;
+    // Safeguard 4 — test-budget tier: launch at a fraction of the full budget (floored at the
+    // account minimum so it still delivers), and remember the full target to scale up to later.
+    let dailyBudgetCents = fullDaily;
+    if (campaign.isTestBudget) {
+      const pct = parseFloat(process.env.ADS_TEST_BUDGET_PERCENT || '0.4');
+      const floor = status.minDailyBudget ?? 100;
+      dailyBudgetCents = Math.max(floor, Math.round(fullDaily * pct));
+      await this.campaigns.update(campaign.id, { fullDailyBudgetCents: fullDaily });
+    }
     const linkUrl = creative.landingUrl || process.env.META_DEFAULT_LINK_URL || process.env.FRONTEND_URL || 'https://repaircoin.ai';
 
     let metaCampaignId: string | undefined;
@@ -112,10 +127,15 @@ export class MetaPushService {
         billingEvent: spec.billingEvent,
         targeting: spec.targeting,
         promotedPageId: conn.pageId,
+        // Pixel-Lead website-conversion optimization → promoted_object names the pixel + LEAD.
+        conversionPixelId: spec.conversionOptimized ? spec.pixelId ?? undefined : undefined,
+        customEventType: spec.conversionOptimized ? 'LEAD' : undefined,
       });
-      // For lead objectives, attach a native instant form (best-effort → link fallback).
+      // For native-lead-form objectives, attach a Meta instant form (best-effort → link
+      // fallback). SKIP it for the pixel-conversion flavor (conversionOptimized) — that path
+      // optimizes for the Lead pixel event on OUR landing page, with a normal link creative.
       let metaLeadFormId: string | undefined;
-      if (spec.objective === 'OUTCOME_LEADS' && conn.pageTokenEnc) {
+      if (spec.objective === 'OUTCOME_LEADS' && !spec.conversionOptimized && conn.pageTokenEnc) {
         try {
           const pageToken = decryptToken(conn.pageTokenEnc);
           metaLeadFormId = await metaService.ensureLeadForm(conn.pageId, pageToken, {
@@ -132,6 +152,7 @@ export class MetaPushService {
         message: creative.body ?? undefined,
         linkUrl,
         leadFormId: metaLeadFormId,
+        enhancements: campaign.allowMetaEnhancements,
       });
       metaAdId = await metaService.createAd(conn.adAccountId, token, {
         name: `${campaign.name} — ad`, adsetId: metaAdSetId, creativeId: metaCreativeId,
@@ -175,6 +196,8 @@ export class MetaPushService {
     if (!this.enabled()) throw new Error('push_disabled');
     const campaign = await this.campaigns.findById(campaignId);
     if (!campaign?.metaCampaignId) throw new Error('not_a_meta_draft');
+    // D5 — never act on a campaign whose Meta objects were archived/deleted in Ads Manager.
+    if (campaign.status === 'archived') throw new Error('campaign_archived_on_meta: this campaign was archived or removed in Ads Manager; it cannot go live again');
     // Q8 review gate — the AI creative must be approved before it can spend.
     const creative = await this.creativeRepo.findAiByCampaign(campaignId);
     if (!creative || creative.reviewStatus !== 'approved') {
@@ -189,6 +212,37 @@ export class MetaPushService {
     const ids = [campaign.metaCampaignId, campaign.metaAdSetId, campaign.metaAdId].filter(Boolean) as string[];
     for (const id of ids) await metaService.setObjectStatus(id, 'ACTIVE', token);
     await this.campaigns.setMetaObjects(campaignId, { metaStatus: 'ACTIVE' });
+    // Safeguard 4 — start the test-budget window at first go-live (the nightly check measures ROI
+    // from here; once the window passes with ROI ≥ threshold it flags "ready to scale to full").
+    if (campaign.isTestBudget && !campaign.testBudgetStartedAt) {
+      await this.campaigns.update(campaignId, { testBudgetStartedAt: new Date() });
+    }
+  }
+
+  /** Safeguard 4 — scale a test-budget campaign up to its full daily budget (admin confirms after
+   *  the nightly check flags it ready). Pushes the new ad-set budget + exits test mode. */
+  async scaleToFull(campaignId: string): Promise<void> {
+    if (!this.enabled()) throw new Error('push_disabled');
+    const campaign = await this.campaigns.findById(campaignId);
+    if (!campaign) throw new Error('campaign_not_found');
+    if (!campaign.isTestBudget || !campaign.fullDailyBudgetCents) throw new Error('not_a_test_budget_campaign');
+    if (campaign.status === 'archived') throw new Error('campaign_archived_on_meta: this campaign was archived or removed in Ads Manager');
+    // D6 clobber-guard: pull the latest config from Meta first (no-op unless ADS_META_CONFIG_SYNC),
+    // so this scale-up acts on fresh state and stamps the sync rather than racing a manual edit.
+    // D5 — if that reconcile finds the Meta objects gone/archived, halt instead of pushing to dead ids.
+    const rc = await metaConfigSyncService.reconcile(campaignId);
+    if (rc.status === 'diverged') throw new Error('campaign_archived_on_meta: this campaign was archived or removed in Ads Manager');
+    const conn = await this.connections.getConnection(campaign.shopId);
+    if (!conn?.userTokenEnc) throw new Error('meta_not_connected');
+    const token = decryptToken(conn.userTokenEnc);
+    if (campaign.metaAdSetId) {
+      await metaService.updateAdSet(campaign.metaAdSetId, token, { dailyBudgetCents: campaign.fullDailyBudgetCents });
+    }
+    await this.campaigns.update(campaignId, {
+      dailyBudgetCents: campaign.fullDailyBudgetCents,
+      isTestBudget: false,
+      testBudgetUpgradeReady: false,
+    });
   }
 
   /** In-app draft edits: budget / radius and headline / primaryText / image. Works on BOTH a
@@ -200,12 +254,25 @@ export class MetaPushService {
     headline?: string; primaryText?: string; regenerateImage?: boolean; imagePrompt?: string;
     /** A manually-uploaded designer image (public URL) to use instead of AI generation. */
     manualImageUrl?: string;
+    /** Opt into Meta Advantage+ creative enhancements (applies on the next creative push). */
+    allowMetaEnhancements?: boolean;
+    /** Safeguard 4 — start at a reduced test budget (only meaningful pre-push). */
+    isTestBudget?: boolean;
     request?: AdCampaignRequest;
   }): Promise<void> {
     if (!this.enabled()) throw new Error('push_disabled');
     const campaign = await this.campaigns.findById(campaignId);
     if (!campaign) throw new Error('campaign_not_found');
     const onMeta = !!campaign.metaCampaignId; // pushed (PAUSED) vs local draft
+    // D5 — never edit a campaign whose Meta objects were archived/deleted in Ads Manager.
+    if (onMeta && campaign.status === 'archived') throw new Error('campaign_archived_on_meta: this campaign was archived or removed in Ads Manager');
+    // D6 clobber-guard: for a pushed campaign, pull the latest config from Meta first (no-op
+    // unless ADS_META_CONFIG_SYNC) so this in-app edit acts on current state, not a stale value.
+    // D5 — if that reconcile finds the Meta objects gone/archived, halt instead of editing dead ids.
+    if (onMeta) {
+      const rc = await metaConfigSyncService.reconcile(campaignId);
+      if (rc.status === 'diverged') throw new Error('campaign_archived_on_meta: this campaign was archived or removed in Ads Manager');
+    }
     const conn = await this.connections.getConnection(campaign.shopId);
     if (onMeta && (!conn?.userTokenEnc || !conn.adAccountId || !conn.pageId)) throw new Error('meta_not_connected');
     const token = conn?.userTokenEnc ? decryptToken(conn.userTokenEnc) : '';
@@ -229,6 +296,9 @@ export class MetaPushService {
     if (edits.radiusMiles != null) dbUpdate.targetRadiusMiles = edits.radiusMiles;
     // Objective change is only meaningful before the push (it's baked into the Meta campaign).
     if (edits.objective && !onMeta) dbUpdate.objective = asMetaObjective(edits.objective) ?? undefined;
+    if (edits.allowMetaEnhancements !== undefined) dbUpdate.allowMetaEnhancements = edits.allowMetaEnhancements;
+    // Test-budget toggle is only meaningful before the push (it sets the launch budget).
+    if (edits.isTestBudget !== undefined && !onMeta) dbUpdate.isTestBudget = edits.isTestBudget;
     if (Object.keys(dbUpdate).length) await this.campaigns.update(campaignId, dbUpdate);
 
     // 2) Creative — manual image upload, AI regenerate, or text-only edit. Always re-arms review.
@@ -254,7 +324,7 @@ export class MetaPushService {
       generationPrompt = null; // not AI-generated
     } else if (regenerateImage) {
       if (!edits.request) throw new Error('cannot_regenerate_without_request');
-      const fresh = await this.creatives.build(campaign.shopId, edits.request, campaign.name, { imagePrompt: edits.imagePrompt, landingUrl: landingUrlFor(campaignId) });
+      const fresh = await this.creatives.build(campaign.shopId, edits.request, campaign.name, { imagePrompt: edits.imagePrompt, landingUrl: landingUrlFor(campaignId), campaignId });
       imageUrl = fresh.imageUrl;
       headline = edits.headline || fresh.headline;
       primaryText = edits.primaryText || fresh.primaryText;
@@ -274,6 +344,8 @@ export class MetaPushService {
     const saved = await this.creativeRepo.upsertAi({
       campaignId, imageUrl, headline, body: primaryText, landingUrl: linkUrl, generationPrompt,
     });
+    // Safeguard 5 — the creative was just swapped, so clear the "needs refresh" nudge.
+    await this.campaigns.setCreativeRefresh(campaignId, false).catch(() => undefined);
 
     // If the campaign is already on Meta, push the new creative and re-point the ad at it.
     if (onMeta && conn && campaign.metaAdId) {
@@ -281,6 +353,7 @@ export class MetaPushService {
       const newCreativeId = await metaService.createAdCreative(conn.adAccountId, token, {
         pageId: conn.pageId!, imageUrl, headline: headline ?? undefined, message: primaryText ?? undefined, linkUrl,
         leadFormId: campaign.metaLeadFormId ?? undefined,
+        enhancements: campaign.allowMetaEnhancements,
       });
       await metaService.updateAdCreative(campaign.metaAdId, token, newCreativeId);
       await this.campaigns.setMetaObjects(campaignId, { metaCreativeId: newCreativeId });

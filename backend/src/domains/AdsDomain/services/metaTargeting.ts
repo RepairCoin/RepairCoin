@@ -17,6 +17,12 @@ export interface CampaignSpecInput {
   /** Admin-selected objective override (picker). When set + valid, used instead of
    *  deriving from the goal. */
   objective?: string | null;
+  /** Pixel "Lead" optimization (opt-in, ADS_OPTIMIZE_FOR_LEAD). When true + a pixelId is
+   *  present, a website-clicks campaign is upgraded to OUTCOME_LEADS optimized for the Lead
+   *  pixel conversion (still links to our landing page — no instant form). */
+  optimizeForPixelLead?: boolean;
+  /** The shop's Meta pixel id (shops.meta_pixel_id) — required for the optimization above. */
+  pixelId?: string | null;
 }
 
 /** Validate an admin-supplied objective string → a supported MetaObjective, or null. */
@@ -37,6 +43,11 @@ export interface MetaCampaignSpec {
   optimizationGoal: string;
   billingEvent: string;
   targeting: Record<string, any>; // Meta targeting spec
+  /** True when this spec was upgraded to pixel-Lead website-conversion optimization. The push
+   *  service uses it to attach the pixel promoted_object and to SKIP the native instant form. */
+  conversionOptimized?: boolean;
+  /** Pixel id to optimize toward (only set when conversionOptimized). */
+  pixelId?: string | null;
 }
 
 const DEFAULT_RADIUS_MILES = 10;
@@ -96,6 +107,25 @@ export function buildTargeting(input: CampaignSpecInput): Record<string, any> {
 export function buildCampaignSpec(input: CampaignSpecInput): MetaCampaignSpec {
   // An explicit, valid objective (picker) wins; otherwise derive from the goal.
   const objective = asMetaObjective(input.objective) ?? objectiveForGoal(input.goal);
+
+  // Pixel "Lead" optimization (opt-in): upgrade a website-clicks campaign to an OUTCOME_LEADS
+  // website-conversion campaign optimized for the Lead pixel event — delivery tunes toward
+  // form-submitters, not clickers. Still links to OUR landing page (no instant form). Only the
+  // traffic/clicks case is upgraded; awareness + native-lead-form objectives are left untouched.
+  // (OFFSITE_CONVERSIONS is NOT a valid optimization under OUTCOME_TRAFFIC in Meta's ODAX, which
+  // is why the objective itself flips to OUTCOME_LEADS here.)
+  if (input.optimizeForPixelLead && input.pixelId && objective === 'OUTCOME_TRAFFIC') {
+    return {
+      objective: 'OUTCOME_LEADS',
+      dailyBudgetCents: dailyBudgetCents(input.monthlyBudgetCents),
+      optimizationGoal: 'OFFSITE_CONVERSIONS',
+      billingEvent: 'IMPRESSIONS',
+      targeting: buildTargeting(input),
+      conversionOptimized: true,
+      pixelId: input.pixelId,
+    };
+  }
+
   const { optimizationGoal, billingEvent } = optimizationForObjective(objective);
   return {
     objective,

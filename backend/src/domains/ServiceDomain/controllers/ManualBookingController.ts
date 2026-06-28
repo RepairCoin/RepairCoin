@@ -12,6 +12,7 @@ import { getSharedPool } from '../../../utils/database-pool';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { EmailService } from '../../../services/EmailService';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
+import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import Stripe from 'stripe';
 
 const pool = getSharedPool();
@@ -265,6 +266,20 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
 
     const order = orderResult.rows[0];
     console.log('Step 12: Order created:', order.order_id);
+
+    // Ads conversion attribution: a manual booking is the "booked" (pending) or "paid" moment for
+    // an ad lead. Publish order_created so AdsDomain can contact-match + auto-advance the lead's
+    // Kanban stage (no-op unless ADS_CONVERSION_ATTRIBUTION). Non-blocking — never fails the booking.
+    try {
+      await eventBus.publish(createDomainEvent(
+        'service.order_created',
+        customerData.address,
+        { orderId: order.order_id, customerAddress: customerData.address, shopId, serviceId, status: orderStatus },
+        'ServiceDomain'
+      ));
+    } catch (eventError) {
+      console.error('Error publishing order_created event (manual booking):', eventError);
+    }
 
     // Handle payment link generation for 'send_link' or 'qr_code' options
     let paymentLinkUrl: string | null = null;

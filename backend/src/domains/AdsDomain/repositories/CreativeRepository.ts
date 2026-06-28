@@ -20,6 +20,10 @@ export interface AdCreative {
   reviewStatus: 'pending' | 'approved' | 'rejected';
   reviewedBy: string | null;
   reviewedAt: Date | null;
+  /** Two-way sync (Phase 2): the live creative was swapped/edited in Ads Manager and reflected
+   *  back here. Surfaces the review-gate bypass; cleared on a local edit/regenerate/re-review. */
+  externallyEdited: boolean;
+  externallyEditedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -82,7 +86,8 @@ export class CreativeRepository extends BaseRepository {
     if (fields.headline !== undefined) col('headline', fields.headline);
     if (fields.body !== undefined) col('body', fields.body);
     if (sets.length === 0) return this.findById(id);
-    sets.push(`version = version + 1`, `review_status = 'pending'`, `updated_at = now()`);
+    // A local edit supersedes any external Ads-Manager edit and re-arms the review gate.
+    sets.push(`version = version + 1`, `review_status = 'pending'`, `externally_edited = false`, `externally_edited_at = NULL`, `updated_at = now()`);
     params.push(id);
     const res = await this.pool.query(
       `UPDATE ad_creatives SET ${sets.join(', ')} WHERE id = $${params.length} AND deleted_at IS NULL RETURNING *`,
@@ -122,7 +127,8 @@ export class CreativeRepository extends BaseRepository {
         `UPDATE ad_creatives
             SET image_url = $1, headline = $2, body = $3, landing_url = COALESCE($4, landing_url),
                 generation_prompt = $5, meta_creative_id = NULL, version = version + 1,
-                review_status = 'pending', reviewed_by = NULL, reviewed_at = NULL, updated_at = now()
+                review_status = 'pending', reviewed_by = NULL, reviewed_at = NULL,
+                externally_edited = false, externally_edited_at = NULL, updated_at = now()
           WHERE id = $6 RETURNING *`,
         [input.imageUrl, input.headline, input.body, input.landingUrl ?? null, input.generationPrompt, existing.id]
       );
@@ -151,13 +157,49 @@ export class CreativeRepository extends BaseRepository {
     status: 'approved' | 'rejected',
     reviewedBy: string
   ): Promise<AdCreative | null> {
+    // Re-reviewing acknowledges any external Ads-Manager edit, so clear the flag.
     const res = await this.pool.query(
       `UPDATE ad_creatives
-         SET review_status = $1, reviewed_by = $2, reviewed_at = now(), updated_at = now()
+         SET review_status = $1, reviewed_by = $2, reviewed_at = now(),
+             externally_edited = false, externally_edited_at = NULL, updated_at = now()
        WHERE id = $3 AND deleted_at IS NULL RETURNING *`,
       [status, reviewedBy, id]
     );
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
+  /** Two-way sync (Phase 2): reflect a creative that was swapped/edited directly in Ads Manager
+   *  into the campaign's AI creative row, and raise the externally_edited flag. Non-empty fields
+   *  only (an empty spec value preserves what we have). NEVER touches review_status — an external
+   *  edit must not auto-approve (D3); the flag surfaces the bypass for an admin to re-review. */
+  async reflectExternalCreative(
+    campaignId: string,
+    fields: { headline?: string | null; body?: string | null; imageUrl?: string | null }
+  ): Promise<AdCreative | null> {
+    const row = await this.findAiByCampaign(campaignId);
+    if (!row) return null;
+    const res = await this.pool.query(
+      `UPDATE ad_creatives
+         SET headline  = COALESCE(NULLIF($1, ''), headline),
+             body      = COALESCE(NULLIF($2, ''), body),
+             image_url = COALESCE(NULLIF($3, ''), image_url),
+             externally_edited = true, externally_edited_at = now(), updated_at = now()
+       WHERE id = $4 RETURNING *`,
+      [fields.headline ?? '', fields.body ?? '', fields.imageUrl ?? '', row.id]
+    );
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
+  /** Raise the externally_edited flag without changing content (used when the live creative
+   *  diverged but its spec couldn't be read back). */
+  async flagExternallyEdited(campaignId: string): Promise<void> {
+    const row = await this.findAiByCampaign(campaignId);
+    if (!row) return;
+    await this.pool.query(
+      `UPDATE ad_creatives SET externally_edited = true, externally_edited_at = now(), updated_at = now()
+       WHERE id = $1`,
+      [row.id]
+    );
   }
 
   async softDelete(id: string): Promise<boolean> {
@@ -186,6 +228,8 @@ export class CreativeRepository extends BaseRepository {
       reviewStatus: r.review_status,
       reviewedBy: r.reviewed_by,
       reviewedAt: r.reviewed_at,
+      externallyEdited: r.externally_edited ?? false,
+      externallyEditedAt: r.externally_edited_at ?? null,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };

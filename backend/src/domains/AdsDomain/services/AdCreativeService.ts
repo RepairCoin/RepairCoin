@@ -16,6 +16,7 @@ import { imageGenerationService, ImageGenerationService } from '../../AIAgentDom
 import { shopRepository } from '../../../repositories';
 import { ClaudeModel } from '../../AIAgentDomain/types';
 import { AdCampaignRequest } from '../repositories/CampaignRequestRepository';
+import { AiCostRepository } from '../repositories/AiCostRepository';
 import { parseAdCopy, truncateAtWord } from './adCopyParse';
 
 export { parseAdCopy };
@@ -59,7 +60,8 @@ export class AdCreativeService {
     private readonly anthropic = new AnthropicClient(),
     private readonly spendCap = new SpendCapEnforcer(),
     private readonly brandKit = new BrandKitService(),
-    private readonly images: ImageGenerationService = imageGenerationService
+    private readonly images: ImageGenerationService = imageGenerationService,
+    private readonly aiCosts = new AiCostRepository()
   ) {}
 
   /** The shop's promoted services with the detail the creative needs to be ABOUT the service
@@ -97,7 +99,7 @@ export class AdCreativeService {
     shopId: string,
     request: AdCampaignRequest,
     campaignName: string,
-    opts: { imagePrompt?: string; landingUrl?: string } = {}
+    opts: { imagePrompt?: string; landingUrl?: string; campaignId?: string } = {}
   ): Promise<AdCreativeContent> {
     const [shop, kit] = await Promise.all([
       shopRepository.getShop(shopId).catch(() => null),
@@ -145,6 +147,11 @@ export class AdCreativeService {
           maxTokens: 200,
         });
         await this.spendCap.recordSpend(shopId, resp.costUsd);
+        // Q6 — log copy COGS to the per-campaign ledger so True Margin reflects it (best-effort).
+        if (opts.campaignId) {
+          void this.aiCosts.record({ campaignId: opts.campaignId, costCents: (resp.costUsd || 0) * 100, kind: 'creative_copy', model: COPY_MODEL })
+            .catch((e) => logger.warn('AdCreativeService: copy cost ledger failed', e));
+        }
         const parsed = parseAdCopy(resp.text, offer);
         headline = parsed.headline;
         primaryText = parsed.primaryText;
@@ -170,6 +177,12 @@ export class AdCreativeService {
     const img = await this.images.generate(shopId, { prompt, useCase: 'ads', dimensions: '1536x1024' });
     if (!img.ok || !img.imageUrl) {
       throw new Error(`creative_image_failed: ${img.error || 'image generation unavailable'}`);
+    }
+    // Q6 — log the gpt-image-1 COGS to the per-campaign ledger so True Margin isn't understated
+    // (the dominant creative cost; was only in the shop AI budget before). Best-effort.
+    if (opts.campaignId && img.costUsd) {
+      void this.aiCosts.record({ campaignId: opts.campaignId, costCents: img.costUsd * 100, kind: 'creative_image', model: 'gpt-image-1' })
+        .catch((e) => logger.warn('AdCreativeService: image cost ledger failed', e));
     }
 
     return { imageUrl: img.imageUrl, headline, primaryText, linkUrl, imagePrompt: prompt };

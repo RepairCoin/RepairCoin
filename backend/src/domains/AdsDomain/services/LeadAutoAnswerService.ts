@@ -11,6 +11,7 @@ import { logger } from '../../../utils/logger';
 import { AnthropicClient } from '../../AIAgentDomain/services/AnthropicClient';
 import { SpendCapEnforcer } from '../../AIAgentDomain/services/SpendCapEnforcer';
 import { BrandKitService } from '../../AIAgentDomain/services/BrandKitService';
+import { getAiMemoryService } from '../../AIAgentDomain/services/AiMemoryService';
 import { shopRepository } from '../../../repositories';
 import { ChatMessage, ClaudeModel } from '../../AIAgentDomain/types';
 import { LeadRepository } from '../repositories/LeadRepository';
@@ -117,9 +118,16 @@ export class LeadAutoAnswerService {
     }
 
     const channel = LeadChannelSender.pickChannel(lead);
+    // AI Memory (Phase 5 shared reads): honor the owner's standing instructions
+    // (tone, offers, do's/don'ts) in lead replies too. No-op when off/empty.
+    const systemBlocks: { text: string; cache: boolean }[] = [
+      { text: systemPromptFor(shopName, industry, voice, campaign?.name || 'an ad'), cache: true },
+    ];
+    const memBlock = await getAiMemoryService().recallBlock(shopId, last?.body);
+    if (memBlock) systemBlocks.push({ text: memBlock, cache: false });
     try {
       const resp = await this.anthropic.complete({
-        systemPrompt: [{ text: systemPromptFor(shopName, industry, voice, campaign?.name || 'an ad'), cache: true }],
+        systemPrompt: systemBlocks,
         messages: history,
         model: MODEL,
         maxTokens: 400,
