@@ -22,6 +22,13 @@ export interface MarketingShopContext {
   services: Array<{ id: string; name: string; priceUsd: number | null }>;
   /** Up to 3 most recent campaigns' subjects (for tone matching). */
   recentCampaignSubjects: string[];
+  /**
+   * Welcome-RCN-on-claim config. When `active`, the shop grants `amount` RCN to imported
+   * customers who claim their account — so the AI can use the real number in migration/win-back
+   * copy instead of a placeholder. Absent/inactive → fall back to the `(your welcome reward
+   * here)` placeholder.
+   */
+  welcomeRcn?: { active: boolean; amount: number };
 }
 
 /**
@@ -41,7 +48,7 @@ export function buildMarketingRulesBlock(): string {
 # What you can do
 
 - Propose a draft campaign from a natural-language ask ("send a Black Friday campaign", "bring back lapsed customers", "tell my top 100 about our new service").
-- Resolve audience segments before drafting (top spenders, lapsed N+ days, frequent visitors, all customers).
+- Resolve audience segments before drafting (top spenders, lapsed N+ days, frequent visitors, all customers, imported/Square win-back).
 - Persist drafts so the shop can review + edit before sending.
 - Propose sending an existing draft after the shop's review.
 
@@ -80,6 +87,13 @@ export function buildMarketingRulesBlock(): string {
 
 10. **Empty panel + vague opening → call \`suggest_campaign_strategies\`** with 2-4 concrete campaign ideas the shop might tap. Pick ideas the shop hasn't recently exercised (their recent campaign subjects are in the context block). Skip this when the shop has already named what they want.
 
+11. **Imported / Square win-back campaigns are migration messaging, NOT generic "we miss you."** When the shop asks to win back imported / Square / migrated customers, \`lookup_audience_count\` resolves the \`imported_winback\` audience (these are customers carried over from a prior POS who haven't started using FixFlow yet). Write copy that:
+   - Frames it as an UPGRADE, not an apology: "We've upgraded our booking & rewards — meet FixFlow."
+   - Drives the ONE action that matters — **claim your account** (their history carries over) — then a first booking.
+   - For the welcome RCN reward: if the shop context shows an ACTIVE welcome reward, you MUST feature it as a key reason to claim now, stating the EXACT RCN figure from the context (e.g. "claim your account and get 25 RCN"). Use that exact number — don't round or change it (the figure is auto-verified before send, so just state it confidently; never omit it). If there is NO active welcome reward, use the \`(your welcome reward here)\` placeholder — never invent a number (rule 4 still applies).
+   - Reassures continuity: their past visits/history are preserved.
+   Do NOT write lapsed-customer "it's been a while since your last visit" copy — these customers never visited on FixFlow, so that framing is wrong.
+
 # Template scaffolds
 
 Use these for recognized categories. They're starting points — adapt freely. For asks that don't match any scaffold, free-draft using shop context.
@@ -95,6 +109,7 @@ ${renderScaffoldsForPrompt()}
 # Reply style
 
 - Lead with the action you took ("Drafted a Black Friday campaign for all 142 customers — tap to preview.")
+- When \`propose_campaign_draft\` returns \`welcome_reward_rcn\` > 0, say so in your reply — e.g. "It offers a 30 RCN welcome reward when they claim their account." Use that exact number.
 - The draft card renders the subject + body preview below your reply. Don't restate the whole subject and body — let the card show it.
 - Two to three sentences max in your prose. The cards carry the detail.
 - Use the shop's wording when echoing back ("your Black Friday campaign", not "the campaign you requested").
@@ -120,6 +135,15 @@ export function buildMarketingShopContextBlock(
       const price = s.priceUsd != null ? ` ($${s.priceUsd.toFixed(2)})` : "";
       lines.push(`- ${s.name}${price}`);
     }
+  }
+
+  if (ctx.welcomeRcn?.active) {
+    const rcn = ctx.welcomeRcn.amount;
+    const usd = (rcn * 0.1).toFixed(2); // 1 RCN = $0.10
+    lines.push(
+      ``,
+      `**Welcome reward (active):** this shop grants **${rcn} RCN** (worth **$${usd}**) to imported customers when they claim their account. ALWAYS feature this reward in win-back / Square-migration copy as a concrete reason to claim now — write it as "${rcn} RCN" (you may add "($${usd})"). State this exact figure plainly; the amount is automatically verified before the email sends, so you don't need to hedge or omit it.`
+    );
   }
 
   if (ctx.recentCampaignSubjects.length > 0) {

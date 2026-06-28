@@ -34,7 +34,8 @@ type ResolvedAudienceType =
   | "top_spenders"
   | "frequent_visitors"
   | "active_customers"
-  | "custom";
+  | "custom"
+  | "imported_winback";
 
 interface ResolvedSegment {
   audienceType: ResolvedAudienceType;
@@ -49,7 +50,8 @@ export const lookupAudienceCount: MarketingTool = {
     "Call this BEFORE drafting a campaign so you know if the segment is " +
     "non-empty and so you can show the shop the resolved size. The hint " +
     "can be free-form (\"top 100 by spend\", \"haven't booked in 90 " +
-    "days\", \"all customers\", \"frequent visitors\"). Returns the " +
+    "days\", \"all customers\", \"frequent visitors\", \"win back my " +
+    "Square / imported customers\"). Returns the " +
     "resolved segment, total count, and a few sample customer names. " +
     "Read-only — never mutates anything.",
   inputSchema: {
@@ -63,7 +65,8 @@ export const lookupAudienceCount: MarketingTool = {
           "Natural-language description of who to target. Examples: " +
           "\"top 100 by spend\", \"lapsed 90+ days\", \"customers who " +
           "haven't booked in 6 months\", \"all customers\", \"frequent " +
-          "visitors\".",
+          "visitors\", \"win back my Square customers\", \"imported " +
+          "customers who haven't claimed\".",
       },
     },
     required: ["segment_hint"],
@@ -97,6 +100,15 @@ export const lookupAudienceCount: MarketingTool = {
       segment.audienceFilters
     );
     const count = recipients.length;
+    // Reachable-by-email = recipients that actually have an email address.
+    // This is the honest ceiling for an email campaign — it matters most for
+    // imported cohorts (e.g. a Square list that's phone-dominant), where the
+    // raw segment size can be much larger than who we can actually email.
+    // (Unsubscribe suppression is applied at send time; this is the upstream
+    // has-an-email gate.)
+    const reachableByEmail = recipients.filter(
+      (c) => typeof c.email === "string" && c.email.trim().length > 0
+    ).length;
     const sampleNames = recipients
       .slice(0, 5)
       .map((c) => (c.name && c.name.trim()) || shortAddress(c.walletAddress))
@@ -120,6 +132,7 @@ export const lookupAudienceCount: MarketingTool = {
         audience_filters: segment.audienceFilters,
         resolved_label: segment.label,
         resolved_count: count,
+        reachable_by_email: reachableByEmail,
         total_shop_customers: totalShopCustomers,
         sample_names: sampleNames,
       },
@@ -127,6 +140,7 @@ export const lookupAudienceCount: MarketingTool = {
         kind: "audience_summary",
         label: segment.label,
         resolvedCount: count,
+        reachableByEmail,
         audienceType: segment.audienceType,
         audienceFilters: segment.audienceFilters,
         sampleNames,
@@ -147,6 +161,35 @@ export const lookupAudienceCount: MarketingTool = {
  */
 function resolveSegment(hint: string): ResolvedSegment {
   const normalized = hint.toLowerCase().trim();
+
+  // Imported / migrated win-back — MUST be checked before the generic "win
+  // back"/lapsed branch below, otherwise "win back my Square customers" would
+  // resolve to the lapsed-bookers audience. This targets only the shop's
+  // imported cohort (e.g. a Square switch); the funnel stage narrows it.
+  const importedKeywords =
+    /square|imported|migrat|old (pos|system|platform)|previous (pos|system|platform)|switched?\s*(from|over)|moved over/;
+  if (importedKeywords.test(normalized)) {
+    // Funnel stage detection (optional). Default = everyone not yet converted.
+    if (/unclaimed|not claimed|haven['’]?t claimed|never claimed/.test(normalized)) {
+      return {
+        audienceType: "imported_winback",
+        audienceFilters: { importStage: "not_claimed" },
+        label: "Imported customers who haven't claimed their account",
+      };
+    }
+    if (/claimed but|claimed.*(not|haven['’]?t) book|claimed.*no booking/.test(normalized)) {
+      return {
+        audienceType: "imported_winback",
+        audienceFilters: { importStage: "claimed_not_booked" },
+        label: "Imported customers who claimed but haven't booked",
+      };
+    }
+    return {
+      audienceType: "imported_winback",
+      audienceFilters: {},
+      label: "Imported customers to win back (not yet on FixFlow)",
+    };
+  }
 
   // Lapsed — "haven't booked", "lapsed", "old customers", "win back"
   const daysMatch = normalized.match(/(\d+)\s*(?:\+\s*)?days?/);

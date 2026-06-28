@@ -139,7 +139,7 @@ export function initializeRoutes(): Router {
    *         name: audienceType
    *         schema:
    *           type: string
-   *           enum: [all_customers, top_spenders, frequent_visitors, active_customers, custom]
+   *           enum: [all_customers, top_spenders, frequent_visitors, active_customers, custom, imported_winback]
    *     responses:
    *       200:
    *         description: Audience count
