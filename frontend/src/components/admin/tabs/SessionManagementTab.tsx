@@ -119,7 +119,13 @@ export function SessionManagementTab() {
       const response: SessionsResponse = await adminApi.getSessions(params);
 
       if (response.success) {
-        setSessions(response.sessions);
+        // Defensive de-dup by id: a backend JOIN fan-out (duplicate wallet rows
+        // in name tables) can return the same session multiple times, which
+        // breaks React's unique-key requirement in the table.
+        const uniqueById = Array.from(
+          new Map((response.sessions || []).map((s) => [s.id, s])).values()
+        );
+        setSessions(uniqueById);
         setPagination(response.pagination);
         if (isRefresh) {
           toast.success("Sessions refreshed successfully");
