@@ -53,6 +53,8 @@ export const AdminFraudTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 10;
 
   const runScan = async () => {
     setScanning(true);
@@ -82,6 +84,7 @@ export const AdminFraudTab: React.FC = () => {
       ]);
       setFindings(list);
       setSummary(sum);
+      setPage(1); // reset to first page on (re)load / filter change
     } catch {
       toast.error("Failed to load fraud findings");
     } finally {
@@ -205,19 +208,67 @@ export const AdminFraudTab: React.FC = () => {
           <p>No {activeStatus === "all" ? "" : activeStatus} findings.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {findings.map((f) => (
-            <FindingCard
-              key={f.id}
-              finding={f}
-              busy={actioningId === f.id}
-              onInvestigate={() => setStatus(f, "investigating")}
-              onDismiss={() => setStatus(f, "dismissed")}
-              onConfirmSuspend={() => confirmAndSuspend(f)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="space-y-3">
+            {findings
+              .slice((page - 1) * PER_PAGE, page * PER_PAGE)
+              .map((f) => (
+                <FindingCard
+                  key={f.id}
+                  finding={f}
+                  busy={actioningId === f.id}
+                  onInvestigate={() => setStatus(f, "investigating")}
+                  onDismiss={() => setStatus(f, "dismissed")}
+                  onConfirmSuspend={() => confirmAndSuspend(f)}
+                />
+              ))}
+          </div>
+          <Pagination
+            page={page}
+            total={findings.length}
+            perPage={PER_PAGE}
+            onPage={setPage}
+          />
+        </>
       )}
+    </div>
+  );
+};
+
+const Pagination: React.FC<{
+  page: number;
+  total: number;
+  perPage: number;
+  onPage: (p: number) => void;
+}> = ({ page, total, perPage, onPage }) => {
+  const pages = Math.max(1, Math.ceil(total / perPage));
+  if (pages <= 1) return null;
+  const from = (page - 1) * perPage + 1;
+  const to = Math.min(page * perPage, total);
+  return (
+    <div className="flex items-center justify-between mt-4 text-sm">
+      <span className="text-gray-500">
+        Showing {from}–{to} of {total}
+      </span>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPage(page - 1)}
+          disabled={page <= 1}
+          className="px-3 py-1.5 rounded-lg bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Prev
+        </button>
+        <span className="text-gray-400">
+          Page {page} of {pages}
+        </span>
+        <button
+          onClick={() => onPage(page + 1)}
+          disabled={page >= pages}
+          className="px-3 py-1.5 rounded-lg bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
+      </div>
     </div>
   );
 };
