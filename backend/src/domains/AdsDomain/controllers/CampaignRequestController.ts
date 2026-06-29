@@ -227,6 +227,17 @@ export async function pushCampaignToMeta(req: Request, res: Response): Promise<v
     return;
   }
 
+  // Fast validation BEFORE responding (one Graph call, no object creation) so the common failures
+  // — not connected, no/unapproved creative, inactive account, budget below the currency minimum —
+  // come back INLINE to the admin immediately, instead of as a delayed message-feed event.
+  try {
+    await metaPushService.precheckPush(campaign.shopId, campaign);
+  } catch (err: any) {
+    logger.warn('CampaignRequestController.pushCampaignToMeta precheck rejected', { campaignId, message: err?.message });
+    res.status(422).json({ success: false, error: 'precheck_failed', message: err?.message || 'Validation failed.' });
+    return;
+  }
+
   // Respond now; the heavy Meta object creation continues in the background (avoids the 504).
   res.status(202).json({ success: true, data: { campaignId, status: 'pushing' } });
 

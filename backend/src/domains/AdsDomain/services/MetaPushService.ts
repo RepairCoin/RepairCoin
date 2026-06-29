@@ -56,6 +56,36 @@ export class MetaPushService {
    *  reviewed local draft + its APPROVED AI creative. Validates the budget against the account's
    *  currency minimum first (avoids Meta error 1885272). Rolls back any created Meta objects on
    *  failure. Throws a descriptive error — caller maps to 502. */
+  /**
+   * Fast, side-effect-free validation run SYNCHRONOUSLY before the async push, so the common
+   * failures (not connected / no creative / not approved / inactive account / budget below the
+   * currency-aware minimum) return INLINE to the admin immediately — instead of surfacing minutes
+   * later via the message feed. Mirrors the checks at the top of pushPreparedCampaign and throws
+   * the same error messages. Only one Graph call (getAccountStatus); no object creation.
+   */
+  async precheckPush(shopId: string, campaign: AdCampaign): Promise<void> {
+    if (!this.enabled()) throw new Error('push_disabled');
+    if (campaign.metaCampaignId) throw new Error('already_pushed: this campaign is already on Meta');
+
+    const conn = await this.connections.getConnection(shopId);
+    if (!conn?.userTokenEnc || !conn.adAccountId || !conn.pageId) {
+      throw new Error('meta_not_connected: shop must connect its Meta ad account + Page first');
+    }
+    const creative = await this.creativeRepo.findAiByCampaign(campaign.id);
+    if (!creative || !creative.imageUrl) throw new Error('no_creative: generate the ad creative first');
+    if (creative.reviewStatus !== 'approved') {
+      throw new Error('creative_not_approved: approve the ad creative in the Creatives panel before pushing to Meta');
+    }
+    const token = decryptToken(conn.userTokenEnc);
+    const status = await metaService.getAccountStatus(conn.adAccountId, token);
+    if (status.accountStatus !== 1) throw new Error('ad_account_not_active: the shop\'s Meta ad account is not active');
+    if (status.minDailyBudget != null && campaign.dailyBudgetCents < status.minDailyBudget) {
+      const cur = status.currency || '';
+      const fmt = (cents: number) => (cents / 100).toFixed(2);
+      throw new Error(`budget_below_minimum: daily budget must be at least ${fmt(status.minDailyBudget)} ${cur} on this ad account (you set ${fmt(campaign.dailyBudgetCents)} ${cur}).`);
+    }
+  }
+
   async pushPreparedCampaign(shopId: string, request: AdCampaignRequest | null, campaign: AdCampaign): Promise<void> {
     if (!this.enabled()) throw new Error('push_disabled');
     if (campaign.metaCampaignId) throw new Error('already_pushed: this campaign is already on Meta');
