@@ -57,6 +57,7 @@ import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { BrandingStudio } from "@/components/shop/branding-studio/BrandingStudio";
 import { BrandSetupCard } from "@/components/shop/branding-studio/BrandSetupCard";
 import { getBrandKit } from "@/services/api/aiBrandKit";
+import { getMetaConnection } from "@/services/api/ads";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
 import { CancelledSubscriptionModal } from "@/components/shop/CancelledSubscriptionModal";
 import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
@@ -374,31 +375,10 @@ export default function ShopDashboardClient() {
   useEffect(() => {
     // Set active tab from URL query param
     // Read from the LIVE browser URL, not only the useSearchParams() hook (which can be
-    // momentarily empty during hydration).
+    // momentarily empty during hydration). The Meta-connect deep-link landing is handled
+    // robustly by the connection-state effect below (not via the URL, which a cross-domain
+    // auth bounce can drop).
     const liveParams = new URLSearchParams(window.location.search);
-
-    // Restore a Meta-OAuth deep-link that an auth bounce stripped from the URL. On a cold
-    // landing, useAuthInitializer can redirect to '/' (expired session cache) before the wallet
-    // restores — dropping ?tab=ads&meta=select. It stashes the intent in sessionStorage; re-apply
-    // it here so the Ads tab opens and MetaConnectCard (reads window.location.search) fires
-    // openPicker(). Then clear it so it only fires once.
-    if (typeof window !== "undefined") {
-      const pendingMeta = sessionStorage.getItem("rc_pending_meta");
-      console.log('[META-DIAG] dashboard tab-effect. href=', window.location.href,
-        '| urlMeta=', liveParams.get("meta"), '| pendingMeta=', pendingMeta);
-      if (pendingMeta && !liveParams.get("meta")) {
-        liveParams.set("tab", "ads");
-        liveParams.set("meta", pendingMeta);
-        const pendingReason = sessionStorage.getItem("rc_pending_meta_reason");
-        if (pendingReason) liveParams.set("reason", pendingReason);
-        const url = new URL(window.location.href);
-        url.search = liveParams.toString();
-        window.history.replaceState({}, "", url);
-      }
-      sessionStorage.removeItem("rc_pending_meta");
-      sessionStorage.removeItem("rc_pending_meta_reason");
-    }
-
     const tab = liveParams.get("tab") ?? searchParams.get("tab");
     const payment = liveParams.get("payment") ?? searchParams.get("payment");
     const purchaseId = liveParams.get("purchase_id") ?? searchParams.get("purchase_id");
@@ -769,6 +749,32 @@ export default function ShopDashboardClient() {
       setActiveTab("overview");
     }
   }, [activeTab, userProfile, userType, hasPermission]);
+
+  // Meta-connect landing (robust, connection-state driven). After OAuth the shop has a token
+  // but no ad account picked yet (mid-connect). The post-OAuth ?tab=ads&meta=select deep link is
+  // unreliable on staging — a cross-domain auth bounce (window.location.href='/') can drop it —
+  // so instead of trusting the URL we read the connection state from the server and pull the shop
+  // to the Ads tab to finish. Works identically on local and staging; fires once per page load.
+  const metaAutoNavDoneRef = useRef(false);
+  useEffect(() => {
+    if (metaAutoNavDoneRef.current) return;
+    if (!userProfile || userType !== "shop") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const conn = await getMetaConnection();
+        if (cancelled || metaAutoNavDoneRef.current) return;
+        // enabled + token stored + no Page selected = OAuth done, picker not finished.
+        if (conn?.enabled && conn.hasToken && !conn.connected) {
+          metaAutoNavDoneRef.current = true;
+          setActiveTab("ads");
+        }
+      } catch {
+        /* not a Meta-enabled shop / not connected — ignore */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userProfile, userType]);
 
   const loadShopData = async (forceRefresh = false) => {
     // Get shopId from multiple sources (priority order)
