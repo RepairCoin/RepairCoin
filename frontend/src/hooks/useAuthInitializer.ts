@@ -372,17 +372,20 @@ export function useAuthInitializer() {
       try {
         const sp = new URLSearchParams(window.location.search);
         const m = sp.get('meta');
+        console.log('[META-DIAG] immediate-check entry. href=', window.location.href, '| meta param=', m);
         if (m) {
           sessionStorage.setItem('rc_pending_meta', m);
           const reason = sp.get('reason');
           if (reason) sessionStorage.setItem('rc_pending_meta_reason', reason);
+          console.log('[META-DIAG] stashed rc_pending_meta=', m);
         }
-      } catch { /* private mode / no sessionStorage — best effort */ }
+      } catch (e) { console.log('[META-DIAG] stash failed', e); }
 
       console.log('[AuthInitializer] 🚀 IMMEDIATE session check on mount (not waiting for Thirdweb)');
 
       // 1. Check cache first (instant)
       const cachedProfile = getCachedSession();
+      console.log('[META-DIAG] cache hit?', !!cachedProfile);
       if (cachedProfile) {
         console.log('[AuthInitializer] ⚡ IMMEDIATE: Using cached session');
         setUserProfile(cachedProfile);
@@ -394,6 +397,7 @@ export function useAuthInitializer() {
       // 2. No cache - check session API immediately (don't wait for wallet)
       try {
         const session = await authApi.getSession();
+        console.log('[META-DIAG] getSession valid?', session?.isValid, 'hasUser?', !!session?.user);
         if (session.isValid && session.user) {
           console.log('[AuthInitializer] ⚡ IMMEDIATE: Valid session from API');
           const userData = session.user as any;
@@ -434,6 +438,8 @@ export function useAuthInitializer() {
         // Resume failed — fall through to redirect home
       }
 
+      console.log('[META-DIAG] >>> BOUNCING to / (no session). pending rc_pending_meta=',
+        (() => { try { return sessionStorage.getItem('rc_pending_meta'); } catch { return 'n/a'; } })());
       console.log('[AuthInitializer] IMMEDIATE: No valid session on protected route - redirecting to home');
       clearAllAuthCaches();
       window.location.href = '/';
