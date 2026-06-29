@@ -672,6 +672,35 @@ async function handlePaymentSucceeded(event: Stripe.Event, subscriptionService: 
       }
     }
 
+    // Skip subscription_create: the checkout-completed path already seeds payments_made = 1.
+    if (subscriptionId && invoice.billing_reason !== 'subscription_create') {
+      try {
+        const shopId = await getShopIdFromSubscription(subscriptionId);
+        const paidAtTs = invoice.status_transitions?.paid_at;
+        const shopSubRepo = new ShopSubscriptionRepository();
+        const result = await shopSubRepo.recordInvoicePayment({
+          stripeInvoiceId: invoice.id,
+          stripeSubscriptionId: subscriptionId,
+          shopId: shopId ?? invoice.metadata?.shopId,
+          amount: (invoice.amount_paid ?? 0) / 100,
+          billingReason: invoice.billing_reason ?? null,
+          paidAt: paidAtTs ? new Date(paidAtTs * 1000) : new Date(),
+        });
+        if (result.recorded) {
+          logger.info('Incremented subscription payment counters', {
+            invoiceId: invoice.id,
+            subscriptionId,
+          });
+        }
+      } catch (counterError) {
+        logger.error('Failed to increment subscription payment counters', {
+          invoiceId: invoice.id,
+          subscriptionId,
+          error: counterError instanceof Error ? counterError.message : 'Unknown error',
+        });
+      }
+    }
+
     // IMPORTANT: Sync subscription dates after successful payment (renewal)
     // This ensures shop_subscriptions.next_payment_date stays in sync with Stripe
     if (subscriptionId) {

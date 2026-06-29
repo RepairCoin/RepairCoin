@@ -211,6 +211,72 @@ export class ShopSubscriptionRepository extends BaseRepository {
     }
   }
 
+  // Idempotent via the ledger PK; next_payment_date is left to the Stripe date sync.
+  async recordInvoicePayment(params: {
+    stripeInvoiceId: string;
+    stripeSubscriptionId: string;
+    shopId?: string;
+    amount: number;
+    billingReason?: string | null;
+    paidAt?: Date;
+  }): Promise<{ recorded: boolean; reason?: string }> {
+    const paymentDate = params.paidAt ?? new Date();
+    const amountCents = Math.round((params.amount ?? 0) * 100);
+
+    return this.withTransaction(async (client) => {
+      const subResult = await client.query(
+        `SELECT id, shop_id FROM shop_subscriptions
+         WHERE billing_reference = $1
+         ORDER BY id DESC LIMIT 1`,
+        [params.stripeSubscriptionId]
+      );
+
+      if (subResult.rows.length === 0) {
+        logger.warn('recordInvoicePayment: no shop_subscription for Stripe subscription', {
+          stripeSubscriptionId: params.stripeSubscriptionId,
+          stripeInvoiceId: params.stripeInvoiceId,
+        });
+        return { recorded: false, reason: 'subscription_not_found' };
+      }
+
+      const subId = subResult.rows[0].id;
+      const shopId = subResult.rows[0].shop_id ?? params.shopId ?? 'unknown';
+
+      const ledgerInsert = await client.query(
+        `INSERT INTO subscription_payment_ledger (
+           stripe_invoice_id, shop_subscription_id, shop_id,
+           stripe_subscription_id, amount_cents, billing_reason, processed_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (stripe_invoice_id) DO NOTHING
+         RETURNING stripe_invoice_id`,
+        [
+          params.stripeInvoiceId,
+          subId,
+          shopId,
+          params.stripeSubscriptionId,
+          amountCents,
+          params.billingReason ?? null,
+          paymentDate,
+        ]
+      );
+
+      if (ledgerInsert.rowCount === 0) {
+        return { recorded: false, reason: 'duplicate' };
+      }
+
+      await client.query(
+        `UPDATE shop_subscriptions
+         SET payments_made = payments_made + 1,
+             total_paid = total_paid + $1,
+             last_payment_date = $2
+         WHERE id = $3`,
+        [params.amount, paymentDate, subId]
+      );
+
+      return { recorded: true };
+    });
+  }
+
   async getPendingSubscriptions(): Promise<ShopSubscription[]> {
     try {
       const query = `
