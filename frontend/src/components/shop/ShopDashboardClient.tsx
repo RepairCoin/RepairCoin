@@ -373,15 +373,23 @@ export default function ShopDashboardClient() {
 
   useEffect(() => {
     // Set active tab from URL query param
-    const tab = searchParams.get("tab");
-    const payment = searchParams.get("payment");
-    const purchaseId = searchParams.get("purchase_id");
-    const shouldReload = searchParams.get("reload");
+    // Read from the LIVE browser URL, not only the useSearchParams() hook. On a cold
+    // cross-domain landing (e.g. the post-Meta-OAuth redirect to
+    // ?tab=ads&meta=select), the hook can be momentarily empty during hydration —
+    // which made the else-branch below rewrite the URL to ?tab=overview before the
+    // real params arrived, dropping tab=ads + meta=select and bouncing first-time
+    // connectors to Overview. window.location.search is always the true URL on the client.
+    const liveParams = new URLSearchParams(window.location.search);
+    const tab = liveParams.get("tab") ?? searchParams.get("tab");
+    const payment = liveParams.get("payment") ?? searchParams.get("payment");
+    const purchaseId = liveParams.get("purchase_id") ?? searchParams.get("purchase_id");
+    const shouldReload = liveParams.get("reload") ?? searchParams.get("reload");
 
     if (tab) {
       setActiveTab(tab);
     } else {
-      // If no tab specified, set URL to default tab (overview/dashboard)
+      // Only default-rewrite when the live URL genuinely has no tab — avoids clobbering
+      // a still-hydrating landing.
       const url = new URL(window.location.href);
       url.searchParams.set("tab", "overview");
       window.history.replaceState({}, "", url);
