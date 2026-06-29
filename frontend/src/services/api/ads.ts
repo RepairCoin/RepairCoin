@@ -595,11 +595,13 @@ export const uploadAdCreativeImage = async (campaignId: string, file: File): Pro
 /** Use a manually-uploaded image as the campaign creative (re-arms review → pending). */
 export const useManualAdImage = async (campaignId: string, manualImageUrl: string): Promise<AdCampaign> =>
   updateCampaignDraft(campaignId, { manualImageUrl });
-/** Prepare→push: create the PAUSED Meta objects from a reviewed local draft (validates budget). */
-export const pushCampaignToMeta = async (id: string): Promise<AdCampaign> => {
-  // Several Meta Graph create calls — allow generous time.
-  const res = await apiClient.post(`/ads/campaigns/${id}/push`, {}, { timeout: 120000 });
-  return unwrap<AdCampaign>(res);
+/** Prepare→push: kick off creation of the PAUSED Meta objects from a reviewed local draft.
+ *  ASYNC — the backend returns 202 immediately and creates the Meta objects in the background
+ *  (the multi-call Graph sequence was exceeding the gateway timeout → 504). Poll listCampaigns
+ *  for the campaign flipping to `paused` to confirm success. */
+export const pushCampaignToMeta = async (id: string): Promise<{ campaignId: string; status: string }> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/push`, {});
+  return unwrap<{ campaignId: string; status: string }>(res);
 };
 export const goLiveCampaign = async (id: string): Promise<{ campaignId: string; status: string }> => {
   const res = await apiClient.post(`/ads/campaigns/${id}/go-live`, {});

@@ -209,22 +209,38 @@ export async function uploadCreativeImage(req: Request, res: Response): Promise<
 }
 
 // POST /campaigns/:id/push (admin) — create the PAUSED Meta objects from a reviewed local draft.
-// Validates account + currency-aware budget + creative-approved; flips the draft → paused.
+// ASYNC: the push runs ~6 sequential Meta Graph calls (incl. the slow creative/image upload),
+// which exceeded the upstream gateway timeout → the caller got a 504. So validate fast, return
+// 202 immediately, and create the Meta objects in the BACKGROUND. On success the campaign flips
+// draft → paused (the client polls for that); on failure we post an event the admin can see and
+// the campaign stays a draft (clean to retry). See MetaPushService.pushPreparedCampaign.
 export async function pushCampaignToMeta(req: Request, res: Response): Promise<void> {
   const campaignId = req.params.id;
+  let campaign;
   try {
-    const campaign = await campaigns.findById(campaignId);
+    campaign = await campaigns.findById(campaignId);
     if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
     if (campaign.metaCampaignId) { res.status(400).json({ success: false, error: 'already_pushed', message: 'This campaign is already on Meta.' }); return; }
-    const request = await requests.findByCampaignId(campaignId);
-    await metaPushService.pushPreparedCampaign(campaign.shopId, request, campaign); // throws → 502
-    await campaigns.update(campaignId, { status: 'paused' }); // drafted on Meta, not yet live
-    void postEvent(campaign.shopId, `Campaign "${campaign.name}" pushed to Meta (paused) — review & go live.`);
-    res.json({ success: true, data: await campaigns.findById(campaignId) });
   } catch (err: any) {
-    logger.error('CampaignRequestController.pushCampaignToMeta failed', err?.message || err);
-    res.status(502).json({ success: false, error: 'meta_push_failed', message: err?.message || 'Failed to push the campaign to Meta.' });
+    logger.error('CampaignRequestController.pushCampaignToMeta lookup failed', err?.message || err);
+    res.status(500).json({ success: false, error: 'Failed to start the push.' });
+    return;
   }
+
+  // Respond now; the heavy Meta object creation continues in the background (avoids the 504).
+  res.status(202).json({ success: true, data: { campaignId, status: 'pushing' } });
+
+  void (async () => {
+    try {
+      const request = await requests.findByCampaignId(campaignId);
+      await metaPushService.pushPreparedCampaign(campaign.shopId, request, campaign);
+      await campaigns.update(campaignId, { status: 'paused' }); // drafted on Meta, not yet live
+      void postEvent(campaign.shopId, `Campaign "${campaign.name}" pushed to Meta (paused) — review & go live.`);
+    } catch (err: any) {
+      logger.error('CampaignRequestController.pushCampaignToMeta (background) failed', err?.message || err);
+      void postEvent(campaign.shopId, `⚠️ Couldn't push "${campaign.name}" to Meta: ${err?.message || 'unknown error'}. It's still a draft — please try again.`);
+    }
+  })();
 }
 
 // POST /campaigns/:id/scale-to-full (admin) — Safeguard 4: scale a test-budget campaign up to
