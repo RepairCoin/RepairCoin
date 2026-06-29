@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import Image from "next/image";
 import { m, useReducedMotion } from "framer-motion";
-import SectionBadge from "./SectionBadge";
+import Badge from "@/components/landing-v4/Badge";
 
 export default function AboutHero() {
   const prefersReducedMotion = useReducedMotion();
@@ -16,7 +16,7 @@ export default function AboutHero() {
   });
 
   return (
-    <section className="relative h-screen w-full bg-[#0D0D0D] overflow-hidden">
+    <section className="relative overflow-hidden bg-[#0D0D0D]">
       {/* Background particle wave pattern */}
       <div
         className="absolute inset-0 bg-no-repeat bg-right-bottom opacity-40"
@@ -26,59 +26,79 @@ export default function AboutHero() {
         }}
       />
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 text-center">
-        <m.div {...fadeUp(0.1)}>
-          <SectionBadge label="About RepairCoin" />
-        </m.div>
+      {/* Hero Content */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-28 pb-16 md:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-10 lg:gap-8 items-center">
+          {/* Left: copy */}
+          <div className="text-center lg:text-left">
+            {/* Badge */}
+            <m.div {...fadeUp(0.1)} className="flex justify-center lg:justify-start mb-6 md:mb-8">
+              <Badge label="Our Story" />
+            </m.div>
 
-        <m.h1
-          {...fadeUp(0.2)}
-          className="mt-10 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white !leading-[1.3]"
-        >
-          The story behind
-          <br />
-          <span className="relative inline-block">
-            <span className="text-gold-gradient">RepairCoin</span>
-            {/* Yellow underline curve */}
-            <svg
-              className="absolute -bottom-[13%] -left-[-4%] w-[92%] h-[18px]"
-              viewBox="0 0 311 8"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              preserveAspectRatio="none"
+            {/* Reserve height on desktop so the mascot column stretches and
+                renders at the same size as the features hero. */}
+            <div className="lg:min-h-[440px] flex flex-col justify-center">
+            {/* Title */}
+            <m.h1
+              {...fadeUp(0.2)}
+              className="text-4xl sm:text-5xl md:text-6xl font-bold leading-[1.2] mb-5 md:mb-6"
             >
-              <m.path
-                d="M2 5.5C80 1.5 230 1.5 309 5.5"
-                stroke="#ffcc00"
-                className="stroke-[2] sm:stroke-[3] md:stroke-[4]"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                initial={{ pathLength: 0, opacity: 0 }}
-                whileInView={{ pathLength: 1, opacity: 1 }}
-                viewport={{ once: true, amount: 0.5 }}
-                transition={{ duration: 0.8, delay: 0.6, ease: "easeOut", opacity: { duration: 0.01, delay: 0.6 } }}
-              />
-            </svg>
-          </span>
-        </m.h1>
+              <span className="block lg:whitespace-nowrap">Building the Future of</span>
+              <span className="block lg:whitespace-nowrap">
+                Business{" "}
+                <span className="relative inline-block">
+                  Growth With AI
+                  {/* Yellow underline curve - animated draw */}
+                  <svg
+                    className="absolute -bottom-2 md:-bottom-3 left-0 w-full h-[12px] md:h-[16px]"
+                    viewBox="0 0 200 12"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    preserveAspectRatio="none"
+                  >
+                    <m.path
+                      d="M2 9C50 2 150 2 198 9"
+                      stroke="#ffcc00"
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      initial={prefersReducedMotion ? undefined : { pathLength: 0 }}
+                      animate={prefersReducedMotion ? undefined : { pathLength: 1 }}
+                      transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
+                    />
+                  </svg>
+                </span>
+              </span>
+            </m.h1>
 
-        <m.p
-          {...fadeUp(0.35)}
-          className="mt-10 max-w-2xl text-gray-400 text-lg sm:text-xl leading-relaxed"
-        >
-          RepairCoin is a modern loyalty platform for service businesses, created from everyday
-          operations and focused on long term customer relationships.
-        </m.p>
+            {/* Subtitle */}
+            <m.p
+              {...fadeUp(0.35)}
+              className="text-base md:text-[22px] text-gray-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
+            >
+              Built from real business experience, FixFlow AI helps businesses streamline
+              operations, engage customers, automate workflows, and grow smarter&mdash;all from one
+              platform.
+            </m.p>
+            </div>
+          </div>
 
-        <m.div {...fadeUp(0.5)}>
-          <Link
-            href="/waitlist"
-            className="inline-block mt-8 px-10 py-3.5 bg-[#ffcc00] hover:bg-[#e6b800] text-black font-semibold rounded-lg transition-colors"
+          {/* Right: mascot */}
+          <m.div
+            {...fadeUp(0.3)}
+            className="flex justify-center lg:justify-start lg:self-stretch lg:items-end lg:-ml-16"
           >
-            Join Waitlist &rarr;
-          </Link>
-        </m.div>
+            <Image
+              src="/img/about/hero-mascot.png"
+              alt="RepairCoin AI mascot"
+              width={520}
+              height={520}
+              priority
+              className="w-[260px] sm:w-[340px] h-auto lg:w-auto lg:h-full object-contain"
+            />
+          </m.div>
+        </div>
       </div>
     </section>
   );
