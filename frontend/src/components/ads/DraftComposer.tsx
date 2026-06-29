@@ -391,6 +391,22 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
                     {acct.currency || ""} {(acct.minDailyBudgetCents / 100).toFixed(2)}/day
                   </p>
                 )}
+                {/* Test budget launches at ~40% of the full budget, floored at the account
+                    minimum — so the amount Meta shows can differ from what's typed here. Show the
+                    actual launch + scale-to target so it isn't a surprise in Ads Manager. */}
+                {testBudget && acct?.minDailyBudgetCents != null && !budgetBelowMin && (() => {
+                  const full = parseFloat(dailyBudget);
+                  if (Number.isNaN(full)) return null;
+                  const launch = Math.max(acct.minDailyBudgetCents / 100, Math.round(full * 100 * 0.4) / 100);
+                  const cur = acct.currency || "";
+                  return (
+                    <p className="text-[11px] mt-1 text-amber-300">
+                      Test budget on — launches at {cur} {launch.toFixed(2)}/day (≥ account min), then
+                      scales to {cur} {full.toFixed(2)}/day on positive ROI. That&apos;s why Ads Manager
+                      may show less than {cur} {full.toFixed(2)} at first.
+                    </p>
+                  );
+                })()}
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Radius (mi)</label>
