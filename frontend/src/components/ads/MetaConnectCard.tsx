@@ -55,6 +55,7 @@ export const MetaConnectCard: React.FC<{ onChanged?: () => void }> = ({ onChange
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const meta = params.get("meta");
+    console.log('[META-DIAG] MetaConnectCard mounted. href=', window.location.href, '| meta param=', meta);
     if (!meta) return;
     if (meta === "select") void openPicker();
     else if (meta === "error") toast.error(`Meta connection failed${params.get("reason") ? `: ${params.get("reason")}` : "."}`);

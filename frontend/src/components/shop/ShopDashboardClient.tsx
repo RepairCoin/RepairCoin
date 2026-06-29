@@ -384,6 +384,8 @@ export default function ShopDashboardClient() {
     // openPicker(). Then clear it so it only fires once.
     if (typeof window !== "undefined") {
       const pendingMeta = sessionStorage.getItem("rc_pending_meta");
+      console.log('[META-DIAG] dashboard tab-effect. href=', window.location.href,
+        '| urlMeta=', liveParams.get("meta"), '| pendingMeta=', pendingMeta);
       if (pendingMeta && !liveParams.get("meta")) {
         liveParams.set("tab", "ads");
         liveParams.set("meta", pendingMeta);
