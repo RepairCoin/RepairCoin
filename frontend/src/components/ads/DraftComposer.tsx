@@ -15,7 +15,8 @@ import toast from "react-hot-toast";
 import {
   listCreatives, reviewCreative, regenerateAdImage, updateCampaignDraft,
   uploadAdCreativeImage, useManualAdImage, getShopMetaAccount, syncCampaignFromMeta,
-  pushCampaignToMeta, goLiveCampaign, listCampaigns, type AdCampaign, type AdCreative, type ShopMetaAccount,
+  pushCampaignToMeta, goLiveCampaign, listCampaigns, listShopAdMessages,
+  type AdCampaign, type AdCreative, type ShopMetaAccount,
 } from "@/services/api/ads";
 
 const inputCls = "w-full px-2.5 py-1.5 bg-[#0F0F0F] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00]";
@@ -142,9 +143,11 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
 
   const push = async () => {
     setBusy("push");
+    const pushStart = Date.now();
     try {
-      // Async on the backend (returns 202; Meta objects created in the background to avoid the
-      // gateway 504). Poll for the campaign flipping draft → paused to confirm success.
+      // Backend validates fast + returns 202; Meta objects are created in the BACKGROUND (avoids
+      // the gateway 504). A precheck failure (budget/account/creative) throws here → inline toast.
+      // For the rarer post-202 failure, the poll also watches the shop message feed.
       await pushCampaignToMeta(campaign.id);
       toast("Pushing to Meta… this takes ~30s.", { icon: "⏳" });
       const deadline = Date.now() + 100_000;
@@ -154,17 +157,23 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
           const c = list.items.find((x: AdCampaign) => x.id === campaign.id);
           if (c && (c.status === "paused" || c.metaCampaignId)) {
             toast.success("Pushed to Meta (paused) — review and go live when ready.");
-            onChanged?.();
-            setBusy(null);
-            return;
+            onChanged?.(); setBusy(null); return;
+          }
+          // Background failure surfaces as a "⚠️ Couldn't push <name>" event — show it inline.
+          const msgs = await listShopAdMessages(campaign.shopId).catch(() => []);
+          const fail = msgs.find((m) => m.kind === "event"
+            && new Date(m.createdAt).getTime() >= pushStart - 2000
+            && m.body.includes("Couldn't push") && m.body.includes(campaign.name));
+          if (fail) {
+            toast.error(fail.body.replace(/^⚠️\s*/, "").replace(/\s*It['’]s still a draft.*$/, ""));
+            onChanged?.(); setBusy(null); return;
           }
         } catch { /* transient — keep polling */ }
         if (Date.now() < deadline) {
           setTimeout(() => { void poll(); }, 4000);
         } else {
           toast("Still pushing — it'll move to Paused shortly; check Shop messages for the result.", { icon: "⏳" });
-          onChanged?.();
-          setBusy(null);
+          onChanged?.(); setBusy(null);
         }
       };
       setTimeout(() => { void poll(); }, 4000);
