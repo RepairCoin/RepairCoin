@@ -340,7 +340,7 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = () 
                                   : "bg-red-900/30 text-red-400 border border-red-700/30"
                               }`}
                             >
-                              {activity.status}
+                              {activity.status.charAt(0).toUpperCase() + activity.status.slice(1)}
                             </span>
                           )}
                         </div>
