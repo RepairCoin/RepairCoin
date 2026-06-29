@@ -551,51 +551,60 @@ export class POSuggestionService {
     suggestionId: string,
     userId: string,
     autoCreatePO: boolean = false
-  ): Promise<{ suggestion: POSuggestion; purchaseOrderId?: string }> {
+  ): Promise<{ suggestion: POSuggestion; purchaseOrderId?: string; purchaseOrderNumber?: string }> {
     try {
-      // Update suggestion status
-      const updateQuery = `
-        UPDATE purchase_order_suggestions
-        SET status = 'approved',
-            approved_at = CURRENT_TIMESTAMP,
-            approved_by = $2
-        WHERE id = $1 AND status = 'pending'
-        RETURNING *
-      `;
+      const existing = await this.getSuggestionById(suggestionId);
 
-      const result = await pool.query(updateQuery, [suggestionId, userId]);
-
-      if (result.rows.length === 0) {
-        throw new Error('Suggestion not found or already processed');
+      if (existing.status === 'rejected' || existing.status === 'expired' || existing.status === 'ordered') {
+        throw new Error(`Suggestion already ${existing.status}`);
       }
 
-      const suggestion = await this.getSuggestionById(suggestionId);
+      // Approve only on the pending->approved transition. Re-calling for "Create PO"
+      // on an already-approved suggestion is allowed and falls through to PO creation.
+      if (existing.status === 'pending') {
+        await pool.query(
+          `UPDATE purchase_order_suggestions
+           SET status = 'approved',
+               approved_at = CURRENT_TIMESTAMP,
+               approved_by = $2
+           WHERE id = $1 AND status = 'pending'`,
+          [suggestionId, userId]
+        );
 
-      logger.info(`Approved PO suggestion ${suggestionId} by ${userId}`);
+        logger.info(`Approved PO suggestion ${suggestionId} by ${userId}`);
 
-      // Emit event
-      await eventBus.publish(createDomainEvent(
-        'inventory:suggestion_approved',
-        suggestionId,
-        { suggestionId, userId, itemId: suggestion.itemId },
-        'POSuggestionService'
-      ));
+        await eventBus.publish(createDomainEvent(
+          'inventory:suggestion_approved',
+          suggestionId,
+          { suggestionId, userId, itemId: existing.itemId },
+          'POSuggestionService'
+        ));
+      }
 
-      // Auto-create PO if requested
-      let purchaseOrderId: string | undefined;
-      if (autoCreatePO && suggestion.vendorId) {
-        purchaseOrderId = await this.createPOFromSuggestion(suggestion, userId);
+      let suggestion = await this.getSuggestionById(suggestionId);
+      let purchaseOrderId = suggestion.purchaseOrderId;
+      let purchaseOrderNumber: string | undefined;
 
-        // Update suggestion with PO ID
+      // Create the PO when requested and one doesn't already exist (idempotent).
+      if (autoCreatePO && !purchaseOrderId) {
+        if (!suggestion.vendorId) {
+          throw new Error('Cannot create a purchase order: this item has no vendor assigned.');
+        }
+
+        const po = await this.createPOFromSuggestion(suggestion, userId);
+        purchaseOrderId = po.id;
+        purchaseOrderNumber = po.poNumber;
+
         await pool.query(
           `UPDATE purchase_order_suggestions SET purchase_order_id = $1 WHERE id = $2`,
           [purchaseOrderId, suggestionId]
         );
 
-        logger.info(`Auto-created PO ${purchaseOrderId} from suggestion ${suggestionId}`);
+        logger.info(`Created PO ${purchaseOrderNumber} from suggestion ${suggestionId}`);
+        suggestion = await this.getSuggestionById(suggestionId);
       }
 
-      return { suggestion, purchaseOrderId };
+      return { suggestion, purchaseOrderId, purchaseOrderNumber };
     } catch (error) {
       logger.error('Error approving suggestion:', error);
       throw error;
@@ -605,7 +614,7 @@ export class POSuggestionService {
   /**
    * Create a purchase order from an approved suggestion
    */
-  private async createPOFromSuggestion(suggestion: POSuggestion, userId: string): Promise<string> {
+  private async createPOFromSuggestion(suggestion: POSuggestion, userId: string): Promise<{ id: string; poNumber: string }> {
     const PurchaseOrderRepository = require('../repositories/PurchaseOrderRepository').PurchaseOrderRepository;
     const poRepository = new PurchaseOrderRepository();
 
@@ -660,7 +669,7 @@ export class POSuggestionService {
     // Create the PO
     const purchaseOrder = await poRepository.createPurchaseOrder(poData);
 
-    return purchaseOrder.id;
+    return { id: purchaseOrder.id, poNumber: purchaseOrder.poNumber };
   }
 
   /**

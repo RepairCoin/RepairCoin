@@ -369,7 +369,7 @@ export const inventoryApi = {
   async approveSuggestion(
     suggestionId: string,
     data?: import('@/types/inventory').ApproveSuggestionData
-  ): Promise<{ suggestion: import('@/types/inventory').POSuggestion; purchaseOrderId?: string }> {
+  ): Promise<{ suggestion: import('@/types/inventory').POSuggestion; purchaseOrderId?: string; purchaseOrderNumber?: string }> {
     const response = await apiClient.post(`/inventory/suggestions/${suggestionId}/approve`, data || {});
     return response.data;
   },
