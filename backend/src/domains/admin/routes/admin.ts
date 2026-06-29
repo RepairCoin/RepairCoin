@@ -18,6 +18,7 @@ import subscriptionRoutes from './subscription';
 import adminsRoutes from './admins';
 import promoCodeRoutes from './promoCodes';
 import sessionsRoutes from './sessions';
+import adminTeamRoutes from './team';
 import { logger } from '../../../utils/logger';
 
 const router = Router();
@@ -148,6 +149,12 @@ router.post('/shops/:shopId/unsuspend',
 router.put('/shops/:shopId',
   requirePermission('manage_shops'),
   asyncHandler(adminController.updateShop.bind(adminController))
+);
+
+// Shop team & permissions management
+router.use('/shops/:shopId/team',
+  requirePermission('manage_shops'),
+  adminTeamRoutes
 );
 
 // Shop verification

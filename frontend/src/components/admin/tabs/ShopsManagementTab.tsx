@@ -25,6 +25,7 @@ import {
   Plus,
   Grid,
   List,
+  Users,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -32,6 +33,7 @@ import { FilterTabs } from "@/components/ui/FilterTabs";
 import { EditShopModal } from "./EditShopModal";
 import { ShopReviewModal } from "./ShopReviewModal";
 import { AddShopModal } from "./AddShopModal";
+import { ShopTeamModal } from "./ShopTeamModal";
 import { useAdminDashboard } from "@/hooks/useAdminDashboard";
 
 interface Shop {
@@ -110,6 +112,10 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   >(initialView);
   const [searchTerm, setSearchTerm] = useState("");
   const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    shop: Shop | null;
+  }>({ isOpen: false, shop: null });
+  const [teamModal, setTeamModal] = useState<{
     isOpen: boolean;
     shop: Shop | null;
   }>({ isOpen: false, shop: null });
@@ -552,6 +558,16 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                 >
                   <Edit className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTeamModal({ isOpen: true, shop });
+                  }}
+                  className="p-1 md:p-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-colors"
+                  title="Manage Team"
+                >
+                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </button>
                 {!shop.verified && (
                   <button
                     onClick={(e) => {
@@ -649,6 +665,16 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   title="Edit"
                 >
                   <Edit className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTeamModal({ isOpen: true, shop });
+                  }}
+                  className="p-1 md:p-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-colors"
+                  title="Manage Team"
+                >
+                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </button>
                 {shop.unsuspendRequest &&
                   shop.unsuspendRequest.status === "pending" ? (
@@ -1295,6 +1321,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               shops={filteredShops}
               getStatusBadge={getStatusBadge}
               onEdit={(shop) => setEditModal({ isOpen: true, shop })}
+              onTeam={(shop) => setTeamModal({ isOpen: true, shop })}
               onSuspend={(shop) =>
                 setConfirmationModal({ isOpen: true, type: "suspend", shop })
               }
@@ -1337,6 +1364,15 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
             }
             setReviewModal({ isOpen: false, shop: null });
           }}
+        />
+      )}
+
+      {teamModal.shop && (
+        <ShopTeamModal
+          isOpen={teamModal.isOpen}
+          onClose={() => setTeamModal({ isOpen: false, shop: null })}
+          shopId={teamModal.shop.shopId || teamModal.shop.shop_id || ""}
+          shopName={teamModal.shop.name}
         />
       )}
 
@@ -1602,9 +1638,10 @@ const ShopGrid: React.FC<{
   shops: (Shop & { status: string })[];
   getStatusBadge: (shop: Shop & { status: string }) => React.ReactNode;
   onEdit: (shop: Shop) => void;
+  onTeam: (shop: Shop) => void;
   onSuspend: (shop: Shop) => void;
   onUnsuspend: (shop: Shop) => void;
-}> = ({ shops, getStatusBadge, onEdit, onSuspend, onUnsuspend }) => {
+}> = ({ shops, getStatusBadge, onEdit, onTeam, onSuspend, onUnsuspend }) => {
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
@@ -1689,6 +1726,13 @@ const ShopGrid: React.FC<{
               >
                 <Edit className="w-4 h-4" />
                 <span>Edit</span>
+              </button>
+              <button
+                onClick={() => onTeam(shop)}
+                className="px-3 py-2 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-colors text-sm flex items-center justify-center"
+                title="Manage Team"
+              >
+                <Users className="w-4 h-4" />
               </button>
               {isSuspended ? (
                 <button
