@@ -365,6 +365,20 @@ export function useAuthInitializer() {
         return;
       }
 
+      // Preserve a Meta-OAuth deep-link (?tab=ads&meta=select) across any auth bounce below.
+      // On a cold landing the 30s session cache can be expired (OAuth round-trip > 30s) and this
+      // check can redirect to '/', which drops the query from the URL. sessionStorage survives the
+      // full-page nav; the shop dashboard restores it on arrival (see ShopDashboardClient tab effect).
+      try {
+        const sp = new URLSearchParams(window.location.search);
+        const m = sp.get('meta');
+        if (m) {
+          sessionStorage.setItem('rc_pending_meta', m);
+          const reason = sp.get('reason');
+          if (reason) sessionStorage.setItem('rc_pending_meta_reason', reason);
+        }
+      } catch { /* private mode / no sessionStorage — best effort */ }
+
       console.log('[AuthInitializer] 🚀 IMMEDIATE session check on mount (not waiting for Thirdweb)');
 
       // 1. Check cache first (instant)

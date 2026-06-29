@@ -373,13 +373,30 @@ export default function ShopDashboardClient() {
 
   useEffect(() => {
     // Set active tab from URL query param
-    // Read from the LIVE browser URL, not only the useSearchParams() hook. On a cold
-    // cross-domain landing (e.g. the post-Meta-OAuth redirect to
-    // ?tab=ads&meta=select), the hook can be momentarily empty during hydration —
-    // which made the else-branch below rewrite the URL to ?tab=overview before the
-    // real params arrived, dropping tab=ads + meta=select and bouncing first-time
-    // connectors to Overview. window.location.search is always the true URL on the client.
+    // Read from the LIVE browser URL, not only the useSearchParams() hook (which can be
+    // momentarily empty during hydration).
     const liveParams = new URLSearchParams(window.location.search);
+
+    // Restore a Meta-OAuth deep-link that an auth bounce stripped from the URL. On a cold
+    // landing, useAuthInitializer can redirect to '/' (expired session cache) before the wallet
+    // restores — dropping ?tab=ads&meta=select. It stashes the intent in sessionStorage; re-apply
+    // it here so the Ads tab opens and MetaConnectCard (reads window.location.search) fires
+    // openPicker(). Then clear it so it only fires once.
+    if (typeof window !== "undefined") {
+      const pendingMeta = sessionStorage.getItem("rc_pending_meta");
+      if (pendingMeta && !liveParams.get("meta")) {
+        liveParams.set("tab", "ads");
+        liveParams.set("meta", pendingMeta);
+        const pendingReason = sessionStorage.getItem("rc_pending_meta_reason");
+        if (pendingReason) liveParams.set("reason", pendingReason);
+        const url = new URL(window.location.href);
+        url.search = liveParams.toString();
+        window.history.replaceState({}, "", url);
+      }
+      sessionStorage.removeItem("rc_pending_meta");
+      sessionStorage.removeItem("rc_pending_meta_reason");
+    }
+
     const tab = liveParams.get("tab") ?? searchParams.get("tab");
     const payment = liveParams.get("payment") ?? searchParams.get("payment");
     const purchaseId = liveParams.get("purchase_id") ?? searchParams.get("purchase_id");
