@@ -51,7 +51,7 @@ export class MonitoringService {
       const results = checks.map((check, index) => {
         const checkNames = ['Database', 'Treasury', 'Applications', 'Activity', 'Blockchain'];
         if (check.status === 'fulfilled') {
-          return `${checkNames[index]}: ${check.value.status}`;
+          return `${checkNames[index]}: ${check.value?.status ?? 'unknown'}`;
         } else {
           return `${checkNames[index]}: Error - ${check.reason}`;
         }
@@ -85,7 +85,7 @@ export class MonitoringService {
       // On-chain admin treasury balance only exists when blockchain is enabled.
       // In database-only mode there is no on-chain treasury to monitor.
       if (!blockchainEnabled()) {
-        return;
+        return { status: 'skipped', reason: 'database-only mode' };
       }
       // Check admin wallet balance
       const { getTokenMinter } = await import('../contracts/_archive/TokenMinter');
