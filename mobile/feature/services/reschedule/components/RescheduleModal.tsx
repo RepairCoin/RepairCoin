@@ -12,7 +12,11 @@ import { Calendar, DateData } from "react-native-calendars";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { appointmentApi } from "@/feature/services/services/service.services";
-import { TimeSlot, ShopAvailability } from "@/feature/services/services/service.interface";
+import {
+  TimeSlot,
+  ShopAvailability,
+  DateOverride,
+} from "@/feature/services/services/service.interface";
 
 interface RescheduleModalProps {
   visible: boolean;
@@ -54,6 +58,25 @@ export default function RescheduleModal({
     queryFn: () => appointmentApi.getShopAvailability(shopId),
     enabled: visible && !!shopId,
   });
+
+  // Fetch the shop's date overrides (holidays/closures) so closed dates are
+  // greyed out in the reschedule calendar too.
+  const { data: dateOverrides } = useQuery<DateOverride[]>({
+    queryKey: ["shop-date-overrides", shopId],
+    queryFn: () => appointmentApi.getShopDateOverrides(shopId),
+    enabled: visible && !!shopId,
+  });
+
+  // Set of dates the shop marked fully closed (YYYY-MM-DD).
+  const closedDates = useMemo(() => {
+    const set = new Set<string>();
+    (dateOverrides || []).forEach((o) => {
+      if (o.isClosed && o.overrideDate) {
+        set.add(o.overrideDate.split("T")[0].split(" ")[0]);
+      }
+    });
+    return set;
+  }, [dateOverrides]);
 
   // Fetch available time slots for selected date
   const {
@@ -101,7 +124,7 @@ export default function RescheduleModal({
       };
     }
 
-    if (shopAvailability) {
+    if (shopAvailability || closedDates.size) {
       const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30);
@@ -112,7 +135,8 @@ export default function RescheduleModal({
         d.setDate(d.getDate() + 1)
       ) {
         const dateString = d.toISOString().split("T")[0];
-        if (!isDateAvailable(d)) {
+        // Disable closed operating days AND holiday overrides.
+        if (!isDateAvailable(d) || closedDates.has(dateString)) {
           marks[dateString] = {
             ...marks[dateString],
             disabled: true,
@@ -123,7 +147,7 @@ export default function RescheduleModal({
     }
 
     return marks;
-  }, [selectedDate, shopAvailability]);
+  }, [selectedDate, shopAvailability, closedDates]);
 
   const handleDateSelect = (day: DateData) => {
     setSelectedDate(day.dateString);
