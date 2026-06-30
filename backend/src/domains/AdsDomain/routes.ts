@@ -19,6 +19,7 @@ import {
   listLeads, createManualLead, updateLeadStatus, updateShopLeadStatus, listShopLeads, webformLead, draftLeadReply,
   listAwaitingLeads, listShopAwaitingLeads,
   getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage,
+  getLeadActivities, logLeadActivity, emailLead,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
@@ -161,6 +162,9 @@ export function initializeRoutes(): Router {
   router.get('/leads/:id/messages', ...admin, getLeadThread);        // Stage 3.5: conversation thread
   router.post('/leads/:id/messages', ...admin, postLeadMessage);     // Stage 3.5: admin manual reply
   router.post('/leads/:id/auto-answer', ...admin, autoAnswerLead);   // Stage 3.5: trigger AI reply
+  router.get('/leads/:id/activities', ...admin, getLeadActivities);  // lead-tracking P1: timeline
+  router.post('/leads/:id/activities', ...admin, logLeadActivity);   // lead-tracking P1: log note/call
+  router.post('/leads/:id/email', ...admin, emailLead);              // lead-tracking P2: tracked email send
 
   // ---- Admin: ad-program enrollment requests ----
   router.get('/enrollments', ...admin, listEnrollments);

@@ -90,6 +90,23 @@ export interface AdLead {
   attributionMethod: string;
   /** True only for Messenger/WhatsApp leads → enables Chat / AI-reply. Form/manual leads are false. */
   hasChatChannel?: boolean;
+  /** First time the shop/admin actually contacted the lead (call/email/status→contacted). Null = never. */
+  firstResponseAt?: string | null;
+  createdAt: string;
+}
+
+export type AdLeadActivityType = 'email' | 'call' | 'note' | 'status_change';
+
+export interface AdLeadActivity {
+  id: string;
+  leadId: string;
+  type: AdLeadActivityType;
+  channel: string | null;
+  subject: string | null;
+  body: string | null;
+  outcome: string | null;
+  actorAddress: string | null;
+  meta: Record<string, any>;
   createdAt: string;
 }
 
@@ -358,6 +375,19 @@ export const updateLeadStatus = async (id: string, status: LeadStatus, lostReaso
 export const updateShopLeadStatus = async (id: string, status: LeadStatus, lostReason?: string) => {
   const res = await apiClient.patch(`/ads/shop/leads/${id}/status`, { status, lostReason });
   return unwrap<AdLead>(res);
+};
+
+// Follow-up activity timeline for a lead (calls/emails/notes/status changes).
+export const getLeadActivities = async (id: string) => {
+  const res = await apiClient.get(`/ads/leads/${id}/activities`);
+  return unwrap<AdLeadActivity[]>(res);
+};
+
+// Send a tracked email to a lead via Resend. Logs an email activity + posts to the thread.
+// Throws on failure; a 503 with code 'email_not_configured' means the UI should fall back to mailto:.
+export const sendLeadEmail = async (id: string, subject: string, html: string) => {
+  const res = await apiClient.post(`/ads/leads/${id}/email`, { subject, html });
+  return unwrap<{ success: boolean; messageId?: string }>(res);
 };
 
 // Stage 3 (Option C) — AI-drafted first outreach for a lead (admin).
