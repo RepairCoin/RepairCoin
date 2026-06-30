@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../../../middleware/errorHandler';
 import { getSharedPool } from '../../../utils/database-pool';
 import { logger } from '../../../utils/logger';
+import { getBugInspection } from '../../AIAgentDomain/services/bugInspection';
 
 const router = Router();
 
@@ -112,6 +113,25 @@ router.get(
         categories: categoryResult.rows,
       },
     });
+  })
+);
+
+// GET /admin/bug-reports/:id/ai-inspect - AI diagnosis of the bug's probable cause
+router.get(
+  '/:id/ai-inspect',
+  asyncHandler(async (req: Request, res: Response) => {
+    const reportId = parseInt(req.params.id, 10);
+    if (Number.isNaN(reportId)) {
+      return res.status(400).json({ success: false, error: 'Invalid bug report id' });
+    }
+    const force = req.query.refresh === 'true' || req.query.force === 'true';
+
+    const inspection = await getBugInspection(reportId, force);
+    if (!inspection) {
+      return res.status(404).json({ success: false, error: 'Bug report not found' });
+    }
+
+    res.json({ success: true, data: inspection });
   })
 );
 

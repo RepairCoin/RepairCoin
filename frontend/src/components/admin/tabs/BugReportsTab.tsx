@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Bug, Search, RefreshCw, MessageSquare, X, ChevronDown } from "lucide-react";
+import { Bug, Search, RefreshCw, MessageSquare, X, ChevronDown, Sparkles, Loader2, AlertTriangle } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { adminApi } from "@/services/api/admin";
@@ -18,6 +18,24 @@ interface BugReport {
   created_at: string;
   updated_at: string;
 }
+
+interface BugInspection {
+  reportId: number;
+  probableCause: string;
+  rootCauseAnalysis: string;
+  affectedArea: string;
+  severity: "low" | "medium" | "high" | "critical";
+  confidence: "low" | "medium" | "high";
+  suggestedFix: string[];
+  generatedAt: string;
+}
+
+const SEVERITY_COLORS: Record<string, string> = {
+  low: "bg-gray-500/20 text-gray-300",
+  medium: "bg-yellow-500/20 text-yellow-400",
+  high: "bg-orange-500/20 text-orange-400",
+  critical: "bg-red-500/20 text-red-400",
+};
 
 interface BugReportStats {
   total: number;
@@ -64,6 +82,11 @@ export function BugReportsTab() {
   const [editStatus, setEditStatus] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [updating, setUpdating] = useState(false);
+
+  // AI inspection
+  const [inspection, setInspection] = useState<BugInspection | null>(null);
+  const [inspecting, setInspecting] = useState(false);
+  const [inspectError, setInspectError] = useState("");
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
@@ -129,6 +152,23 @@ export function BugReportsTab() {
     setSelectedReport(report);
     setEditStatus(report.status);
     setEditNotes(report.admin_notes || "");
+    setInspection(null);
+    setInspectError("");
+  };
+
+  const handleInspect = async (refresh = false) => {
+    if (!selectedReport) return;
+    setInspecting(true);
+    setInspectError("");
+    try {
+      const res = await adminApi.inspectBugReport(selectedReport.id, refresh);
+      setInspection(res.data);
+    } catch (err) {
+      console.error("Failed to inspect bug report:", err);
+      setInspectError("Could not run AI inspection. Please try again.");
+    } finally {
+      setInspecting(false);
+    }
   };
 
   const columns: Column<BugReport>[] = [
@@ -384,6 +424,105 @@ export function BugReportsTab() {
                 <p className="text-gray-300 text-sm whitespace-pre-wrap">
                   {selectedReport.description}
                 </p>
+              </div>
+
+              {/* AI Inspection */}
+              <div>
+                {!inspection && (
+                  <button
+                    onClick={() => handleInspect(false)}
+                    disabled={inspecting}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 text-white text-sm font-medium hover:from-violet-500 hover:to-purple-500 transition-colors disabled:opacity-60"
+                  >
+                    {inspecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Analyzing the bug...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        AI Inspect — diagnose probable cause
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {inspectError && (
+                  <p className="text-red-400 text-xs mt-2 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {inspectError}
+                  </p>
+                )}
+
+                {inspection && (
+                  <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-violet-400" />
+                        <span className="text-violet-300 text-sm font-semibold">AI Inspection</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${SEVERITY_COLORS[inspection.severity]}`}>
+                          {inspection.severity.toUpperCase()}
+                        </span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/10 text-gray-300">
+                          {inspection.confidence} confidence
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Probable cause — the headline answer */}
+                    <div>
+                      <p className="text-gray-500 text-xs mb-1">Probable cause</p>
+                      <p className="text-white text-sm">{inspection.probableCause}</p>
+                    </div>
+
+                    {/* Affected area */}
+                    <div>
+                      <p className="text-gray-500 text-xs mb-1">Affected area</p>
+                      <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-gray-200">
+                        {inspection.affectedArea}
+                      </span>
+                    </div>
+
+                    {/* Root cause analysis */}
+                    {inspection.rootCauseAnalysis && (
+                      <div>
+                        <p className="text-gray-500 text-xs mb-1">Analysis</p>
+                        <p className="text-gray-300 text-sm whitespace-pre-wrap">
+                          {inspection.rootCauseAnalysis}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Suggested fix steps */}
+                    {inspection.suggestedFix.length > 0 && (
+                      <div>
+                        <p className="text-gray-500 text-xs mb-1">Suggested steps</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          {inspection.suggestedFix.map((step, i) => (
+                            <li key={i} className="text-gray-300 text-sm">{step}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1">
+                      <p className="text-gray-600 text-[11px]">
+                        AI estimate — verify before acting.
+                      </p>
+                      <button
+                        onClick={() => handleInspect(true)}
+                        disabled={inspecting}
+                        className="text-violet-400 text-xs hover:text-violet-300 flex items-center gap-1 disabled:opacity-60"
+                      >
+                        {inspecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        Re-run
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Status */}

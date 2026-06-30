@@ -44,7 +44,11 @@ export async function getSupportTriage(
   pool: Pool = getSharedPool()
 ): Promise<SupportTriage | null> {
   const ticketRes = await pool.query(
-    `SELECT id, subject, status, priority, category FROM support_tickets WHERE id = $1`,
+    `SELECT t.id, t.subject, t.status, t.priority, t.category,
+            COALESCE(s.name, '') AS shop_name
+       FROM support_tickets t
+       LEFT JOIN shops s ON s.shop_id = t.shop_id
+      WHERE t.id = $1`,
     [ticketId]
   );
   if (ticketRes.rows.length === 0) return null;
@@ -62,7 +66,7 @@ export async function getSupportTriage(
   const cacheKey = `${ticketId}:${messages.length}`;
   if (!force && cache.has(cacheKey)) return cache.get(cacheKey)!;
 
-  const value = await assess(ticketId, ticket.subject, messages);
+  const value = await assess(ticketId, ticket.subject, ticket.shop_name, messages);
   cache.set(cacheKey, value);
   return value;
 }
@@ -70,6 +74,7 @@ export async function getSupportTriage(
 async function assess(
   ticketId: string,
   subject: string,
+  shopName: string,
   messages: Array<{ sender_type: string; message: string }>
 ): Promise<SupportTriage> {
   const convo = messages
@@ -80,17 +85,30 @@ async function assess(
   if (ai) {
     try {
       const systemPrompt =
-        "You triage support tickets for a repair-shop rewards platform. Read the " +
-        "ticket and respond with STRICT JSON only: " +
+        "You triage support tickets for a repair-shop rewards platform. " +
+        "FIRST read the ENTIRE conversation carefully and understand the shop's " +
+        "specific situation before writing anything. Then respond with STRICT JSON " +
+        "only: " +
         '{"category":"billing|technical|account|general|feature_request",' +
         '"priority":"low|medium|high|urgent","summary":"one sentence",' +
         '"reply":"a helpful, professional draft reply the admin can send"}. ' +
         "Urgent = blocked operations or payment failures; low = minor/feature asks. " +
-        "Keep the reply concise and friendly; do not invent specifics you don't know.";
+        "The reply MUST be personal and specific to THIS ticket: address the shop by " +
+        "name when provided, directly acknowledge the actual issue and any details they " +
+        "mentioned (paraphrase their own words), and respond to what they actually said " +
+        "— not a generic acknowledgement. If they asked a question, answer it or explain " +
+        "the next step. Only ask for more details about specifics they genuinely did not " +
+        "provide. Do not invent facts you don't know. Keep it concise, warm, and professional.";
+      const shopLine = shopName ? `Shop name: ${shopName}\n` : "";
       const res = await ai.complete({
         systemPrompt: [{ text: systemPrompt, cache: true }],
         messages: [
-          { role: "user", content: `Subject: ${subject}\n\nConversation:\n${convo || "(no messages yet)"}` },
+          {
+            role: "user",
+            content:
+              `${shopLine}Subject: ${subject}\n\n` +
+              `Conversation (read all of it before replying):\n${convo || "(no messages yet)"}`,
+          },
         ],
         model: "claude-haiku-4-5-20251001",
         maxTokens: 500,

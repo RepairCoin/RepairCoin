@@ -969,6 +969,11 @@ export const adminApi = {
   updateBugReport: async (id: number, data: { status?: string; admin_notes?: string }) => {
     return apiClient.patch(`/admin/bug-reports/${id}`, data);
   },
+
+  inspectBugReport: async (id: number, refresh = false) => {
+    const qs = refresh ? '?refresh=true' : '';
+    return apiClient.get(`/admin/bug-reports/${id}/ai-inspect${qs}`);
+  },
 } as const;
 
 // Platform Settings Types
