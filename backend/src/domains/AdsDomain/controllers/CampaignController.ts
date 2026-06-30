@@ -99,6 +99,18 @@ export async function updateCampaign(req: Request, res: Response): Promise<void>
           return;
         }
       }
+      // SAFETY: a campaign pushed to Meta but never gone live (no started_at) can only be
+      // activated through the GATED Go Live flow (funding + creative-approved + account-active
+      // checks, and a confirmation). Blocking it here stops the list "Activate" toggle from
+      // starting real ad spend with no safeguards (it previously pushed ACTIVE via pushStatus,
+      // bypassing every go-live gate). Re-activating a previously-live campaign is still allowed.
+      if (target.metaCampaignId && !target.startedAt) {
+        res.status(409).json({
+          success: false, error: 'use_go_live',
+          message: 'This campaign hasn’t gone live yet — use “Go Live”, which runs the funding & creative checks before any spend.',
+        });
+        return;
+      }
     }
 
     const campaign = await campaigns.update(req.params.id, req.body || {});
