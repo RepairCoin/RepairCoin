@@ -1,8 +1,25 @@
 # Ads — Lead Follow-up Tracking (Call + Email) — Implementation Plan
 
-**Date:** 2026-06-25
+**Date:** 2026-06-25 (updated 2026-06-30)
 **Branch:** `deo/ads-system`
-**Status:** plan — not started. Standing rule: do not commit unless told.
+**Status:** ✅ **CORE COMPLETE — shipped, deployed to staging, verified live (incl. shop side).**
+Phases 1–3 + the Phase-4 Resend webhook are done. Only the optional **Twilio click-to-call** tier
+remains, parked until the Twilio account is provisioned. Standing rule: do not commit unless told.
+
+### Shipped (commits on `deo/ads-system`, all merged to `main`)
+- `b0f1288a7` — Phase 1 (activity timeline) + Phase 2 (tracked email)
+- `1d2298120` — migration renumber 189→190 (collision with main's `189_dedup_admins_unique_wallet.sql`)
+- `c2aeeec91` — Phase 3 (log call with outcome)
+- `b006ba709` — Phase 4 **webhook half** (Resend delivered/opened/clicked/bounced/complained → activity meta + engagement chips)
+- `1d6feb8da` — UI fix: wrap lead-card action row so Call/Email aren't clipped
+- `577119121` — **shop-scoped** follow-up (ownership-gated `/ads/shop/leads/:id/{activities,email}`) — fixes shop "Insufficient permissions"
+- `08e04b5b1` — auto-advance NEW→CONTACTED when a lead is emailed or called (parity with the chat path)
+
+### Live verification (staging / peanut)
+- Resend domain `send.fixflow.ai` verified (us-east-1); env set in DO: `RESEND_API_KEY`, `RESEND_FROM_EMAIL=leads@send.fixflow.ai`, `RESEND_FROM_NAME=FixFlow`.
+- Resend webhook → `https://api-staging.repaircoin.ai/api/ads/webhooks/resend`, `RESEND_WEBHOOK_SECRET` set; `email.delivered` events return **200 OK** and the **Delivered** chip lands.
+- Shop side: History / Email / Call open with **no permission error**; reply-to lands in the shop inbox.
+- **Opened/Clicked**: not a code gap — Resend **Open/Click tracking is off by default** (per-domain toggle); clicks also need a link in the email body. Chips render automatically once tracking is enabled. Decided acceptable to ship without (delivered/bounced/complained + the actual reply are the meaningful 1:1 signals).
 **Goal:** give the admin/shop **visibility into whether a lead was actually contacted** (call + email),
 make **email trackable** (sent/opened) instead of a blind `mailto:`, and surface a per-lead **activity
 timeline** + first-response time — so follow-up (the #1 lead-conversion lever) is measurable.
@@ -34,7 +51,7 @@ timeline** + first-response time — so follow-up (the #1 lead-conversion lever)
 
 ---
 
-## Phase 1 — Lead activity log (foundation) (~1d)
+## Phase 1 — Lead activity log (foundation) (~1d) — ✅ DONE
 - **Migration NNN** (verify next-free at build time — the tree currently has 172–181 + main's incoming
   172→182 from the pending merge): `ad_lead_activities`
   - `id UUID PK`, `lead_id UUID NOT NULL REFERENCES ad_leads(id) ON DELETE CASCADE`,
@@ -49,7 +66,7 @@ timeline** + first-response time — so follow-up (the #1 lead-conversion lever)
 - **FE:** show **"Last contacted {when}"** on the card + an **activity timeline** in the lead
   conversation/detail panel.
 
-## Phase 2 — In-app Resend lead email (~1–1.5d)
+## Phase 2 — In-app Resend lead email (~1–1.5d) — ✅ DONE
 - `ResendEmailService`: add **`replyTo`** to `SimpleEmailOptions` + the `emails.send` call.
 - **Endpoint:** `POST /ads/leads/:id/email` — body `{subject, html}`. Resolves
   `from = "{shopName} via FixFlow <RESEND_FROM_EMAIL>"`, `replyTo = shops.email`, sends via Resend,
@@ -60,13 +77,18 @@ timeline** + first-response time — so follow-up (the #1 lead-conversion lever)
   ready, fall back to the `mailto:` link with a hint.
 - **Templates (light):** 1–2 starter templates ("Thanks for your interest — here's how to book").
 
-## Phase 3 — Log call (~0.5d)
+## Phase 3 — Log call (~0.5d) — ✅ DONE
 - FE: a **"Log call"** action next to Call — opens `tel:` AND records a `call` activity with an
   optional outcome (reached / no answer / booked / not interested) + note. Stamps `first_response_at`.
 
 ## Phase 4 — Optional upgrades (later)
-- **Resend webhooks** → update the `email` activity with `delivered`/`opened`/`clicked` (real engagement).
-- **Twilio click-to-call** → true call connect/duration/recording (only if call volume justifies it).
+- **Resend webhooks** — ✅ **DONE** (`b006ba709`). Svix-verified `POST /api/ads/webhooks/resend`
+  (node crypto, no svix dep) merges `delivered`/`opened`/`clicked`/`bounced`/`complained` into the
+  email activity's `meta`; timeline shows engagement chips. Opened/clicked await the Resend
+  per-domain tracking toggle (no further code).
+- **Twilio click-to-call** — ⏸️ **PARKED** (Twilio account not yet provisioned). True call
+  connect/duration/recording; revisit once the account is ready and call volume justifies it.
+  This is the **only remaining item** in the plan.
 
 ---
 
