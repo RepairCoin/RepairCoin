@@ -15,6 +15,7 @@ import {
 import { LeadConversation } from "@/components/ads/LeadConversation";
 import { LeadActivityTimeline } from "@/components/ads/LeadActivityTimeline";
 import { LeadEmailComposer } from "@/components/ads/LeadEmailComposer";
+import { LeadCallLogger } from "@/components/ads/LeadCallLogger";
 
 // "Last contacted" line for a card. Compact relative-ish label off first_response_at.
 const contactedLabel = (iso?: string | null): string => {
@@ -55,6 +56,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const [convoLead, setConvoLead] = useState<AdLead | null>(null);
   const [timelineLead, setTimelineLead] = useState<AdLead | null>(null);
   const [emailLead, setEmailLead] = useState<AdLead | null>(null);
+  const [callLead, setCallLead] = useState<AdLead | null>(null);
   const isAdmin = mode === "admin";
   // Both admin and shop can work a lead (advance status, call/email) — the shop owns the
   // customer relationship. Chat / AI-draft stay admin-only (and chat-channel-only).
@@ -181,9 +183,9 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                         ) : (
                           <div className="flex items-center gap-2 ml-auto">
                             {lead.phone && (
-                              <a href={`tel:${lead.phone}`} title="Call" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
+                              <button onClick={() => setCallLead(lead)} title="Call and log the outcome" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
                                 <Phone className="w-3 h-3" /> Call
-                              </a>
+                              </button>
                             )}
                             {lead.email && (
                               <button onClick={() => setEmailLead(lead)} title="Send a tracked email" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
@@ -251,6 +253,15 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
           open={!!emailLead}
           onClose={() => setEmailLead(null)}
           onSent={() => { void load(); }}
+        />
+      )}
+
+      {callLead && (
+        <LeadCallLogger
+          lead={callLead}
+          open={!!callLead}
+          onClose={() => setCallLead(null)}
+          onLogged={() => { void load(); }}
         />
       )}
     </div>
