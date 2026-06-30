@@ -142,7 +142,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                       <Clock className="w-3 h-3 shrink-0" /> {contactedLabel(lead.firstResponseAt)}
                     </p>
                     {(
-                      <div className="mt-2 flex items-center gap-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
                         {NEXT[col.status] && (
                           <button
                             onClick={() => move(lead, NEXT[col.status]!)}
