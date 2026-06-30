@@ -1,7 +1,15 @@
 # Scope — Inbound email (lead replies → app → AI auto-answer)
 
-**Date:** 2026-06-30
-**Status:** Scope (no code; standing rule — don't build/commit until told).
+**Date:** 2026-06-30 (updated 2026-06-30)
+**Status:** ⏸️ **BUILT but PARKED — blocked on Resend Receiving (paid plan; deprioritized by management).**
+The full feature (Increments 1+2: per-lead reply token + reply-to switch + Svix-verified inbound webhook +
+resolve/clean/`handleInbound` + loop-safety + shop notification) is **code-complete and tsc-clean**, committed on a
+**dedicated branch `deo/inbound-email` (tip `db31f1e81`)** — deliberately kept **OFF `deo/ads-system`/`main`** so it can
+never ride a merge into a deploy. Resend "Enable Receiving" can't be toggled on the current plan (new domain / receiving
+is plan-gated), and management hasn't prioritized it. **Revive when prioritized + Resend upgraded:** check out
+`deo/inbound-email`, merge latest `main`, **verify the Resend inbound payload field-paths against a real delivery**, then
+merge + set `ADS_INBOUND_EMAIL_ENABLED=true` (+ `RESEND_INBOUND_WEBHOOK_SECRET`, MX on the receiving domain). Behind
+`ADS_INBOUND_EMAIL_ENABLED` (default off); with the flag off it's behaviour-neutral to AI ads management.
 **Goal:** close the email conversation loop. Today FixFlow can **send** a lead email (manual composer + AI
 auto-answer transport, both via Resend — `223f796a1`), but a customer's **reply** goes to the shop's own inbox and the
 app never sees it. This scopes **inbound email**: the customer's reply lands in the app, threads onto the lead, and (when
