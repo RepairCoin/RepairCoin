@@ -61,6 +61,8 @@ import { getMetaConnection } from "@/services/api/ads";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
 import { CancelledSubscriptionModal } from "@/components/shop/CancelledSubscriptionModal";
 import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
+import { TierGate } from "@/components/shop/TierGate";
+import { refreshFeatureAccess } from "@/hooks/useFeatureAccess";
 import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
 import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
 import { CoinsIcon } from 'lucide-react';
@@ -402,6 +404,7 @@ export default function ShopDashboardClient() {
       
       // Clear cached data and force reload
       localStorage.removeItem('shopData');
+      refreshFeatureAccess();
       if (account?.address) {
         loadShopData();
       }
@@ -1491,25 +1494,33 @@ export default function ShopDashboardClient() {
 
           {activeTab === "inventory" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <InventoryTab shopId={shopData.shopId} />
+              <TierGate feature="inventoryManagement">
+                <InventoryTab shopId={shopData.shopId} />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
           {activeTab === "purchase-orders" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <PurchaseOrdersTab shopId={shopData.shopId} />
+              <TierGate feature="inventoryManagement">
+                <PurchaseOrdersTab shopId={shopData.shopId} />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
           {activeTab === "inventory-analytics" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <InventoryAnalyticsTab shopId={shopData.shopId} />
+              <TierGate feature="inventoryManagement">
+                <InventoryAnalyticsTab shopId={shopData.shopId} />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
           {activeTab === "low-stock-alerts" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <LowStockAlertsTab shopId={shopData.shopId} />
+              <TierGate feature="inventoryManagement">
+                <LowStockAlertsTab shopId={shopData.shopId} />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
@@ -1524,7 +1535,9 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "service-analytics" && shopData && (
-            <ServiceAnalyticsTab />
+            <TierGate feature="advancedReports">
+              <ServiceAnalyticsTab />
+            </TierGate>
           )}
 
           {activeTab === "appointments" && shopData && (
@@ -1591,7 +1604,7 @@ export default function ShopDashboardClient() {
                 shopData={shopData}
                 onRewardIssued={loadShopData}
                 onRedemptionComplete={loadShopData}
-                isOperational={isOperational}
+                isOperational={!!isOperational}
                 isBlocked={isBlocked}
                 blockReason={getBlockReason()}
                 setShowOnboardingModal={setShowOnboardingModal}
@@ -1631,12 +1644,16 @@ export default function ShopDashboardClient() {
 
           {activeTab === "marketing" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
+              <TierGate feature="campaignBuilder">
+                <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
           {activeTab === "team" && shopData && (
-            <TeamTab shopId={shopData.shopId} />
+            <TierGate feature="teamManagement">
+              <TeamTab shopId={shopData.shopId} />
+            </TierGate>
           )}
 
           {/* Ads System (Stage 1) — read-only campaign performance for this shop */}

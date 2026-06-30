@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import apiClient from "@/services/api/client";
+import { refreshFeatureAccess } from "@/hooks/useFeatureAccess";
 import { CountryPhoneInput } from "../ui/CountryPhoneInput";
 import { useNotificationStore } from "@/stores/notificationStore";
 import {
@@ -386,6 +387,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
       );
       setTimeout(() => setSuccessMessage(null), 10000);
 
+      await refreshFeatureAccess();
       await loadSubscriptionStatus();
     } catch (error) {
       console.error("Error changing plan:", error);
@@ -420,6 +422,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
       setTimeout(() => setSuccessMessage(null), 10000);
 
       // Reload to ensure we have the latest status with properly formatted data
+      await refreshFeatureAccess();
       await loadSubscriptionStatus();
     } catch (error) {
       console.error("Error reactivating subscription:", error);
