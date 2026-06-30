@@ -26,6 +26,7 @@ import {
   getIndustryAnalytics, getCampaignMargin, getMarginSummary,
 } from './controllers/PerformanceController';
 import { verifyMetaWebhook, receiveMetaWebhook } from './controllers/MetaWebhookController';
+import { receiveResendWebhook } from './controllers/ResendWebhookController';
 import {
   createExperiment, listExperiments, getExperimentReport, setExperimentWinner,
 } from './controllers/ExperimentController';
@@ -87,6 +88,10 @@ export function initializeRoutes(): Router {
   // POST = signed lead delivery (raw body parsed in app.ts for signature check).
   router.get('/webhooks/meta/leads', verifyMetaWebhook);
   router.post('/webhooks/meta/leads', receiveMetaWebhook);
+
+  // PUBLIC — Resend email webhook (lead follow-up Phase 4). Svix-signed delivery/open/click/bounce
+  // events; raw body parsed in app.ts for the signature check.
+  router.post('/webhooks/resend', receiveResendWebhook);
 
   // PUBLIC — Meta OAuth callback (browser redirect from Facebook). shopId is read from the
   // signed `state`, never a param; on success stores the token and bounces to the picker.
