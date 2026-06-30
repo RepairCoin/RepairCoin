@@ -22,6 +22,9 @@ const when = (iso: string) => {
   return `${d.toLocaleDateString()} · ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 };
 
+// "no_answer" -> "No answer"
+const prettyOutcome = (o: string) => o.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+
 export const LeadActivityTimeline: React.FC<{
   leadId: string;
   leadName?: string | null;
@@ -62,7 +65,7 @@ export const LeadActivityTimeline: React.FC<{
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-white">{meta.label}</span>
-                      {a.outcome && <span className="text-[11px] text-gray-400 px-1.5 py-0.5 rounded bg-white/5">{a.outcome}</span>}
+                      {a.outcome && <span className="text-[11px] text-gray-400 px-1.5 py-0.5 rounded bg-white/5">{prettyOutcome(a.outcome)}</span>}
                       <span className="text-[11px] text-gray-500 ml-auto shrink-0">{when(a.createdAt)}</span>
                     </div>
                     {a.subject && <p className="text-xs text-gray-300 mt-0.5">{a.subject}</p>}

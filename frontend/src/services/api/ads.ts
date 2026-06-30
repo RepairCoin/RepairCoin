@@ -390,6 +390,18 @@ export const sendLeadEmail = async (id: string, subject: string, html: string) =
   return unwrap<{ success: boolean; messageId?: string }>(res);
 };
 
+// Log a manual follow-up activity — a note, or a call with an outcome. A logged call stamps
+// first_response_at server-side. (Emails and status changes are logged by their own endpoints.)
+export type LeadCallOutcome = 'reached' | 'no_answer' | 'booked' | 'not_interested';
+export const logLeadActivity = async (
+  id: string,
+  type: 'note' | 'call',
+  opts?: { outcome?: LeadCallOutcome; body?: string }
+) => {
+  const res = await apiClient.post(`/ads/leads/${id}/activities`, { type, ...opts });
+  return unwrap<AdLeadActivity>(res);
+};
+
 // Stage 3 (Option C) — AI-drafted first outreach for a lead (admin).
 export const draftLeadReply = async (id: string): Promise<string> => {
   const res = await apiClient.post(`/ads/leads/${id}/draft-reply`);
