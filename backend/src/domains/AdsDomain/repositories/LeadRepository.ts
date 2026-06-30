@@ -3,6 +3,7 @@
 // Ad leads — Stage 0 ships basic CRUD + status change. Attribution/dedupe/
 // lead→customer conversion are Stage 2 (LeadAttributionService).
 
+import crypto from 'crypto';
 import { BaseRepository } from '../../../repositories/BaseRepository';
 
 export type LeadStatus = 'new' | 'contacted' | 'booked' | 'paid' | 'completed' | 'lost';
@@ -78,6 +79,30 @@ export class LeadRepository extends BaseRepository {
 
   async findById(id: string): Promise<AdLead | null> {
     const res = await this.pool.query(`SELECT * FROM ad_leads WHERE id = $1`, [id]);
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
+  /** Inbound email: get the lead's reply token, creating one on first use. The reply-to address is
+   *  `${token}@reply.fixflow.ai`; an inbound reply is resolved back to the lead via this token.
+   *  Race-safe (the UPDATE is guarded on reply_token IS NULL; re-reads on a concurrent set). */
+  async getOrCreateReplyToken(id: string): Promise<string | null> {
+    const cur = await this.pool.query(`SELECT reply_token FROM ad_leads WHERE id = $1`, [id]);
+    if (!cur.rows[0]) return null;                       // no such lead
+    if (cur.rows[0].reply_token) return cur.rows[0].reply_token;
+    const token = crypto.randomBytes(12).toString('hex'); // 24 hex chars, opaque
+    const upd = await this.pool.query(
+      `UPDATE ad_leads SET reply_token = $2, updated_at = now()
+        WHERE id = $1 AND reply_token IS NULL RETURNING reply_token`,
+      [id, token]
+    );
+    if (upd.rows[0]?.reply_token) return upd.rows[0].reply_token;
+    const re = await this.pool.query(`SELECT reply_token FROM ad_leads WHERE id = $1`, [id]);
+    return re.rows[0]?.reply_token ?? null;
+  }
+
+  /** Inbound email: resolve a lead from its reply token (the inbound to-address local-part). */
+  async findByReplyToken(token: string): Promise<AdLead | null> {
+    const res = await this.pool.query(`SELECT * FROM ad_leads WHERE reply_token = $1`, [token]);
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
