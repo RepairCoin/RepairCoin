@@ -52,6 +52,19 @@ export class AdLeadActivityRepository extends BaseRepository {
     return this.mapRow(res.rows[0]);
   }
 
+  /** Phase 4 — merge a Resend engagement event (delivered/opened/clicked/bounced/complained) into
+   *  the email activity identified by its Resend message id. Shallow JSONB merge so later events
+   *  accumulate onto the same row. Returns how many rows matched (0 = no activity for that id). */
+  async recordEmailEvent(messageId: string, patch: Record<string, any>): Promise<number> {
+    const res = await this.pool.query(
+      `UPDATE ad_lead_activities
+          SET meta = meta || $2::jsonb
+        WHERE type = 'email' AND meta->>'messageId' = $1`,
+      [messageId, JSON.stringify(patch)]
+    );
+    return res.rowCount ?? 0;
+  }
+
   async listByLead(leadId: string, limit = 200): Promise<AdLeadActivity[]> {
     const res = await this.pool.query(
       `SELECT * FROM ad_lead_activities WHERE lead_id = $1 ORDER BY created_at DESC LIMIT $2`,

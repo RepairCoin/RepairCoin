@@ -296,6 +296,10 @@ class RepairCoinApp {
     // exact bytes). MUST be before JSON parsing. (Ads System Stage 4.)
     this.app.use('/api/ads/webhooks/meta/leads', express.raw({ type: '*/*' }));
 
+    // Raw body for the Resend email webhook (Svix HMAC needs the exact bytes).
+    // MUST be before JSON parsing. (Lead follow-up Phase 4.)
+    this.app.use('/api/ads/webhooks/resend', express.raw({ type: '*/*' }));
+
     // JSON parsing for all other routes
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));

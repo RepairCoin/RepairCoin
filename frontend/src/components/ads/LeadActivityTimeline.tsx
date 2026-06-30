@@ -25,6 +25,21 @@ const when = (iso: string) => {
 // "no_answer" -> "No answer"
 const prettyOutcome = (o: string) => o.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 
+// Email bodies are stored as HTML — show a plain-text preview in the timeline.
+const stripHtml = (html: string) =>
+  html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+
+// Engagement chips from a Resend email activity's meta (Phase 4 webhook events).
+const engagementChips = (meta: Record<string, any>): { label: string; tone: string }[] => {
+  const chips: { label: string; tone: string }[] = [];
+  if (meta.delivered) chips.push({ label: "Delivered", tone: "text-emerald-400 bg-emerald-400/10" });
+  if (meta.opened) chips.push({ label: "Opened", tone: "text-sky-400 bg-sky-400/10" });
+  if (meta.clicked) chips.push({ label: "Clicked", tone: "text-[#FFCC00] bg-[#FFCC00]/10" });
+  if (meta.bounced) chips.push({ label: "Bounced", tone: "text-red-400 bg-red-400/10" });
+  if (meta.complained) chips.push({ label: "Marked spam", tone: "text-red-400 bg-red-400/10" });
+  return chips;
+};
+
 export const LeadActivityTimeline: React.FC<{
   leadId: string;
   leadName?: string | null;
@@ -69,7 +84,18 @@ export const LeadActivityTimeline: React.FC<{
                       <span className="text-[11px] text-gray-500 ml-auto shrink-0">{when(a.createdAt)}</span>
                     </div>
                     {a.subject && <p className="text-xs text-gray-300 mt-0.5">{a.subject}</p>}
-                    {a.body && <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-wrap break-words">{a.body}</p>}
+                    {a.body && (
+                      <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-wrap break-words line-clamp-3">
+                        {a.type === "email" ? stripHtml(a.body) : a.body}
+                      </p>
+                    )}
+                    {a.type === "email" && engagementChips(a.meta || {}).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {engagementChips(a.meta || {}).map((c) => (
+                          <span key={c.label} className={`text-[10px] px-1.5 py-0.5 rounded ${c.tone}`}>{c.label}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
