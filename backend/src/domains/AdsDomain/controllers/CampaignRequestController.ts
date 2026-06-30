@@ -11,7 +11,7 @@ import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AdsEvents } from '../events';
 import { CampaignRequestRepository } from '../repositories/CampaignRequestRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
-import { BillingPlanRepository } from '../repositories/BillingPlanRepository';
+import { BillingPlanRepository, limitsForTier } from '../repositories/BillingPlanRepository';
 import { SafeguardRepository } from '../repositories/SafeguardRepository';
 import { AdMessageRepository } from '../repositories/AdMessageRepository';
 import { NotificationRepository } from '../../../repositories/NotificationRepository';
@@ -113,6 +113,19 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
       // timeout) — block a duplicate. Failed builds roll back and stay pending/approved.
       res.status(400).json({ success: false, error: `Request already ${r.status}` }); return;
     }
+    // Multi-channel (Google plan): a request carries its channel. Google selection is captured
+    // (Slice 2) but the Google integration (connect/push) isn't built yet — block the build with a
+    // clear message, and enforce the Business-tier gate server-side (defense-in-depth behind the FE
+    // picker). Meta is unchanged. When Google push ships, replace the 409 with the real google path.
+    if (r.channel === 'google') {
+      const plan = await plans.getOrDefault(r.shopId);
+      if (!limitsForTier(plan.flatTierName).channels.includes('google')) {
+        res.status(403).json({ success: false, error: 'google_requires_business_tier', message: 'Google Ads campaigns require the Business plan.' });
+        return;
+      }
+      res.status(409).json({ success: false, error: 'google_not_available_yet', message: "Google Ads campaigns aren't available to launch yet — coming soon." });
+      return;
+    }
     // §9.6 — can't go live until the shop's ad account is connected.
     if (!(await plans.isAdsAccountConnected(r.shopId))) {
       res.status(409).json({ success: false, error: 'ad_account_not_connected', message: `Connect ${r.shopId}'s ad account before building a live campaign.` });
@@ -132,6 +145,7 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
     const campaign = await campaigns.create({
       shopId: r.shopId,
       name,
+      platform: r.channel ?? 'meta', // forward-compat; google builds are blocked above
       targetRadiusMiles: r.targetRadiusMiles ?? null,
       dailyBudgetCents,
       notes: r.offer ? `Offer: ${r.offer}` : null,

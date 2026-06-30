@@ -1,7 +1,21 @@
 # Implementation Plan — Google Ads channel (vertical slices, real flow)
 
-**Date:** 2026-06-30
-**Status:** Plan (no code; standing rule — don't build/commit until told).
+**Date:** 2026-06-30 (updated 2026-06-30)
+**Status:** Plan — **partially built.** The Google-credential-free pieces are SHIPPED while waiting on the
+Google invite; the rest is gated on the MCC + developer token + OAuth (access checklist §1–2).
+
+### Built so far (no Google credentials needed) — on `deo/ads-system`, merged to `main`
+- ✅ **Slice 2 — channel picker + eligibility** (`a687b5497`): `GET /ads/shop/ad-channels` (tier from
+  `BillingPlanRepository.limitsForTier().channels` — only `business` includes `google` — + Meta connection);
+  Channel segmented control in `CampaignBriefFields`, gated by `NEXT_PUBLIC_ADS_GOOGLE_ENABLED` (ON in Vercel),
+  hidden when one channel eligible. No migration.
+- ✅ **Slice 2 completion + Slice 6 tier gate** (`150f15327`, **migration 191** `ad_campaign_requests.channel`):
+  brief `channel` validated (`parseBrief`) → persisted on the request → `ad_campaigns.platform`; `buildCampaignFromRequest`
+  enforces it server-side — google + non-Business → `403 google_requires_business_tier`; google (any tier) →
+  `409 google_not_available_yet` (connect/push not built → no orphan campaign).
+- ⏳ **Everything else is credential-gated** (Slices 1/3/4/5 + the API parts of 6) — see BE-0 / the access checklist.
+
+**Standing rule — don't build/commit until told.**
 **Pairs with:** `ads-google-ads-scope.md` (the what/why + decisions). This is the **how/order**.
 **Sequencing (revised — risk-free real flow):** build in **thin vertical slices**. For each feature a **real** (thin)
 backend endpoint lands first, then its **frontend** is built immediately against the live response — no mocks, no
@@ -74,7 +88,7 @@ below for real. Real-shop go-live is gated on Basic/Standard token access + OAut
 
 ---
 
-## Slice 2 — Channel picker in the brief (BE → FE)
+## Slice 2 — Channel picker in the brief (BE → FE) — ✅ DONE (`a687b5497` + `150f15327`)
 **BE-2 (~0.5–1d):**
 - `GET /ads/shop/ad-channels` — eligibility: `{ meta:{eligible,connected}, google:{eligible,connected,reason:
   'ok'|'tier_locked'|'not_connected'} }`, computed from the shop's **tier** (Business unlocks Google) + connection state.
@@ -121,6 +135,9 @@ Flag `ADS_GOOGLE_CONFIG_SYNC`. Endpoint `POST /ads/campaigns/:id/sync-from-googl
 ## Slice 6 — Go-live billing + server-side tier gate (BE)
 **BE-6 (~1–2d):** channel-aware go-live billing (flat tier already exists); enforce the **Business-tier gate
 server-side** on Google campaign build (defense-in-depth behind the FE gate).
+- ✅ **Server-side tier gate DONE** (`150f15327`) — `buildCampaignFromRequest` rejects google for non-Business
+  (`403`) and blocks google launch entirely (`409 google_not_available_yet`) until connect/push ship.
+- ⏳ Channel-aware go-live billing (real google go-live) — lands with Slice 3 (needs the Google integration).
 
 ---
 

@@ -13,12 +13,16 @@ export type CampaignGoal = 'more_bookings' | 'leads' | 'awareness' | 'promote_se
 
 /** Optional campaign brief — what the shop wants advertised, so the admin builds the
  *  right campaign instead of guessing. All fields optional. */
+export type AdChannel = 'meta' | 'google';
+
 export interface CampaignBrief {
   promoteServiceIds?: string[];
   monthlyBudgetCents?: number | null;
   offer?: string | null;
   targetRadiusMiles?: number | null;
   goal?: CampaignGoal | null;
+  /** Which platform to run on. null = meta (default). */
+  channel?: AdChannel | null;
 }
 
 export interface AdEnrollment {

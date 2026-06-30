@@ -15,6 +15,9 @@ export function parseBrief(raw: any): { brief: CampaignBrief } | { error: string
   if (b.goal != null && !['more_bookings', 'leads', 'awareness', 'promote_service'].includes(b.goal)) {
     return { error: "brief.goal must be 'more_bookings', 'leads', 'awareness' or 'promote_service'" };
   }
+  if (b.channel != null && !['meta', 'google'].includes(b.channel)) {
+    return { error: "brief.channel must be 'meta' or 'google'" };
+  }
   return {
     brief: {
       promoteServiceIds: Array.isArray(b.promoteServiceIds) ? b.promoteServiceIds.map(String).slice(0, 20) : [],
@@ -22,6 +25,7 @@ export function parseBrief(raw: any): { brief: CampaignBrief } | { error: string
       offer: b.offer ? String(b.offer).slice(0, 500) : null,
       targetRadiusMiles: b.targetRadiusMiles ?? null,
       goal: b.goal ?? null,
+      channel: b.channel ?? null,
     },
   };
 }

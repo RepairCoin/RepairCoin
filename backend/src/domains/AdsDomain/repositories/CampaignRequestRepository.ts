@@ -5,7 +5,7 @@
 // tier limit (§9.5): committed = approved + building requests + live campaigns.
 
 import { BaseRepository } from '../../../repositories/BaseRepository';
-import { CampaignBrief, CampaignGoal } from './EnrollmentRepository';
+import { CampaignBrief, CampaignGoal, AdChannel } from './EnrollmentRepository';
 
 export type CampaignRequestStatus = 'pending' | 'approved' | 'building' | 'live' | 'declined' | 'cancelled';
 
@@ -17,6 +17,7 @@ export interface AdCampaignRequest {
   offer: string | null;
   targetRadiusMiles: number | null;
   goal: CampaignGoal | null;
+  channel: AdChannel; // 'meta' (default) | 'google'
   message: string | null;
   status: CampaignRequestStatus;
   campaignId: string | null;
@@ -30,8 +31,8 @@ export class CampaignRequestRepository extends BaseRepository {
   async create(shopId: string, brief: CampaignBrief, message: string | null): Promise<AdCampaignRequest> {
     const res = await this.pool.query(
       `INSERT INTO ad_campaign_requests
-         (shop_id, promote_service_ids, monthly_budget_cents, offer, target_radius_miles, goal, message)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+         (shop_id, promote_service_ids, monthly_budget_cents, offer, target_radius_miles, goal, message, channel)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [
         shopId,
         brief.promoteServiceIds ?? [],
@@ -40,6 +41,7 @@ export class CampaignRequestRepository extends BaseRepository {
         brief.targetRadiusMiles ?? null,
         brief.goal ?? null,
         message,
+        brief.channel ?? 'meta',
       ]
     );
     return this.mapRow(res.rows[0]);
@@ -119,6 +121,7 @@ export class CampaignRequestRepository extends BaseRepository {
       offer: r.offer ?? null,
       targetRadiusMiles: r.target_radius_miles ?? null,
       goal: r.goal ?? null,
+      channel: (r.channel ?? 'meta') as AdChannel,
       message: r.message ?? null,
       status: r.status,
       campaignId: r.campaign_id ?? null,

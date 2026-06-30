@@ -37,6 +37,7 @@ import {
 import {
   requestAds, getMyEnrollment, listEnrollments, decideEnrollment,
 } from './controllers/EnrollmentController';
+import { getAdChannels } from './controllers/AdChannelController';
 import {
   getMyMessages, postMyMessage, listShopMessages, postAdminMessage, getMessageInbox,
 } from './controllers/MessageController';
@@ -180,6 +181,7 @@ export function initializeRoutes(): Router {
   router.get('/shop/campaigns', ...shop, listShopCampaigns);
   router.get('/shop/capacity', ...shop, getShopCapacity);               // tier limit vs. used (§9.5)
   router.get('/shop/campaigns/:id/performance', ...shop, getShopCampaignPerformance);
+  router.get('/shop/ad-channels', ...shop, getAdChannels);              // multi-channel: brief channel picker eligibility
   router.get('/shop/leads', ...shop, listShopLeads);
   router.patch('/shop/leads/:id/status', ...shop, updateShopLeadStatus); // shop works its own leads
   router.get('/shop/leads/awaiting', ...shop, listShopAwaitingLeads);   // SLA (Stage 2)
