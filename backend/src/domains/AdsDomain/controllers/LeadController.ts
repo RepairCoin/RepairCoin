@@ -9,20 +9,29 @@ import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AdsEvents } from '../events';
 import { LeadRepository } from '../repositories/LeadRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
+import { AdLeadActivityRepository, type AdLeadActivityType } from '../repositories/AdLeadActivityRepository';
 import { leadAttributionService } from '../services/LeadAttributionService';
 import { leadAIService } from '../services/LeadAIService';
 import { leadAutoAnswerService } from '../services/LeadAutoAnswerService';
+import { leadEmailService } from '../services/LeadEmailService';
 
 const leads = new LeadRepository();
 const campaigns = new CampaignRepository();
+const activities = new AdLeadActivityRepository();
 const shopIdOf = (req: Request): string | undefined => (req as any).user?.shopId;
 
 const LEAD_STATUSES = ['new', 'contacted', 'booked', 'paid', 'completed', 'lost'];
 
 /** Apply a lead status change + the conversion/booking side effects (shared by admin + shop). */
-async function applyLeadStatus(leadId: string, status: string, lostReason: string | null) {
+async function applyLeadStatus(leadId: string, status: string, lostReason: string | null, actorAddress?: string | null) {
   const lead = await leads.updateStatus(leadId, status as any, lostReason);
   if (!lead) return null;
+  // Activity timeline: record every Kanban status move (best-effort — a log failure must not
+  // break the status update).
+  void activities.log({
+    leadId, type: 'status_change', actorAddress: actorAddress ?? null,
+    meta: { status, ...(lostReason ? { lostReason } : {}) },
+  }).catch((e) => logger.warn(`lead activity log (status_change) failed for ${leadId}: ${e?.message || e}`));
   // On conversion, link to an existing customer (match by phone/email). We do NOT auto-create a
   // wallet-less customer row — see Stage 2 notes.
   if ((status === 'booked' || status === 'paid') && !lead.customerId) {
@@ -110,7 +119,7 @@ export async function updateLeadStatus(req: Request, res: Response): Promise<voi
     return;
   }
   try {
-    const lead = await applyLeadStatus(req.params.id, status, req.body?.lostReason ?? null);
+    const lead = await applyLeadStatus(req.params.id, status, req.body?.lostReason ?? null, req.user?.address ?? null);
     if (!lead) { res.status(404).json({ success: false, error: 'Lead not found' }); return; }
     res.json({ success: true, data: lead });
   } catch (err) {
@@ -134,11 +143,71 @@ export async function updateShopLeadStatus(req: Request, res: Response): Promise
     if (!existing) { res.status(404).json({ success: false, error: 'Lead not found' }); return; }
     const ownerShopId = await campaigns.getShopIdForCampaign(existing.campaignId);
     if (ownerShopId !== shopId) { res.status(404).json({ success: false, error: 'Lead not found' }); return; }
-    const lead = await applyLeadStatus(req.params.id, status, req.body?.lostReason ?? null);
+    const lead = await applyLeadStatus(req.params.id, status, req.body?.lostReason ?? null, req.user?.address ?? shopId);
     res.json({ success: true, data: lead });
   } catch (err) {
     logger.error('LeadController.updateShopLeadStatus failed', err);
     res.status(500).json({ success: false, error: 'Failed to update lead status' });
+  }
+}
+
+// GET /leads/:id/activities (admin) — the lead's follow-up timeline (calls/notes/emails/status moves).
+export async function getLeadActivities(req: Request, res: Response): Promise<void> {
+  try {
+    const lead = await leads.findById(req.params.id);
+    if (!lead) { res.status(404).json({ success: false, error: 'Lead not found' }); return; }
+    const items = await activities.listByLead(req.params.id);
+    res.json({ success: true, data: items });
+  } catch (err) {
+    logger.error('LeadController.getLeadActivities failed', err);
+    res.status(500).json({ success: false, error: 'Failed to load lead activities' });
+  }
+}
+
+// POST /leads/:id/activities (admin) — log a manual note or call. (Emails are logged by the
+// Phase 2 send endpoint; status moves are logged by the Kanban update — neither is logged here.)
+export async function logLeadActivity(req: Request, res: Response): Promise<void> {
+  const type = req.body?.type as AdLeadActivityType;
+  if (type !== 'note' && type !== 'call') {
+    res.status(400).json({ success: false, error: 'type must be "note" or "call"' });
+    return;
+  }
+  try {
+    const lead = await leads.findById(req.params.id);
+    if (!lead) { res.status(404).json({ success: false, error: 'Lead not found' }); return; }
+    const activity = await activities.log({
+      leadId: req.params.id,
+      type,
+      channel: type === 'call' ? 'phone' : null,
+      body: req.body?.body ?? null,
+      outcome: type === 'call' ? (req.body?.outcome ?? null) : null,
+      actorAddress: req.user?.address ?? null,
+    });
+    // A logged call is a real touch → stamp first response time (notes don't count).
+    if (type === 'call') await leads.markContacted(req.params.id);
+    res.status(201).json({ success: true, data: activity });
+  } catch (err) {
+    logger.error('LeadController.logLeadActivity failed', err);
+    res.status(500).json({ success: false, error: 'Failed to log activity' });
+  }
+}
+
+// POST /leads/:id/email (admin) — send a tracked email to the lead via Resend. Logs an `email`
+// activity + posts into the conversation thread. Returns 503 {code:'email_not_configured'} when
+// Resend isn't set up so the UI can fall back to a mailto: link.
+export async function emailLead(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await leadEmailService.send({
+      leadId: req.params.id,
+      subject: req.body?.subject,
+      html: req.body?.html,
+      actorAddress: req.user?.address ?? null,
+    });
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    const status = err?.status ?? 500;
+    if (status >= 500 && status !== 503) logger.error('LeadController.emailLead failed', err);
+    res.status(status).json({ success: false, error: err?.message || 'Failed to send email', code: err?.code });
   }
 }
 

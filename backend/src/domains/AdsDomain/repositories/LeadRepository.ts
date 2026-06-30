@@ -173,6 +173,15 @@ export class LeadRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
+  /** Stamp first_response_at the first time the shop/admin actually contacts the lead (a logged
+   *  call or email), independent of a Kanban status move. No-op once already set. */
+  async markContacted(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_leads SET first_response_at = COALESCE(first_response_at, now()), updated_at = now() WHERE id = $1`,
+      [id]
+    );
+  }
+
   /** Q9 retention: hard-delete unconverted leads older than `retentionDays`.
    *  Converted leads (booked/paid/completed) are kept forever — they're linked to
    *  a customers row. Returns the number of rows deleted. */

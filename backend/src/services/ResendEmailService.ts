@@ -35,6 +35,9 @@ interface SimpleEmailOptions {
     email: string;
     name: string;
   };
+  /** Where replies land. For lead outreach this is the shop's own inbox so the
+   *  conversation continues directly with the shop, not the FixFlow sending domain. */
+  replyTo?: string;
 }
 
 export class ResendEmailService {
@@ -96,6 +99,7 @@ export class ResendEmailService {
         subject: options.subject,
         html: options.html,
         text: options.text || this.htmlToText(options.html),
+        ...(options.replyTo ? { replyTo: options.replyTo } : {}),
       });
 
       if (result.error) {

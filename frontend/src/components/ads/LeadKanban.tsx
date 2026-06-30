@@ -6,13 +6,26 @@
 // /ads/shop/leads). One-click status change (not drag-drop — simpler + reliable).
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, ChevronRight, Phone, Mail, Sparkles, Copy, MessageSquare } from "lucide-react";
+import { Loader2, ChevronRight, Phone, Mail, Sparkles, Copy, MessageSquare, Clock } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   listLeads, listShopLeads, updateLeadStatus, updateShopLeadStatus, draftLeadReply,
   type AdLead, type LeadStatus,
 } from "@/services/api/ads";
 import { LeadConversation } from "@/components/ads/LeadConversation";
+import { LeadActivityTimeline } from "@/components/ads/LeadActivityTimeline";
+import { LeadEmailComposer } from "@/components/ads/LeadEmailComposer";
+
+// "Last contacted" line for a card. Compact relative-ish label off first_response_at.
+const contactedLabel = (iso?: string | null): string => {
+  if (!iso) return "Not contacted yet";
+  const then = new Date(iso).getTime();
+  const days = Math.floor((Date.now() - then) / 86400000);
+  if (days <= 0) return "Contacted today";
+  if (days === 1) return "Contacted yesterday";
+  if (days < 7) return `Contacted ${days}d ago`;
+  return `Contacted ${new Date(iso).toLocaleDateString()}`;
+};
 
 const COLUMNS: { status: LeadStatus; label: string }[] = [
   { status: "new", label: "New" },
@@ -40,6 +53,8 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [convoLead, setConvoLead] = useState<AdLead | null>(null);
+  const [timelineLead, setTimelineLead] = useState<AdLead | null>(null);
+  const [emailLead, setEmailLead] = useState<AdLead | null>(null);
   const isAdmin = mode === "admin";
   // Both admin and shop can work a lead (advance status, call/email) — the shop owns the
   // customer relationship. Chat / AI-draft stay admin-only (and chat-channel-only).
@@ -121,6 +136,9 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                     <p className="text-[11px] text-gray-600 mt-1.5">
                       {lead.attributionMethod} · {new Date(lead.createdAt).toLocaleDateString()}
                     </p>
+                    <p className={`text-[11px] mt-0.5 flex items-center gap-1 ${lead.firstResponseAt ? "text-gray-400" : "text-amber-500/80"}`}>
+                      <Clock className="w-3 h-3 shrink-0" /> {contactedLabel(lead.firstResponseAt)}
+                    </p>
                     {(
                       <div className="mt-2 flex items-center gap-2">
                         {NEXT[col.status] && (
@@ -142,6 +160,14 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                             Lost
                           </button>
                         )}
+                        {/* Activity timeline — available for every lead (calls/emails/notes/status). */}
+                        <button
+                          onClick={() => setTimelineLead(lead)}
+                          className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]"
+                          title="Activity timeline"
+                        >
+                          <Clock className="w-3 h-3" /> History
+                        </button>
                         {/* Chat only for admins on leads with a real 2-way channel (Messenger/WhatsApp).
                             Everyone else (shop, or form/manual leads) reaches the customer by call/email. */}
                         {isAdmin && lead.hasChatChannel ? (
@@ -160,9 +186,9 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                               </a>
                             )}
                             {lead.email && (
-                              <a href={`mailto:${lead.email}`} title="Email" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
+                              <button onClick={() => setEmailLead(lead)} title="Send a tracked email" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
                                 <Mail className="w-3 h-3" /> Email
-                              </a>
+                              </button>
                             )}
                           </div>
                         )}
@@ -207,6 +233,24 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
           leadName={convoLead.name}
           open={!!convoLead}
           onClose={() => setConvoLead(null)}
+        />
+      )}
+
+      {timelineLead && (
+        <LeadActivityTimeline
+          leadId={timelineLead.id}
+          leadName={timelineLead.name}
+          open={!!timelineLead}
+          onClose={() => setTimelineLead(null)}
+        />
+      )}
+
+      {emailLead && (
+        <LeadEmailComposer
+          lead={emailLead}
+          open={!!emailLead}
+          onClose={() => setEmailLead(null)}
+          onSent={() => { void load(); }}
         />
       )}
     </div>
