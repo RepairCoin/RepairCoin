@@ -377,16 +377,21 @@ export const updateShopLeadStatus = async (id: string, status: LeadStatus, lostR
   return unwrap<AdLead>(res);
 };
 
+// Lead follow-up is available to BOTH admin and the owning shop. Admin hits /ads/leads/:id/...,
+// shop hits the ownership-gated /ads/shop/leads/:id/... — pick the base by the caller's mode.
+export type LeadMode = 'admin' | 'shop';
+const leadBase = (mode: LeadMode = 'admin') => (mode === 'shop' ? '/ads/shop/leads' : '/ads/leads');
+
 // Follow-up activity timeline for a lead (calls/emails/notes/status changes).
-export const getLeadActivities = async (id: string) => {
-  const res = await apiClient.get(`/ads/leads/${id}/activities`);
+export const getLeadActivities = async (id: string, mode: LeadMode = 'admin') => {
+  const res = await apiClient.get(`${leadBase(mode)}/${id}/activities`);
   return unwrap<AdLeadActivity[]>(res);
 };
 
 // Send a tracked email to a lead via Resend. Logs an email activity + posts to the thread.
 // Throws on failure; a 503 with code 'email_not_configured' means the UI should fall back to mailto:.
-export const sendLeadEmail = async (id: string, subject: string, html: string) => {
-  const res = await apiClient.post(`/ads/leads/${id}/email`, { subject, html });
+export const sendLeadEmail = async (id: string, subject: string, html: string, mode: LeadMode = 'admin') => {
+  const res = await apiClient.post(`${leadBase(mode)}/${id}/email`, { subject, html });
   return unwrap<{ success: boolean; messageId?: string }>(res);
 };
 
@@ -396,9 +401,10 @@ export type LeadCallOutcome = 'reached' | 'no_answer' | 'booked' | 'not_interest
 export const logLeadActivity = async (
   id: string,
   type: 'note' | 'call',
-  opts?: { outcome?: LeadCallOutcome; body?: string }
+  opts?: { outcome?: LeadCallOutcome; body?: string },
+  mode: LeadMode = 'admin'
 ) => {
-  const res = await apiClient.post(`/ads/leads/${id}/activities`, { type, ...opts });
+  const res = await apiClient.post(`${leadBase(mode)}/${id}/activities`, { type, ...opts });
   return unwrap<AdLeadActivity>(res);
 };
 

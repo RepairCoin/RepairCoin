@@ -10,7 +10,7 @@ import React, { useState } from "react";
 import { Loader2, Phone, Check } from "lucide-react";
 import toast from "react-hot-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { logLeadActivity, type AdLead, type LeadCallOutcome } from "@/services/api/ads";
+import { logLeadActivity, type AdLead, type LeadCallOutcome, type LeadMode } from "@/services/api/ads";
 
 const OUTCOMES: { value: LeadCallOutcome; label: string }[] = [
   { value: "reached", label: "Reached" },
@@ -24,7 +24,8 @@ export const LeadCallLogger: React.FC<{
   open: boolean;
   onClose: () => void;
   onLogged?: () => void;
-}> = ({ lead, open, onClose, onLogged }) => {
+  mode?: LeadMode;
+}> = ({ lead, open, onClose, onLogged, mode = "admin" }) => {
   const [outcome, setOutcome] = useState<LeadCallOutcome | null>(null);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -36,7 +37,7 @@ export const LeadCallLogger: React.FC<{
     }
     setSaving(true);
     try {
-      await logLeadActivity(lead.id, "call", { outcome, body: note.trim() || undefined });
+      await logLeadActivity(lead.id, "call", { outcome, body: note.trim() || undefined }, mode);
       toast.success("Call logged.");
       onLogged?.();
       onClose();

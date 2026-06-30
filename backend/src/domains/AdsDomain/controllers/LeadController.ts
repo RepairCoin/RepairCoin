@@ -22,6 +22,19 @@ const shopIdOf = (req: Request): string | undefined => (req as any).user?.shopId
 
 const LEAD_STATUSES = ['new', 'contacted', 'booked', 'paid', 'completed', 'lost'];
 
+/** Shop-scoped lead access: resolve the lead and confirm it belongs to the requesting shop
+ *  (via the lead's campaign shop_id — never a path param). Sends the appropriate 401/404 and
+ *  returns null on failure; returns the lead on success. */
+async function getOwnedShopLead(req: Request, res: Response) {
+  const shopId = shopIdOf(req);
+  if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return null; }
+  const lead = await leads.findById(req.params.id);
+  if (!lead) { res.status(404).json({ success: false, error: 'Lead not found' }); return null; }
+  const ownerShopId = await campaigns.getShopIdForCampaign(lead.campaignId);
+  if (ownerShopId !== shopId) { res.status(404).json({ success: false, error: 'Lead not found' }); return null; }
+  return lead;
+}
+
 /** Apply a lead status change + the conversion/booking side effects (shared by admin + shop). */
 async function applyLeadStatus(leadId: string, status: string, lostReason: string | null, actorAddress?: string | null) {
   const lead = await leads.updateStatus(leadId, status as any, lostReason);
@@ -207,6 +220,67 @@ export async function emailLead(req: Request, res: Response): Promise<void> {
   } catch (err: any) {
     const status = err?.status ?? 500;
     if (status >= 500 && status !== 503) logger.error('LeadController.emailLead failed', err);
+    res.status(status).json({ success: false, error: err?.message || 'Failed to send email', code: err?.code });
+  }
+}
+
+// --- Shop-scoped lead follow-up (shop works its OWN leads: timeline, log call/note, email) ---
+// Same behaviour as the admin handlers above, but ownership-gated via getOwnedShopLead.
+
+// GET /shop/leads/:id/activities (shop)
+export async function getShopLeadActivities(req: Request, res: Response): Promise<void> {
+  try {
+    const lead = await getOwnedShopLead(req, res);
+    if (!lead) return;
+    const items = await activities.listByLead(req.params.id);
+    res.json({ success: true, data: items });
+  } catch (err) {
+    logger.error('LeadController.getShopLeadActivities failed', err);
+    res.status(500).json({ success: false, error: 'Failed to load lead activities' });
+  }
+}
+
+// POST /shop/leads/:id/activities (shop) — log a note or call.
+export async function logShopLeadActivity(req: Request, res: Response): Promise<void> {
+  const type = req.body?.type as AdLeadActivityType;
+  if (type !== 'note' && type !== 'call') {
+    res.status(400).json({ success: false, error: 'type must be "note" or "call"' });
+    return;
+  }
+  try {
+    const lead = await getOwnedShopLead(req, res);
+    if (!lead) return;
+    const activity = await activities.log({
+      leadId: req.params.id,
+      type,
+      channel: type === 'call' ? 'phone' : null,
+      body: req.body?.body ?? null,
+      outcome: type === 'call' ? (req.body?.outcome ?? null) : null,
+      actorAddress: req.user?.address ?? shopIdOf(req) ?? null,
+    });
+    if (type === 'call') await leads.markContacted(req.params.id);
+    res.status(201).json({ success: true, data: activity });
+  } catch (err) {
+    logger.error('LeadController.logShopLeadActivity failed', err);
+    res.status(500).json({ success: false, error: 'Failed to log activity' });
+  }
+}
+
+// POST /shop/leads/:id/email (shop) — send a tracked email to the shop's own lead.
+export async function emailShopLead(req: Request, res: Response): Promise<void> {
+  try {
+    const lead = await getOwnedShopLead(req, res);
+    if (!lead) return;
+    const result = await leadEmailService.send({
+      leadId: req.params.id,
+      subject: req.body?.subject,
+      html: req.body?.html,
+      actorAddress: req.user?.address ?? shopIdOf(req) ?? null,
+    });
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    const status = err?.status ?? 500;
+    if (status >= 500 && status !== 503) logger.error('LeadController.emailShopLead failed', err);
     res.status(status).json({ success: false, error: err?.message || 'Failed to send email', code: err?.code });
   }
 }
