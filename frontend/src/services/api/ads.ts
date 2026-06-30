@@ -457,6 +457,20 @@ export const submitWebformLead = async (payload: {
 export type EnrollmentStatus = 'pending' | 'approved' | 'declined';
 export type CampaignGoal = 'more_bookings' | 'leads' | 'awareness' | 'promote_service';
 
+// Multi-channel foundation (Google Ads plan, Slice 2). A campaign runs on one platform.
+export type AdChannel = 'meta' | 'google';
+
+export interface AdChannelEligibility {
+  meta: { eligible: boolean; connected: boolean; reason: 'ok' | 'not_connected' };
+  google: { eligible: boolean; connected: boolean; reason: 'ok' | 'tier_locked' | 'not_connected' };
+}
+
+// Which ad channels this shop can use (tier + connection). Drives the brief channel picker.
+export const getAdChannelEligibility = async () => {
+  const res = await apiClient.get('/ads/shop/ad-channels');
+  return unwrap<AdChannelEligibility>(res);
+};
+
 /** Optional campaign brief — what the shop wants advertised. */
 export interface CampaignBrief {
   promoteServiceIds?: string[];
@@ -464,6 +478,9 @@ export interface CampaignBrief {
   offer?: string | null;
   targetRadiusMiles?: number | null;
   goal?: CampaignGoal | null;
+  /** Which channel to run on. Persisting it to the campaign's `platform` is the next step
+   *  (needs a request-table column); today it's captured for the picker. */
+  channel?: AdChannel;
 }
 
 export interface AdEnrollment {
