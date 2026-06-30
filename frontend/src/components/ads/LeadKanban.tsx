@@ -244,6 +244,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
           leadName={timelineLead.name}
           open={!!timelineLead}
           onClose={() => setTimelineLead(null)}
+          mode={mode}
         />
       )}
 
@@ -253,6 +254,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
           open={!!emailLead}
           onClose={() => setEmailLead(null)}
           onSent={() => { void load(); }}
+          mode={mode}
         />
       )}
 
@@ -262,6 +264,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
           open={!!callLead}
           onClose={() => setCallLead(null)}
           onLogged={() => { void load(); }}
+          mode={mode}
         />
       )}
     </div>

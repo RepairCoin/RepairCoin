@@ -20,6 +20,7 @@ import {
   listAwaitingLeads, listShopAwaitingLeads,
   getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage,
   getLeadActivities, logLeadActivity, emailLead,
+  getShopLeadActivities, logShopLeadActivity, emailShopLead,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
@@ -182,6 +183,10 @@ export function initializeRoutes(): Router {
   router.get('/shop/leads', ...shop, listShopLeads);
   router.patch('/shop/leads/:id/status', ...shop, updateShopLeadStatus); // shop works its own leads
   router.get('/shop/leads/awaiting', ...shop, listShopAwaitingLeads);   // SLA (Stage 2)
+  // Shop lead follow-up (ownership-gated): timeline, log call/note, tracked email.
+  router.get('/shop/leads/:id/activities', ...shop, getShopLeadActivities);
+  router.post('/shop/leads/:id/activities', ...shop, logShopLeadActivity);
+  router.post('/shop/leads/:id/email', ...shop, emailShopLead);
   router.get('/shop/enrollment', ...shop, getMyEnrollment);             // "Request ads" status
   router.post('/shop/enrollment', ...shop, requestAds);                 // "Request ads" opt-in
   router.get('/shop/messages', ...shop, getMyMessages);                 // durable thread (Phase 2)

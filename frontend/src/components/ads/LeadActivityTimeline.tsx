@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Phone, Mail, StickyNote, ArrowRightLeft, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getLeadActivities, type AdLeadActivity, type AdLeadActivityType } from "@/services/api/ads";
+import { getLeadActivities, type AdLeadActivity, type AdLeadActivityType, type LeadMode } from "@/services/api/ads";
 
 const TYPE_META: Record<AdLeadActivityType, { label: string; icon: React.ReactNode }> = {
   call: { label: "Call", icon: <Phone className="w-3.5 h-3.5 text-[#FFCC00]" /> },
@@ -45,15 +45,16 @@ export const LeadActivityTimeline: React.FC<{
   leadName?: string | null;
   open: boolean;
   onClose: () => void;
-}> = ({ leadId, leadName, open, onClose }) => {
+  mode?: LeadMode;
+}> = ({ leadId, leadName, open, onClose, mode = "admin" }) => {
   const [items, setItems] = useState<AdLeadActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setItems(await getLeadActivities(leadId).catch(() => [])); }
+    try { setItems(await getLeadActivities(leadId, mode).catch(() => [])); }
     finally { setLoading(false); }
-  }, [leadId]);
+  }, [leadId, mode]);
 
   useEffect(() => { if (open) void load(); }, [open, load]);
 

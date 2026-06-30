@@ -10,7 +10,7 @@ import React, { useMemo, useState } from "react";
 import { Loader2, Send, Mail } from "lucide-react";
 import toast from "react-hot-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { sendLeadEmail, type AdLead } from "@/services/api/ads";
+import { sendLeadEmail, type AdLead, type LeadMode } from "@/services/api/ads";
 
 // Light starter templates — editable after selection. {name} is filled with the lead's first name.
 const TEMPLATES: { label: string; subject: string; body: string }[] = [
@@ -44,7 +44,8 @@ export const LeadEmailComposer: React.FC<{
   open: boolean;
   onClose: () => void;
   onSent?: () => void;
-}> = ({ lead, open, onClose, onSent }) => {
+  mode?: LeadMode;
+}> = ({ lead, open, onClose, onSent, mode = "admin" }) => {
   const name = useMemo(() => firstName(lead.name), [lead.name]);
   const [subject, setSubject] = useState(TEMPLATES[0].subject);
   const [body, setBody] = useState(TEMPLATES[0].body.replace(/\{name\}/g, name));
@@ -68,7 +69,7 @@ export const LeadEmailComposer: React.FC<{
     }
     setSending(true);
     try {
-      await sendLeadEmail(lead.id, subject.trim(), toHtml(body.trim()));
+      await sendLeadEmail(lead.id, subject.trim(), toHtml(body.trim()), mode);
       toast.success("Email sent.");
       onSent?.();
       onClose();
