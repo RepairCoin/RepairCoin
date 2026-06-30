@@ -27,6 +27,7 @@ import AdminAdsTab from "@/components/admin/tabs/AdminAdsTab";
 import { AdminSettingsTab } from "@/components/admin/tabs/AdminSettingsTab";
 import { BugReportsTab } from "@/components/admin/tabs/BugReportsTab";
 import { AdminAISettingsTab } from "@/components/admin/tabs/AdminAISettingsTab";
+import { SmartCommandBar } from "@/components/admin/SmartCommandBar";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
 
@@ -318,6 +319,8 @@ export default function AdminDashboardClient() {
       isSuperAdmin={isSuperAdmin}
       adminRole={adminRole}
     >
+      {/* ⌘K / Ctrl+K command palette — navigation + AI query */}
+      <SmartCommandBar />
       <div
         className="min-h-screen py-8 bg-[#0D0D0D]"
         style={{
