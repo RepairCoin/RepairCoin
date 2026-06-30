@@ -300,6 +300,9 @@ class RepairCoinApp {
     // MUST be before JSON parsing. (Lead follow-up Phase 4.)
     this.app.use('/api/ads/webhooks/resend', express.raw({ type: '*/*' }));
 
+    // Raw body for the Resend INBOUND email webhook (Svix HMAC). MUST be before JSON parsing.
+    this.app.use('/api/ads/webhooks/resend-inbound', express.raw({ type: '*/*' }));
+
     // JSON parsing for all other routes
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));

@@ -55,12 +55,12 @@ export class LeadAutoAnswerService {
     return this.messages.listByLead(leadId);
   }
 
-  /** Store an inbound message from the lead. */
-  async recordInbound(leadId: string, body: string, channel?: MsgChannel): Promise<LeadMessage> {
+  /** Store an inbound message from the lead. `externalId` = the source Message-ID (email dedupe). */
+  async recordInbound(leadId: string, body: string, channel?: MsgChannel, externalId?: string | null): Promise<LeadMessage> {
     const lead = await this.leads.findById(leadId);
     if (!lead) throw Object.assign(new Error('Lead not found'), { status: 404 });
     const ch = channel ?? LeadChannelSender.pickChannel(lead);
-    return this.messages.append({ leadId, direction: 'inbound', author: 'lead', channel: ch, body });
+    return this.messages.append({ leadId, direction: 'inbound', author: 'lead', channel: ch, body, externalId: externalId ?? null });
   }
 
   /** Store an admin's manual reply and (attempt to) deliver it. */
@@ -162,8 +162,8 @@ export class LeadAutoAnswerService {
 
   /** Inbound entry point: store the lead's message, then auto-answer IF the campaign
    *  has ai_agent_enabled. Otherwise leave it for the admin (draft-only). */
-  async handleInbound(leadId: string, body: string, channel?: MsgChannel): Promise<AutoAnswerResult> {
-    const inbound = await this.recordInbound(leadId, body, channel);
+  async handleInbound(leadId: string, body: string, channel?: MsgChannel, externalId?: string | null): Promise<AutoAnswerResult> {
+    const inbound = await this.recordInbound(leadId, body, channel, externalId);
     const lead = await this.leads.findById(leadId);
     const campaign = lead ? await this.campaigns.findById(lead.campaignId) : null;
 
