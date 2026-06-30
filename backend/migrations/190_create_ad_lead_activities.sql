@@ -1,4 +1,4 @@
--- 189 — Ad lead activity log (lead follow-up tracking, Phase 1). A per-lead timeline of every
+-- 190 — Ad lead activity log (lead follow-up tracking, Phase 1). A per-lead timeline of every
 -- contact + status move (email / call / note / status_change). This is the source of truth for
 -- "last contacted", response time, and the lead activity timeline — replacing the blind
 -- mailto:/tel: links with trackable, logged follow-up.
