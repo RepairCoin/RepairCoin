@@ -18,7 +18,7 @@ import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
 import { DraftComposer } from "@/components/ads/DraftComposer";
 import { LandingPageSettings } from "@/components/ads/LandingPageSettings";
 import {
-  listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
+  listCampaigns, createCampaign, updateCampaign, goLiveCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, regenerateAdImage, scaleCampaignBudget, syncCampaignFromMeta,
   getShopMetaAccount, fmtUsd, fmtMoney, fmtRoi,
   type AdCampaign, type CampaignPerformance, type AllShopsSummary, type ShopMetaAccount,
@@ -166,13 +166,25 @@ export const AdminAdsTab: React.FC = () => {
   };
 
   const toggleStatus = async (c: AdCampaign) => {
-    const next = c.status === "active" ? "paused" : "active";
     try {
-      await updateCampaign(c.id, { status: next });
+      if (c.status === "active") {
+        // Pausing is always safe.
+        await updateCampaign(c.id, { status: "paused" });
+      } else if (c.metaCampaignId && !c.startedAt) {
+        // First-time go-live: must run the GATED flow (funding + creative-approved + account
+        // checks) with an explicit confirmation — NOT a silent raw activate that starts real
+        // ad spend. The backend also enforces this (409 use_go_live).
+        if (!window.confirm(`Take "${c.name}" live? Your ad account will start spending on Meta.`)) return;
+        await goLiveCampaign(c.id);
+        toast.success("Campaign is live!");
+      } else {
+        // Re-activating a previously-live campaign — already vetted at first go-live.
+        await updateCampaign(c.id, { status: "active" });
+      }
       await load();
       if (selectedId === c.id) await select(c.id);
     } catch (e: any) {
-      // 409 = reactivation blocked by tier capacity (§9.5) — surface the upsell.
+      // 409 = tier capacity (§9.5) or use_go_live; otherwise a go-live gate (funding/creative).
       toast.error(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Couldn't update status.");
     }
   };
