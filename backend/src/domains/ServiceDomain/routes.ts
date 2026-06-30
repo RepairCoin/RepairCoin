@@ -13,6 +13,7 @@ import EmailPreferencesController from './controllers/EmailPreferencesController
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
 import { requireShopPermission } from '../../middleware/permissions';
+import { requireTier } from '../../middleware/tierGuard';
 import { requireActiveSubscription } from '../../middleware/subscriptionGuard';
 import { StripeService } from '../../services/StripeService';
 import { paymentLimiter, orderLimiter } from '../../middleware/rateLimiter';
@@ -1711,6 +1712,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('analytics:view'),
+    requireTier('advancedReports'),
     analyticsController.getShopAnalytics
   );
 
@@ -1732,6 +1734,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('analytics:view'),
+    requireTier('advancedReports'),
     analyticsController.getShopOverview
   );
 
@@ -1759,6 +1762,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('analytics:view'),
+    requireTier('advancedReports'),
     analyticsController.getTopServices
   );
 
@@ -1786,6 +1790,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('analytics:view'),
+    requireTier('advancedReports'),
     analyticsController.getShopOrderTrends
   );
 
@@ -1807,6 +1812,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('analytics:view'),
+    requireTier('advancedReports'),
     analyticsController.getShopCategoryBreakdown
   );
 
@@ -1857,6 +1863,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('analytics:view'),
+    requireTier('advancedReports'),
     analyticsController.getGroupPerformance
   );
 
@@ -1865,6 +1872,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('analytics:view'),
+    requireTier('advancedReports'),
     analyticsController.getBookingAnalytics
   );
 
@@ -2041,6 +2049,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('analytics:view'),
+    requireTier('advancedReports'),
     analyticsController.exportShopAnalytics
   );
 
@@ -2066,6 +2075,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('analytics:view'),
+    requireTier('advancedReports'),
     analyticsController.exportCategoryBreakdown
   );
 
@@ -2098,6 +2108,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('analytics:view'),
+    requireTier('advancedReports'),
     analyticsController.exportOrderTrends
   );
 

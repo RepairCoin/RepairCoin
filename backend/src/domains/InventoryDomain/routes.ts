@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { authMiddleware, requireRole } from '../../middleware/auth';
 import { requireShopPermission } from '../../middleware/permissions';
+import { requireTier } from '../../middleware/tierGuard';
 
 // Controllers
 import * as inventoryController from './controllers/inventoryController';
@@ -20,10 +21,10 @@ export function initializeRoutes(): Router {
 
   // All inventory routes require authentication and shop role, plus a granular
   // team permission: inventory:view/manage for stock, pos:view/manage for orders.
-  const base = [authMiddleware, requireRole(['shop'])];
+  const base = [authMiddleware, requireRole(['shop']), requireTier('inventoryManagement')];
   const invView = [...base, requireShopPermission('inventory:view')];
-  const invManage = [...base, requireShopPermission('inventory:manage')];
   const posView = [...base, requireShopPermission('pos:view')];
+  const invManage = [...base, requireShopPermission('inventory:manage')];
   const posManage = [...base, requireShopPermission('pos:manage')];
 
   // ============================================================================

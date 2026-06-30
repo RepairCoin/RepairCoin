@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { authMiddleware, requireRole } from '../../../middleware/auth';
 import { requireShopPermission } from '../../../middleware/permissions';
+import { requireTier } from '../../../middleware/tierGuard';
 import { shopTeamRepository, shopRepository } from '../../../repositories';
 import { resendEmailService } from '../../../services/ResendEmailService';
 import { EmailService } from '../../../services/EmailService';
@@ -62,7 +63,7 @@ const sanitizeMember = (m: any) => ({
   acceptedAt: m.acceptedAt,
 });
 
-const teamManage = [authMiddleware, requireRole(['shop']), requireShopPermission('team:manage')];
+const teamManage = [authMiddleware, requireRole(['shop']), requireShopPermission('team:manage'), requireTier('teamManagement')];
 
 // GET /api/shops/team/me — current member's role + permissions
 router.get('/me', authMiddleware, requireRole(['shop']), (req: Request, res: Response) => {
