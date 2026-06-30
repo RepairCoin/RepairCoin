@@ -173,11 +173,17 @@ export class LeadRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
-  /** Stamp first_response_at the first time the shop/admin actually contacts the lead (a logged
-   *  call or email), independent of a Kanban status move. No-op once already set. */
+  /** The shop/admin actually reached out (logged call or sent email): stamp first_response_at
+   *  (no-op once set) AND advance the pipeline from 'new' -> 'contacted'. Never downgrades a
+   *  later stage (booked/paid/etc. stay put). Mirrors the chat path's markRespondedIfNew so the
+   *  lead leaves the NEW column the moment it's worked, regardless of channel. */
   async markContacted(id: string): Promise<void> {
     await this.pool.query(
-      `UPDATE ad_leads SET first_response_at = COALESCE(first_response_at, now()), updated_at = now() WHERE id = $1`,
+      `UPDATE ad_leads
+          SET first_response_at = COALESCE(first_response_at, now()),
+              lead_status = CASE WHEN lead_status = 'new' THEN 'contacted' ELSE lead_status END,
+              updated_at = now()
+        WHERE id = $1`,
       [id]
     );
   }

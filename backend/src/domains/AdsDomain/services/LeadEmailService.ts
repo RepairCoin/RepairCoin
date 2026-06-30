@@ -95,8 +95,11 @@ export class LeadEmailService {
       })
       .catch((e) => logger.warn(`lead email thread post failed for ${lead.id}: ${e?.message || e}`));
 
-    // First real outbound touch → stamp first_response_at (no-op if already set).
-    void this.leads.markContacted(lead.id).catch(() => undefined);
+    // First real outbound touch → stamp first_response_at + advance new->contacted. Awaited (so it's
+    // committed before the UI reloads the board), but non-fatal — the email already went out.
+    await this.leads
+      .markContacted(lead.id)
+      .catch((e) => logger.warn(`lead email markContacted failed for ${lead.id}: ${e?.message || e}`));
 
     return { success: true, messageId: result.messageId };
   }
