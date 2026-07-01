@@ -75,6 +75,25 @@ export class ShopLocationRepository extends BaseRepository {
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
+  async getPrimary(shopId: string): Promise<ShopLocation | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM shop_locations WHERE shop_id = $1 AND is_primary = true LIMIT 1`,
+      [shopId]
+    );
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
+  async listBookable(shopId: string, entitled: boolean): Promise<ShopLocation[]> {
+    const result = await this.pool.query(
+      entitled
+        ? `SELECT * FROM shop_locations WHERE shop_id = $1 AND active = true
+           ORDER BY is_primary DESC, created_at ASC`
+        : `SELECT * FROM shop_locations WHERE shop_id = $1 AND is_primary = true LIMIT 1`,
+      [shopId]
+    );
+    return result.rows.map((r) => this.mapRow(r));
+  }
+
   async countByShop(shopId: string): Promise<number> {
     const result = await this.pool.query(
       `SELECT COUNT(*)::int AS count FROM shop_locations WHERE shop_id = $1`,

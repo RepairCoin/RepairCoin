@@ -8,6 +8,7 @@ import { eventBus } from '../../../events/EventBus';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopPurchaseService } from '../services/ShopPurchaseService';
 import { ShopSubscriptionRepository } from '../../../repositories/ShopSubscriptionRepository';
+import { setMultiLocationActive } from '../../../utils/multiLocationEntitlement';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { EmailService } from '../../../services/EmailService';
 import { generalNotificationPreferencesRepository } from '../../../repositories/GeneralNotificationPreferencesRepository';
@@ -1306,6 +1307,9 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
           subscription.items?.data?.[0]?.price?.id
         );
       }
+
+      // Recompute the paid multi-location entitlement flag after any subscription change.
+      await setMultiLocationActive(shopId);
     }
 
     logger.info('Subscription updated in database', {
@@ -1620,6 +1624,9 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
              WHERE shop_id = $1 AND subscription_type = 'trial' AND is_active = true`,
             [shopId]
           );
+
+          // Recompute the paid multi-location entitlement flag on first paid activation.
+          await setMultiLocationActive(shopId);
 
           logger.info('Shop subscription record created from webhook', {
             shopId,

@@ -39,6 +39,7 @@ import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { TeamTab } from "@/components/shop/tabs/TeamTab";
 import { LocationsTab } from "@/components/shop/tabs/LocationsTab";
+import { LocationSwitcher } from "@/components/shop/LocationSwitcher";
 import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
 import { ShopPlansBillingTab } from "@/components/shop/tabs/ShopPlansBillingTab";
 import { resolvePlanLabel } from "@/config/subscriptionPlans";
@@ -1526,6 +1527,9 @@ export default function ShopDashboardClient() {
 
           {activeTab === "bookings" && shopData && (
             <SubscriptionGuard shopData={shopData}>
+              <div className="flex justify-end mb-4">
+                <LocationSwitcher />
+              </div>
               <BookingsTabV2
                 shopId={shopData.shopId}
                 isBlocked={isBlocked}
@@ -1542,6 +1546,9 @@ export default function ShopDashboardClient() {
 
           {activeTab === "appointments" && shopData && (
             <SubscriptionGuard shopData={shopData}>
+              <div className="flex justify-end mb-4">
+                <LocationSwitcher />
+              </div>
               <AppointmentsTab />
             </SubscriptionGuard>
           )}

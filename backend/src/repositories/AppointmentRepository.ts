@@ -414,7 +414,7 @@ export class AppointmentRepository extends BaseRepository {
 
   // ==================== SHOP CALENDAR ====================
 
-  async getShopCalendar(shopId: string, startDate: string, endDate: string): Promise<CalendarBooking[]> {
+  async getShopCalendar(shopId: string, startDate: string, endDate: string, locationId?: string): Promise<CalendarBooking[]> {
     try {
       // Use direct query instead of view for better reliability
       const query = `
@@ -439,10 +439,11 @@ export class AppointmentRepository extends BaseRepository {
           AND o.booking_date IS NOT NULL
           AND o.booking_date >= $2::date
           AND o.booking_date <= $3::date
+          AND ($4::uuid IS NULL OR o.location_id = $4::uuid)
         ORDER BY o.booking_date, o.booking_time_slot
       `;
 
-      const result = await this.pool.query(query, [shopId, startDate, endDate]);
+      const result = await this.pool.query(query, [shopId, startDate, endDate, locationId || null]);
 
       // Transform results: convert totalAmount and format bookingDate to avoid timezone issues
       return result.rows.map(row => ({

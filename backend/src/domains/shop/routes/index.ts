@@ -277,6 +277,7 @@ router.get('/map', async (req: Request, res: Response) => {
           AND l.active = true
           AND l.location_lat IS NOT NULL
           AND l.location_lng IS NOT NULL
+          AND (s.multi_location_active OR l.is_primary)
         ${locOrder}
         LIMIT 1
       ) loc ON true

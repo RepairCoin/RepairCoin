@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, DollarSign, Clock, CheckCircle, AlertCircle, Coins, Calendar, Ban } from "lucide-react";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
-import { createPaymentIntent } from "@/services/api/services";
+import { createPaymentIntent, getBookableLocations, BookableLocation } from "@/services/api/services";
 import { getApiBaseUrl } from "@/utils/apiUrl";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { loadStripe, StripeElementsOptions } from "@stripe/stripe-js";
@@ -300,6 +300,28 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   // and the customer's date/time pickers behave as in a non-suggested flow.
   const [bookingDate, setBookingDate] = useState<Date | null>(null);
   const [bookingTimeSlot, setBookingTimeSlot] = useState<string | null>(null);
+  // Selected branch. Defaults to the primary (or first) location; only shown when the shop
+  // exposes more than one bookable location. Fetched by shopId so it works regardless of how
+  // this modal was opened (marketplace card, shop profile, dedicated checkout page).
+  const [bookableLocations, setBookableLocations] = useState<BookableLocation[]>(service.locations ?? []);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getBookableLocations(service.shopId)
+      .then((locs) => {
+        if (!active) return;
+        const list = locs.length ? locs : (service.locations ?? []);
+        setBookableLocations(list);
+        setSelectedLocationId(
+          (prev) => prev ?? (list.find((l) => l.isPrimary)?.id ?? list[0]?.id ?? null)
+        );
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [service.shopId]);
   const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
   // Guard so the AI-slot pre-fill only fires ONCE per modal mount. Without
   // this, any timeSlotConfig refetch would clobber the customer's manual
@@ -486,6 +508,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
         bookingDate: bookingDate ? formatLocalDate(bookingDate) : undefined,
         bookingTime: bookingTimeSlot || undefined,
         rcnToRedeem: actualRcnRedeemed > 0 ? actualRcnRedeemed : undefined,
+        locationId: selectedLocationId || undefined,
         conversationId: conversationId || undefined,
       });
 
@@ -793,6 +816,29 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                   <p className="text-xs text-gray-400 mb-4">
                     Select a date and time for your service appointment
                   </p>
+
+                  {/* Branch Picker — only when the shop offers more than one location */}
+                  {bookableLocations.length > 1 && (
+                    <div className="mb-6">
+                      <label className="block text-xs font-medium text-gray-300 mb-2">
+                        Choose a location
+                      </label>
+                      <select
+                        value={selectedLocationId ?? ''}
+                        onChange={(e) => setSelectedLocationId(e.target.value || null)}
+                        className="w-full px-3 py-2 rounded-lg bg-[#0D0D0D] border border-gray-700 text-white focus:border-[#FFCC00] outline-none"
+                      >
+                        {bookableLocations.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.name}
+                            {[l.city, l.state].filter(Boolean).length
+                              ? ` — ${[l.city, l.state].filter(Boolean).join(', ')}`
+                              : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Date Picker */}
                   <div className="mb-6">

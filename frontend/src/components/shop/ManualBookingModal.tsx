@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { appointmentsApi, CustomerSearchResult, TimeSlot, TimeSlotConfig, ManualBookingResponse } from '@/services/api/appointments';
 import { servicesApi } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
+import { useLocationStore } from '@/stores/locationStore';
 import { DateAvailabilityPicker } from '@/components/customer/DateAvailabilityPicker';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -40,6 +41,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   preSelectedTime
 }) => {
   // Search state
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<CustomerSearchResult[]>([]);
@@ -381,6 +383,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             bookingEndTime,
             paymentStatus,
             notes: notes || undefined,
+            locationId: activeLocationId || undefined,
             createNewCustomer: true
           }
         : {
@@ -394,6 +397,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             bookingEndTime,
             paymentStatus,
             notes: notes || undefined,
+            locationId: activeLocationId || undefined,
             createNewCustomer: false
           };
 

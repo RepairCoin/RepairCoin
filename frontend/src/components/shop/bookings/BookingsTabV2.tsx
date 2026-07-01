@@ -18,6 +18,7 @@ import { BookingDetailsPanel } from "./BookingDetailsPanel";
 import { CancelBookingModal } from "./CancelBookingModal";
 import { ExpiredBookingsSection } from "./ExpiredBookingsSection";
 import { toast } from "react-hot-toast";
+import { useLocationStore } from "@/stores/locationStore";
 import {
   getShopOrders,
   getShopOrderCounts,
@@ -108,6 +109,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
   const searchParams = useSearchParams();
 
   // State
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
   const [bookings, setBookings] = useState<MockBooking[]>([]);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
     null,
@@ -140,7 +142,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
   // Load status counts from API
   const loadCounts = async () => {
     try {
-      const counts = await getShopOrderCounts();
+      const counts = await getShopOrderCounts(activeLocationId || undefined);
       if (counts) {
         setStatusCounts(counts);
       }
@@ -159,6 +161,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
         limit: ITEMS_PER_PAGE,
         page,
         ...(apiStatus ? { status: apiStatus as OrderStatus } : {}),
+        ...(activeLocationId ? { locationId: activeLocationId } : {}),
       });
       if (response && response.data) {
         // Transform API data to UI format
@@ -200,11 +203,11 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
     loadBookings(1, filter);
   };
 
-  // Load bookings and counts on mount
+  // Load bookings and counts on mount and whenever the active location changes.
   useEffect(() => {
     loadBookings(1);
     loadCounts();
-  }, [shopId]);
+  }, [shopId, activeLocationId]);
 
   // Handle URL search parameter for filtering and selecting booking
   useEffect(() => {

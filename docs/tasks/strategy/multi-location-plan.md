@@ -111,57 +111,70 @@ everywhere, skip the column — simpler but slower for the map.)
 
 ### Data model — migration 193
 
-1. `orders.location_id UUID REFERENCES shop_locations(id) ON DELETE SET NULL` (nullable) + index.
+1. `service_orders.location_id UUID REFERENCES shop_locations(id) ON DELETE SET NULL` (nullable) + index.
 2. `shops.multi_location_active boolean NOT NULL DEFAULT false`.
 3. Backfill existing orders → the shop's primary `location_id`.
 4. Backfill `multi_location_active` from current subscriptions.
 
+### Shop-facing scope: a location switcher
+
+The primary Slice 2 UX is a **location switcher** in the shop dashboard header (active-location
+context, à la Shopify/Square) plus an "All locations" option. It doesn't replace `location_id` on
+records — it consumes it: the switcher decides which location's data the shop views/acts on. The
+active location is a **UI/session preference** (Zustand + localStorage), not a DB write; list
+endpoints gain an optional `?locationId=` filter, and new manual bookings default to the active
+location. Customer-facing branch selection is deferred to Slice 3.
+
 ### Backend
 
-- `utils/multiLocationEntitlement.ts` — `hasPaidMultiLocation(shopId)` + `setMultiLocationActive`
-  reconcile; wire the reconcile into subscription lifecycle events.
-- **Booking creation** (`ManualBookingController`, `OrderController`, `PaymentService`, customer
-  booking route) — accept optional `locationId`. Not entitled → force primary. Entitled → validate
-  the location belongs to the shop and is active; default to primary if omitted. Persist
-  `location_id`.
-- **Availability** (`AppointmentService` / `shop_time_slot_config`) — resolved for the chosen
-  location; locations **inherit shop hours** in Slice 2 (per-location hours = Slice 3).
-  `max_concurrent_bookings` stays shop-level for now.
-- **Calendar** (`GoogleCalendarService`) — resolve timezone/target calendar by the booking's
-  location (builds on the merged calendar-sync work).
-- **Public exposure (harden Slice 1):**
-  - `GET /shops/map` — lateral join returns all active locations only when
-    `s.multi_location_active`, else primary only.
-  - Shop/service detail endpoints return `locations: [...]` of bookable locations (all active if
-    entitled, else primary only); frontend renders what it's given.
-  - `GET /shops/locations` (management) — not entitled → primary only.
+- `utils/multiLocationEntitlement.ts` — `hasPaidMultiLocation(shopId)`, `setMultiLocationActive`
+  reconcile (wired into subscription lifecycle), and `resolveBookingLocationId(shopId, requested)`.
+- **Booking creation** (`ManualBookingController`, `OrderController` → `PaymentService`) — accept
+  optional `locationId` (from the switcher). Not entitled → force primary. Entitled → validate the
+  location belongs to the shop and is active; default to primary if omitted. Persist `location_id`
+  on every new order (customer flow defaults to primary until the Slice 3 picker ships).
+- **List/calendar filtering** — bookings list + calendar endpoints accept `?locationId=` to scope
+  to the active location (omitted = all locations).
+- **Availability** — locations **inherit shop hours** in Slice 2; `max_concurrent_bookings` stays
+  shop-level. (Per-location hours/concurrency = Slice 3.)
+- **Calendar** (`GoogleCalendarService`) — timezone/calendar stay shop-level (per-location tz needs
+  schema we don't have); attach the branch address to the event so the shop sees which location.
+- **Entitlement exposure** — `GET /shops/feature-access` returns `multiLocationActive` (the paid
+  flag) so the frontend can gate the switcher.
+- **Public map** — `GET /shops/map` shows multiple branches only when `s.multi_location_active`,
+  else primary only (honors the "not seen" rule for trial/downgraded shops).
 
 ### Frontend
 
-- **Location selector** in booking flow appears only when the returned `locations` array has >1
-  entry (entitled + multiple active). Single-location shops auto-assign primary, no selector.
-- **Marketplace / shop page** — surface bookable locations from the payload.
-- **Locations tab** — already tier-gated; consumes the narrowed list, so a downgraded/trial shop
-  simply sees its primary only.
+- **Location switcher** in the shop dashboard header, shown only when `multiLocationActive` and the
+  shop has >1 bookable location. Scopes the **bookings list + calendar + tab counts** to the active
+  location and sets the default location for new manual bookings.
+- **Manual booking form** — sends the active `locationId`.
+- **Customer branch picker** (pulled in from Slice 3) — the checkout modal fetches bookable
+  locations by `shopId` (`GET /services/shop/:shopId/locations`, entitlement-gated) and shows a
+  branch `<select>` when there is more than one; the selected `locationId` is sent to
+  create-payment-intent.
+
+### Decisions (from open questions)
+1. Concurrency stays **shop-level** in Slice 2 (per-location → Slice 3).
+2. Trial shops **may add** locations; they stay dormant (not switchable/bookable/public) until paid.
+3. **Stored `multi_location_active` flag**, maintained by subscription events.
 
 ### Downgrade / trial matrix
 
-| Shop state | Manage tab | Public map / booking | Extra locations |
+| Shop state | Manage tab | Switcher / public map / booking | Extra locations |
 |---|---|---|---|
-| Paid Business | full CRUD + set-primary | all active bookable | live |
-| Trial (business via trial) | edit primary; add possible | primary only | dormant until paid |
-| Downgraded (starter/growth) | edit primary only; no add | primary only | dormant, preserved |
-| Re-upgraded | full again | all active again | relit |
+| Paid Business | full CRUD + set-primary | active; all branches | live |
+| Trial (business via trial) | edit primary; add possible | hidden — primary only | dormant until paid |
+| Downgraded (starter/growth) | edit primary only; no add | hidden — primary only | dormant, preserved |
+| Re-upgraded | full again | active again | relit |
 
-### Open questions
-1. Concurrency per location — defer to Slice 3 (recommended) or now?
-2. Block trial shops from adding locations entirely, or allow dormant adds (implied acceptable)?
-3. Stored `multi_location_active` flag + event wiring (recommended) vs. on-demand entitlement.
+## Slice 3 — Per-location operations
 
-## Slice 3 — Per-location operations & analytics (as needed)
-
-- Per-location hours/holidays (`shop_time_slot_config.location_id`).
-- Optional per-location services / inventory scoping.
+- **Customer-facing branch picker** — ✅ shipped in Slice 2.
+- **Inventory per-location** — larger change: inventory tables are keyed by `shop_id` today;
+  scope stock/POs to `location_id`.
+- Per-location hours/holidays (`shop_time_slot_config.location_id`) + per-location concurrency.
 - Per-location analytics filter on reports dashboards.
 - Optional: team members assigned to specific locations.
 

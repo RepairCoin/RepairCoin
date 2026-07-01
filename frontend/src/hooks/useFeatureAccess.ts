@@ -5,6 +5,8 @@ import { ShopTier, getRequiredTier, tierAllowsFeature } from '@/config/featureTi
 interface FeatureAccessData {
   tier: ShopTier;
   features: Record<string, boolean>;
+  // Paid multi-location entitlement (stricter than the tier map — excludes trial).
+  multiLocationActive?: boolean;
 }
 
 // Shared across all hook callers so N <TierGate>s trigger one request, not N.
@@ -86,6 +88,7 @@ export function useFeatureAccess() {
     tier: data?.tier ?? null,
     loading,
     can,
+    multiLocationActive: data?.multiLocationActive ?? false,
     requiredTier: getRequiredTier,
   };
 }
