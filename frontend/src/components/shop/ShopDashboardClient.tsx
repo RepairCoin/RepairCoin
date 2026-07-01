@@ -57,7 +57,7 @@ import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { BrandingStudio } from "@/components/shop/branding-studio/BrandingStudio";
 import { BrandSetupCard } from "@/components/shop/branding-studio/BrandSetupCard";
 import { getBrandKit } from "@/services/api/aiBrandKit";
-import { getMetaConnection } from "@/services/api/ads";
+import { getMetaConnection, getGoogleConnection } from "@/services/api/ads";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
 import { CancelledSubscriptionModal } from "@/components/shop/CancelledSubscriptionModal";
 import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
@@ -771,6 +771,31 @@ export default function ShopDashboardClient() {
         }
       } catch {
         /* not a Meta-enabled shop / not connected — ignore */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userProfile, userType]);
+
+  // Google-connect landing — same connection-state auto-nav as Meta above (the post-OAuth
+  // ?tab=ads&google=select deep link is dropped by the cross-domain auth bounce). Only runs when
+  // the Google rollout flag is on. Fires once per page load.
+  const googleAutoNavDoneRef = useRef(false);
+  useEffect(() => {
+    if (googleAutoNavDoneRef.current) return;
+    if (!userProfile || userType !== "shop") return;
+    if (process.env.NEXT_PUBLIC_ADS_GOOGLE_ENABLED !== "true") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const conn = await getGoogleConnection();
+        if (cancelled || googleAutoNavDoneRef.current) return;
+        // enabled + token stored + no customer selected = OAuth done, picker not finished.
+        if (conn?.enabled && conn.hasToken && !conn.connected) {
+          googleAutoNavDoneRef.current = true;
+          setActiveTab("ads");
+        }
+      } catch {
+        /* not a Google-enabled shop / not connected — ignore */
       }
     })();
     return () => { cancelled = true; };
