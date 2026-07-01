@@ -5,6 +5,7 @@ import { Bug, Search, RefreshCw, MessageSquare, X, ChevronDown, Sparkles, Loader
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { adminApi } from "@/services/api/admin";
+import toast from "react-hot-toast";
 
 interface BugReport {
   id: number;
@@ -103,6 +104,7 @@ export function BugReportsTab() {
       setTotal(res.data.pagination.total);
     } catch (err) {
       console.error("Failed to fetch bug reports:", err);
+      toast.error("Failed to load bug reports");
     } finally {
       setLoading(false);
     }
@@ -143,6 +145,7 @@ export function BugReportsTab() {
       fetchStats();
     } catch (err) {
       console.error("Failed to update bug report:", err);
+      toast.error("Failed to update bug report");
     } finally {
       setUpdating(false);
     }

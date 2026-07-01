@@ -2,6 +2,7 @@
 
 // frontend/src/components/admin/tabs/AdminDisputeTab.tsx
 import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import {
   AlertTriangle,
   CheckCircle,
@@ -52,6 +53,7 @@ export default function AdminDisputeTab() {
       setStats(data.stats);
     } catch (err) {
       console.error('Failed to load admin disputes:', err);
+      toast.error('Failed to load disputes');
     } finally {
       setIsLoading(false);
     }
