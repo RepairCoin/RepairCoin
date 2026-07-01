@@ -32,7 +32,7 @@ import {
   Bot,
   Settings,
 } from "lucide-react";
-import { askPlatformCopilot } from "@/services/api/platformCopilot";
+import { runCommandBar } from "@/services/api/platformCopilot";
 
 interface Destination {
   id: string;
@@ -67,6 +67,8 @@ const DESTINATIONS: Destination[] = [
   { id: "settings", label: "Settings", description: "Platform settings", keywords: "settings config preferences", href: "/admin?tab=settings", icon: Settings },
 ];
 
+const DEST_BY_ID = new Map(DESTINATIONS.map((d) => [d.id, d]));
+
 function filterDestinations(query: string): Destination[] {
   const q = query.trim().toLowerCase();
   if (!q) return DESTINATIONS;
@@ -95,10 +97,18 @@ export function SmartCommandBar() {
 
   // AI answer state
   const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
-  const sessionRef = useRef<string>(`cmdbar-${Date.now()}`);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Platform-aware shortcut label (⌘K on macOS, Ctrl K on Windows/Linux).
+  // Resolved after mount to avoid SSR/hydration mismatch.
+  const [shortcut, setShortcut] = useState<string | null>(null);
+  useEffect(() => {
+    const ua = navigator.userAgent + " " + (navigator.platform || "");
+    setShortcut(/mac|iphone|ipad|ipod/i.test(ua) ? "⌘K" : "Ctrl K");
+  }, []);
 
   const results = useMemo(() => filterDestinations(query), [query]);
   // "Ask AI" is always an option (index === results.length)
@@ -109,6 +119,7 @@ export function SmartCommandBar() {
     setQuery("");
     setSelected(0);
     setAiAnswer(null);
+    setAiSuggestions([]);
     setAiError("");
     setAiLoading(false);
   }, []);
@@ -156,16 +167,24 @@ export function SmartCommandBar() {
     setAiLoading(true);
     setAiError("");
     setAiAnswer(null);
+    setAiSuggestions([]);
     try {
-      const res = await askPlatformCopilot(sessionRef.current, [{ role: "user", content: q }]);
-      setAiAnswer(res.reply || "No answer returned.");
+      const res = await runCommandBar(q);
+      // Smart routing: if the AI understood a navigation intent, jump there.
+      if (res.type === "navigate" && res.navigateTo && DEST_BY_ID.has(res.navigateTo)) {
+        setOpen(false);
+        router.push(DEST_BY_ID.get(res.navigateTo)!.href);
+        return;
+      }
+      setAiAnswer(res.answer || "No answer returned.");
+      setAiSuggestions((res.suggestions || []).filter((id) => DEST_BY_ID.has(id)));
     } catch (err) {
       console.error("Command bar AI query failed:", err);
       setAiError("Could not reach the AI. Try again, or open Platform Copilot.");
     } finally {
       setAiLoading(false);
     }
-  }, [query]);
+  }, [query, router]);
 
   const activate = useCallback(
     (index: number) => {
@@ -196,12 +215,14 @@ export function SmartCommandBar() {
     return (
       <button
         onClick={() => setOpen(true)}
-        title="Smart Command Bar (⌘K)"
+        title={`Smart Command Bar (${shortcut ?? "Ctrl K"})`}
         className="fixed bottom-6 right-6 z-[90] flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-900/30 hover:from-violet-500 hover:to-purple-500 transition-colors"
       >
         <Sparkles className="w-4 h-4" />
         <span className="text-sm font-medium hidden sm:inline">Command</span>
-        <kbd className="text-[10px] bg-white/20 rounded px-1.5 py-0.5 hidden sm:inline">⌘K</kbd>
+        {shortcut && (
+          <kbd className="text-[10px] bg-white/20 rounded px-1.5 py-0.5 hidden sm:inline">{shortcut}</kbd>
+        )}
       </button>
     );
   }
@@ -273,9 +294,11 @@ export function SmartCommandBar() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-white text-sm font-medium truncate">
-                {query.trim() ? `Ask AI: "${query.trim()}"` : "Ask the platform AI a question"}
+                {query.trim() ? `Ask AI: "${query.trim()}"` : "Ask the AI or say where to go"}
               </p>
-              <p className="text-gray-500 text-xs truncate">Answered by Platform Copilot</p>
+              <p className="text-gray-500 text-xs truncate">
+                Answers questions with live data, or jumps you to the right section
+              </p>
             </div>
             {selected === askAiIndex && <CornerDownLeft className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
           </button>
@@ -291,6 +314,25 @@ export function SmartCommandBar() {
               {aiError && <p className="text-red-400 text-sm">{aiError}</p>}
               {aiAnswer && (
                 <p className="text-gray-200 text-sm whitespace-pre-wrap leading-relaxed">{aiAnswer}</p>
+              )}
+              {aiSuggestions.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/5">
+                  {aiSuggestions.map((id) => {
+                    const d = DEST_BY_ID.get(id);
+                    if (!d) return null;
+                    const Icon = d.icon;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => go(d.href)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-200 text-xs hover:bg-white/10 transition-colors"
+                      >
+                        <Icon className="w-3.5 h-3.5 text-violet-400" />
+                        {d.label}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}

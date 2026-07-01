@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · June 30, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00;
+    --brand-dark: #1a1a2e;
+    --ink: #1f2433;
+    --muted: #5b6478;
+    --line: #e6e9f0;
+    --bg: #f6f7fb;
+    --card: #ffffff;
+    --green: #16a34a;
+    --green-bg: #e9f8ef;
+    --violet: #7c3aed;
+    --violet-bg: #f3effe;
+    --red: #dc2626;
+    --code-bg: #0f172a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+
+  header.hero {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%);
+    color: #fff;
+    padding: 56px 0 48px;
+    border-bottom: 4px solid var(--brand);
+  }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge {
+    display: inline-block;
+    background: var(--brand);
+    color: #1a1a2e;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .04em;
+    padding: 6px 14px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+  header.hero h1 { font-size: 34px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill {
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 8px;
+    padding: 7px 13px;
+    font-size: 13.5px;
+    color: #e8eaf4;
+  }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  .tag-new { font-size: 10px; font-weight: 800; letter-spacing: .05em; background: var(--violet-bg); color: var(--violet); padding: 3px 8px; border-radius: 999px; }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+
+  pre {
+    background: var(--code-bg);
+    color: #f1f5f9;
+    border-radius: 10px;
+    padding: 13px 16px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    margin: 12px 0;
+  }
+  pre.err { color: #fca5a5; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  td code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: #7c3aed; }
+
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Admin AI Tooling, Reliability Fixes &amp; a Smarter Dashboard</h1>
+    <p class="sub">New AI features, a recovered customer-chat bug, and platform hardening — all shipped to production.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; June 30, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Delivered &amp; Pushed to main</span></span>
+      <span class="meta-pill"><strong>Commits:</strong>&nbsp; 4 shipped</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      Today we delivered two new AI capabilities for the admin team, fixed the root cause of a
+      recurring dashboard crash, recovered a customer-facing AI chat that had silently stopped working,
+      made the support assistant noticeably more personal, and added a fast keyboard-driven way to move
+      around the admin dashboard. Everything is verified and pushed to production.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Sessions crash — fixed at the root, with a permanent guard</h2>
+    <p>
+      The admin <strong>Sessions</strong> page was crashing because the database contained
+      <strong>duplicate administrator records</strong> (the same wallet inserted multiple times over
+      several months).
+    </p>
+    <ul>
+      <li>Ran a <strong>read-only review first</strong>, confirmed <strong>no foreign-key references</strong>, then removed <strong>9 duplicate rows</strong> (keeping the oldest, real-name record per wallet). 0 duplicates remain.</li>
+      <li>Shipped <strong>Migration 189</strong> — it de-duplicates admin records <em>and</em> adds a unique index so duplicates can never be created again. Idempotent and self-healing: it runs automatically on deploy, so production is cleaned up and protected with no manual work.</li>
+    </ul>
+    <p>Verified the new guard rejects duplicate inserts:</p>
+    <pre class="err">ERROR:  duplicate key value violates unique constraint "uq_admins_wallet_lower"</pre>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Recovered the customer AI chat <span class="tag-new">BUG FIX</span></h2>
+    <p>
+      While cleaning up types we discovered the <strong>AI repair-assistant chat</strong> was effectively
+      non-functional: the service returned the inner data object while the chat screen expected the full
+      response wrapper, so every internal check silently failed and messages never processed.
+    </p>
+    <div class="callout green">
+      <strong>Impact:</strong> the fix restores customer AI chat (start, send, image upload, history) —
+      a customer-facing feature that had been quietly broken.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> AI Bug Inspection <span class="tag-new">NEW</span></h2>
+    <p>
+      Bug reports now have an <strong>“AI Inspect”</strong> button. With one click, AI reads the report
+      and explains the <strong>most likely cause</strong> of the problem — so the team can act faster.
+    </p>
+    <ul>
+      <li><strong>Probable cause</strong> stated up front, plus a short root-cause analysis.</li>
+      <li><strong>Affected area</strong> (e.g. billing/webhooks, wallet, booking, UI), <strong>severity</strong>, and a <strong>confidence</strong> level.</li>
+      <li><strong>Suggested investigation/fix steps</strong>, with a one-click re-run.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> More personal support replies</h2>
+    <p>
+      The support assistant now <strong>reads the full conversation and the shop’s name first</strong>,
+      and is instructed to respond to what the shop actually said — referencing their own words — instead
+      of a generic acknowledgement. Replies are warmer and specific to each ticket.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Smart Command Bar <span class="tag-new">NEW</span></h2>
+    <p>
+      A keyboard-driven command palette across the entire admin dashboard — press
+      <code class="inline">⌘K</code> (or <code class="inline">Ctrl+K</code>), or click the floating button.
+    </p>
+    <ul>
+      <li><strong>Instant navigation</strong> — fuzzy-search all 21 admin sections and jump there with the keyboard.</li>
+      <li><strong>Ask AI</strong> — type a question (e.g. “how many shops are pending?”) and get an answer inline, powered by the Platform Copilot, without leaving the page.</li>
+    </ul>
+    <div class="callout violet">
+      <strong>Why it matters:</strong> faster day-to-day operations for the admin team — navigate and ask
+      questions in seconds instead of clicking through menus.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span> Production audit &amp; documentation</h2>
+    <ul>
+      <li>Verified production runs in <strong>database-only mode</strong>, backend healthy, all AI endpoints deployed, and the blockchain-UI hiding fully wired.</li>
+      <li>Identified that the AI features need their API keys configured in the deploy environment to produce real output (they run in a safe fallback mode until then).</li>
+      <li>Wrote an <strong>operations runbook</strong> with the exact steps to enable the AI keys and verify the deploy, plus a client-facing update document.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Shipped to production</h2>
+    <table>
+      <thead>
+        <tr><th>Commit</th><th>What</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>f63b9a05</code></td><td>Admin record dedup + Migration 189 (unique-wallet guard)</td></tr>
+        <tr><td><code>cf9d5abb</code></td><td>Customer AI chat wrapper bug fix</td></tr>
+        <tr><td><code>d8d90450</code></td><td>AI Bug Inspection + more personal support triage + ops runbook</td></tr>
+        <tr><td><code>9a188211</code></td><td>Smart Command Bar (⌘K)</td></tr>
+      </tbody>
+    </table>
+    <div class="callout green" style="margin-top:18px;">
+      <strong>Verification:</strong> backend type-checking clean (0 errors); frontend introduced
+      0 new errors; every database change was preceded by a read-only review and foreign-key safety check.
+    </div>
+  </section>
+
+  <section>
+    <h2>One step to go live</h2>
+    <p>
+      All of today’s AI features are deployed but run in a safe fallback mode until two API keys are added
+      to the production environment. Adding them (documented in the ops runbook) turns the full AI suite —
+      bug inspection, support triage, command-bar Q&amp;A, fraud, and copilot — <strong>live for the client</strong>.
+    </p>
+  </section>
+
+  <footer>
+    RepairCoin · Engineering Update · June 30, 2026
+  </footer>
+
+</div>
+</body>
+</html>

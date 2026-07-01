@@ -47,3 +47,22 @@ export async function askPlatformCopilot(
     res.data ?? { reply: "", model: "", cached: false, latencyMs: 0, toolCalls: [] }
   );
 }
+
+// Smart Command Bar (⌘K) — routes a query to navigation or a data-grounded answer.
+export interface CommandBarResult {
+  type: "navigate" | "answer";
+  navigateTo: string | null;
+  answer?: string;
+  suggestions: string[];
+  aiAvailable?: boolean;
+}
+
+export async function runCommandBar(query: string): Promise<CommandBarResult> {
+  const res = await apiClient.post<{ data?: CommandBarResult }>(
+    "/admin/ai/command",
+    { query }
+  );
+  return (
+    res.data ?? { type: "answer", navigateTo: null, suggestions: [], aiAvailable: false }
+  );
+}

@@ -515,6 +515,11 @@ import { makePlatformCopilotController } from '../../AIAgentDomain/controllers/P
 const platformCopilot = makePlatformCopilotController();
 router.post('/ai/platform-copilot', (req, res) => { void platformCopilot.ask(req, res); });
 
+// Smart Command Bar (⌘K) brain — routes a query to navigation or a data answer.
+import { makeCommandBarController } from '../../AIAgentDomain/controllers/CommandBarController';
+const commandBar = makeCommandBarController();
+router.post('/ai/command', (req, res) => { void commandBar.run(req, res); });
+
 // AI Content Moderation (Admin AI #5) — flag inappropriate listings/reviews.
 import { scanContent, deactivateService } from '../../AIAgentDomain/services/contentModeration';
 router.get('/content-moderation/scan', async (req, res) => {
