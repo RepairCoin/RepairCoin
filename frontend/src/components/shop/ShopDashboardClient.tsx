@@ -27,7 +27,6 @@ import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
 import { WalletPayoutsTab } from "@/components/shop/tabs/WalletPayoutsTab";
 import { SupportTab } from "@/components/shop/tabs/SupportTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
-import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
 import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
@@ -39,6 +38,7 @@ import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTa
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { TeamTab } from "@/components/shop/tabs/TeamTab";
+import { LocationsTab } from "@/components/shop/tabs/LocationsTab";
 import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
 import { ShopPlansBillingTab } from "@/components/shop/tabs/ShopPlansBillingTab";
 import { resolvePlanLabel } from "@/config/subscriptionPlans";
@@ -1620,16 +1620,6 @@ export default function ShopDashboardClient() {
             <CustomerLookupTab shopId={shopData.shopId} />
           )}
 
-          {activeTab === "shop-location" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
-              <ShopLocationTab
-                shopId={shopData.shopId}
-                shopData={shopData}
-                onLocationUpdate={loadShopData}
-              />
-            </SubscriptionGuard>
-          )}
-
           {activeTab === "subscription" && shopData && (
             <SubscriptionManagement
               shopId={shopData.shopId}
@@ -1651,9 +1641,17 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "team" && shopData && (
-            <TierGate feature="teamManagement">
-              <TeamTab shopId={shopData.shopId} />
-            </TierGate>
+            <SubscriptionGuard shopData={shopData}>
+              <TierGate feature="teamManagement">
+                <TeamTab shopId={shopData.shopId} />
+              </TierGate>
+            </SubscriptionGuard>
+          )}
+
+          {activeTab === "locations" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <LocationsTab shopId={shopData.shopId} />
+            </SubscriptionGuard>
           )}
 
           {/* Ads System (Stage 1) — read-only campaign performance for this shop */}

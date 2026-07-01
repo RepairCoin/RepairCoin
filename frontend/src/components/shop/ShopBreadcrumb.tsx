@@ -139,10 +139,10 @@ const TAB_CONFIG: Record<string, {
     icon: <TagIcon className="w-5 h-5" />,
     description: "Create and manage promotional codes",
   },
-  "shop-location": {
-    title: "Shop Location",
+  locations: {
+    title: "Locations",
     icon: <MapPinnedIcon className="w-5 h-5" />,
-    description: "Set your shop's location for accurate delivery and customer navigation",
+    description: "Manage your business locations and set your primary address",
   },
   staking: {
     title: "Stake RCG",
