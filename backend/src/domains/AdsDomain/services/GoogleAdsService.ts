@@ -12,9 +12,9 @@ import { logger } from '../../../utils/logger';
 const OAUTH_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
 const OAUTH_TOKEN = 'https://oauth2.googleapis.com/token';
 const ADWORDS_SCOPE = 'https://www.googleapis.com/auth/adwords';
-// Google sunsets API versions ~yearly (v17-v19 already return 404) — keep it env-overridable and
-// default to a current one. Bump via GOOGLE_ADS_API_VERSION when Google ships a newer version.
-const API_VERSION = (process.env.GOOGLE_ADS_API_VERSION || 'v20').trim();
+// Google sunsets API versions ~yearly — verified live: v20 and below are deprecated/404, v21-v24
+// work, v24 is the newest. Keep it env-overridable; bump when Google ships a newer version.
+const API_VERSION = (process.env.GOOGLE_ADS_API_VERSION || 'v24').trim();
 const ADS_API = `https://googleads.googleapis.com/${API_VERSION}`;
 
 export interface GoogleTokenResult { accessToken: string; refreshToken: string | null; expiresIn: number; }
