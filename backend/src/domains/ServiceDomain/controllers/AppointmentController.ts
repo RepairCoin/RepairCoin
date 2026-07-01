@@ -474,7 +474,8 @@ export class AppointmentController {
       const bookings = await this.appointmentRepo.getShopCalendar(
         shopId,
         startDate as string,
-        endDate as string
+        endDate as string,
+        (req.query.locationId as string) || undefined
       );
 
       res.json({

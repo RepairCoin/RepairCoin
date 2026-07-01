@@ -3,6 +3,7 @@ import { PoolClient } from 'pg';
 import { logger } from '../utils/logger';
 import { getShopStatus, ShopStatus } from '../utils/shopStatus';
 import { ShopTeamRepository } from './ShopTeamRepository';
+import { ShopLocationRepository } from './ShopLocationRepository';
 
 interface ShopData {
   shopId: string;
@@ -165,6 +166,14 @@ export class ShopRepository extends BaseRepository {
     return this.teamRepo;
   }
 
+  // Lazily-instantiated location repo for primary-location seeding (same cycle-avoidance
+  // rationale as the team repo above).
+  private locationRepo?: ShopLocationRepository;
+  private getLocationRepo(): ShopLocationRepository {
+    if (!this.locationRepo) this.locationRepo = new ShopLocationRepository();
+    return this.locationRepo;
+  }
+
   async createShop(shop: ShopData & { location?: any }): Promise<{ id: string }> {
     try {
       const query = `
@@ -241,6 +250,28 @@ export class ShopRepository extends BaseRepository {
             error: seedError instanceof Error ? seedError.message : seedError,
           });
         }
+      }
+
+      // Auto-seed the shop's primary location from its own address, mirroring the migration-192
+      // backfill so new shops open the Locations tab pre-populated. Idempotent and non-fatal:
+      // a failure here must never block registration.
+      try {
+        await this.getLocationRepo().seedPrimary({
+          shopId: createdShopId,
+          name: shop.name,
+          address: shop.address,
+          city: typeof shop.location === 'object' ? shop.location?.city : null,
+          state: typeof shop.location === 'object' ? shop.location?.state : null,
+          zipCode: typeof shop.location === 'object' ? shop.location?.zipCode : null,
+          lat: typeof shop.location === 'object' && shop.location?.lat ? parseFloat(shop.location.lat) : null,
+          lng: typeof shop.location === 'object' && shop.location?.lng ? parseFloat(shop.location.lng) : null,
+          phone: shop.phone,
+        });
+      } catch (locationSeedError) {
+        logger.error('Failed to seed primary location for new shop (non-fatal):', {
+          shopId: createdShopId,
+          error: locationSeedError instanceof Error ? locationSeedError.message : locationSeedError,
+        });
       }
 
       logger.info('Shop created successfully with time slot config', { shopId: shop.shopId });

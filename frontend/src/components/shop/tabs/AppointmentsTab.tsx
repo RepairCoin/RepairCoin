@@ -24,6 +24,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { appointmentsApi, CalendarBooking, PaymentLinkResponse } from '@/services/api/appointments';
+import { useLocationStore } from '@/stores/locationStore';
 import { calendarApi } from '@/services/api/calendar';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-hot-toast';
@@ -45,6 +46,7 @@ interface AppointmentsTabProps {
 export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab = 'appointments' }) => {
   const router = useRouter();
   const { userProfile } = useAuthStore();
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
   const [activeSubTab, setActiveSubTab] = useState<'appointments' | 'reschedules'>(defaultSubTab);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [allBookings, setAllBookings] = useState<CalendarBooking[]>([]);
@@ -135,7 +137,7 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
       const startDate = formatDateLocal(firstDay);
       const endDate = formatDateLocal(lastDay);
 
-      const data = await appointmentsApi.getShopCalendar(startDate, endDate);
+      const data = await appointmentsApi.getShopCalendar(startDate, endDate, activeLocationId || undefined);
       setAllBookings(data);
     } catch (error: unknown) {
       console.error('Error loading calendar:', error);
@@ -148,7 +150,7 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
     } finally {
       setLoading(false);
     }
-  }, [currentDate, formatDateLocal]);
+  }, [currentDate, formatDateLocal, activeLocationId]);
 
   useEffect(() => {
     loadBookings();

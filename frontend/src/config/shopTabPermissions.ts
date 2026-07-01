@@ -13,7 +13,7 @@ export const SHOP_TAB_PERMISSIONS: Record<string, string> = {
   customers: "customers:view",
   messages: "customers:view",
   profile: "shop:manage",
-  "shop-location": "shop:manage",
+  locations: "shop:manage",
   marketing: "marketing:manage",
   team: "team:manage",
   reports: "analytics:view",

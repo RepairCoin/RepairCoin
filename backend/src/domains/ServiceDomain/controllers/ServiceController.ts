@@ -2,6 +2,8 @@
 import { Request, Response } from 'express';
 import { ServiceManagementService, CreateServiceRequest, UpdateServiceRequest } from '../services/ServiceManagementService';
 import { logger } from '../../../utils/logger';
+import { shopLocationRepository } from '../../../repositories';
+import { hasPaidMultiLocation } from '../../../utils/multiLocationEntitlement';
 
 export class ServiceController {
   private service: ServiceManagementService;
@@ -103,9 +105,25 @@ export class ServiceController {
         });
       }
 
+      // Attach the shop's bookable locations so the customer can pick a branch. Only paid-Business
+      // shops expose multiple branches; everyone else exposes just their primary.
+      let locations: Array<{ id: string; name: string; address: string | null; city: string | null; state: string | null; isPrimary: boolean }> = [];
+      try {
+        const shopId = (service as any).shopId;
+        if (shopId) {
+          const entitled = await hasPaidMultiLocation(shopId);
+          const bookable = await shopLocationRepository.listBookable(shopId, entitled);
+          locations = bookable.map((l) => ({
+            id: l.id, name: l.name, address: l.address, city: l.city, state: l.state, isPrimary: l.isPrimary,
+          }));
+        }
+      } catch (locErr) {
+        logger.error('Failed to load bookable locations for service detail:', locErr);
+      }
+
       res.json({
         success: true,
-        data: service
+        data: { ...service, locations }
       });
     } catch (error: unknown) {
       logger.error('Error in getServiceById controller:', error);
@@ -113,6 +131,28 @@ export class ServiceController {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get service'
       });
+    }
+  };
+
+  /**
+   * Get a shop's bookable locations (public). Primary only unless the shop has paid
+   * multi-location; used by the customer checkout branch picker.
+   * GET /api/services/shop/:shopId/locations
+   */
+  getShopBookableLocations = async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const entitled = await hasPaidMultiLocation(shopId);
+      const locations = await shopLocationRepository.listBookable(shopId, entitled);
+      res.json({
+        success: true,
+        data: locations.map((l) => ({
+          id: l.id, name: l.name, address: l.address, city: l.city, state: l.state, isPrimary: l.isPrimary,
+        })),
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getShopBookableLocations controller:', error);
+      res.status(500).json({ success: false, error: 'Failed to get locations' });
     }
   };
 

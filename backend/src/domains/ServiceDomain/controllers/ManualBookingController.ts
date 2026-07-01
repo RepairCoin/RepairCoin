@@ -14,6 +14,7 @@ import { EmailService } from '../../../services/EmailService';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
+import { resolveBookingLocationId } from '../../../utils/multiLocationEntitlement';
 import Stripe from 'stripe';
 
 const pool = getSharedPool();
@@ -55,6 +56,7 @@ interface ManualBookingRequest {
   bookingEndTime?: string; // HH:MM:SS
   paymentStatus: 'paid' | 'pending' | 'unpaid' | 'send_link' | 'qr_code';
   notes?: string;
+  locationId?: string;
   createNewCustomer?: boolean;
 }
 
@@ -105,6 +107,7 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
       bookingEndTime,
       paymentStatus,
       notes,
+      locationId,
       createNewCustomer
     }: ManualBookingRequest = req.body;
 
@@ -238,6 +241,10 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
     const dbPaymentStatus = requiresPayment ? 'pending' : paymentStatus;
     console.log('Step 10: Order status will be:', orderStatus, ', dbPaymentStatus:', dbPaymentStatus);
 
+    // Resolve which location this booking belongs to (falls back to primary; ignores the
+    // requested location for shops without the paid multi-location entitlement).
+    const resolvedLocationId = await resolveBookingLocationId(shopId, locationId);
+
     // Create the manual booking
     console.log('Step 11: Creating order...');
     const orderResult = await pool.query(
@@ -255,10 +262,11 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
         booked_by,
         payment_status,
         notes,
+        location_id,
         created_at
       ) VALUES (
         gen_random_uuid(),
-        $1, $2, $3, $4, $5, $6, $7, $8, 'manual', $9, $10, $11, NOW()
+        $1, $2, $3, $4, $5, $6, $7, $8, 'manual', $9, $10, $11, $12, NOW()
       ) RETURNING order_id, total_amount, created_at`,
       [
         customerData.address,
@@ -271,7 +279,8 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
         bookingEndTime || null,
         shopAdminAddress,
         dbPaymentStatus,
-        notes || null
+        notes || null,
+        resolvedLocationId
       ]
     );
 

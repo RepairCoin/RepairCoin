@@ -7,6 +7,7 @@ export const FEATURE_TIERS: Record<string, ShopTier> = {
   campaignBuilder: 'growth',
   advancedReports: 'growth',
   teamManagement: 'business',
+  multiLocation: 'business',
 };
 
 export const TIER_LABELS: Record<ShopTier, string> = {

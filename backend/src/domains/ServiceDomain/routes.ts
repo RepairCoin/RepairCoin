@@ -172,6 +172,12 @@ export function initializeRoutes(stripe: StripeService): Router {
     serviceController.getShopServices
   );
 
+  // Public: bookable locations for a shop (primary only unless paid multi-location).
+  router.get(
+    '/shop/:shopId/locations',
+    serviceController.getShopBookableLocations
+  );
+
   // ==================== FAVORITES ROUTES (before /:id) ====================
 
   /**

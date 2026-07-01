@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Stripe from 'stripe';
 import { NoShowPolicyService } from '../../../services/NoShowPolicyService';
 import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
+import { resolveBookingLocationId } from '../../../utils/multiLocationEntitlement';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
@@ -24,6 +25,7 @@ export interface CreatePaymentIntentRequest {
   bookingTime?: string;
   rcnToRedeem?: number;
   notes?: string;
+  locationId?: string;
   // AI chat conversation the customer booked from (conv_*), when the
   // booking originated from an AI booking card. Threaded into the Stripe
   // PaymentIntent metadata so it lands on the order row at payment success.
@@ -351,6 +353,7 @@ export class PaymentService {
           bookingTime: request.bookingTime || '',
           bookingEndTime: bookingEndTime || '',
           notes: request.notes || '',
+          locationId: request.locationId || '',
           conversationId: request.conversationId || '',
           type: 'service_booking'
         },
@@ -583,6 +586,7 @@ export class PaymentService {
           bookingTime: request.bookingTime || '',
           bookingEndTime: bookingEndTime || '',
           notes: request.notes || '',
+          locationId: request.locationId || '',
           type: 'service_booking'
         }
       });
@@ -666,11 +670,13 @@ export class PaymentService {
 
       // Create order from Stripe metadata with 'paid' status
       const bookingDate = metadata.bookingDate ? toLocalDate(metadata.bookingDate) : undefined;
+      const locationId = await resolveBookingLocationId(metadata.shopId, metadata.locationId || undefined);
       const order = await this.orderRepository.createOrder({
         orderId: metadata.orderId,
         serviceId: metadata.serviceId,
         customerAddress: metadata.customerAddress,
         shopId: metadata.shopId,
+        locationId: locationId || undefined,
         totalAmount: parseFloat(metadata.totalAmount) || 0,
         rcnRedeemed: parseFloat(metadata.rcnRedeemed) || 0,
         rcnDiscountUsd: parseFloat(metadata.rcnDiscountUsd) || 0,

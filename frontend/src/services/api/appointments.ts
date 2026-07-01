@@ -267,11 +267,11 @@ export const appointmentsApi = {
   },
 
   // Shop: Get calendar view
-  async getShopCalendar(startDate: string, endDate: string): Promise<CalendarBooking[]> {
+  async getShopCalendar(startDate: string, endDate: string, locationId?: string): Promise<CalendarBooking[]> {
     const response = await apiClient.get<{ success: boolean; data: CalendarBooking[] }>(
       `/services/appointments/calendar`,
       {
-        params: { startDate, endDate }
+        params: { startDate, endDate, ...(locationId ? { locationId } : {}) }
       }
     );
     return (response as unknown as { success: boolean; data: CalendarBooking[] }).data;
@@ -472,6 +472,7 @@ export interface ManualBookingData {
   bookingEndTime?: string; // HH:MM:SS
   paymentStatus: 'paid' | 'pending' | 'unpaid' | 'send_link' | 'qr_code';
   notes?: string;
+  locationId?: string;
   createNewCustomer?: boolean;
 }
 

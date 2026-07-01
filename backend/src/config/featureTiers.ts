@@ -8,6 +8,7 @@ export const FEATURE_TIERS: Record<string, SubscriptionTier> = {
   campaignBuilder: 'growth',
   advancedReports: 'growth',
   teamManagement: 'business',
+  multiLocation: 'business',
 };
 
 const TIER_RANK: Record<SubscriptionTier, number> = {

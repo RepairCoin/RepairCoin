@@ -12,6 +12,7 @@ export { HealthRepository } from './HealthRepository';
 export { PromoCodeRepository } from './PromoCodeRepository';
 export { RefreshTokenRepository } from './RefreshTokenRepository';
 export { ShopTeamRepository } from './ShopTeamRepository';
+export { ShopLocationRepository } from './ShopLocationRepository';
 
 // Create singleton instances
 import { CustomerRepository } from './CustomerRepository';
@@ -26,6 +27,7 @@ import { HealthRepository } from './HealthRepository';
 import { PromoCodeRepository } from './PromoCodeRepository';
 import { RefreshTokenRepository } from './RefreshTokenRepository';
 import { ShopTeamRepository } from './ShopTeamRepository';
+import { ShopLocationRepository } from './ShopLocationRepository';
 
 export const customerRepository = new CustomerRepository();
 export const shopRepository = new ShopRepository();
@@ -39,3 +41,4 @@ export const healthRepository = new HealthRepository();
 export const promoCodeRepository = new PromoCodeRepository();
 export const refreshTokenRepository = new RefreshTokenRepository();
 export const shopTeamRepository = new ShopTeamRepository();
+export const shopLocationRepository = new ShopLocationRepository();

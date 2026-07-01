@@ -70,6 +70,7 @@ import paymentMethodsRoutes from './paymentMethods';
 import moderationRoutes from './moderation';
 import welcomeRcnRoutes from './welcomeRcn';
 import teamRoutes from './team';
+import locationsRoutes from './locations';
 import featureAccessRoutes from './featureAccess';
 import calendarRoutes from '../../ShopDomain/routes/calendar.routes';
 import gmailRoutes from '../../ShopDomain/routes/gmail.routes';
@@ -86,6 +87,7 @@ router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes 
 router.use('/reports', authMiddleware, requireRole(['shop']), requireShopPermission('analytics:view'), reportsRoutes); // Reports routes
 router.use('/moderation', authMiddleware, requireRole(['shop']), requireShopPermission('customers:view'), moderationRoutes); // Moderation routes
 router.use('/team', teamRoutes); // Team management (auth handled per-route: accept is public)
+router.use('/locations', locationsRoutes); // Multi-location management (Business tier; auth + gate per-route)
 router.use('/feature-access', authMiddleware, requireRole(['shop']), featureAccessRoutes); // Tier-based feature access map
 router.use('/welcome-rcn', authMiddleware, requireRole(['shop']), requireShopPermission('shop:manage'), welcomeRcnRoutes); // Welcome-RCN-on-claim settings
 router.use('/calendar', calendarRoutes); // Calendar integration routes (auth handled in route file)
@@ -200,25 +202,22 @@ router.get('/map', async (req: Request, res: Response) => {
     const limit = req.query.limit !== undefined ? parseInt(String(req.query.limit), 10) : NaN;
 
     const params: any[] = [];
-    let distanceSelect = 'NULL::float as distance_miles';
+    // Distance/coords come from the shop's nearest matching location (loc), so a multi-location
+    // shop is found via any of its branches. With no search coords, loc is the primary location.
+    let distanceSelect = 'NULL::float';
     let proximityFilter = '';
     let orderBy = 'ORDER BY s.name';
+    let locOrder = 'ORDER BY l.is_primary DESC, l.created_at ASC';
 
     if (hasCoords) {
       params.push(lat, lng);
-      // acos can overflow [-1, 1] by a hair due to float error; clamp with LEAST.
-      const distExpr = `
-        3958.8 * acos(LEAST(1.0,
-          cos(radians($1)) * cos(radians(s.location_lat)) *
-          cos(radians(s.location_lng) - radians($2)) +
-          sin(radians($1)) * sin(radians(s.location_lat))
-        ))`;
-      distanceSelect = `${distExpr} as distance_miles`;
+      distanceSelect = 'loc.distance_miles';
+      locOrder = 'ORDER BY distance_miles ASC';
       if (Number.isFinite(radius)) {
         params.push(radius);
-        proximityFilter = `AND ${distExpr} <= $${params.length}`;
+        proximityFilter = `AND loc.distance_miles <= $${params.length}`;
       }
-      orderBy = 'ORDER BY distance_miles ASC';
+      orderBy = 'ORDER BY loc.distance_miles ASC';
     }
 
     let limitClause = '';
@@ -227,21 +226,30 @@ router.get('/map', async (req: Request, res: Response) => {
       limitClause = `LIMIT $${params.length}`;
     }
 
+    // acos can overflow [-1, 1] by a hair due to float error; clamp with LEAST.
+    const locDistanceSelect = hasCoords
+      ? `3958.8 * acos(LEAST(1.0,
+          cos(radians($1)) * cos(radians(l.location_lat)) *
+          cos(radians(l.location_lng) - radians($2)) +
+          sin(radians($1)) * sin(radians(l.location_lat))
+        ))`
+      : 'NULL::float';
+
     const query = `
       SELECT
         s.shop_id,
         s.name,
-        s.address,
+        loc.address,
         s.phone,
         s.email,
-        s.location_lat,
-        s.location_lng,
-        s.location_city,
-        s.location_state,
+        loc.location_lat,
+        loc.location_lng,
+        loc.location_city,
+        loc.location_state,
         s.verified,
         s.logo_url,
         s.category,
-        ${distanceSelect},
+        ${distanceSelect} as distance_miles,
         COALESCE(
           (SELECT COUNT(*) FROM shop_services ss WHERE ss.shop_id = s.shop_id AND ss.active = true), 0
         )::int as service_count,
@@ -260,10 +268,21 @@ router.get('/map', async (req: Request, res: Response) => {
           FROM shop_services ss WHERE ss.shop_id = s.shop_id AND ss.active = true
         ) as service_categories
       FROM shops s
+      JOIN LATERAL (
+        SELECT
+          l.address, l.location_lat, l.location_lng, l.location_city, l.location_state,
+          ${locDistanceSelect} as distance_miles
+        FROM shop_locations l
+        WHERE l.shop_id = s.shop_id
+          AND l.active = true
+          AND l.location_lat IS NOT NULL
+          AND l.location_lng IS NOT NULL
+          AND (s.multi_location_active OR l.is_primary)
+        ${locOrder}
+        LIMIT 1
+      ) loc ON true
       WHERE s.active = true
         AND s.verified = true
-        AND s.location_lat IS NOT NULL
-        AND s.location_lng IS NOT NULL
         ${proximityFilter}
       ${orderBy}
       ${limitClause}

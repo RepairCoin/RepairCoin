@@ -239,10 +239,10 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
         //   tabId: "groups",
         // },
         {
-          title: "Shop Location",
-          href: "/shop?tab=shop-location",
+          title: "Locations",
+          href: "/shop?tab=locations",
           icon: <MapPinnedIcon className="w-5 h-5" />,
-          tabId: "shop-location",
+          tabId: "locations",
         },
         {
           title: "Buy Credits",
