@@ -768,6 +768,10 @@ export default function ShopDashboardClient() {
         if (conn?.enabled && conn.hasToken && !conn.connected) {
           metaAutoNavDoneRef.current = true;
           setActiveTab("ads");
+          // Sync the URL too — the cross-domain OAuth bounce left it on ?tab=overview.
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", "ads");
+          window.history.replaceState({}, "", url);
         }
       } catch {
         /* not a Meta-enabled shop / not connected — ignore */
@@ -793,6 +797,10 @@ export default function ShopDashboardClient() {
         if (conn?.enabled && conn.hasToken && !conn.connected) {
           googleAutoNavDoneRef.current = true;
           setActiveTab("ads");
+          // Sync the URL too — the cross-domain OAuth bounce left it on ?tab=overview.
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", "ads");
+          window.history.replaceState({}, "", url);
         }
       } catch {
         /* not a Google-enabled shop / not connected — ignore */
