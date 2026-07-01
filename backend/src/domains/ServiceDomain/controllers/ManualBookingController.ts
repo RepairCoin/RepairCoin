@@ -13,9 +13,20 @@ import { NotificationService } from '../../notification/services/NotificationSer
 import { EmailService } from '../../../services/EmailService';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
+import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
 import Stripe from 'stripe';
 
 const pool = getSharedPool();
+const googleCalendarService = new GoogleCalendarService();
+
+// Add minutes to an HH:MM (or HH:MM:SS) wall time, returning HH:MM.
+const addMinutesToTime = (time: string, minutes: number): string => {
+  const [h, m] = time.split(':').map(Number);
+  const total = h * 60 + m + minutes;
+  const hh = String(Math.floor(total / 60) % 24).padStart(2, '0');
+  const mm = String(total % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+};
 const notificationService = new NotificationService();
 const emailService = new EmailService();
 
@@ -279,6 +290,37 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
       ));
     } catch (eventError) {
       console.error('Error publishing order_created event (manual booking):', eventError);
+    }
+
+    // Push the booking to the shop's Google Calendar (no-op if not connected).
+    try {
+      const tzResult = await pool.query(
+        `SELECT COALESCE(timezone, 'America/New_York') AS timezone FROM shop_time_slot_config WHERE shop_id = $1`,
+        [shopId]
+      );
+      const shopTimezone = tzResult.rows[0]?.timezone || 'America/New_York';
+
+      const startTime = bookingTimeSlot.substring(0, 5);
+      const endTime = bookingEndTime
+        ? bookingEndTime.substring(0, 5)
+        : addMinutesToTime(startTime, service.duration_minutes || 60);
+
+      await googleCalendarService.createEvent({
+        orderId: order.order_id,
+        shopId,
+        serviceName: service.service_name,
+        customerName: customerName || customerData.name,
+        customerEmail: customerEmail || customerData.email,
+        customerPhone: customerPhone || customerData.phone,
+        customerAddress: customerData.address,
+        bookingDate,
+        startTime,
+        endTime,
+        totalAmount: Number(service.price_usd) || 0,
+        shopTimezone,
+      });
+    } catch (calendarError) {
+      console.error('Failed to sync manual booking to Google Calendar:', calendarError);
     }
 
     // Handle payment link generation for 'send_link' or 'qr_code' options

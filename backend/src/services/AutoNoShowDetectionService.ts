@@ -10,6 +10,7 @@ import { ServiceRepository } from '../repositories/ServiceRepository';
 import { getSharedPool } from '../utils/database-pool';
 import { shopRepository, customerRepository } from '../repositories';
 import { getExpiredOrderService, ExpiredOrderResult } from './ExpiredOrderService';
+import { GoogleCalendarService } from './GoogleCalendarService';
 
 export interface AutoDetectionReport {
   timestamp: Date;
@@ -63,6 +64,7 @@ export class AutoNoShowDetectionService {
   private shopRepository: ShopRepository;
   private customerRepository: CustomerRepository;
   private serviceRepository: ServiceRepository;
+  private googleCalendarService: GoogleCalendarService;
   private scheduledIntervalId: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
 
@@ -74,6 +76,7 @@ export class AutoNoShowDetectionService {
     this.shopRepository = new ShopRepository();
     this.customerRepository = new CustomerRepository();
     this.serviceRepository = new ServiceRepository();
+    this.googleCalendarService = new GoogleCalendarService();
   }
 
   /**
@@ -149,6 +152,9 @@ export class AutoNoShowDetectionService {
 
       // Mark as no-show in orders table
       await this.orderRepository.markAsNoShow(order.orderId, 'Automatically marked as no-show by system');
+
+      // Relabel the calendar event as a no-show (no-op if not synced)
+      await this.googleCalendarService.markEventNoShow(order.orderId, order.shopId);
 
       // Record in no-show history with SYSTEM as marker
       try {
@@ -484,7 +490,7 @@ export class AutoNoShowDetectionService {
             -- Old pending without booking date (> 24 hours)
             (booking_date IS NULL AND created_at < NOW() - INTERVAL '24 hours')
           )
-        RETURNING order_id
+        RETURNING order_id, shop_id
       `;
 
       const result = await getSharedPool().query(query);
@@ -495,6 +501,15 @@ export class AutoNoShowDetectionService {
         logger.info(`Cancelled ${report.ordersCancelled} stale pending orders`, {
           orderIds: result.rows.map((r: { order_id: string }) => r.order_id)
         });
+
+        // Remove any synced calendar events for the cancelled bookings.
+        for (const row of result.rows) {
+          try {
+            await this.googleCalendarService.deleteEvent(row.order_id, row.shop_id);
+          } catch (calendarError) {
+            logger.error('Failed to delete calendar event for stale-cancelled order:', calendarError);
+          }
+        }
       } else {
         logger.info('No stale pending orders to clean up');
       }

@@ -1,6 +1,7 @@
 // backend/src/services/BookingCleanupService.ts
 import { Pool } from 'pg';
 import { getSharedPool } from '../utils/database-pool';
+import { GoogleCalendarService } from './GoogleCalendarService';
 import { logger } from '../utils/logger';
 
 /**
@@ -12,12 +13,14 @@ import { logger } from '../utils/logger';
  */
 export class BookingCleanupService {
   private pool: Pool;
+  private googleCalendarService: GoogleCalendarService;
   private cleanupInterval: NodeJS.Timeout | null = null;
   private readonly CLEANUP_INTERVAL_MS = 2 * 60 * 60 * 1000; // Run every 2 hours
   private readonly GRACE_PERIOD_HOURS = 1; // Cancel bookings 1 hour after service date
 
   constructor() {
     this.pool = getSharedPool();
+    this.googleCalendarService = new GoogleCalendarService();
   }
 
   /**
@@ -129,7 +132,7 @@ export class BookingCleanupService {
 
       const cancelledCount = result.rows.length;
 
-      // Log each cancelled booking
+      // Log each cancelled booking and remove its synced calendar event
       for (const row of result.rows) {
         logger.info(`Auto-cancelled expired booking ${row.order_id} for customer ${row.customer_address}`, {
           orderId: row.order_id,
@@ -140,6 +143,11 @@ export class BookingCleanupService {
           bookingTimeSlot: row.booking_time_slot,
           reason: 'Service date passed without payment'
         });
+        try {
+          await this.googleCalendarService.deleteEvent(row.order_id, row.shop_id);
+        } catch (calendarError) {
+          logger.error('Failed to delete calendar event for auto-cancelled booking:', calendarError);
+        }
       }
 
       return cancelledCount;
