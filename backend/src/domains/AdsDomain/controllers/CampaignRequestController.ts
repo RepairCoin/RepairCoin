@@ -12,6 +12,10 @@ import { AdsEvents } from '../events';
 import { CampaignRequestRepository } from '../repositories/CampaignRequestRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { BillingPlanRepository, limitsForTier } from '../repositories/BillingPlanRepository';
+import { GoogleConnectionRepository } from '../repositories/GoogleConnectionRepository';
+import { googleAdsService } from '../services/GoogleAdsService';
+import { googleAdsCreativeService } from '../services/GoogleAdsCreativeService';
+import { decryptToken } from '../../../utils/tokenCrypto';
 import { SafeguardRepository } from '../repositories/SafeguardRepository';
 import { AdMessageRepository } from '../repositories/AdMessageRepository';
 import { NotificationRepository } from '../../../repositories/NotificationRepository';
@@ -23,6 +27,7 @@ import { shopRepository } from '../../../repositories';
 import { imageStorageService } from '../../../services/ImageStorageService';
 
 const requests = new CampaignRequestRepository();
+const googleConnections = new GoogleConnectionRepository();
 const campaigns = new CampaignRepository();
 const plans = new BillingPlanRepository();
 const safeguards = new SafeguardRepository();
@@ -113,17 +118,58 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
       // timeout) — block a duplicate. Failed builds roll back and stay pending/approved.
       res.status(400).json({ success: false, error: `Request already ${r.status}` }); return;
     }
-    // Multi-channel (Google plan): a request carries its channel. Google selection is captured
-    // (Slice 2) but the Google integration (connect/push) isn't built yet — block the build with a
-    // clear message, and enforce the Business-tier gate server-side (defense-in-depth behind the FE
-    // picker). Meta is unchanged. When Google push ships, replace the 409 with the real google path.
+    // Multi-channel (Google plan, Slice 3): build the campaign on the shop's connected Google Ads
+    // account. Business-tier gated (defense-in-depth behind the FE picker). Objects are created PAUSED
+    // (never serve/spend until go-live). Gated by ADS_GOOGLE_PUSH_ENABLED.
     if (r.channel === 'google') {
       const plan = await plans.getOrDefault(r.shopId);
       if (!limitsForTier(plan.flatTierName).channels.includes('google')) {
         res.status(403).json({ success: false, error: 'google_requires_business_tier', message: 'Google Ads campaigns require the Business plan.' });
         return;
       }
-      res.status(409).json({ success: false, error: 'google_not_available_yet', message: "Google Ads campaigns aren't available to launch yet — coming soon." });
+      if (!(process.env.ADS_GOOGLE_PUSH_ENABLED === 'true' && googleAdsService.isConfigured())) {
+        res.status(409).json({ success: false, error: 'google_push_disabled', message: "Google campaigns aren't enabled yet." });
+        return;
+      }
+      const gconn = await googleConnections.getConnection(r.shopId);
+      if (!gconn?.connected || !gconn.refreshTokenEnc || !gconn.customerId) {
+        res.status(409).json({ success: false, error: 'google_not_connected', message: "Connect this shop's Google Ads account first." });
+        return;
+      }
+      const gName = (req.body?.name || '').toString().trim() || `Campaign — ${r.goal ?? 'ads'}`;
+      const gDailyCents = req.body?.dailyBudgetCents ?? (r.monthlyBudgetCents ? Math.round(r.monthlyBudgetCents / 30) : 0);
+      const campaign = await campaigns.create({
+        shopId: r.shopId, name: gName, platform: 'google',
+        targetRadiusMiles: r.targetRadiusMiles ?? null, dailyBudgetCents: gDailyCents,
+        notes: r.offer ? `Offer: ${r.offer}` : null, createdBy: adminId(req),
+      } as any);
+      await safeguards.ensureDefault(campaign.id);
+      try {
+        const token = decryptToken(gconn.refreshTokenEnc);
+        const g = await googleAdsService.createSearchCampaign(
+          gconn.customerId, token,
+          { name: gName, dailyBudgetMicros: gDailyCents * 10000 } // cents → micros
+        );
+        await campaigns.setGoogleObjects(campaign.id, {
+          googleCampaignId: g.campaignId, googleAdGroupId: g.adGroupId,
+          googleBudgetId: g.budgetResourceName.split('/').pop(), googleStatus: 'PAUSED',
+        });
+        // Creative: AI-generated RSA copy + keywords → a PAUSED Responsive Search Ad on the ad group.
+        const copy = await googleAdsCreativeService.generateRsaCopy(r.shopId, { offer: r.offer, campaignId: campaign.id });
+        const landingBase = (process.env.ADS_LANDING_BASE_URL || process.env.FRONTEND_URL || 'https://staging.repaircoin.ai').replace(/\/$/, '');
+        await googleAdsService.addResponsiveSearchAdAndKeywords(gconn.customerId, token, g.adGroupResourceName, {
+          headlines: copy.headlines, descriptions: copy.descriptions, keywords: copy.keywords,
+          finalUrl: `${landingBase}/l/${campaign.id}`,
+        });
+        await campaigns.update(campaign.id, { status: 'draft' }); // local draft; PAUSED on Google
+        const updated = await requests.setStatus(id, 'building', { campaignId: campaign.id, decidedBy: adminId(req) });
+        void postEvent(r.shopId, `Google campaign "${gName}" created (paused) — review, then take it live.`);
+        res.status(201).json({ success: true, data: { request: updated, campaign, prepared: true, platform: 'google' } });
+      } catch (err: any) {
+        await campaigns.softDelete(campaign.id); // roll back our record (any orphaned Google objects are paused → no spend)
+        logger.error('buildCampaignFromRequest: google push failed', err?.message || err);
+        res.status(502).json({ success: false, error: 'google_push_failed', message: err?.message || 'Failed to create the Google campaign.' });
+      }
       return;
     }
     // §9.6 — can't go live until the shop's ad account is connected.

@@ -52,8 +52,20 @@ export interface AdCampaign {
   /** Two-way sync (Phase 3): the live ad set's targeting spec, verbatim — read-only fidelity for
    *  targeting we can't losslessly map to our typed columns. Never reverse-pushed (D4). */
   metaTargetingRaw: any | null;
+  // Google push (Slice 3) — ids of the objects created on the shop's Google Ads account.
+  googleCampaignId: string | null;
+  googleAdGroupId: string | null;
+  googleBudgetId: string | null;
+  googleStatus: string | null;
   /** Per-campaign landing-page magnet overrides (Phase 2); null → auto-composed defaults. */
   landingConfig: LandingConfig | null;
+}
+
+export interface GoogleObjectIds {
+  googleCampaignId?: string | null;
+  googleAdGroupId?: string | null;
+  googleBudgetId?: string | null;
+  googleStatus?: string | null;
 }
 
 /** Shop-controlled landing-page magnet overrides. All optional — anything unset falls back to the
@@ -284,6 +296,25 @@ export class CampaignRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
+  /** Persist Google object ids / status after a push (Slice 3). Only sets provided fields. */
+  async setGoogleObjects(id: string, g: GoogleObjectIds): Promise<AdCampaign | null> {
+    const sets: string[] = [];
+    const params: any[] = [];
+    const col = (c: string, v: any) => { params.push(v); sets.push(`${c} = $${params.length}`); };
+    if (g.googleCampaignId !== undefined) col('google_campaign_id', g.googleCampaignId);
+    if (g.googleAdGroupId !== undefined) col('google_ad_group_id', g.googleAdGroupId);
+    if (g.googleBudgetId !== undefined) col('google_budget_id', g.googleBudgetId);
+    if (g.googleStatus !== undefined) col('google_status', g.googleStatus);
+    if (sets.length === 0) return this.findById(id);
+    sets.push(`updated_at = now()`);
+    params.push(id);
+    const res = await this.pool.query(
+      `UPDATE ad_campaigns SET ${sets.join(', ')} WHERE id = $${params.length} AND deleted_at IS NULL RETURNING *`,
+      params
+    );
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
   /** Campaigns pushed to Meta (have a meta_campaign_id) — the nightly insights-sync set. */
   async listWithMetaCampaign(): Promise<Array<{ id: string; shopId: string; metaCampaignId: string }>> {
     const res = await this.pool.query(
@@ -350,6 +381,10 @@ export class CampaignRepository extends BaseRepository {
       metaLastSyncedAt: r.meta_last_synced_at ?? null,
       metaSyncedConfigAt: r.meta_synced_config_at ?? null,
       metaTargetingRaw: r.meta_targeting_raw ?? null,
+      googleCampaignId: r.google_campaign_id ?? null,
+      googleAdGroupId: r.google_ad_group_id ?? null,
+      googleBudgetId: r.google_budget_id ?? null,
+      googleStatus: r.google_status ?? null,
       landingConfig: r.landing_config ?? null,
     };
   }
