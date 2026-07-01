@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRecentRewards } from "../hooks/useRewardQuery";
+import TierBadge from "@/shared/components/ui/TierBadge";
 
 interface RewardTransaction {
   id: string | number;
@@ -16,17 +17,6 @@ interface RewardTransaction {
 
 const shortAddress = (address: string) =>
   address ? `${address.slice(0, 8)}...${address.slice(-6)}` : "";
-
-const getTierBadge = (tier?: string) => {
-  switch (tier?.toLowerCase()) {
-    case "gold":
-      return { bg: "#2A1F00", text: "#F59E0B", label: "GOLD" };
-    case "silver":
-      return { bg: "#1E1E1E", text: "#9CA3AF", label: "SILVER" };
-    default:
-      return { bg: "#2A1800", text: "#D97706", label: "BRONZE" };
-  }
-};
 
 export default function RecentRewards() {
   const { data, isLoading } = useRecentRewards();
@@ -58,7 +48,6 @@ export default function RecentRewards() {
         </View>
 
         {rewards.map((reward, index) => {
-          const badge = getTierBadge(reward.customerTier);
           return (
             <TouchableOpacity
               key={reward.id || index}
@@ -86,17 +75,7 @@ export default function RecentRewards() {
                   {shortAddress(reward.customerAddress)}
                 </Text>
               </View>
-              <View
-                className="px-3 py-1.5 rounded-lg"
-                style={{ backgroundColor: badge.bg }}
-              >
-                <Text
-                  className="text-xs font-bold"
-                  style={{ color: badge.text }}
-                >
-                  {badge.label}
-                </Text>
-              </View>
+              <TierBadge tier={reward.customerTier} />
               <Text className="text-white font-bold text-sm ml-3 w-16 text-right">
                 {reward.amount} RCN
               </Text>
