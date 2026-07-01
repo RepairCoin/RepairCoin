@@ -14,6 +14,7 @@ import { CampaignRepository } from '../repositories/CampaignRepository';
 import { BillingPlanRepository, limitsForTier } from '../repositories/BillingPlanRepository';
 import { GoogleConnectionRepository } from '../repositories/GoogleConnectionRepository';
 import { googleAdsService } from '../services/GoogleAdsService';
+import { googleAdsCreativeService } from '../services/GoogleAdsCreativeService';
 import { decryptToken } from '../../../utils/tokenCrypto';
 import { SafeguardRepository } from '../repositories/SafeguardRepository';
 import { AdMessageRepository } from '../repositories/AdMessageRepository';
@@ -144,13 +145,21 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
       } as any);
       await safeguards.ensureDefault(campaign.id);
       try {
+        const token = decryptToken(gconn.refreshTokenEnc);
         const g = await googleAdsService.createSearchCampaign(
-          gconn.customerId, decryptToken(gconn.refreshTokenEnc),
+          gconn.customerId, token,
           { name: gName, dailyBudgetMicros: gDailyCents * 10000 } // cents → micros
         );
         await campaigns.setGoogleObjects(campaign.id, {
           googleCampaignId: g.campaignId, googleAdGroupId: g.adGroupId,
           googleBudgetId: g.budgetResourceName.split('/').pop(), googleStatus: 'PAUSED',
+        });
+        // Creative: AI-generated RSA copy + keywords → a PAUSED Responsive Search Ad on the ad group.
+        const copy = await googleAdsCreativeService.generateRsaCopy(r.shopId, { offer: r.offer, campaignId: campaign.id });
+        const landingBase = (process.env.ADS_LANDING_BASE_URL || process.env.FRONTEND_URL || 'https://staging.repaircoin.ai').replace(/\/$/, '');
+        await googleAdsService.addResponsiveSearchAdAndKeywords(gconn.customerId, token, g.adGroupResourceName, {
+          headlines: copy.headlines, descriptions: copy.descriptions, keywords: copy.keywords,
+          finalUrl: `${landingBase}/l/${campaign.id}`,
         });
         await campaigns.update(campaign.id, { status: 'draft' }); // local draft; PAUSED on Google
         const updated = await requests.setStatus(id, 'building', { campaignId: campaign.id, decidedBy: adminId(req) });
