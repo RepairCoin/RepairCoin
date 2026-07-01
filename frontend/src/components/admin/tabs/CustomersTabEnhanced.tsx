@@ -1505,8 +1505,14 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                       // Reload the customer data
                       await loadCustomersData();
                     } else {
-                      // For reject, we might need a separate API endpoint
-                      toast.success("Unsuspend request rejected");
+                      // Reject via the real endpoint (needs the request id).
+                      const requestId = customer?.unsuspendRequest?.id;
+                      if (!requestId) {
+                        toast.error("No unsuspend request found for this customer");
+                        return;
+                      }
+                      // processUnsuspendRequest handles the API call, toast, and reload.
+                      await processUnsuspendRequest(requestId, "reject", unsuspendNotes);
                     }
 
                     setUnsuspendReviewModal({

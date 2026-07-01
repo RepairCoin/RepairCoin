@@ -1451,9 +1451,13 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                       "Unsuspend request approved"
                     );
                   } else {
-                    // For reject, we might need a separate API endpoint
-                    // For now, just close the modal
-                    toast.success("Unsuspend request rejected");
+                    // Reject via the real endpoint (needs the request id).
+                    const requestId = shop?.unsuspendRequest?.id;
+                    if (!requestId) {
+                      toast.error("No unsuspend request found for this shop");
+                      return;
+                    }
+                    await processShopUnsuspendRequest(requestId, "reject", unsuspendNotes);
                   }
 
                   setUnsuspendReviewModal({
