@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { ReviewData, ReviewReply } from "@/feature/services/services/service.interface";
 import { serviceApi } from "@/feature/services/services/service.services";
+import FlagReviewModal from "@/feature/shop/customers/components/FlagReviewModal";
 
 interface ReviewCardProps {
   review: ReviewData;
@@ -64,6 +65,7 @@ function ReviewImage({ uri }: { uri: string }) {
 export default function ReviewCard({ review, isShopOwner = false, currentUserAddress, onReviewUpdated }: ReviewCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showFlagModal, setShowFlagModal] = useState(false);
 
   // Shop response state
   const [isResponding, setIsResponding] = useState(false);
@@ -219,8 +221,19 @@ export default function ReviewCard({ review, isShopOwner = false, currentUserAdd
               <Ionicons name="pencil-outline" size={15} color="#9CA3AF" />
             </TouchableOpacity>
           )}
+          {isShopOwner && (
+            <TouchableOpacity onPress={() => setShowFlagModal(true)} className="p-1">
+              <Ionicons name="flag-outline" size={15} color="#EF4444" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
+
+      <FlagReviewModal
+        visible={showFlagModal}
+        onClose={() => setShowFlagModal(false)}
+        reviewId={review.reviewId}
+      />
 
       {/* Edit review form */}
       {isEditingReview ? (

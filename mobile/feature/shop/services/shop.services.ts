@@ -22,6 +22,8 @@ import {
   BlockCustomerResponse,
   BlockedCustomersResponse,
   CustomerBlockStatusResponse,
+  FlagReviewRequest,
+  FlagReviewResponse,
 } from "./shop.interface";
 import {
   PurchaseHistoryResponse,
@@ -240,6 +242,16 @@ class ShopApi {
       return await apiClient.post(`/shops/moderation/reports`, data);
     } catch (error: any) {
       console.error("Failed to submit issue report:", error.message);
+      throw error;
+    }
+  }
+
+  // Flag a customer review as inappropriate (sends to admin moderation).
+  async flagReview(data: FlagReviewRequest): Promise<FlagReviewResponse> {
+    try {
+      return await apiClient.post(`/shops/moderation/flag-review`, data);
+    } catch (error: any) {
+      console.error("Failed to flag review:", error.message);
       throw error;
     }
   }
