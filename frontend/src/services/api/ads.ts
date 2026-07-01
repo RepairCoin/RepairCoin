@@ -798,6 +798,35 @@ export const disconnectMeta = async (): Promise<void> => {
   await apiClient.post('/ads/shop/meta/disconnect', {});
 };
 
+/* ----------------------- Connect Google (Google plan, Slice 1) ----------------------- */
+export interface GoogleConnection {
+  enabled: boolean;       // ADS_GOOGLE_CONNECT_ENABLED + a configured Google app
+  connected: boolean;     // a customer account is selected
+  hasToken: boolean;      // OAuth done but no customer picked yet
+  customerId: string | null;
+}
+export interface GoogleCustomerLite { customerId: string; name: string; }
+
+export const getGoogleConnection = async (): Promise<GoogleConnection> => {
+  const res = await apiClient.get('/ads/shop/google/connection');
+  return unwrap<GoogleConnection>(res);
+};
+export const getGoogleConnectUrl = async (): Promise<string> => {
+  const res = await apiClient.get('/ads/shop/google/connect');
+  return unwrap<{ authUrl: string }>(res).authUrl;
+};
+export const getGoogleAccounts = async (): Promise<{ accounts: GoogleCustomerLite[] }> => {
+  const res = await apiClient.get('/ads/shop/google/accounts');
+  return unwrap(res);
+};
+export const selectGoogleAccount = async (customerId: string) => {
+  const res = await apiClient.post('/ads/shop/google/select', { customerId });
+  return unwrap<{ customerId: string; connected: boolean }>(res);
+};
+export const disconnectGoogle = async (): Promise<void> => {
+  await apiClient.post('/ads/shop/google/disconnect', {});
+};
+
 /* --------------------------------- Shop ---------------------------------- */
 
 export const listShopCampaigns = async (params?: { status?: CampaignStatus }) => {

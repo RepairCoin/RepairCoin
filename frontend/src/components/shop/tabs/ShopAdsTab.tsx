@@ -14,6 +14,7 @@ import { LeadKanban } from "@/components/ads/LeadKanban";
 import { AdMessageThread } from "@/components/ads/AdMessageThread";
 import { SubscriptionPanel } from "@/components/ads/SubscriptionPanel";
 import { MetaConnectCard } from "@/components/ads/MetaConnectCard";
+import { GoogleConnectCard } from "@/components/ads/GoogleConnectCard";
 import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import { AdEnrollmentCTA } from "@/components/ads/AdEnrollmentCTA";
 import { CampaignBriefFields, briefToApi, emptyBrief, type BriefValue } from "@/components/ads/CampaignBriefFields";
@@ -169,6 +170,9 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
 
           {/* STEP 2 — connect Meta (renders connect/connected/null based on state) */}
           <MetaConnectCard onChanged={load} />
+
+          {/* Connect Google (Google plan, Slice 1) — Business tier; behind the rollout flag. */}
+          {process.env.NEXT_PUBLIC_ADS_GOOGLE_ENABLED === "true" && <GoogleConnectCard onChanged={load} />}
 
           {needsConnect ? (
             /* Gate step 3 until the ad account is connected */
