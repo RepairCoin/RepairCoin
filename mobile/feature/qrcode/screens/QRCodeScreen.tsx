@@ -14,14 +14,15 @@ export default function QRCodeScreen() {
     copyToClipboard,
     formatAddress,
     handleGoBack,
-    handleShare,
+    handleDownload,
+    qrRef,
   } = useQRCode();
 
   return (
     <View className="w-full h-full px-4 bg-white">
-      <QRCodeHeader onBack={handleGoBack} onShare={handleShare} />
+      <QRCodeHeader onBack={handleGoBack} onDownload={handleDownload} />
 
-      <QRCodeDisplay walletAddress={walletAddress} />
+      <QRCodeDisplay walletAddress={walletAddress} qrRef={qrRef} />
 
       <QRCodeInfo />
 

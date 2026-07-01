@@ -127,6 +127,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           color: "#FFCC00",
         },
       ],
+      [
+        "expo-media-library",
+        {
+          photosPermission: "FixFlow needs access to your photo library to save your wallet QR code image.",
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
