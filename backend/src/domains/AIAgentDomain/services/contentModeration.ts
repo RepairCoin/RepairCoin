@@ -124,3 +124,17 @@ export async function deactivateService(
   cache = null;
   return (res.rowCount ?? 0) > 0;
 }
+
+/** Remove a flagged review (admin enforcement — deletes the inappropriate review). */
+export async function removeReview(
+  reviewId: string,
+  pool: Pool = getSharedPool()
+): Promise<boolean> {
+  const res = await pool.query(
+    `DELETE FROM service_reviews WHERE review_id = $1`,
+    [reviewId]
+  );
+  // Drop the cached scan so the removed item disappears on next view.
+  cache = null;
+  return (res.rowCount ?? 0) > 0;
+}

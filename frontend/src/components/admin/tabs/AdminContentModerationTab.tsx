@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
-import { Sparkles, Loader2, Play, AlertTriangle, Ban, X, ShieldCheck } from "lucide-react";
+import { Sparkles, Loader2, Play, Ban, X, ShieldCheck, Trash2 } from "lucide-react";
 import {
   scanContent,
   deactivateFlaggedService,
+  removeFlaggedReview,
   ContentModerationResult,
   FlaggedContent,
 } from "@/services/api/contentModeration";
@@ -15,6 +16,7 @@ export const AdminContentModerationTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   const load = async (refresh = false) => {
@@ -47,6 +49,20 @@ export const AdminContentModerationTab: React.FC = () => {
       toast.error("Failed to deactivate");
     } finally {
       setActioningId(null);
+    }
+  };
+
+  const removeReview = async (item: FlaggedContent) => {
+    setActioningId(item.id);
+    try {
+      await removeFlaggedReview(item.id);
+      toast.success("Review removed");
+      setDismissed((s) => new Set(s).add(item.id));
+    } catch {
+      toast.error("Failed to remove review");
+    } finally {
+      setActioningId(null);
+      setConfirmRemoveId(null);
     }
   };
 
@@ -123,6 +139,33 @@ export const AdminContentModerationTab: React.FC = () => {
                       Deactivate
                     </button>
                   )}
+                  {item.type === "review" && (
+                    confirmRemoveId === item.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => removeReview(item)}
+                          disabled={actioningId === item.id}
+                          className="px-3 py-1.5 text-xs rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {actioningId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setConfirmRemoveId(null)}
+                          className="px-2 py-1.5 text-xs rounded-lg bg-[#101010] border border-gray-700 text-gray-400 hover:text-white transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmRemoveId(item.id)}
+                        className="px-3 py-1.5 text-xs rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove review
+                      </button>
+                    )
+                  )}
                   <button
                     onClick={() => setDismissed((s) => new Set(s).add(item.id))}
                     className="px-3 py-1.5 text-xs rounded-lg bg-[#101010] border border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white transition-colors flex items-center gap-1.5"
@@ -137,7 +180,7 @@ export const AdminContentModerationTab: React.FC = () => {
       )}
 
       <p className="text-[10px] text-gray-600">
-        Flagged by automated moderation — review before acting. Dismiss clears it from this list (until the next scan).
+        Flagged by automated moderation — review before acting. Deactivate hides a service; Remove deletes a review permanently. Dismiss clears it from this list only (until the next scan).
       </p>
     </div>
   );

@@ -521,7 +521,7 @@ const commandBar = makeCommandBarController();
 router.post('/ai/command', (req, res) => { void commandBar.run(req, res); });
 
 // AI Content Moderation (Admin AI #5) — flag inappropriate listings/reviews.
-import { scanContent, deactivateService } from '../../AIAgentDomain/services/contentModeration';
+import { scanContent, deactivateService, removeReview } from '../../AIAgentDomain/services/contentModeration';
 router.get('/content-moderation/scan', async (req, res) => {
   try {
     const force = req.query.refresh === 'true';
@@ -540,6 +540,16 @@ router.post('/content-moderation/service/:serviceId/deactivate', async (req, res
   } catch (error) {
     logger.error('Failed to deactivate service:', error);
     res.status(500).json({ success: false, error: 'Failed to deactivate service' });
+  }
+});
+router.post('/content-moderation/review/:reviewId/remove', async (req, res) => {
+  try {
+    const ok = await removeReview(req.params.reviewId);
+    if (!ok) return res.status(404).json({ success: false, error: 'Review not found' });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to remove review:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove review' });
   }
 });
 

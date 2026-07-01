@@ -32,3 +32,7 @@ export async function scanContent(
 export async function deactivateFlaggedService(serviceId: string): Promise<void> {
   await apiClient.post(`/admin/content-moderation/service/${serviceId}/deactivate`);
 }
+
+export async function removeFlaggedReview(reviewId: string): Promise<void> {
+  await apiClient.post(`/admin/content-moderation/review/${reviewId}/remove`);
+}
