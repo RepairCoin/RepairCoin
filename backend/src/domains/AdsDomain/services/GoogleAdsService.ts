@@ -110,12 +110,16 @@ export class GoogleAdsService {
     }
   }
 
-  /** Low-level mutate against a Google Ads resource collection. Returns the results (resource names). */
-  private async mutate(customerId: string, accessToken: string, resource: string, operations: any[]): Promise<any[]> {
+  /** Low-level mutate against a Google Ads resource collection. Returns the results (resource names).
+   *  With `partialFailure`, per-operation failures (e.g. a policy-flagged keyword) come back as a 200
+   *  with only the valid ops applied — the request itself doesn't throw. */
+  private async mutate(customerId: string, accessToken: string, resource: string, operations: any[], partialFailure = false): Promise<any[]> {
     try {
+      const body: any = { operations };
+      if (partialFailure) body.partialFailure = true;
       const res = await axios.post(
         `${ADS_API}/customers/${customerId}/${resource}:mutate`,
-        { operations },
+        body,
         { headers: { ...this.apiHeaders(accessToken), 'Content-Type': 'application/json' }, timeout: 30000 }
       );
       return res.data?.results || [];
@@ -133,7 +137,7 @@ export class GoogleAdsService {
     customerId: string,
     refreshToken: string,
     input: { name: string; dailyBudgetMicros: number }
-  ): Promise<{ campaignId: string; campaignResourceName: string; budgetResourceName: string; adGroupId: string }> {
+  ): Promise<{ campaignId: string; campaignResourceName: string; budgetResourceName: string; adGroupId: string; adGroupResourceName: string }> {
     const access = await this.refreshAccessToken(refreshToken);
     const stamp = Date.now();
     // 1. Shared budget (daily, micros).
@@ -160,8 +164,44 @@ export class GoogleAdsService {
     const ag = await this.mutate(customerId, access, 'adGroups', [
       { create: { name: `${input.name} Ad Group`, campaign: campaignResourceName, status: 'PAUSED', type: 'SEARCH_STANDARD' } },
     ]);
-    const adGroupId = (ag[0].resourceName as string).split('/').pop() as string;
-    return { campaignId, campaignResourceName, budgetResourceName, adGroupId };
+    const adGroupResourceName = ag[0].resourceName as string;
+    const adGroupId = adGroupResourceName.split('/').pop() as string;
+    return { campaignId, campaignResourceName, budgetResourceName, adGroupId, adGroupResourceName };
+  }
+
+  /** Add a Responsive Search Ad (PAUSED) + broad-match keywords to an ad group. RSA needs 3-15
+   *  headlines (≤30 chars) + 2-4 descriptions (≤90). Slice 3 (BE-3b). */
+  async addResponsiveSearchAdAndKeywords(
+    customerId: string,
+    refreshToken: string,
+    adGroupResourceName: string,
+    input: { headlines: string[]; descriptions: string[]; finalUrl: string; keywords: string[] }
+  ): Promise<{ adResourceName: string; keywordCount: number }> {
+    const access = await this.refreshAccessToken(refreshToken);
+    const ad = await this.mutate(customerId, access, 'adGroupAds', [
+      { create: {
+        adGroup: adGroupResourceName,
+        status: 'PAUSED',
+        ad: {
+          finalUrls: [input.finalUrl],
+          responsiveSearchAd: {
+            headlines: input.headlines.slice(0, 15).map((t) => ({ text: t })),
+            descriptions: input.descriptions.slice(0, 4).map((t) => ({ text: t })),
+          },
+        },
+      } },
+    ]);
+    const adResourceName = ad[0].resourceName as string;
+    let keywordCount = 0;
+    const kws = (input.keywords || []).map((k) => k.trim()).filter(Boolean).slice(0, 20);
+    if (kws.length) {
+      // partial-failure: keywords that trip a content policy (e.g. "Third Party Consumer Technical
+      // Support") are skipped; the valid ones still get added. Count only the applied results.
+      const ops = kws.map((k) => ({ create: { adGroup: adGroupResourceName, status: 'ENABLED', keyword: { text: k, matchType: 'BROAD' } } }));
+      const res = await this.mutate(customerId, access, 'adGroupCriteria', ops, true);
+      keywordCount = res.filter((r: any) => r?.resourceName).length;
+    }
+    return { adResourceName, keywordCount };
   }
 
   private apiHeaders(accessToken: string): Record<string, string> {
