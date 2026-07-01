@@ -1,6 +1,6 @@
 # AI Sales Agent — Status
 
-_Last updated: 2026-05-25 (reschedule + cancel implementation landed on branch)_
+_Last updated: 2026-05-26 (reschedule outcome confirmations shipped PR #387)_
 
 This doc is the running status of in-flight AI Sales Agent work. Update it when the situation changes so a fresh Claude session (or anyone picking up the thread) can resume without re-discovering state.
 
@@ -13,6 +13,7 @@ This doc is the running status of in-flight AI Sales Agent work. Update it when 
 | Multi-turn topic drift + duplicate-card fixes | `deo/ai-mike-tool-overeager-fix` | ✅ Merged (PR #347, commit `7c62c76b`) — live on staging |
 | Menu-item FAQ surfacing | `deo/ai-menu-item-faq` | ✅ Merged (PR #348, merge commit `547b1b26`) — deployed on staging 2026-05-13 evening |
 | **Reschedule + cancel via chat** | `deo/ai-sales-reschedule-cancel` | ✅ **Merged (PR #384, merge `fe584af4`)** — shipped 2026-05-25. 9 commits, all 5 phases. ~3.5d actual against an estimated 6-8d. 835/835 ai-agent tests green. End-to-end smoke optional — `qa-fixtures/` ready when wanted. See "Reschedule + cancel implementation" section below. |
+| **Reschedule outcome confirmations (approve / reject / expire)** | `deo/ai-sales-reschedule-outcome-handlers` | ✅ **Merged (PR #387, merge `33370671`)** — shipped 2026-05-26. Closes the chat loop after the shop responds. One `RescheduleRequestOutcomeHandler` class, three event subscriptions, templated messages. Identified post-#384 via user feedback ("approved a request, will the customer get a notification?" — answer was no, now yes). |
 | "Currently discussing" chip dynamic update | `deo/ai-menu-item-faq` (extended) | 🟡 Implemented locally — stamps `discussed_service_id`/`discussed_service_name` on every AI message; chip reads latest AI message's value with prop fallback. 10 unit tests passing. Not yet committed. |
 | Slot-taken explicit awareness | — | ⏸ Parked (current "closest available" UX is acceptable) |
 
@@ -79,6 +80,32 @@ Jaccard-style token-overlap check (≥70% of significant tokens after lowercase 
 - Frontend `tsc --noEmit` clean for all 3 new components + 2 modified files
 
 **End-to-end smoke** is optional but available. QA fixtures in `docs/tasks/strategy/ai-sales-agent/qa-fixtures/` handle data setup (`setup-cancellable-appointment.ts` is the happy-path entry). Manual flow documented in `qa-fixtures/README.md`. Same fixture pattern as Business-Data Insights' `qa-fixtures/`.
+
+---
+
+## Shipped: Reschedule Outcome Confirmations (approve / reject / expire)
+
+**Branch:** `deo/ai-sales-reschedule-outcome-handlers` (1 commit)
+**PR:** #387, merged 2026-05-26, merge commit `33370671`
+
+Follow-up to PR #384 — added the missing closing beats so the customer sees an AI message when the shop responds to (or doesn't respond to) their reschedule request. Identified the gap via user feedback the day after #384 merged.
+
+**Subscribes to three pre-existing events:**
+
+| Event | Source | Message template |
+|---|---|---|
+| `reschedule:request_approved` | `RescheduleService:381` (shop approve action) | "Good news {name} — {shop} approved your reschedule. Your {service} is now on {newSlot}." |
+| `reschedule:request_rejected` | `RescheduleService:464` (shop reject action) | "{shop} wasn't able to move {service} — your booking stays at {originalSlot}.{ reason ? ` Reason: ${reason}.` : '' }" |
+| `reschedule:request_expired` | `RescheduleService:564` (auto-expire cron at 48h `expires_at`) | "Your reschedule request for {service} timed out without a response. Your booking stays at {originalSlot}." |
+
+**One handler class — `RescheduleRequestOutcomeHandler`** — three methods, shared `postOutcomeMessage` helper for the lookup → guard → idempotency → persist → WS broadcast pipeline.
+
+**Same scope rules as the rest of the AI-chat handlers:**
+- Skips when `order.conversationId` is null (dashboard-initiated reschedules don't post to chat).
+- Templated, no Claude call, no `ANTHROPIC_API_KEY` dependency.
+- Idempotent per outcome: `(metadata.source, request_id)` — `reschedule_request_approved` / `reschedule_request_rejected` / `reschedule_request_expired` are distinct source keys so an approve followed by a hypothetical re-emit of the same event can't double-post.
+
+Tests: 835/835 ai-agent suite still passing — no new tests added (matches the no-test convention of the existing Booking/Cancellation/Reschedule confirmation handlers; smoke-test path is the `qa-fixtures/setup-pending-reschedule-request.ts` flow → approve via shop dashboard).
 
 ---
 
