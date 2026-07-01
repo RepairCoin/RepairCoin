@@ -25,11 +25,13 @@ import {
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { apiClient } from "@/shared/utilities/axios";
 import { useAppToast } from "@/shared/hooks";
-import ActionCard from "@/shared/components/shared/ActionCard";
 import TrendingSection from "./TrendingSection";
-import ServiceSection from "./ServiceSection";
-import RecentlyViewedSection from "./RecentlyViewedSection";
-import CampaignsPromosSection from "./CampaignsPromosSection";
+import AiSearchBar from "./AiSearchBar";
+import QuickActions from "./QuickActions";
+import CategoryGrid from "./CategoryGrid";
+import AiRecommendedSection from "./AiRecommendedSection";
+import NearbyShopsSection from "./NearbyShopsSection";
+import UpcomingBookingsList from "./UpcomingBookingsList";
 import NoShowWarningBanner from "../ui/NoShowWarningBanner";
 
 export default function CustomerWalletTab() {
@@ -206,38 +208,11 @@ export default function CustomerWalletTab() {
         }
       >
         <NoShowWarningBanner />
-        <ActionCard
-          balance={tokenData.balance}
-          tier={tokenData.tier}
-          isLoading={isLoading}
-          quickActions={[
-            // {
-            //   icon: <Ionicons name="arrow-up-circle-outline" size={24} color="#000" />,
-            //   label: "Mint",
-            //   onPress: () => totalBalance > 0 ? setShowMintModal(true) : showError("No platform balance to mint"),
-            // },
-            // {
-            //   icon: <MaterialIcons name="card-giftcard" size={24} color="#000" />,
-            //   label: "Gift Token",
-            //   onPress: () => router.push("/customer/gift-token"),
-            // },
-            {
-              icon: <Ionicons name="qr-code-outline" size={24} color="#000" />,
-              label: "QR Code",
-              onPress: () => router.push("/customer/qrcode"),
-            },
-            {
-              icon: <Ionicons name="ribbon-outline" size={24} color="#000" />,
-              label: "Tier Info",
-              onPress: () => router.push("/customer/tier-info"),
-            },
-            {
-              icon: <Ionicons name="wallet-outline" size={24} color="#000" />,
-              label: "Redeem",
-              onPress: () => router.push("/customer/redeem"),
-            },
-          ]}
+        <AiSearchBar
+          // TODO(wire-later): route to the mobile AI assistant screen once it exists.
+          onPress={() => router.push("/customer/tabs/service")}
         />
+        <QuickActions />
         {/* <Modal visible={showMintModal} transparent animationType="fade">
           <Pressable
             className="flex-1 bg-black/60 justify-center items-center"
@@ -301,13 +276,6 @@ export default function CustomerWalletTab() {
             </Pressable>
           </Pressable>
         </Modal> */}
-        {recentlyViewedData && recentlyViewedData.length > 0 && (
-          <RecentlyViewedSection
-            data={recentlyViewedData}
-            isLoading={recentlyViewedLoading}
-            onServicePress={handleServicePress}
-          />
-        )}
         {trendingData && trendingData.length > 0 && (
           <TrendingSection
             handleViewAllTrendingServices={handleViewAllTrendingServices}
@@ -318,18 +286,19 @@ export default function CustomerWalletTab() {
           />
         )}
         {displayedServices && displayedServices.length > 0 && (
-          <ServiceSection
-            handleViewAllServices={handleViewAllServices}
-            servicesLoading={servicesLoading}
-            displayedServices={displayedServices}
-            handleServicePress={handleServicePress}
+          <AiRecommendedSection
+            data={displayedServices}
+            isLoading={servicesLoading}
+            onServicePress={handleServicePress}
+            onSeeAll={handleViewAllServices}
             favoritedIds={favoritedIds}
           />
         )}
+        <CategoryGrid />
+        <NearbyShopsSection />
+        <UpcomingBookingsList />
         {!servicesLoading &&
           !trendingLoading &&
-          !recentlyViewedLoading &&
-          (!recentlyViewedData || recentlyViewedData.length === 0) &&
           (!trendingData || trendingData.length === 0) &&
           (!displayedServices || displayedServices.length === 0) && (
             <View className="flex-1 justify-center items-center pt-20">
@@ -342,7 +311,7 @@ export default function CustomerWalletTab() {
               </Text>
             </View>
           )}
-        <CampaignsPromosSection refreshKey={campaignRefreshKey} />
+        <View className="h-6" />
       </ScrollView>
     </View>
   );

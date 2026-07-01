@@ -3,7 +3,7 @@ import { Image, View, Text } from "react-native";
 import { useCustomer } from "@/feature/customer/profile/hooks/useCustomer";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useEndBootWhenReady } from "@/shared/hooks/useEndBootWhenReady";
-import { DemoBanner } from "@/shared/components/ui/DemoBanner";
+import GradientHeader from "@/shared/components/ui/GradientHeader";
 import {
   CustomerWalletTab,
   MessageButton,
@@ -21,34 +21,47 @@ export default function CustomerDashboard() {
   // Lift the cold-start boot splash once this screen has its data.
   useEndBootWhenReady(!!customerData);
 
+  const customer = customerData?.customer;
+  const firstName = customer?.name?.split(" ")[0] || "there";
+
   return (
     <View className="flex-1 bg-zinc-950">
-      <View className="flex-1 pt-14 px-4">
+      <GradientHeader>
         <View className="flex-row items-center justify-between">
           <Image
             source={require("@/assets/images/logo.png")}
-            className="w-[30%] h-10"
+            className="w-[34%] h-10"
             resizeMode="contain"
           />
-          <View
-            style={{ marginRight: -10 }}
-            className="flex-row items-center gap-2"
-          >
+          <View className="flex-row items-center gap-2">
+            {customer?.profileImageUrl ? (
+              <Image
+                source={{ uri: customer.profileImageUrl }}
+                className="w-10 h-10 rounded-full"
+                style={{ borderWidth: 2, borderColor: "#FFCC00" }}
+              />
+            ) : (
+              <View
+                className="w-10 h-10 rounded-full bg-zinc-800 items-center justify-center"
+                style={{ borderWidth: 2, borderColor: "#FFCC00" }}
+              >
+                <Text className="text-[#FFCC00] font-bold">
+                  {(customer?.name?.[0] || "U").toUpperCase()}
+                </Text>
+              </View>
+            )}
             <MessageButton userType="customer" />
             <NotificationBell userType="customer" />
           </View>
         </View>
-        <View className="flex-row my-4 justify-between items-center">
-          <View className="flex-row">
-            <Text className="text-lg font-semibold text-[#FFCC00] mr-2">
-              Hello!
-            </Text>
-            <Text className="text-lg font-semibold text-white">
-              {customerData?.customer?.name}
-            </Text>
-          </View>
+        <View className="mt-3">
+          <Text className="text-white text-xl font-bold">
+            Welcome back! {firstName} 👋
+          </Text>
         </View>
-        <DemoBanner />
+      </GradientHeader>
+
+      <View className="flex-1 px-4">
         <CustomerWalletTab />
       </View>
     </View>
