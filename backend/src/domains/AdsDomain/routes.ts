@@ -39,6 +39,10 @@ import {
 } from './controllers/EnrollmentController';
 import { getAdChannels } from './controllers/AdChannelController';
 import {
+  getGoogleConnectUrl, handleGoogleOauthCallback, listMyGoogleAccounts,
+  selectMyGoogleAccount, getMyGoogleConnection, disconnectMyGoogle,
+} from './controllers/GoogleConnectController';
+import {
   getMyMessages, postMyMessage, listShopMessages, postAdminMessage, getMessageInbox,
 } from './controllers/MessageController';
 import {
@@ -98,6 +102,9 @@ export function initializeRoutes(): Router {
   // PUBLIC — Meta OAuth callback (browser redirect from Facebook). shopId is read from the
   // signed `state`, never a param; on success stores the token and bounces to the picker.
   router.get('/meta/oauth/callback', handleMetaOauthCallback);
+
+  // PUBLIC — Google OAuth callback (browser redirect from Google). shopId from the signed state.
+  router.get('/google/oauth/callback', handleGoogleOauthCallback);
 
   // PUBLIC — Meta signed_request callbacks (app removed / data-deletion request). The service
   // verifies the signature; both map the Meta user id → shop and clear the connection.
@@ -205,6 +212,13 @@ export function initializeRoutes(): Router {
   router.get('/shop/meta/accounts', ...shop, listMyMetaAccounts);        // ad accounts + Pages picker
   router.post('/shop/meta/select', ...shop, selectMyMetaAccount);        // store choice + flip §9.6 gate
   router.post('/shop/meta/disconnect', ...shop, disconnectMyMeta);
+
+  // ---- Shop: Connect Google (Google plan, Slice 1) ----
+  router.get('/shop/google/connect', ...shop, getGoogleConnectUrl);       // → OAuth consent URL
+  router.get('/shop/google/connection', ...shop, getMyGoogleConnection);  // current status
+  router.get('/shop/google/accounts', ...shop, listMyGoogleAccounts);     // customer-account picker
+  router.post('/shop/google/select', ...shop, selectMyGoogleAccount);     // store choice + flip gate
+  router.post('/shop/google/disconnect', ...shop, disconnectMyGoogle);
 
   return router;
 }
