@@ -3,7 +3,10 @@ import { useAppToast } from "@/shared/hooks/useAppToast";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import { queryKeys } from "@/shared/config/queryClient";
 import { shopApi } from "@/feature/shop/services/shop.services";
-import { BlockCustomerRequest } from "@/feature/shop/services/shop.interface";
+import {
+  BlockCustomerRequest,
+  FlagReviewRequest,
+} from "@/feature/shop/services/shop.interface";
 
 // List of blocked customers for the current shop.
 export function useBlockedCustomers() {
@@ -65,6 +68,42 @@ export function useBlockCustomer(onSuccess?: () => void) {
     ...mutation,
     mutate: (
       request: BlockCustomerRequest,
+      options?: Parameters<typeof mutation.mutate>[1],
+    ) => {
+      guard(() => mutation.mutate(request, options));
+    },
+  };
+}
+
+export function useFlagReview(onSuccess?: () => void) {
+  const { showSuccess, showError } = useAppToast();
+  const { guard, reset } = useSubmitGuard();
+
+  const mutation = useMutation({
+    mutationFn: async (request: FlagReviewRequest) => shopApi.flagReview(request),
+    onSuccess: () => {
+      showSuccess("Review flagged. Sent to admin for review.");
+      onSuccess?.();
+    },
+    onError: (error: any) => {
+      console.error("Failed to flag review:", error);
+      let message = "Failed to flag review. Please try again.";
+      if (error.response?.status === 409) {
+        message = "You've already flagged this review.";
+      } else if (error.response?.data?.error) {
+        message = error.response.data.error;
+      } else if (error.message) {
+        message = error.message;
+      }
+      showError(message);
+    },
+    onSettled: reset,
+  });
+
+  return {
+    ...mutation,
+    mutate: (
+      request: FlagReviewRequest,
       options?: Parameters<typeof mutation.mutate>[1],
     ) => {
       guard(() => mutation.mutate(request, options));

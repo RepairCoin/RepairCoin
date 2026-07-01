@@ -24,7 +24,11 @@ export function useServiceReviews() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: queryKeys.serviceReviews(id!),
+    // Distinct key from the regular useQuery consumers of serviceReviews
+    // (service detail + feature tab). An infinite query stores { pages },
+    // a regular query stores { data } — sharing one key collides the shapes
+    // and crashes. Prefix-based invalidation still matches this longer key.
+    queryKey: [...queryKeys.serviceReviews(id!), "infinite"],
     queryFn: ({ pageParam }) =>
       serviceApi.getServiceReviews(id!, {
         page: pageParam,

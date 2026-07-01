@@ -430,6 +430,25 @@ export interface ShopReport {
 export interface SubmitIssueReportResponse extends BaseResponse<ShopReport> {}
 export interface ShopReportsResponse extends BaseResponse<ShopReport[]> {}
 
+// ==================== Moderation: Flagged Reviews ====================
+export interface FlaggedReview {
+  id: string;
+  reviewId: string;
+  shopId: string;
+  reason: string;
+  status: "pending" | "approved" | "removed";
+  flaggedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FlagReviewRequest {
+  reviewId: string;
+  reason: string;
+}
+
+export interface FlagReviewResponse extends BaseResponse<FlaggedReview> {}
+
 // ==================== Moderation: Blocked Customers ====================
 export interface BlockedCustomer {
   id: string;
