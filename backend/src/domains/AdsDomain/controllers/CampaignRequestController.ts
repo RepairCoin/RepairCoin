@@ -138,38 +138,44 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
       }
       const gName = (req.body?.name || '').toString().trim() || `Campaign — ${r.goal ?? 'ads'}`;
       const gDailyCents = req.body?.dailyBudgetCents ?? (r.monthlyBudgetCents ? Math.round(r.monthlyBudgetCents / 30) : 0);
+      const gRefreshEnc = gconn.refreshTokenEnc; // non-null (guarded above)
+      const gCustomerId = gconn.customerId;
+      const gAdmin = adminId(req);
       const campaign = await campaigns.create({
         shopId: r.shopId, name: gName, platform: 'google',
         targetRadiusMiles: r.targetRadiusMiles ?? null, dailyBudgetCents: gDailyCents,
-        notes: r.offer ? `Offer: ${r.offer}` : null, createdBy: adminId(req),
+        notes: r.offer ? `Offer: ${r.offer}` : null, createdBy: gAdmin,
       } as any);
       await safeguards.ensureDefault(campaign.id);
-      try {
-        const token = decryptToken(gconn.refreshTokenEnc);
-        const g = await googleAdsService.createSearchCampaign(
-          gconn.customerId, token,
-          { name: gName, dailyBudgetMicros: gDailyCents * 10000 } // cents → micros
-        );
-        await campaigns.setGoogleObjects(campaign.id, {
-          googleCampaignId: g.campaignId, googleAdGroupId: g.adGroupId,
-          googleBudgetId: g.budgetResourceName.split('/').pop(), googleStatus: 'PAUSED',
-        });
-        // Creative: AI-generated RSA copy + keywords → a PAUSED Responsive Search Ad on the ad group.
-        const copy = await googleAdsCreativeService.generateRsaCopy(r.shopId, { offer: r.offer, campaignId: campaign.id });
-        const landingBase = (process.env.ADS_LANDING_BASE_URL || process.env.FRONTEND_URL || 'https://staging.repaircoin.ai').replace(/\/$/, '');
-        await googleAdsService.addResponsiveSearchAdAndKeywords(gconn.customerId, token, g.adGroupResourceName, {
-          headlines: copy.headlines, descriptions: copy.descriptions, keywords: copy.keywords,
-          finalUrl: `${landingBase}/l/${campaign.id}`,
-        });
-        await campaigns.update(campaign.id, { status: 'draft' }); // local draft; PAUSED on Google
-        const updated = await requests.setStatus(id, 'building', { campaignId: campaign.id, decidedBy: adminId(req) });
-        void postEvent(r.shopId, `Google campaign "${gName}" created (paused) — review, then take it live.`);
-        res.status(201).json({ success: true, data: { request: updated, campaign, prepared: true, platform: 'google' } });
-      } catch (err: any) {
-        await campaigns.softDelete(campaign.id); // roll back our record (any orphaned Google objects are paused → no spend)
-        logger.error('buildCampaignFromRequest: google push failed', err?.message || err);
-        res.status(502).json({ success: false, error: 'google_push_failed', message: err?.message || 'Failed to create the Google campaign.' });
-      }
+      // Respond FAST, then create the Google objects in the BACKGROUND. The full push (budget →
+      // campaign → ad group → RSA → keywords, plus an AI copy call) exceeds the gateway timeout if
+      // done synchronously (→ 504). Mirrors the Meta async push; the campaign appears as a building
+      // draft immediately and flips to 'draft' when the objects land (or is removed on failure).
+      const updated = await requests.setStatus(id, 'building', { campaignId: campaign.id, decidedBy: gAdmin });
+      res.status(201).json({ success: true, data: { request: updated, campaign, platform: 'google', pushing: true } });
+      void (async () => {
+        try {
+          const token = decryptToken(gRefreshEnc);
+          const g = await googleAdsService.createSearchCampaign(gCustomerId, token, { name: gName, dailyBudgetMicros: gDailyCents * 10000 });
+          await campaigns.setGoogleObjects(campaign.id, {
+            googleCampaignId: g.campaignId, googleAdGroupId: g.adGroupId,
+            googleBudgetId: g.budgetResourceName.split('/').pop(), googleStatus: 'PAUSED',
+          });
+          const copy = await googleAdsCreativeService.generateRsaCopy(r.shopId, { offer: r.offer, campaignId: campaign.id });
+          const landingBase = (process.env.ADS_LANDING_BASE_URL || process.env.FRONTEND_URL || 'https://staging.repaircoin.ai').replace(/\/$/, '');
+          await googleAdsService.addResponsiveSearchAdAndKeywords(gCustomerId, token, g.adGroupResourceName, {
+            headlines: copy.headlines, descriptions: copy.descriptions, keywords: copy.keywords,
+            finalUrl: `${landingBase}/l/${campaign.id}`,
+          });
+          await campaigns.update(campaign.id, { status: 'draft' }); // local draft; PAUSED on Google
+          void postEvent(r.shopId, `Google campaign "${gName}" created (paused) — review, then take it live.`);
+        } catch (err: any) {
+          logger.error('buildCampaignFromRequest: google push (background) failed', err?.message || err);
+          await campaigns.softDelete(campaign.id).catch(() => undefined); // orphaned Google objects are PAUSED → no spend
+          await requests.setStatus(id, 'approved', { decidedBy: gAdmin }).catch(() => undefined); // revert so it can be rebuilt
+          void postEvent(r.shopId, `Google campaign build failed — please retry. (${err?.message || 'error'})`);
+        }
+      })();
       return;
     }
     // §9.6 — can't go live until the shop's ad account is connected.
