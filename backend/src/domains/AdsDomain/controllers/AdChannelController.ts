@@ -10,9 +10,11 @@ import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { BillingPlanRepository, limitsForTier } from '../repositories/BillingPlanRepository';
 import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
+import { GoogleConnectionRepository } from '../repositories/GoogleConnectionRepository';
 
 const plans = new BillingPlanRepository();
 const metaConns = new MetaConnectionRepository();
+const googleConns = new GoogleConnectionRepository();
 
 // GET /shop/ad-channels (shop) — channel eligibility for the brief picker.
 export async function getAdChannels(req: Request, res: Response): Promise<void> {
@@ -21,8 +23,12 @@ export async function getAdChannels(req: Request, res: Response): Promise<void> 
   try {
     const plan = await plans.getOrDefault(shopId);
     const channels = limitsForTier(plan.flatTierName).channels; // e.g. business → [...,'google']
-    const conn = await metaConns.getConnection(shopId).catch(() => null);
-    const metaConnected = conn?.connected === true;
+    const [metaConn, googleConn] = await Promise.all([
+      metaConns.getConnection(shopId).catch(() => null),
+      googleConns.getConnection(shopId).catch(() => null),
+    ]);
+    const metaConnected = metaConn?.connected === true;
+    const googleConnected = googleConn?.connected === true;
     const googleEligible = channels.includes('google');
 
     res.json({
@@ -34,9 +40,9 @@ export async function getAdChannels(req: Request, res: Response): Promise<void> 
           reason: metaConnected ? 'ok' : 'not_connected',
         },
         google: {
-          eligible: googleEligible,                  // Business tier only
-          connected: false,                          // Google connect (Slice 1) not built yet
-          reason: googleEligible ? 'not_connected' : 'tier_locked',
+          eligible: googleEligible,                              // Business tier only
+          connected: googleConnected,                            // real connection state (Slice 1)
+          reason: !googleEligible ? 'tier_locked' : googleConnected ? 'ok' : 'not_connected',
         },
       },
     });
