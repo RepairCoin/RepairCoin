@@ -171,7 +171,7 @@ export function useCompleteOrderMutation() {
   };
 }
 
-export function useCancelOrderMutation() {
+export function useCancelOrderMutation(options?: { suppressErrorToast?: boolean }) {
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useAppToast();
 
@@ -202,6 +202,9 @@ export function useCancelOrderMutation() {
     },
     onError: (error: any) => {
       console.error("Failed to cancel order:", error);
+      // Callers that surface the error themselves (e.g. a native Alert for the
+      // hard-stop 24-hour rule) pass suppressErrorToast to avoid a double toast.
+      if (options?.suppressErrorToast) return;
       const message =
         error.response?.data?.error ||
         error.message ||

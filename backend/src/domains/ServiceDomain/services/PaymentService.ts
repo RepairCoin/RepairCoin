@@ -1131,31 +1131,47 @@ export class PaymentService {
       const service = await this.serviceRepository.getServiceById(order.serviceId);
       const shop = await shopRepository.getShop(order.shopId);
 
-      // 5. Send notification to customer
+      const refundSummary = refundDetails.length > 0 ? refundDetails.join(', ') : undefined;
+
+      // 5. Send confirmation to customer (in-app + WS + native push via gateway).
+      // The gateway fans out to every channel the registry declares for
+      // 'service_order_cancelled_by_customer' — the legacy createNotification
+      // path used before only persisted a row (no push / no WS).
       try {
-        if (service) {
-          await this.notificationService.createServiceOrderCancelledNotification(
-            order.customerAddress,
-            service.serviceName,
-            orderId,
-            refundStatus
-          );
+        if (service && shop) {
+          await this.notificationGateway.dispatch('service_order_cancelled_by_customer', order.customerAddress, {
+            message:
+              `Your booking for ${service.serviceName} at ${shop.name} has been cancelled` +
+              (refundSummary ? `. Refund: ${refundSummary}` : ''),
+            metadata: {
+              orderId,
+              serviceName: service.serviceName,
+              shopName: shop.name,
+              cancellationReason,
+              refundSummary,
+              timestamp: new Date().toISOString()
+            }
+          });
         }
       } catch (notifError) {
         logger.error('Failed to send customer cancellation notification:', notifError);
       }
 
-      // 6. Send notification to shop
+      // 6. Notify the shop (in-app + WS + native push via gateway) so it can free
+      // the slot and see who cancelled. Previously persisted only (no push/WS).
       try {
         if (service && shop && shop.walletAddress) {
-          await this.notificationService.createNotification({
-            senderAddress: 'SYSTEM',
-            receiverAddress: shop.walletAddress,
-            notificationType: 'service_booking_cancelled',
-            message: `Booking cancelled: ${service.serviceName} (Order ${orderId})`,
+          const cancelCustomer = await customerRepository.getCustomer(order.customerAddress);
+          const customerDisplayName =
+            cancelCustomer?.name ||
+            [(cancelCustomer as any)?.first_name, (cancelCustomer as any)?.last_name].filter(Boolean).join(' ').trim() ||
+            'A customer';
+          await this.notificationGateway.dispatch('service_booking_cancelled', shop.walletAddress, {
+            message: `${customerDisplayName} cancelled their ${service.serviceName} booking (Order ${orderId}).`,
             metadata: {
               orderId,
               serviceName: service.serviceName,
+              customerName: customerDisplayName,
               cancellationReason,
               cancellationNotes,
               timestamp: new Date().toISOString()
