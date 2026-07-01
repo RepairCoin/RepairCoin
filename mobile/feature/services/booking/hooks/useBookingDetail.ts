@@ -29,7 +29,10 @@ export function useBookingDetail() {
   // Mutations
   const approveOrderMutation = useApproveOrderMutation();
   const completeOrderMutation = useCompleteOrderMutation();
-  const cancelOrderMutation = useCancelOrderMutation();
+  // Customer-cancel errors are surfaced with a native Alert below (guaranteed
+  // visible + shows the exact backend reason, e.g. the 24-hour rule), so tell
+  // the mutation not to also fire its top toast.
+  const cancelOrderMutation = useCancelOrderMutation({ suppressErrorToast: true });
   const cancelOrderByShopMutation = useCancelOrderByShopMutation();
   const markNoShowMutation = useMarkNoShowMutation();
   const rescheduleMutation = useRescheduleMutation();
@@ -135,6 +138,22 @@ export function useBookingDetail() {
     );
   }, [booking, completeOrderMutation]);
 
+  const cancelWithReason = useCallback((reason: string) => {
+    if (!booking) return;
+    cancelOrderMutation.mutate(
+      { orderId: booking.orderId, reason },
+      {
+        onError: (error: any) => {
+          const message =
+            error?.response?.data?.error ||
+            error?.message ||
+            "Failed to cancel booking. Please try again.";
+          Alert.alert("Unable to Cancel Booking", message, [{ text: "OK" }]);
+        },
+      }
+    );
+  }, [booking, cancelOrderMutation]);
+
   const handleCancelBooking = useCallback(() => {
     if (!booking) return;
 
@@ -149,15 +168,15 @@ export function useBookingDetail() {
       "Cancel Booking",
       "Please select a reason for cancellation:",
       [
-        { text: "Schedule Conflict", onPress: () => cancelOrderMutation.mutate({ orderId: booking.orderId, reason: "schedule_conflict" }) },
-        { text: "Found Alternative", onPress: () => cancelOrderMutation.mutate({ orderId: booking.orderId, reason: "found_alternative" }) },
-        { text: "Too Expensive", onPress: () => cancelOrderMutation.mutate({ orderId: booking.orderId, reason: "too_expensive" }) },
-        { text: "Changed My Mind", onPress: () => cancelOrderMutation.mutate({ orderId: booking.orderId, reason: "changed_mind" }) },
-        { text: "Other", onPress: () => cancelOrderMutation.mutate({ orderId: booking.orderId, reason: "other" }) },
+        { text: "Schedule Conflict", onPress: () => cancelWithReason("schedule_conflict") },
+        { text: "Found Alternative", onPress: () => cancelWithReason("found_alternative") },
+        { text: "Too Expensive", onPress: () => cancelWithReason("too_expensive") },
+        { text: "Changed My Mind", onPress: () => cancelWithReason("changed_mind") },
+        { text: "Other", onPress: () => cancelWithReason("other") },
         { text: "Back", style: "cancel" },
       ]
     );
-  }, [booking, isShopView, cancelOrderMutation]);
+  }, [booking, isShopView, cancelWithReason]);
 
   const confirmCancel = useCallback(() => {
     if (!booking) return;

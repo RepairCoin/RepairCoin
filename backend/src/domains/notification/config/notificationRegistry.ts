@@ -90,6 +90,40 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
     },
   },
 
+  // ── Customer-cancelled booking → confirmation TO the customer ─────────────
+  // Distinct from service_order_cancelled (shop-initiated) because the wording
+  // must reflect that the customer cancelled, not the shop. Transactional so the
+  // refund summary always lands even if the customer muted order updates.
+  service_order_cancelled_by_customer: {
+    channels: ['persist', 'ws', 'push'],
+    transactional: true,
+    display: { title: 'Booking Cancelled', icon: 'cancelled', color: '#EF4444' },
+    push: {
+      channelId: NotificationChannels.APPOINTMENTS,
+      priority: 'high',
+      title: () => 'Booking Cancelled',
+      body: (m) =>
+        `Your ${m.serviceName} booking at ${m.shopName} has been cancelled.` +
+        (m.refundSummary ? ` Refund: ${m.refundSummary}` : ''),
+    },
+  },
+
+  // ── Customer-cancelled booking → notification TO the shop ─────────────────
+  // Lets the shop free the slot and see the refund/reason. Gated on the shop's
+  // 'newOrders' preference (see NOTIFICATION_PREFERENCE_MAP), consistent with
+  // service_booking_received.
+  service_booking_cancelled: {
+    channels: ['persist', 'ws', 'push'],
+    display: { title: 'Booking Cancelled', icon: 'cancelled', color: '#EF4444' },
+    push: {
+      channelId: NotificationChannels.APPOINTMENTS,
+      priority: 'high',
+      title: () => 'Booking Cancelled',
+      body: (m) =>
+        `${m.customerName} cancelled their ${m.serviceName} booking.`,
+    },
+  },
+
   // ── Appointment reminders (migrated from AppointmentReminderService) ──────
   booking_confirmed: {
     channels: ['persist', 'ws', 'push'],

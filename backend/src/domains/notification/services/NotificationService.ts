@@ -60,6 +60,7 @@ const NOTIFICATION_PREFERENCE_MAP: Record<string, keyof GeneralNotificationPrefe
 
   // Shop notifications
   service_booking_received: 'newOrders',
+  service_booking_cancelled: 'newOrders',
   reschedule_request_created: 'newOrders',
   upcoming_appointment: 'newOrders',
   redemption_approved: 'newOrders',

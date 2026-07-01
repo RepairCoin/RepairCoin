@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { router } from "expo-router";
-import { useMyAppointmentsQuery, useCancelAppointmentMutation } from "@/feature/services/booking/hooks";
-import { useAppToast } from "@/shared/hooks";
+import { useMyAppointmentsQuery, useCancelOrderMutation } from "@/feature/services/booking/hooks";
 import { MyAppointment } from "@/feature/services/services/service.interface";
 import { BookingFilterTab, BookingStatusFilter } from "@/feature/services/services/service.interface";
 import { getBookingDateRange, TIME_FILTERS, STATUS_FILTERS } from "@/shared/constants/services";
@@ -29,7 +28,6 @@ export const canCancelAppointment = (appointment: MyAppointment) => {
 
 export function useBookingsTab() {
   const { startDate, endDate } = getBookingDateRange();
-  const { showSuccess, showError } = useAppToast();
 
   const {
     data: appointmentData,
@@ -38,7 +36,12 @@ export function useBookingsTab() {
     refetch,
   } = useMyAppointmentsQuery(startDate, endDate);
 
-  const cancelMutation = useCancelAppointmentMutation();
+  // Use the order-cancel endpoint (POST /services/orders/:id/cancel) so the
+  // backend runs the full cancellation flow — refund + in-app/push notifications
+  // to the customer AND the shop. The old appointment-cancel endpoint only
+  // updated the DB and sent no notifications. This mutation owns its own
+  // success/error toasts.
+  const cancelMutation = useCancelOrderMutation();
 
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<BookingFilterTab>("all");
@@ -144,17 +147,18 @@ export function useBookingsTab() {
   const handleConfirmCancel = useCallback(() => {
     if (!selectedAppointment) return;
 
-    cancelMutation.mutate(selectedAppointment.orderId, {
-      onSuccess: () => {
-        setCancelModalVisible(false);
-        setSelectedAppointment(null);
-        showSuccess("Your appointment has been cancelled.");
-      },
-      onError: (err: any) => {
-        showError(err?.message || "Failed to cancel appointment. Please try again.");
-      },
-    });
-  }, [selectedAppointment, cancelMutation, showSuccess, showError]);
+    // The list modal doesn't collect a reason, but the order-cancel endpoint
+    // requires one — send a neutral default. Toasts are handled by the mutation.
+    cancelMutation.mutate(
+      { orderId: selectedAppointment.orderId, reason: "customer_request" },
+      {
+        onSuccess: () => {
+          setCancelModalVisible(false);
+          setSelectedAppointment(null);
+        },
+      }
+    );
+  }, [selectedAppointment, cancelMutation]);
 
   const closeCancelModal = useCallback(() => {
     setCancelModalVisible(false);
