@@ -289,6 +289,7 @@ export class CalendarController {
         try {
           await this.googleCalendarService.createEvent({
             orderId: order.order_id,
+            shopId,
             serviceName: order.service_name,
             serviceDescription: order.service_description,
             customerName: order.customer_name,

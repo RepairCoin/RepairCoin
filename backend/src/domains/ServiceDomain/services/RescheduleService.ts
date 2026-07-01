@@ -42,6 +42,22 @@ export class RescheduleService {
   }
 
   /**
+   * Resolve a shop's configured calendar timezone, defaulting to America/New_York.
+   */
+  private async getShopTimezone(shopId: string): Promise<string> {
+    try {
+      const result = await getSharedPool().query(
+        `SELECT COALESCE(timezone, 'America/New_York') AS timezone FROM shop_time_slot_config WHERE shop_id = $1`,
+        [shopId]
+      );
+      return result.rows[0]?.timezone || 'America/New_York';
+    } catch (error) {
+      logger.error('Failed to resolve shop timezone, defaulting to America/New_York:', error);
+      return 'America/New_York';
+    }
+  }
+
+  /**
    * Validate if a customer can request a reschedule
    */
   async validateRescheduleRequest(
@@ -354,9 +370,11 @@ export class RescheduleService {
 
       // Update Google Calendar event if shop has calendar connected
       try {
+        const shopTimezone = await this.getShopTimezone(orderInfo.shop_id);
         await this.googleCalendarService.updateEvent(
           request.orderId,
           {
+            shopId: orderInfo.shop_id,
             bookingDate: request.requestedDate,
             startTime: request.requestedTimeSlot,
             endTime: request.requestedEndTime || this.calculateEndTime(request.requestedTimeSlot, 60),
@@ -367,7 +385,7 @@ export class RescheduleService {
             customerPhone: undefined, // Can be fetched if needed
             customerAddress: request.customerAddress,
             totalAmount: 0, // Can be fetched if needed
-            shopTimezone: 'America/New_York', // TODO: Get from shop settings
+            shopTimezone,
           }
         );
         logger.info('Google Calendar event updated for rescheduled booking', { orderId: request.orderId });
@@ -705,9 +723,11 @@ export class RescheduleService {
 
       // Update Google Calendar event if shop has calendar connected
       try {
+        const shopTimezone = await this.getShopTimezone(order.shop_id);
         await this.googleCalendarService.updateEvent(
           orderId,
           {
+            shopId: order.shop_id,
             bookingDate: newDate,
             startTime: newTimeSlot.substring(0, 5),
             endTime: newEndTime,
@@ -718,7 +738,7 @@ export class RescheduleService {
             customerPhone: undefined,
             customerAddress: order.customer_address,
             totalAmount: 0,
-            shopTimezone: 'America/New_York', // TODO: Get from shop settings
+            shopTimezone,
           }
         );
         logger.info('Google Calendar event updated for direct reschedule', { orderId });

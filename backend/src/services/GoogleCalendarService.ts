@@ -11,6 +11,7 @@ const REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI || '';
 
 export interface CalendarEvent {
   orderId: string;
+  shopId: string;
   serviceName: string;
   serviceDescription?: string;
   customerName?: string;
@@ -104,9 +105,11 @@ export class GoogleCalendarService {
       const oauth2 = google.oauth2({ version: 'v2', auth: this.oauth2Client });
       const userInfo = await oauth2.userinfo.get();
 
-      // Calculate token expiry
-      const tokenExpiry = new Date();
-      tokenExpiry.setSeconds(tokenExpiry.getSeconds() + (tokens.expiry_date || 3600));
+      // tokens.expiry_date is an absolute epoch-ms timestamp from Google, not a
+      // duration. Use it directly; fall back to now + 1h.
+      const tokenExpiry = tokens.expiry_date
+        ? new Date(tokens.expiry_date)
+        : new Date(Date.now() + 3600 * 1000);
 
       // Encrypt tokens before storing
       const encryptedAccessToken = this.encryptToken(tokens.access_token);
@@ -158,9 +161,10 @@ export class GoogleCalendarService {
         throw new Error('Failed to refresh access token');
       }
 
-      // Calculate new expiry
-      const tokenExpiry = new Date();
-      tokenExpiry.setSeconds(tokenExpiry.getSeconds() + (credentials.expiry_date || 3600));
+      // credentials.expiry_date is an absolute epoch-ms timestamp; use directly.
+      const tokenExpiry = credentials.expiry_date
+        ? new Date(credentials.expiry_date)
+        : new Date(Date.now() + 3600 * 1000);
 
       // Encrypt and save new access token
       const encryptedAccessToken = this.encryptToken(credentials.access_token);
@@ -187,12 +191,33 @@ export class GoogleCalendarService {
   }
 
   /**
+   * Ensure the connection carries a usable access token, refreshing in place
+   * when it is expired/near-expiry — or when the stored expiry is implausibly
+   * far out (legacy bug that stored an absolute ms timestamp as a seconds
+   * offset, yielding year ~58000, so refresh never triggered). Google access
+   * tokens live ~1h, so anything beyond a couple hours is treated as bogus.
+   */
+  private async ensureFreshToken(connection: any): Promise<void> {
+    const now = Date.now();
+    const expiry = new Date(connection.tokenExpiry).getTime();
+    const needsRefresh =
+      isNaN(expiry) || expiry <= now + 60_000 || expiry > now + 2 * 3600_000;
+
+    if (!needsRefresh) return;
+
+    await this.refreshAccessToken(connection.shopId);
+    const updated = await this.calendarRepo.getActiveConnection(connection.shopId, 'google');
+    if (!updated) throw new Error('Connection lost after refresh');
+    Object.assign(connection, updated);
+  }
+
+  /**
    * Create a calendar event for an appointment
    */
   async createEvent(eventData: CalendarEvent): Promise<string> {
     try {
       const connection = await this.calendarRepo.getActiveConnection(
-        eventData.customerAddress.split('-')[0], // Extract shop ID
+        eventData.shopId,
         'google'
       );
 
@@ -203,17 +228,7 @@ export class GoogleCalendarService {
         return '';
       }
 
-      // Check if token needs refresh
-      if (connection.tokenExpiry < new Date()) {
-        await this.refreshAccessToken(connection.shopId);
-        // Fetch updated connection
-        const updatedConnection = await this.calendarRepo.getActiveConnection(
-          connection.shopId,
-          'google'
-        );
-        if (!updatedConnection) throw new Error('Connection lost after refresh');
-        Object.assign(connection, updatedConnection);
-      }
+      await this.ensureFreshToken(connection);
 
       // Decrypt access token
       const accessToken = this.decryptToken(connection.accessToken);
@@ -270,13 +285,20 @@ export class GoogleCalendarService {
       // Get existing calendar event ID
       const eventId = await this.calendarRepo.getOrderCalendarEventId(orderId);
 
+      // No event yet (e.g. booking predates sync). If we have enough to build one,
+      // create it now so a reschedule still lands on the calendar; otherwise skip.
       if (!eventId) {
-        logger.warn('No calendar event found for order, cannot update', { orderId });
+        if (eventData.shopId && eventData.customerAddress && eventData.bookingDate && eventData.startTime) {
+          logger.warn('No calendar event for order; creating instead of updating', { orderId });
+          await this.createEvent({ ...eventData, orderId } as CalendarEvent);
+        } else {
+          logger.warn('No calendar event found for order, cannot update', { orderId });
+        }
         return;
       }
 
       const connection = await this.calendarRepo.getActiveConnection(
-        eventData.customerAddress?.split('-')[0] || '',
+        eventData.shopId || '',
         'google'
       );
 
@@ -285,10 +307,7 @@ export class GoogleCalendarService {
         return;
       }
 
-      // Check if token needs refresh
-      if (connection.tokenExpiry < new Date()) {
-        await this.refreshAccessToken(connection.shopId);
-      }
+      await this.ensureFreshToken(connection);
 
       // Decrypt access token
       const accessToken = this.decryptToken(connection.accessToken);
@@ -302,11 +321,11 @@ export class GoogleCalendarService {
         eventId,
       });
 
-      // Update event with new data
+      // A reschedule only moves the time — preserve the original summary,
+      // description, and attendees rather than rebuilding them from the partial
+      // reschedule payload (which lacks email/phone/total/orderId).
       const updatedEvent = {
         ...existingEvent.data,
-        summary: eventData.serviceName || existingEvent.data.summary,
-        description: this.buildEventDescription(eventData as any) || existingEvent.data.description,
         start: eventData.bookingDate && eventData.startTime
           ? {
               dateTime: this.buildDateTime(eventData.bookingDate, eventData.startTime, eventData.shopTimezone),
@@ -348,6 +367,44 @@ export class GoogleCalendarService {
   }
 
   /**
+   * Prefix an order's calendar event title with [No-show]. Self-contained and
+   * non-throwing — a missing event/connection is a no-op.
+   */
+  async markEventNoShow(orderId: string, shopId: string): Promise<void> {
+    try {
+      const eventId = await this.calendarRepo.getOrderCalendarEventId(orderId);
+      if (!eventId) return;
+
+      const connection = await this.calendarRepo.getActiveConnection(shopId, 'google');
+      if (!connection) return;
+
+      await this.ensureFreshToken(connection);
+
+      const accessToken = this.decryptToken(connection.accessToken);
+      this.oauth2Client.setCredentials({ access_token: accessToken });
+      const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+
+      const existing = await calendar.events.get({
+        calendarId: connection.calendarId,
+        eventId,
+      });
+
+      const currentSummary = existing.data.summary || 'Appointment';
+      if (currentSummary.startsWith('[No-show]')) return;
+
+      await calendar.events.update({
+        calendarId: connection.calendarId,
+        eventId,
+        requestBody: { ...existing.data, summary: `[No-show] ${currentSummary}` },
+      });
+
+      logger.info('Calendar event relabeled as no-show', { orderId, eventId });
+    } catch (error) {
+      logger.error('Error relabeling calendar event as no-show:', error);
+    }
+  }
+
+  /**
    * Delete a calendar event
    */
   async deleteEvent(orderId: string, shopId: string): Promise<void> {
@@ -365,6 +422,8 @@ export class GoogleCalendarService {
         logger.warn('No active calendar connection, skipping event deletion', { orderId });
         return;
       }
+
+      await this.ensureFreshToken(connection);
 
       // Decrypt access token
       const accessToken = this.decryptToken(connection.accessToken);
@@ -450,7 +509,7 @@ export class GoogleCalendarService {
    */
   private buildEventDescription(eventData: CalendarEvent): string {
     const lines = [
-      `📅 RepairCoin Appointment`,
+      `📅 FixFlow Appointment`,
       ``,
       `👤 Customer: ${eventData.customerName || 'N/A'}`,
       `📧 Email: ${eventData.customerEmail || 'N/A'}`,
@@ -466,12 +525,12 @@ export class GoogleCalendarService {
 
     lines.push(
       ``,
-      `💰 Total: $${eventData.totalAmount.toFixed(2)}`,
+      `💰 Total: $${Number(eventData.totalAmount ?? 0).toFixed(2)}`,
       ``,
       `🆔 Order ID: ${eventData.orderId}`,
       ``,
       `---`,
-      `Managed via RepairCoin`
+      `Managed via FixFlow`
     );
 
     return lines.join('\n');

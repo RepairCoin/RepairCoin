@@ -829,6 +829,7 @@ export class PaymentService {
 
             await this.googleCalendarService.createEvent({
               orderId: order.orderId,
+              shopId: order.shopId,
               serviceName: service.serviceName,
               serviceDescription: service.description,
               customerName: customer?.name,
@@ -1507,6 +1508,14 @@ export class PaymentService {
         }
       } catch (refundEmailError) {
         logger.error('Failed to send refund email to shop:', refundEmailError);
+      }
+
+      // Remove the booking from the shop's Google Calendar (no-op if not synced).
+      try {
+        await this.googleCalendarService.deleteEvent(orderId, order.shopId);
+        logger.info('Calendar event deleted for shop-cancelled booking', { orderId });
+      } catch (calendarError) {
+        logger.error('Failed to delete calendar event on shop cancellation:', calendarError);
       }
 
       logger.info('Shop cancellation processed with refund', {

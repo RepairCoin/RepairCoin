@@ -14,6 +14,7 @@ import noShowPolicyService from '../../../services/NoShowPolicyService';
 import { EmailService } from '../../../services/EmailService';
 import { getExpiredOrderService } from '../../../services/ExpiredOrderService';
 import { getStripeService } from '../../../services/StripeService';
+import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
 
 export class OrderController {
   private paymentService: PaymentService;
@@ -22,6 +23,7 @@ export class OrderController {
   private serviceRepository: ServiceRepository;
   private groupService: AffiliateShopGroupService;
   private emailService: EmailService;
+  private googleCalendarService: GoogleCalendarService;
 
   constructor(paymentService: PaymentService) {
     this.paymentService = paymentService;
@@ -30,6 +32,7 @@ export class OrderController {
     this.serviceRepository = new ServiceRepository();
     this.groupService = new AffiliateShopGroupService();
     this.emailService = new EmailService();
+    this.googleCalendarService = new GoogleCalendarService();
   }
 
   /**
@@ -907,6 +910,9 @@ export class OrderController {
 
       // Mark as no-show in orders table
       await this.orderRepository.markAsNoShow(id, notes);
+
+      // Relabel the calendar event as a no-show (no-op if not synced)
+      await this.googleCalendarService.markEventNoShow(id, shopId);
 
       // Record in no-show history and update customer tier
       try {

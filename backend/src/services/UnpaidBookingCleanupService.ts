@@ -10,10 +10,12 @@
 
 import { getSharedPool } from '../utils/database-pool';
 import { NotificationService } from '../domains/notification/services/NotificationService';
+import { GoogleCalendarService } from './GoogleCalendarService';
 import { logger } from '../utils/logger';
 
 const pool = getSharedPool();
 const notificationService = new NotificationService();
+const googleCalendarService = new GoogleCalendarService();
 
 // Run cleanup every hour
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
@@ -118,6 +120,13 @@ async function cleanupExpiredBookings(): Promise<void> {
           createdAt: order.created_at,
           reason: order.cancellation_reason
         });
+
+        // Remove any synced calendar event for the cancelled booking.
+        try {
+          await googleCalendarService.deleteEvent(order.order_id, order.shop_id);
+        } catch (calendarError) {
+          logger.error('Failed to delete calendar event for auto-cancelled booking:', calendarError);
+        }
 
         // Notify shop about the cancellation
         try {
