@@ -57,7 +57,6 @@ export function useFindShop() {
   const [routeDistance, setRouteDistance] = useState<number | null>(null);
   const [routeDuration, setRouteDuration] = useState<number | null>(null);
   const [isDirectionsPanelMinimized, setIsDirectionsPanelMinimized] = useState(false);
-  const [isShopPopupMinimized, setIsShopPopupMinimized] = useState(false);
   const [radiusMiles, setRadiusMiles] = useState(DEFAULT_RADIUS_MILES);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
   const [shopAvailabilities, setShopAvailabilities] = useState<Record<string, ShopAvailability[]>>({});
@@ -256,7 +255,6 @@ export function useFindShop() {
 
   const handleMarkerPress = (shop: ShopWithLocation) => {
     setSelectedShop(shop);
-    setIsShopPopupMinimized(false);
     if (shop.lat && shop.lng) {
       const region = {
         latitude: shop.lat,
@@ -298,7 +296,6 @@ export function useFindShop() {
     };
 
     setSelectedShop(shop);
-    setIsShopPopupMinimized(false);
 
     if (viewMode === "map") {
       if (isAndroid && webViewMapRef.current) {
@@ -430,13 +427,22 @@ export function useFindShop() {
 
   const clearSelectedShop = () => {
     setSelectedShop(null);
-    setIsShopPopupMinimized(false);
   };
 
   const shopsInRadius = filteredShops.filter(
     (s: ShopWithLocation) =>
       s.hasValidLocation && s.distance !== undefined && s.distance <= radiusMiles
   ).length;
+
+  const { data: selectedShopServices = [], isLoading: isLoadingShopServices } = useQuery({
+    queryKey: ["shopServices", "public", selectedShop?.shopId],
+    queryFn: async () => {
+      const response = await serviceApi.getShopServices(selectedShop!.shopId, { limit: 20 });
+      return response.data || [];
+    },
+    enabled: !!selectedShop?.shopId && !showDirections,
+    staleTime: 5 * 60 * 1000,
+  });
 
   return {
     // Refs
@@ -466,9 +472,9 @@ export function useFindShop() {
     routeDuration,
     isDirectionsPanelMinimized,
     setIsDirectionsPanelMinimized,
-    isShopPopupMinimized,
-    setIsShopPopupMinimized,
     radiusMiles,
+    selectedShopServices,
+    isLoadingShopServices,
     selectedCategory,
     setSelectedCategory,
     // Handlers

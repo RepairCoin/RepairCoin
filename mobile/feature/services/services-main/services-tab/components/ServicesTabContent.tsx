@@ -6,20 +6,15 @@ import {
   FlatList,
   RefreshControl,
   Pressable,
-  Dimensions,
 } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-import ServiceCard from "@/shared/components/shared/ServiceCard";
+import { ServiceGridItem } from "@/shared/components/shared/ServiceGridItem";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
-import { ServiceData } from "@/feature/services/services/service.interface";
 import { useServicesTab } from "../../feature-tab/hooks";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../../feature-tab/components";
-import { ServiceSortOption } from "@/feature/services/services/service.interface";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = (SCREEN_WIDTH - 32 - 16) / 2;
+import { ServiceData, ServiceSortOption } from "@/feature/services/services/service.interface";
 
 // Sort option labels for display
 const SORT_LABELS: Record<ServiceSortOption, string> = {
@@ -64,21 +59,12 @@ export default function ServicesTabContent() {
   } = useServicesTab();
 
   const renderServiceItem = ({ item }: { item: ServiceData }) => (
-    <View style={{ width: CARD_WIDTH, marginHorizontal: 4, marginVertical: 8 }}>
-      <ServiceCard
-        imageUrl={item.imageUrl}
-        category={getCategoryLabel(item.category)}
-        title={item.serviceName}
-        description={item.description}
-        price={item.priceUsd}
-        avgRating={item.avgRating}
-        reviewCount={item.reviewCount}        duration={item.durationMinutes}
-        onPress={() => handleServicePress(item)}
-        showFavoriteButton
-        serviceId={item.serviceId}
-        isFavorited={favoritedIds.has(item.serviceId)}
-      />
-    </View>
+    <ServiceGridItem
+      service={item}
+      onPress={() => handleServicePress(item)}
+      showFavoriteButton
+      isFavorited={favoritedIds.has(item.serviceId)}
+    />
   );
 
   return (
