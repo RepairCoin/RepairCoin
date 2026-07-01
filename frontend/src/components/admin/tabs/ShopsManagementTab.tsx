@@ -94,7 +94,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     pendingShops,
     rejectedShops,
     shopActions,
-    generateAdminToken,
     loading,
     loadDashboardData,
   } = useAdminDashboard();
@@ -143,22 +142,13 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
 
   // Fetch unsuspend requests for shops
   const fetchShopUnsuspendRequests = async () => {
-    if (!generateAdminToken) return;
-
     setUnsuspendRequestsLoading(true);
     try {
-      // Cookies sent automatically with apiClient
-      if (!adminToken) {
-        toast.error("Failed to authenticate as admin");
-        return;
-      }
-
+      // Auth cookie is sent automatically.
       const response = await fetch(
         `${getApiBaseUrl()}/admin/unsuspend-requests?status=pending&entityType=shop`,
         {
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-          },
+          credentials: "include",
         }
       );
 
@@ -188,15 +178,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     action: "approve" | "reject",
     notes: string = ""
   ) => {
-    if (!generateAdminToken) return;
-
     try {
-      // Cookies sent automatically with apiClient
-      if (!adminToken) {
-        toast.error("Failed to authenticate as admin");
-        return;
-      }
-
       const endpoint =
         action === "approve"
           ? `/admin/unsuspend-requests/${requestId}/approve`
@@ -206,9 +188,9 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
         `${getApiBaseUrl()}${endpoint}`,
         {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
           },
           body: JSON.stringify({ notes }),
         }
