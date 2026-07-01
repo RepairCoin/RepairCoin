@@ -110,6 +110,60 @@ export class GoogleAdsService {
     }
   }
 
+  /** Low-level mutate against a Google Ads resource collection. Returns the results (resource names). */
+  private async mutate(customerId: string, accessToken: string, resource: string, operations: any[]): Promise<any[]> {
+    try {
+      const res = await axios.post(
+        `${ADS_API}/customers/${customerId}/${resource}:mutate`,
+        { operations },
+        { headers: { ...this.apiHeaders(accessToken), 'Content-Type': 'application/json' }, timeout: 30000 }
+      );
+      return res.data?.results || [];
+    } catch (err: any) {
+      const gerr = err?.response?.data?.error?.details?.[0]?.errors?.[0];
+      const msg = gerr?.message || err?.response?.data?.error?.message || err?.message;
+      logger.error(`GoogleAdsService.mutate ${resource} failed`, gerr || err?.response?.data || err?.message);
+      throw new Error(`google_${resource}_failed: ${msg}`);
+    }
+  }
+
+  /** Create a PAUSED Search campaign skeleton (budget → campaign → ad group) on the customer. Nothing
+   *  serves until it's set ENABLED + funded (Slice 3 go-live). Returns the created ids. Slice 3 (BE-3a). */
+  async createSearchCampaign(
+    customerId: string,
+    refreshToken: string,
+    input: { name: string; dailyBudgetMicros: number }
+  ): Promise<{ campaignId: string; campaignResourceName: string; budgetResourceName: string; adGroupId: string }> {
+    const access = await this.refreshAccessToken(refreshToken);
+    const stamp = Date.now();
+    // 1. Shared budget (daily, micros).
+    const budget = await this.mutate(customerId, access, 'campaignBudgets', [
+      { create: { name: `${input.name} Budget ${stamp}`, amountMicros: String(input.dailyBudgetMicros), deliveryMethod: 'STANDARD' } },
+    ]);
+    const budgetResourceName = budget[0].resourceName as string;
+    // 2. Campaign — PAUSED, Search, manual CPC (no conversion setup needed to create a paused object).
+    const camp = await this.mutate(customerId, access, 'campaigns', [
+      { create: {
+        name: `${input.name} ${stamp}`,
+        status: 'PAUSED',
+        advertisingChannelType: 'SEARCH',
+        campaignBudget: budgetResourceName,
+        manualCpc: {},
+        networkSettings: { targetGoogleSearch: true, targetSearchNetwork: false, targetContentNetwork: false, targetPartnerSearchNetwork: false },
+        // Required by Google Ads API v24+ (EU political ads declaration). FixFlow ads are not political.
+        containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
+      } },
+    ]);
+    const campaignResourceName = camp[0].resourceName as string;
+    const campaignId = campaignResourceName.split('/').pop() as string;
+    // 3. Ad group — PAUSED.
+    const ag = await this.mutate(customerId, access, 'adGroups', [
+      { create: { name: `${input.name} Ad Group`, campaign: campaignResourceName, status: 'PAUSED', type: 'SEARCH_STANDARD' } },
+    ]);
+    const adGroupId = (ag[0].resourceName as string).split('/').pop() as string;
+    return { campaignId, campaignResourceName, budgetResourceName, adGroupId };
+  }
+
   private apiHeaders(accessToken: string): Record<string, string> {
     const h: Record<string, string> = {
       Authorization: `Bearer ${accessToken}`,
