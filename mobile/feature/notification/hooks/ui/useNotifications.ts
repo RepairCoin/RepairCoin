@@ -7,6 +7,10 @@ import { realtimeEvents } from "@/shared/utilities/realtimeEvents";
 import { useAppToast } from "@/shared/hooks";
 import { Notification, TabType } from "../../types";
 import { NOTIFICATIONS_PER_PAGE } from "@/shared/constants/notifications";
+import {
+  getNotificationCategory,
+  groupNotificationsByDate,
+} from "../../utils/notificationGrouping";
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -15,7 +19,7 @@ export function useNotifications() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>("unread");
+  const [activeTab, setActiveTab] = useState<TabType>("all");
   const [showMenu, setShowMenu] = useState(false);
   const [selectedNotification, setSelectedNotification] =
     useState<Notification | null>(null);
@@ -168,14 +172,21 @@ export function useNotifications() {
   };
 
   const unreadCount = (notifications || []).filter((n) => !n.isRead).length;
+  const totalCount = (notifications || []).length;
 
   const filteredNotifications =
-    activeTab === "unread"
-      ? (notifications || []).filter((n) => !n.isRead)
-      : notifications || [];
+    activeTab === "all"
+      ? notifications || []
+      : (notifications || []).filter(
+          (n) => getNotificationCategory(n.notificationType) === activeTab
+        );
+
+  const sections = groupNotificationsByDate(filteredNotifications);
 
   return {
     notifications: filteredNotifications,
+    sections,
+    totalCount,
     isLoading,
     isRefreshing,
     isLoadingMore,

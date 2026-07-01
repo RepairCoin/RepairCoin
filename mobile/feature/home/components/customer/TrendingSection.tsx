@@ -30,10 +30,12 @@ export default function TrendingSection({
       <View className="flex-row justify-between items-center mb-4">
         <View className="flex-row items-center">
           <MaterialCommunityIcons name="fire" size={22} color="#FF6B35" />
-          <Text className="text-white text-xl font-bold ml-1">Trending</Text>
+          <Text className="text-white text-xl font-bold ml-1">
+            Trending Services
+          </Text>
         </View>
         <TouchableOpacity onPress={handleViewAllTrendingServices}>
-          <Text className="text-[#FFCC00] text-sm font-semibold">View All</Text>
+          <Text className="text-[#FFCC00] text-sm font-semibold">See All</Text>
         </TouchableOpacity>
       </View>
       {trendingLoading ? (
@@ -53,11 +55,13 @@ export default function TrendingSection({
                 <ServiceCard
                   imageUrl={item.imageUrl}
                   category={item.category}
+                  shopName={item.shopName}
                   title={item.serviceName}
                   description={item.description}
                   price={item.priceUsd}
                   avgRating={item.avgRating}
                   reviewCount={item.reviewCount}
+                  bookingCount={item.reviewCount}
                   duration={item.durationMinutes}
                   onPress={() => handleServicePress(item)}
                   showTrendingBadge

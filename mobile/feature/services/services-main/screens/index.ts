@@ -9,6 +9,7 @@ export { default as ServicesTabContent } from "../services-tab/components/Servic
 export { default as FavoritesTabContent } from "../feature-tab/components/FavoritesTabContent";
 export { default as BookingsTabContent } from "../booking-tab/components/BookingsTabContent";
 export { default as TrendingServicesScreen } from "./customer/TrendingServicesScreen";
+export { default as CategoryServicesScreen } from "./customer/CategoryServicesScreen";
 export { default as WriteReviewScreen } from "./customer/WriteReviewScreen";
 
 // Shared screens
