@@ -59,6 +59,8 @@ export interface AdCampaign {
   googleStatus: string | null;
   /** When Google insights (spend/impr/clicks) were last imported for this campaign (Slice 4). */
   googleLastSyncedAt: Date | null;
+  /** When config was last reconciled FROM Google (Slice 5) — distinct from googleLastSyncedAt (insights). */
+  googleSyncedConfigAt: Date | null;
   /** Per-campaign landing-page magnet overrides (Phase 2); null → auto-composed defaults. */
   landingConfig: LandingConfig | null;
 }
@@ -69,6 +71,7 @@ export interface GoogleObjectIds {
   googleBudgetId?: string | null;
   googleStatus?: string | null;
   googleLastSyncedAt?: Date | null;
+  googleSyncedConfigAt?: Date | null;
 }
 
 /** Shop-controlled landing-page magnet overrides. All optional — anything unset falls back to the
@@ -309,6 +312,7 @@ export class CampaignRepository extends BaseRepository {
     if (g.googleBudgetId !== undefined) col('google_budget_id', g.googleBudgetId);
     if (g.googleStatus !== undefined) col('google_status', g.googleStatus);
     if (g.googleLastSyncedAt !== undefined) col('google_last_synced_at', g.googleLastSyncedAt);
+    if (g.googleSyncedConfigAt !== undefined) col('google_synced_config_at', g.googleSyncedConfigAt);
     if (sets.length === 0) return this.findById(id);
     sets.push(`updated_at = now()`);
     params.push(id);
@@ -399,6 +403,7 @@ export class CampaignRepository extends BaseRepository {
       googleBudgetId: r.google_budget_id ?? null,
       googleStatus: r.google_status ?? null,
       googleLastSyncedAt: r.google_last_synced_at ?? null,
+      googleSyncedConfigAt: r.google_synced_config_at ?? null,
       landingConfig: r.landing_config ?? null,
     };
   }

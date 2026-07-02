@@ -15,6 +15,7 @@ import { MetaConnectionService } from './MetaConnectionService';
 import { MetaInsightsService } from './MetaInsightsService';
 import { GoogleInsightsService } from './GoogleInsightsService';
 import { MetaConfigSyncService } from './MetaConfigSyncService';
+import { GoogleConfigSyncService } from './GoogleConfigSyncService';
 import { metaPushService } from './MetaPushService';
 
 // Q9: unconverted leads are retained 180 days, then hard-deleted nightly.
@@ -32,7 +33,8 @@ export class SafeguardScheduler {
     private readonly metaConnections = new MetaConnectionService(),
     private readonly metaInsights = new MetaInsightsService(),
     private readonly googleInsights = new GoogleInsightsService(),
-    private readonly metaConfigSync = new MetaConfigSyncService()
+    private readonly metaConfigSync = new MetaConfigSyncService(),
+    private readonly googleConfigSync = new GoogleConfigSyncService()
   ) {}
 
   start(): void {
@@ -72,6 +74,10 @@ export class SafeguardScheduler {
       // Ads-Manager edits (no-op unless ADS_META_CONFIG_SYNC + a configured Meta App).
       const configReconciled = await this.metaConfigSync.reconcileAll();
       if (configReconciled > 0) logger.info(`Ads Meta config sync: reconciled ${configReconciled} campaign(s)`);
+      // Slice 5: pull budget/status back FROM Google (no-op unless ADS_GOOGLE_CONFIG_SYNC + a
+      // configured Google app), so the dashboard reflects manual Google-Ads edits.
+      const googleReconciled = await this.googleConfigSync.reconcileAll();
+      if (googleReconciled > 0) logger.info(`Ads Google config sync: reconciled ${googleReconciled} campaign(s)`);
       const decisions = await this.evaluator.runNightly();
       const acted = decisions.filter((d) => d.action !== 'none').length;
       if (acted > 0) logger.info(`Ads safeguard scheduler: acted on ${acted} campaign(s)`);

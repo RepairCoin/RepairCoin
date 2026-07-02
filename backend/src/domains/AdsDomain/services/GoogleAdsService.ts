@@ -285,6 +285,27 @@ export class GoogleAdsService {
     return this.search(customerId, access, loginCustomerId, query);
   }
 
+  /** Current campaign config on Google (status + daily budget) for two-way config sync (Slice 5).
+   *  cost/budget is returned in micros → cents (÷10,000). Returns nulls when the campaign isn't
+   *  found (empty result). A REMOVED campaign is still returned here with status 'REMOVED'. */
+  async fetchCampaignConfig(
+    customerId: string,
+    refreshToken: string,
+    campaignId: string,
+    loginCustomerId?: string
+  ): Promise<{ campaignStatus: string | null; dailyBudgetCents: number | null }> {
+    const access = await this.refreshAccessToken(refreshToken);
+    const query =
+      `SELECT campaign.status, campaign_budget.amount_micros ` +
+      `FROM campaign WHERE campaign.id = ${String(campaignId).replace(/\D/g, '')}`;
+    const rows = await this.search(customerId, access, loginCustomerId, query);
+    const r = rows[0];
+    if (!r) return { campaignStatus: null, dailyBudgetCents: null };
+    const micros = r.campaignBudget?.amountMicros;
+    const dailyBudgetCents = micros != null ? Math.round((parseInt(String(micros), 10) || 0) / 10000) : null;
+    return { campaignStatus: r.campaign?.status ?? null, dailyBudgetCents };
+  }
+
   /** Per-call login-customer-id (the shop's manager) takes precedence; falls back to the global env. */
   private apiHeaders(accessToken: string, loginCustomerId?: string): Record<string, string> {
     const h: Record<string, string> = {

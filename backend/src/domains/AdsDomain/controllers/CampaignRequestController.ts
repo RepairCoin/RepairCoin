@@ -24,6 +24,7 @@ import { parseBrief } from '../services/briefValidation';
 import { metaPushService } from '../services/MetaPushService';
 import { metaConfigSyncService } from '../services/MetaConfigSyncService';
 import { googlePushService } from '../services/GooglePushService';
+import { googleConfigSyncService } from '../services/GoogleConfigSyncService';
 import { shopRepository } from '../../../repositories';
 import { imageStorageService } from '../../../services/ImageStorageService';
 
@@ -351,6 +352,22 @@ export async function syncCampaignFromMeta(req: Request, res: Response): Promise
   } catch (err: any) {
     logger.error('CampaignRequestController.syncCampaignFromMeta failed', err?.message || err);
     res.status(502).json({ success: false, error: 'sync_failed', message: err?.message || 'Failed to sync from Meta.' });
+  }
+}
+
+// POST /campaigns/:id/sync-from-google (admin) — two-way config sync: pull the campaign's current
+// budget/status back FROM Google into our DB (Google is source-of-truth for live). Returns the fresh
+// campaign + the applied changes. No-op (changes {}) when ADS_GOOGLE_CONFIG_SYNC is off.
+export async function syncCampaignFromGoogle(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const campaign = await campaigns.findById(campaignId);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    const result = await googleConfigSyncService.reconcile(campaignId);
+    res.json({ success: true, data: { campaign: await campaigns.findById(campaignId), ...result } });
+  } catch (err: any) {
+    logger.error('CampaignRequestController.syncCampaignFromGoogle failed', err?.message || err);
+    res.status(502).json({ success: false, error: 'sync_failed', message: err?.message || 'Failed to sync from Google.' });
   }
 }
 
