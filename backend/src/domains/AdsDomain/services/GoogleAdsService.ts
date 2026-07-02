@@ -16,6 +16,16 @@ const ADWORDS_SCOPE = 'https://www.googleapis.com/auth/adwords';
 // work, v24 is the newest. Keep it env-overridable; bump when Google ships a newer version.
 const API_VERSION = (process.env.GOOGLE_ADS_API_VERSION || 'v24').trim();
 const ADS_API = `https://googleads.googleapis.com/${API_VERSION}`;
+// Name of the FixFlow "Lead" conversion action created per account for offline conversion imports.
+const CONVERSION_ACTION_NAME = 'FixFlow Lead';
+
+/** PURE: the campaign bidding strategy field. Conversion-optimized (Maximize Conversions, bids
+ *  toward the FixFlow Lead conversion action) when opted in via ADS_GOOGLE_OPTIMIZE_FOR_LEAD;
+ *  otherwise manual CPC (drive clicks). Only meaningful once conversions have accrued — hence
+ *  opt-in per account. Analog of Meta's pixel-Lead optimization. */
+export function campaignBiddingSpec(optimizeForConversions: boolean): Record<string, unknown> {
+  return optimizeForConversions ? { maximizeConversions: {} } : { manualCpc: {} };
+}
 
 export interface GoogleTokenResult { accessToken: string; refreshToken: string | null; expiresIn: number; }
 export interface GoogleCustomer { customerId: string; name: string; }
@@ -136,7 +146,7 @@ export class GoogleAdsService {
   async createSearchCampaign(
     customerId: string,
     refreshToken: string,
-    input: { name: string; dailyBudgetMicros: number },
+    input: { name: string; dailyBudgetMicros: number; optimizeForConversions?: boolean },
     loginCustomerId?: string
   ): Promise<{ campaignId: string; campaignResourceName: string; budgetResourceName: string; adGroupId: string; adGroupResourceName: string }> {
     const access = await this.refreshAccessToken(refreshToken);
@@ -146,14 +156,15 @@ export class GoogleAdsService {
       { create: { name: `${input.name} Budget ${stamp}`, amountMicros: String(input.dailyBudgetMicros), deliveryMethod: 'STANDARD' } },
     ], false, loginCustomerId);
     const budgetResourceName = budget[0].resourceName as string;
-    // 2. Campaign — PAUSED, Search, manual CPC (no conversion setup needed to create a paused object).
+    // 2. Campaign — PAUSED, Search. Bidding = manual CPC (clicks) or Maximize Conversions when
+    // ADS_GOOGLE_OPTIMIZE_FOR_LEAD is opted in (requires the Lead conversion action to exist).
     const camp = await this.mutate(customerId, access, 'campaigns', [
       { create: {
         name: `${input.name} ${stamp}`,
         status: 'PAUSED',
         advertisingChannelType: 'SEARCH',
         campaignBudget: budgetResourceName,
-        manualCpc: {},
+        ...campaignBiddingSpec(input.optimizeForConversions === true),
         networkSettings: { targetGoogleSearch: true, targetSearchNetwork: false, targetContentNetwork: false, targetPartnerSearchNetwork: false },
         // Required by Google Ads API v24+ (EU political ads declaration). FixFlow ads are not political.
         containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
@@ -304,6 +315,57 @@ export class GoogleAdsService {
     const micros = r.campaignBudget?.amountMicros;
     const dailyBudgetCents = micros != null ? Math.round((parseInt(String(micros), 10) || 0) / 10000) : null;
     return { campaignStatus: r.campaign?.status ?? null, dailyBudgetCents };
+  }
+
+  /** Resolve (or create) the FixFlow "Lead" conversion action on the account and return its resource
+   *  name. type=UPLOAD_CLICKS so we can import offline conversions by gclid; primaryForGoal so it
+   *  counts toward the account's conversion goal (needed for conversion bidding in Phase 3).
+   *  Idempotent by name. Slice: Google conversion-optimization (Phase 2). */
+  async ensureLeadConversionAction(customerId: string, refreshToken: string, loginCustomerId?: string): Promise<string> {
+    const access = await this.refreshAccessToken(refreshToken);
+    const existing = await this.search(customerId, access, loginCustomerId,
+      `SELECT conversion_action.resource_name FROM conversion_action ` +
+      `WHERE conversion_action.name = '${CONVERSION_ACTION_NAME}' AND conversion_action.status != 'REMOVED' LIMIT 1`);
+    if (existing[0]?.conversionAction?.resourceName) return existing[0].conversionAction.resourceName as string;
+    const created = await this.mutate(customerId, access, 'conversionActions', [
+      { create: {
+        name: CONVERSION_ACTION_NAME,
+        type: 'UPLOAD_CLICKS',
+        category: 'SUBMIT_LEAD_FORM',
+        status: 'ENABLED',
+        primaryForGoal: true,
+        countingType: 'ONE_PER_CLICK',
+      } },
+    ], false, loginCustomerId);
+    return created[0].resourceName as string;
+  }
+
+  /** Import an offline click conversion (a lead that became a paid booking) against a conversion
+   *  action, keyed by the gclid captured on the landing page. partialFailure so a stale/out-of-window
+   *  gclid is reported (and logged) rather than throwing. Slice: Phase 2. */
+  async uploadClickConversion(
+    customerId: string,
+    refreshToken: string,
+    input: { gclid: string; conversionActionResourceName: string; conversionDateTime: string; value?: number; currencyCode?: string },
+    loginCustomerId?: string
+  ): Promise<void> {
+    const access = await this.refreshAccessToken(refreshToken);
+    const body: any = {
+      conversions: [{
+        gclid: input.gclid,
+        conversionAction: input.conversionActionResourceName,
+        conversionDateTime: input.conversionDateTime,
+        ...(input.value != null ? { conversionValue: input.value, currencyCode: input.currencyCode || 'USD' } : {}),
+      }],
+      partialFailure: true,
+    };
+    const res = await axios.post(
+      `${ADS_API}/customers/${customerId}:uploadClickConversions`,
+      body,
+      { headers: { ...this.apiHeaders(access, loginCustomerId), 'Content-Type': 'application/json' }, timeout: 20000 }
+    );
+    const pfe = res.data?.partialFailureError;
+    if (pfe) logger.warn('GoogleAdsService.uploadClickConversion partial failure', { gclid: input.gclid, message: pfe.message });
   }
 
   /** Per-call login-customer-id (the shop's manager) takes precedence; falls back to the global env. */

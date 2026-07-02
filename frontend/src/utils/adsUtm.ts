@@ -12,6 +12,9 @@ const STORAGE_KEY = "fixflow_ads_utm";
 export interface StoredUtm {
   utm: Record<string, string>;
   clickId?: string;
+  /** Google click id specifically (Google auto-tagging). Kept separate from clickId (which may be
+   *  an fbclid) so the Google offline-conversion upload can key on it. */
+  gclid?: string;
   capturedAt?: number;
 }
 
@@ -25,9 +28,10 @@ export function captureUtmFromUrl(): void {
       const v = sp.get(k);
       if (v) utm[k] = v;
     });
-    const clickId = sp.get("fbclid") || sp.get("gclid") || undefined;
-    if (Object.keys(utm).length > 0 || clickId) {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ utm, clickId, capturedAt: Date.now() }));
+    const gclid = sp.get("gclid") || undefined;
+    const clickId = sp.get("fbclid") || gclid || undefined;
+    if (Object.keys(utm).length > 0 || clickId || gclid) {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ utm, clickId, gclid, capturedAt: Date.now() }));
     }
   } catch {
     /* sessionStorage unavailable (SSR / privacy mode) — attribution falls back to manual */

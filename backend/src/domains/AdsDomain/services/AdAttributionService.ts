@@ -15,6 +15,7 @@
 import { Pool } from 'pg';
 import { getSharedPool } from '../../../utils/database-pool';
 import { logger } from '../../../utils/logger';
+import { googleConversionService } from './GoogleConversionService';
 
 export function isConversionAttributionEnabled(): boolean {
   return process.env.ADS_CONVERSION_ATTRIBUTION === 'true';
@@ -67,6 +68,13 @@ export class AdAttributionService {
       const leadId = await this.linkOrGetLead(input.orderId, input.customerAddress, input.shopId);
       if (!leadId) return { linked: false };
       await this.advanceLead(leadId, input.customerAddress, stage);
+      // Google conversion-optimization (Phase 2): a lead reaching 'paid' is the conversion we report
+      // to Google (offline click conversion, keyed by gclid). Best-effort + self-gated (no-op unless
+      // it's a Google campaign lead with a gclid, ADS_GOOGLE_PUSH_ENABLED on, and not already sent).
+      if (stage === 'paid') {
+        void googleConversionService.uploadLeadConversion(leadId)
+          .catch((e: any) => logger.warn(`Google conversion upload failed for lead ${leadId}: ${e?.message || e}`));
+      }
       return { linked: true, leadId };
     } catch (err) {
       logger.error('AdAttribution.attributeOrderStage failed (non-fatal)', { stage, error: (err as Error)?.message });

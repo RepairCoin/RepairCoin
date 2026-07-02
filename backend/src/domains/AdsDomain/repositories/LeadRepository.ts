@@ -25,6 +25,11 @@ export interface AdLead {
   firstResponseAt: Date | null;
   notes: string | null;
   lostReason: string | null;
+  /** Google click id (from auto-tagging on the landing URL) — used to upload an offline
+   *  conversion to Google when this lead converts (Google conversion-optimization, Phase 1). */
+  gclid: string | null;
+  /** When this lead's offline conversion was uploaded to Google (Phase 2) — idempotency marker. */
+  conversionUploadedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +44,7 @@ export interface CreateLeadInput {
   consentToContact?: boolean;
   notes?: string | null;
   metaLeadId?: string | null;
+  gclid?: string | null;
 }
 
 export interface ListLeadsFilter {
@@ -53,8 +59,8 @@ export class LeadRepository extends BaseRepository {
   async create(input: CreateLeadInput): Promise<AdLead> {
     const res = await this.pool.query(
       `INSERT INTO ad_leads
-         (campaign_id, creative_id, name, phone, email, attribution_method, consent_to_contact, notes, meta_lead_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+         (campaign_id, creative_id, name, phone, email, attribution_method, consent_to_contact, notes, meta_lead_id, gclid)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [
         input.campaignId,
         input.creativeId ?? null,
@@ -65,9 +71,18 @@ export class LeadRepository extends BaseRepository {
         input.consentToContact ?? false,
         input.notes ?? null,
         input.metaLeadId ?? null,
+        input.gclid ?? null,
       ]
     );
     return this.mapRow(res.rows[0]);
+  }
+
+  /** Mark a lead's Google offline conversion as uploaded (idempotent — no-op if already set). */
+  async markConversionUploaded(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_leads SET conversion_uploaded_at = now() WHERE id = $1 AND conversion_uploaded_at IS NULL`,
+      [id]
+    );
   }
 
   /** Idempotency for Meta webhook re-delivery: existing lead id for a meta_lead_id. */
@@ -217,6 +232,8 @@ export class LeadRepository extends BaseRepository {
       firstResponseAt: r.first_response_at,
       notes: r.notes,
       lostReason: r.lost_reason,
+      gclid: r.gclid ?? null,
+      conversionUploadedAt: r.conversion_uploaded_at ?? null,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };

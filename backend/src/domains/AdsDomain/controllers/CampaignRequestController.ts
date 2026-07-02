@@ -171,7 +171,14 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
       void (async () => {
         try {
           const token = decryptToken(gRefreshEnc);
-          const g = await googleAdsService.createSearchCampaign(gCustomerId, token, { name: gName, dailyBudgetMicros: gDailyCents * 10000 }, gManagerId);
+          // Phase 3: conversion-optimized bidding (opt-in). Maximize Conversions needs a conversion
+          // goal, so ensure the FixFlow Lead conversion action exists (cached per shop) before build.
+          const optimizeForConversions = process.env.ADS_GOOGLE_OPTIMIZE_FOR_LEAD === 'true';
+          if (optimizeForConversions && !(await googleConnections.getConversionAction(r.shopId))) {
+            const actionRes = await googleAdsService.ensureLeadConversionAction(gCustomerId, token, gManagerId);
+            await googleConnections.saveConversionAction(r.shopId, actionRes);
+          }
+          const g = await googleAdsService.createSearchCampaign(gCustomerId, token, { name: gName, dailyBudgetMicros: gDailyCents * 10000, optimizeForConversions }, gManagerId);
           await campaigns.setGoogleObjects(campaign.id, {
             googleCampaignId: g.campaignId, googleAdGroupId: g.adGroupId,
             googleBudgetId: g.budgetResourceName.split('/').pop(), googleStatus: 'PAUSED',
