@@ -25,6 +25,9 @@ export interface AdLead {
   firstResponseAt: Date | null;
   notes: string | null;
   lostReason: string | null;
+  /** Google click id (from auto-tagging on the landing URL) — used to upload an offline
+   *  conversion to Google when this lead converts (Google conversion-optimization, Phase 1). */
+  gclid: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +42,7 @@ export interface CreateLeadInput {
   consentToContact?: boolean;
   notes?: string | null;
   metaLeadId?: string | null;
+  gclid?: string | null;
 }
 
 export interface ListLeadsFilter {
@@ -53,8 +57,8 @@ export class LeadRepository extends BaseRepository {
   async create(input: CreateLeadInput): Promise<AdLead> {
     const res = await this.pool.query(
       `INSERT INTO ad_leads
-         (campaign_id, creative_id, name, phone, email, attribution_method, consent_to_contact, notes, meta_lead_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+         (campaign_id, creative_id, name, phone, email, attribution_method, consent_to_contact, notes, meta_lead_id, gclid)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [
         input.campaignId,
         input.creativeId ?? null,
@@ -65,6 +69,7 @@ export class LeadRepository extends BaseRepository {
         input.consentToContact ?? false,
         input.notes ?? null,
         input.metaLeadId ?? null,
+        input.gclid ?? null,
       ]
     );
     return this.mapRow(res.rows[0]);
@@ -217,6 +222,7 @@ export class LeadRepository extends BaseRepository {
       firstResponseAt: r.first_response_at,
       notes: r.notes,
       lostReason: r.lost_reason,
+      gclid: r.gclid ?? null,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };

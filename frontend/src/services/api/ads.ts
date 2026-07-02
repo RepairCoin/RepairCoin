@@ -449,7 +449,7 @@ export const autoAnswerLead = async (id: string): Promise<LeadMessage> => {
 // Submit a lead from a public landing-page form (UTM-attributed). No auth.
 export const submitWebformLead = async (payload: {
   campaignId?: string; name?: string; phone?: string; email?: string;
-  utm?: Record<string, string>; clickId?: string;
+  utm?: Record<string, string>; clickId?: string; gclid?: string;
 }): Promise<{ deduped: boolean }> => {
   const res = await apiClient.post('/ads/leads/webform', { ...payload, consentToContact: true });
   return unwrap<{ deduped: boolean }>(res);

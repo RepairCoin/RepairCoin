@@ -18,6 +18,9 @@ export interface RawLead {
   email?: string;
   utm?: Record<string, string>;
   clickId?: string;
+  /** Google click id specifically (for offline conversion upload); distinct from clickId, which
+   *  may be an fbclid. */
+  gclid?: string;
   consentToContact?: boolean;
   metaLeadId?: string;
   method: AttributionMethod;
@@ -73,6 +76,7 @@ export class LeadAttributionService {
       attributionMethod: raw.method,
       consentToContact: raw.consentToContact ?? false,
       metaLeadId: raw.metaLeadId ?? null,
+      gclid: raw.gclid ?? null,
     });
 
     await eventBus.publish(
