@@ -57,4 +57,54 @@ router.get(
   }
 );
 
+// Activate / deactivate a promo code (admin)
+router.patch(
+  '/promo-codes/:id/status',
+  async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid promo code id' });
+      }
+      const { isActive } = req.body;
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ success: false, error: 'isActive (boolean) is required' });
+      }
+
+      const updated = await promoCodeService.adminSetPromoActive(id, isActive);
+      res.json({ success: true, data: updated });
+    } catch (error: any) {
+      const notFound = error?.message === 'Promo code not found';
+      logger.error('Error updating promo code status:', error);
+      res.status(notFound ? 404 : 500).json({
+        success: false,
+        error: notFound ? error.message : 'Failed to update promo code status'
+      });
+    }
+  }
+);
+
+// Delete a promo code (admin) — also removes its usage history (cascade)
+router.delete(
+  '/promo-codes/:id',
+  async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid promo code id' });
+      }
+
+      await promoCodeService.adminDeletePromoCode(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      const notFound = error?.message === 'Promo code not found';
+      logger.error('Error deleting promo code:', error);
+      res.status(notFound ? 404 : 500).json({
+        success: false,
+        error: notFound ? error.message : 'Failed to delete promo code'
+      });
+    }
+  }
+);
+
 export default router;

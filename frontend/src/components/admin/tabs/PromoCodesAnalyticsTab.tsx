@@ -15,6 +15,9 @@ import {
   AlertCircle,
   Percent,
   Coins,
+  Power,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import apiClient from '@/services/api/client';
 import { toast } from 'react-hot-toast';
@@ -63,6 +66,8 @@ export default function PromoCodesAnalyticsTab() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [actioningId, setActioningId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PromoCode | null>(null);
 
   const fetchAnalytics = async () => {
     try {
@@ -106,6 +111,46 @@ export default function PromoCodesAnalyticsTab() {
     await Promise.all([fetchAnalytics(), fetchAllCodes()]);
     setRefreshing(false);
     toast.success('Data refreshed successfully');
+  };
+
+  const handleToggleActive = async (code: PromoCode) => {
+    setActioningId(code.id);
+    try {
+      const result = await apiClient.patch(`/admin/promo-codes/${code.id}/status`, {
+        isActive: !code.is_active,
+      });
+      if (result?.success) {
+        toast.success(code.is_active ? 'Promo code deactivated' : 'Promo code activated');
+        await Promise.all([fetchAllCodes(), fetchAnalytics()]);
+      } else {
+        toast.error('Failed to update promo code');
+      }
+    } catch (err) {
+      console.error('Error toggling promo code:', err);
+      toast.error('Failed to update promo code');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setActioningId(deleteTarget.id);
+    try {
+      const result = await apiClient.delete(`/admin/promo-codes/${deleteTarget.id}`);
+      if (result?.success) {
+        toast.success('Promo code deleted');
+        setDeleteTarget(null);
+        await Promise.all([fetchAllCodes(), fetchAnalytics()]);
+      } else {
+        toast.error('Failed to delete promo code');
+      }
+    } catch (err) {
+      console.error('Error deleting promo code:', err);
+      toast.error('Failed to delete promo code');
+    } finally {
+      setActioningId(null);
+    }
   };
 
   const getPromoStatus = (promoCode: PromoCode): 'active' | 'scheduled' | 'expired' | 'deactivated' => {
@@ -328,6 +373,44 @@ export default function PromoCodesAnalyticsTab() {
         </div>
       ),
     },
+    {
+      key: 'actions',
+      header: 'Actions',
+      accessor: (code) => (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleActive(code);
+            }}
+            disabled={actioningId === code.id}
+            title={code.is_active ? 'Deactivate' : 'Activate'}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
+              code.is_active
+                ? 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20'
+                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+            }`}
+          >
+            {actioningId === code.id ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Power className="w-3.5 h-3.5" />
+            )}
+            {code.is_active ? 'Deactivate' : 'Activate'}
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteTarget(code);
+            }}
+            title="Delete promo code"
+            className="inline-flex items-center justify-center p-1.5 rounded-lg text-gray-400 border border-gray-700 hover:text-red-400 hover:border-red-500/40 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+    },
   ];
 
   if (loading && !summary) {
@@ -454,6 +537,51 @@ export default function PromoCodesAnalyticsTab() {
           />
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1a1a] border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-500/10 rounded-lg">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Delete promo code?</h3>
+            </div>
+            <p className="text-sm text-gray-300">
+              This permanently deletes <span className="font-semibold text-white">{deleteTarget.code}</span>
+              {deleteTarget.times_used > 0 && (
+                <>
+                  {' '}and its usage history (
+                  <span className="text-red-400">{deleteTarget.times_used} uses</span>)
+                </>
+              )}
+              . This cannot be undone. To keep the record, deactivate it instead.
+            </p>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-2.5 border border-gray-700 text-gray-300 hover:bg-gray-800 rounded-lg text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={actioningId === deleteTarget.id}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {actioningId === deleteTarget.id ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Deleting…
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

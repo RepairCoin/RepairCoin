@@ -356,6 +356,12 @@ export class PromoCodeRepository extends BaseRepository {
     return (result.rowCount ?? 0) > 0;
   }
 
+  async delete(id: number): Promise<boolean> {
+    // promo_code_uses cascades on delete, so this also removes usage history.
+    const result = await this.pool.query('DELETE FROM promo_codes WHERE id = $1', [id]);
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async findById(id: number): Promise<PromoCode | null> {
     const query = 'SELECT * FROM promo_codes WHERE id = $1';
     const result = await this.pool.query(query, [id]);
