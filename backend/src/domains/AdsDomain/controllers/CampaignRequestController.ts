@@ -23,6 +23,7 @@ import { AdBillingService } from '../services/AdBillingService';
 import { parseBrief } from '../services/briefValidation';
 import { metaPushService } from '../services/MetaPushService';
 import { metaConfigSyncService } from '../services/MetaConfigSyncService';
+import { googlePushService } from '../services/GooglePushService';
 import { shopRepository } from '../../../repositories';
 import { imageStorageService } from '../../../services/ImageStorageService';
 
@@ -361,7 +362,12 @@ export async function goLiveCampaign(req: Request, res: Response): Promise<void>
   try {
     const campaign = await campaigns.findById(campaignId);
     if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
-    await metaPushService.goLive(campaignId); // throws on funding / connect / Graph error
+    // Google draft → enable on Google (conversion-action + funding checks); else Meta go-live.
+    if (campaign.googleCampaignId) {
+      await googlePushService.goLive(campaignId); // throws on conversion/funding/connect/Google error
+    } else {
+      await metaPushService.goLive(campaignId); // throws on funding / connect / Graph error
+    }
     await campaigns.update(campaignId, { status: 'active' });
     await requests.setLiveByCampaign(campaignId);
     void postEvent(campaign.shopId, `Campaign "${campaign.name}" is now live.`);

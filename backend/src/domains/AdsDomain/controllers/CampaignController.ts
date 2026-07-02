@@ -11,6 +11,7 @@ import { CampaignRepository } from '../repositories/CampaignRepository';
 import { SafeguardRepository } from '../repositories/SafeguardRepository';
 import { AdBillingService } from '../services/AdBillingService';
 import { metaPushService } from '../services/MetaPushService';
+import { googlePushService } from '../services/GooglePushService';
 
 const campaigns = new CampaignRepository();
 const adBilling = new AdBillingService();
@@ -104,7 +105,7 @@ export async function updateCampaign(req: Request, res: Response): Promise<void>
       // checks, and a confirmation). Blocking it here stops the list "Activate" toggle from
       // starting real ad spend with no safeguards (it previously pushed ACTIVE via pushStatus,
       // bypassing every go-live gate). Re-activating a previously-live campaign is still allowed.
-      if (target.metaCampaignId && !target.startedAt) {
+      if ((target.metaCampaignId || target.googleCampaignId) && !target.startedAt) {
         res.status(409).json({
           success: false, error: 'use_go_live',
           message: 'This campaign hasn’t gone live yet — use “Go Live”, which runs the funding & creative checks before any spend.',
@@ -121,6 +122,11 @@ export async function updateCampaign(req: Request, res: Response): Promise<void>
     if ((req.body?.status === 'active' || req.body?.status === 'paused') && campaign.metaCampaignId) {
       void metaPushService.pushStatus(campaign.id, req.body.status === 'active' ? 'ACTIVE' : 'PAUSED')
         .catch((e: any) => logger.warn(`Meta status push failed for ${campaign.id}: ${e?.message || e}`));
+    }
+    // Same mirror for a Google campaign (ENABLED|PAUSED). Best-effort — the DB is source-of-truth.
+    if ((req.body?.status === 'active' || req.body?.status === 'paused') && campaign.googleCampaignId) {
+      void googlePushService.pushStatus(campaign.id, req.body.status === 'active' ? 'ENABLED' : 'PAUSED')
+        .catch((e: any) => logger.warn(`Google status push failed for ${campaign.id}: ${e?.message || e}`));
     }
 
     res.json({ success: true, data: campaign });
