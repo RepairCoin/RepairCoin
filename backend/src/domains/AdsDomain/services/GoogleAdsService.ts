@@ -19,6 +19,14 @@ const ADS_API = `https://googleads.googleapis.com/${API_VERSION}`;
 // Name of the FixFlow "Lead" conversion action created per account for offline conversion imports.
 const CONVERSION_ACTION_NAME = 'FixFlow Lead';
 
+/** PURE: the campaign bidding strategy field. Conversion-optimized (Maximize Conversions, bids
+ *  toward the FixFlow Lead conversion action) when opted in via ADS_GOOGLE_OPTIMIZE_FOR_LEAD;
+ *  otherwise manual CPC (drive clicks). Only meaningful once conversions have accrued — hence
+ *  opt-in per account. Analog of Meta's pixel-Lead optimization. */
+export function campaignBiddingSpec(optimizeForConversions: boolean): Record<string, unknown> {
+  return optimizeForConversions ? { maximizeConversions: {} } : { manualCpc: {} };
+}
+
 export interface GoogleTokenResult { accessToken: string; refreshToken: string | null; expiresIn: number; }
 export interface GoogleCustomer { customerId: string; name: string; }
 
@@ -138,7 +146,7 @@ export class GoogleAdsService {
   async createSearchCampaign(
     customerId: string,
     refreshToken: string,
-    input: { name: string; dailyBudgetMicros: number },
+    input: { name: string; dailyBudgetMicros: number; optimizeForConversions?: boolean },
     loginCustomerId?: string
   ): Promise<{ campaignId: string; campaignResourceName: string; budgetResourceName: string; adGroupId: string; adGroupResourceName: string }> {
     const access = await this.refreshAccessToken(refreshToken);
@@ -148,14 +156,15 @@ export class GoogleAdsService {
       { create: { name: `${input.name} Budget ${stamp}`, amountMicros: String(input.dailyBudgetMicros), deliveryMethod: 'STANDARD' } },
     ], false, loginCustomerId);
     const budgetResourceName = budget[0].resourceName as string;
-    // 2. Campaign — PAUSED, Search, manual CPC (no conversion setup needed to create a paused object).
+    // 2. Campaign — PAUSED, Search. Bidding = manual CPC (clicks) or Maximize Conversions when
+    // ADS_GOOGLE_OPTIMIZE_FOR_LEAD is opted in (requires the Lead conversion action to exist).
     const camp = await this.mutate(customerId, access, 'campaigns', [
       { create: {
         name: `${input.name} ${stamp}`,
         status: 'PAUSED',
         advertisingChannelType: 'SEARCH',
         campaignBudget: budgetResourceName,
-        manualCpc: {},
+        ...campaignBiddingSpec(input.optimizeForConversions === true),
         networkSettings: { targetGoogleSearch: true, targetSearchNetwork: false, targetContentNetwork: false, targetPartnerSearchNetwork: false },
         // Required by Google Ads API v24+ (EU political ads declaration). FixFlow ads are not political.
         containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
