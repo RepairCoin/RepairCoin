@@ -140,6 +140,7 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
       const gDailyCents = req.body?.dailyBudgetCents ?? (r.monthlyBudgetCents ? Math.round(r.monthlyBudgetCents / 30) : 0);
       const gRefreshEnc = gconn.refreshTokenEnc; // non-null (guarded above)
       const gCustomerId = gconn.customerId;
+      const gManagerId = gconn.managerId ?? undefined; // login-customer-id (per-shop, not global env)
       const gAdmin = adminId(req);
       const campaign = await campaigns.create({
         shopId: r.shopId, name: gName, platform: 'google',
@@ -156,7 +157,7 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
       void (async () => {
         try {
           const token = decryptToken(gRefreshEnc);
-          const g = await googleAdsService.createSearchCampaign(gCustomerId, token, { name: gName, dailyBudgetMicros: gDailyCents * 10000 });
+          const g = await googleAdsService.createSearchCampaign(gCustomerId, token, { name: gName, dailyBudgetMicros: gDailyCents * 10000 }, gManagerId);
           await campaigns.setGoogleObjects(campaign.id, {
             googleCampaignId: g.campaignId, googleAdGroupId: g.adGroupId,
             googleBudgetId: g.budgetResourceName.split('/').pop(), googleStatus: 'PAUSED',
@@ -166,7 +167,7 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
           await googleAdsService.addResponsiveSearchAdAndKeywords(gCustomerId, token, g.adGroupResourceName, {
             headlines: copy.headlines, descriptions: copy.descriptions, keywords: copy.keywords,
             finalUrl: `${landingBase}/l/${campaign.id}`,
-          });
+          }, gManagerId);
           await campaigns.update(campaign.id, { status: 'draft' }); // local draft; PAUSED on Google
           void postEvent(r.shopId, `Google campaign "${gName}" created (paused) — review, then take it live.`);
         } catch (err: any) {

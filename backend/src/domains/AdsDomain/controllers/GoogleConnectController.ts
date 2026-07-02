@@ -79,7 +79,8 @@ export async function listMyGoogleAccounts(req: Request, res: Response): Promise
     const conn = await connections.getConnection(shopId);
     if (!conn?.refreshTokenEnc) { res.status(409).json({ success: false, error: 'not_authorized', message: 'Connect Google first.' }); return; }
     const accessToken = await googleAdsService.refreshAccessToken(decryptToken(conn.refreshTokenEnc));
-    const accounts = await googleAdsService.listAccessibleCustomers(accessToken);
+    // Expand manager trees so client sub-accounts (which run campaigns) are pickable, with names.
+    const accounts = await googleAdsService.listSelectableAccounts(accessToken);
     res.json({ success: true, data: { accounts } });
   } catch (err) {
     logger.error('GoogleConnectController.listMyGoogleAccounts failed', err);
@@ -97,15 +98,16 @@ export async function selectMyGoogleAccount(req: Request, res: Response): Promis
   try {
     const conn = await connections.getConnection(shopId);
     if (!conn?.refreshTokenEnc) { res.status(409).json({ success: false, error: 'not_authorized', message: 'Connect Google first.' }); return; }
-    // Validate the pick against what the user actually has access to.
+    // Validate the pick against the shop's selectable accounts + resolve which manager to operate
+    // through (login-customer-id) — from the account itself, not a global env.
     const accessToken = await googleAdsService.refreshAccessToken(decryptToken(conn.refreshTokenEnc));
-    const accounts = await googleAdsService.listAccessibleCustomers(accessToken);
-    if (!accounts.some((a) => a.customerId === customerId)) {
+    const accounts = await googleAdsService.listSelectableAccounts(accessToken);
+    const chosen = accounts.find((a) => a.customerId === customerId);
+    if (!chosen) {
       res.status(400).json({ success: false, error: 'unknown_customer' });
       return;
     }
-    const managerId = (process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID || '').replace(/\D/g, '') || null;
-    await connections.saveSelection(shopId, customerId, managerId);
+    await connections.saveSelection(shopId, customerId, chosen.managerId);
     res.json({ success: true, data: { customerId, connected: true } });
   } catch (err) {
     logger.error('GoogleConnectController.selectMyGoogleAccount failed', err);
