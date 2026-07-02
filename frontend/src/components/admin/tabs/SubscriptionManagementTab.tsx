@@ -102,19 +102,35 @@ export default function SubscriptionManagementTab() {
   const [actionLoading, setActionLoading] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
 
-  const calculateStats = useCallback((subs: Subscription[]) => {
-    const stats: SubscriptionStats = {
-      totalActive: subs.filter((s) => s.status === "active").length,
-      totalPending: subs.filter((s) => s.status === "pending").length,
-      totalPaused: subs.filter((s) => s.status === "paused").length,
-      totalCancelled: subs.filter((s) => s.status === "cancelled").length,
-      totalRevenue: subs.reduce((sum, s) => sum + s.totalPaid, 0),
-      monthlyRecurring: subs
-        .filter((s) => s.status === "active")
-        .reduce((sum, s) => sum + s.monthlyAmount, 0),
-      overdueCount: subs.filter((s) => s.daysOverdue && s.daysOverdue > 0).length,
-    };
-    setStats(stats);
+  // Headline stats come from a platform-wide aggregate endpoint, NOT from the
+  // (paginated) subscriptions list — otherwise MRR / revenue / overdue counts
+  // would only reflect the current page.
+  const loadStats = useCallback(async () => {
+    try {
+      const response = await apiClient.get("/admin/subscription/subscriptions/stats");
+      if (response.success && response.data) {
+        const d = response.data as {
+          active?: number;
+          pending?: number;
+          paused?: number;
+          canceled?: number;
+          overdue?: number;
+          totalRevenue?: number;
+          monthlyRevenue?: number;
+        };
+        setStats({
+          totalActive: d.active ?? 0,
+          totalPending: d.pending ?? 0,
+          totalPaused: d.paused ?? 0,
+          totalCancelled: d.canceled ?? 0,
+          totalRevenue: d.totalRevenue ?? 0,
+          monthlyRecurring: d.monthlyRevenue ?? 0,
+          overdueCount: d.overdue ?? 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading subscription stats:", error);
+    }
   }, []);
 
   const loadSubscriptions = useCallback(
@@ -133,7 +149,7 @@ export default function SubscriptionManagementTab() {
         if (response.success) {
           const subs = response.data || [];
           setSubscriptions(subs);
-          calculateStats(subs);
+          loadStats();
           if (syncFromStripe) {
             toast.success("Data synced successfully from Stripe");
           }
@@ -145,7 +161,7 @@ export default function SubscriptionManagementTab() {
         setSyncing(false);
       }
     },
-    [calculateStats]
+    [loadStats]
   );
 
   const handleSync = async () => {
@@ -1560,6 +1576,20 @@ export default function SubscriptionManagementTab() {
                       <label className="block text-sm font-medium text-gray-400 mb-1">Last Payment</label>
                       <p className="text-white font-medium">{formatDate(selectedSubscription.lastPaymentDate)}</p>
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Billing Method</label>
+                      <p className="text-white font-medium capitalize">
+                        {selectedSubscription.billingMethod
+                          ? selectedSubscription.billingMethod.replace(/_/g, " ")
+                          : "—"}
+                      </p>
+                    </div>
+                    {selectedSubscription.billingReference && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Billing Reference</label>
+                        <p className="text-white font-medium break-all">{selectedSubscription.billingReference}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

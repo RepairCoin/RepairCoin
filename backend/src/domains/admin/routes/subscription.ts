@@ -146,6 +146,7 @@ router.get('/subscriptions/stats', async (req: Request, res: Response) => {
         COUNT(*) FILTER (WHERE status = 'paused') as paused_count,
         COUNT(*) FILTER (WHERE status = 'defaulted') as defaulted_count,
         COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
+        COUNT(*) FILTER (WHERE status = 'active' AND next_payment_date IS NOT NULL AND next_payment_date < NOW()) as overdue_count,
         COUNT(*) as total_count,
         COALESCE(SUM(CASE WHEN status = 'active' THEN monthly_amount ELSE 0 END), 0) as monthly_revenue,
         COALESCE(SUM(total_paid), 0) as total_revenue
@@ -163,6 +164,7 @@ router.get('/subscriptions/stats', async (req: Request, res: Response) => {
         paused: parseInt(stats.paused_count),
         defaulted: parseInt(stats.defaulted_count),
         pending: parseInt(stats.pending_count),
+        overdue: parseInt(stats.overdue_count),
         total: parseInt(stats.total_count),
         monthlyRevenue: parseFloat(stats.monthly_revenue),
         yearlyRevenue: parseFloat(stats.monthly_revenue) * 12,
