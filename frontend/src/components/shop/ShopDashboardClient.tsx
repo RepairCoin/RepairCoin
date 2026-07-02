@@ -237,6 +237,11 @@ interface TierBonusStats {
   averageBonusPerTransaction: number;
 }
 
+// Remembers the shop's last active tab across a page load. Needed because on staging the edge
+// auth cookie is frequently absent on refresh, so the middleware bounces protected routes through
+// '/' and drops the ?tab= query — this lets us restore the tab instead of falling to overview.
+const LAST_TAB_KEY = "shop:lastTab";
+
 export default function ShopDashboardClient() {
   const router = useRouter();
   const account = useActiveAccount();
@@ -389,11 +394,18 @@ export default function ShopDashboardClient() {
 
     if (tab) {
       setActiveTab(tab);
+      try { sessionStorage.setItem(LAST_TAB_KEY, tab); } catch { /* ignore */ }
     } else {
-      // Only default-rewrite when the live URL genuinely has no tab — avoids clobbering
-      // a still-hydrating landing.
+      // No tab in the URL. On staging the edge auth cookie is often absent on refresh, so the
+      // middleware bounces protected routes through '/' and drops the ?tab= query. Rather than
+      // hard-defaulting to overview (which strands the shop off whatever tab they were on — the
+      // Ads-tab-after-disconnect complaint), restore the last tab we remembered this session.
+      // Falls back to overview for a genuinely fresh landing.
+      let restore = "overview";
+      try { restore = sessionStorage.getItem(LAST_TAB_KEY) || "overview"; } catch { /* ignore */ }
+      setActiveTab(restore);
       const url = new URL(window.location.href);
-      url.searchParams.set("tab", "overview");
+      url.searchParams.set("tab", restore);
       window.history.replaceState({}, "", url);
     }
 
@@ -1374,6 +1386,9 @@ export default function ShopDashboardClient() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    // Remember the tab so a refresh that gets bounced through the auth redirect (which strips
+    // ?tab=) restores it instead of dropping the shop back on overview.
+    try { sessionStorage.setItem(LAST_TAB_KEY, tab); } catch { /* ignore */ }
 
     // Update URL
     const url = new URL(window.location.href);
