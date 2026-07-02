@@ -13,6 +13,12 @@ interface AuthenticatedRequest extends Request {
     role: string;
     shopId?: string;
   };
+  // Explicitly re-declared (matching shop/routes/moderation.ts): the DO build's tsc does not
+  // surface these Express Request members through `extends Request` alone, causing TS2339 on
+  // req.params/body/query. See fix commit 9fbf297c7 which applied the same to the shop route.
+  body: any;
+  params: any;
+  query: any;
 }
 
 // ==================== ISSUE REPORTS ====================
