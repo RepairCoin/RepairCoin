@@ -805,7 +805,7 @@ export interface GoogleConnection {
   hasToken: boolean;      // OAuth done but no customer picked yet
   customerId: string | null;
 }
-export interface GoogleCustomerLite { customerId: string; name: string; }
+export interface GoogleCustomerLite { customerId: string; name: string; managerId?: string | null; }
 
 export const getGoogleConnection = async (): Promise<GoogleConnection> => {
   const res = await apiClient.get('/ads/shop/google/connection');

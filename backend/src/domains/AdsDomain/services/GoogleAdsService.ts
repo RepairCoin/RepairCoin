@@ -113,14 +113,14 @@ export class GoogleAdsService {
   /** Low-level mutate against a Google Ads resource collection. Returns the results (resource names).
    *  With `partialFailure`, per-operation failures (e.g. a policy-flagged keyword) come back as a 200
    *  with only the valid ops applied — the request itself doesn't throw. */
-  private async mutate(customerId: string, accessToken: string, resource: string, operations: any[], partialFailure = false): Promise<any[]> {
+  private async mutate(customerId: string, accessToken: string, resource: string, operations: any[], partialFailure = false, loginCustomerId?: string): Promise<any[]> {
     try {
       const body: any = { operations };
       if (partialFailure) body.partialFailure = true;
       const res = await axios.post(
         `${ADS_API}/customers/${customerId}/${resource}:mutate`,
         body,
-        { headers: { ...this.apiHeaders(accessToken), 'Content-Type': 'application/json' }, timeout: 30000 }
+        { headers: { ...this.apiHeaders(accessToken, loginCustomerId), 'Content-Type': 'application/json' }, timeout: 30000 }
       );
       return res.data?.results || [];
     } catch (err: any) {
@@ -136,14 +136,15 @@ export class GoogleAdsService {
   async createSearchCampaign(
     customerId: string,
     refreshToken: string,
-    input: { name: string; dailyBudgetMicros: number }
+    input: { name: string; dailyBudgetMicros: number },
+    loginCustomerId?: string
   ): Promise<{ campaignId: string; campaignResourceName: string; budgetResourceName: string; adGroupId: string; adGroupResourceName: string }> {
     const access = await this.refreshAccessToken(refreshToken);
     const stamp = Date.now();
     // 1. Shared budget (daily, micros).
     const budget = await this.mutate(customerId, access, 'campaignBudgets', [
       { create: { name: `${input.name} Budget ${stamp}`, amountMicros: String(input.dailyBudgetMicros), deliveryMethod: 'STANDARD' } },
-    ]);
+    ], false, loginCustomerId);
     const budgetResourceName = budget[0].resourceName as string;
     // 2. Campaign — PAUSED, Search, manual CPC (no conversion setup needed to create a paused object).
     const camp = await this.mutate(customerId, access, 'campaigns', [
@@ -157,13 +158,13 @@ export class GoogleAdsService {
         // Required by Google Ads API v24+ (EU political ads declaration). FixFlow ads are not political.
         containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
       } },
-    ]);
+    ], false, loginCustomerId);
     const campaignResourceName = camp[0].resourceName as string;
     const campaignId = campaignResourceName.split('/').pop() as string;
     // 3. Ad group — PAUSED.
     const ag = await this.mutate(customerId, access, 'adGroups', [
       { create: { name: `${input.name} Ad Group`, campaign: campaignResourceName, status: 'PAUSED', type: 'SEARCH_STANDARD' } },
-    ]);
+    ], false, loginCustomerId);
     const adGroupResourceName = ag[0].resourceName as string;
     const adGroupId = adGroupResourceName.split('/').pop() as string;
     return { campaignId, campaignResourceName, budgetResourceName, adGroupId, adGroupResourceName };
@@ -175,7 +176,8 @@ export class GoogleAdsService {
     customerId: string,
     refreshToken: string,
     adGroupResourceName: string,
-    input: { headlines: string[]; descriptions: string[]; finalUrl: string; keywords: string[] }
+    input: { headlines: string[]; descriptions: string[]; finalUrl: string; keywords: string[] },
+    loginCustomerId?: string
   ): Promise<{ adResourceName: string; keywordCount: number }> {
     const access = await this.refreshAccessToken(refreshToken);
     const ad = await this.mutate(customerId, access, 'adGroupAds', [
@@ -190,7 +192,7 @@ export class GoogleAdsService {
           },
         },
       } },
-    ]);
+    ], false, loginCustomerId);
     const adResourceName = ad[0].resourceName as string;
     let keywordCount = 0;
     const kws = (input.keywords || []).map((k) => k.trim()).filter(Boolean).slice(0, 20);
@@ -198,20 +200,57 @@ export class GoogleAdsService {
       // partial-failure: keywords that trip a content policy (e.g. "Third Party Consumer Technical
       // Support") are skipped; the valid ones still get added. Count only the applied results.
       const ops = kws.map((k) => ({ create: { adGroup: adGroupResourceName, status: 'ENABLED', keyword: { text: k, matchType: 'BROAD' } } }));
-      const res = await this.mutate(customerId, access, 'adGroupCriteria', ops, true);
+      const res = await this.mutate(customerId, access, 'adGroupCriteria', ops, true, loginCustomerId);
       keywordCount = res.filter((r: any) => r?.resourceName).length;
     }
     return { adResourceName, keywordCount };
   }
 
-  private apiHeaders(accessToken: string): Record<string, string> {
+  /** Per-call login-customer-id (the shop's manager) takes precedence; falls back to the global env. */
+  private apiHeaders(accessToken: string, loginCustomerId?: string): Record<string, string> {
     const h: Record<string, string> = {
       Authorization: `Bearer ${accessToken}`,
       'developer-token': this.developerToken(),
     };
-    const login = this.loginCustomerId();
+    const login = (loginCustomerId || '').replace(/\D/g, '') || this.loginCustomerId();
     if (login) h['login-customer-id'] = login;
     return h;
+  }
+
+  /** GAQL search against a customer (optionally through a manager via loginCustomerId). */
+  private async search(customerId: string, accessToken: string, loginCustomerId: string | undefined, query: string): Promise<any[]> {
+    const res = await axios.post(
+      `${ADS_API}/customers/${customerId}/googleAds:search`,
+      { query },
+      { headers: { ...this.apiHeaders(accessToken, loginCustomerId), 'Content-Type': 'application/json' }, timeout: 20000 }
+    );
+    return res.data?.results || [];
+  }
+
+  /** Selectable ad accounts (non-managers, with descriptive names) — expands each accessible customer's
+   *  manager tree via customer_client, so client sub-accounts (which listAccessibleCustomers omits) are
+   *  pickable. Each carries the managerId to operate through (login-customer-id); null = directly accessible. */
+  async listSelectableAccounts(accessToken: string): Promise<Array<{ customerId: string; name: string; managerId: string | null }>> {
+    const top = await this.listAccessibleCustomers(accessToken);
+    const out: Array<{ customerId: string; name: string; managerId: string | null }> = [];
+    const seen = new Set<string>();
+    for (const c of top) {
+      try {
+        const rows = await this.search(c.customerId, accessToken, c.customerId,
+          'SELECT customer_client.id, customer_client.descriptive_name, customer_client.manager FROM customer_client');
+        for (const r of rows) {
+          const cc = r.customerClient || {};
+          const id = String(cc.id);
+          if (!id || cc.manager === true) continue; // managers can't run campaigns
+          if (seen.has(id)) continue; seen.add(id);
+          out.push({ customerId: id, name: cc.descriptiveName || id, managerId: id === c.customerId ? null : c.customerId });
+        }
+      } catch {
+        // Not a manager / no expansion — treat the top-level customer itself as a directly-usable account.
+        if (!seen.has(c.customerId)) { seen.add(c.customerId); out.push({ customerId: c.customerId, name: c.name, managerId: null }); }
+      }
+    }
+    return out;
   }
 }
 
