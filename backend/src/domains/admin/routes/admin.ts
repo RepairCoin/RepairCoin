@@ -629,6 +629,10 @@ router.use('', shopManagementRoutes);
 import bugReportAdminRoutes from './bugReports';
 router.use('/bug-reports', bugReportAdminRoutes);
 
+// Moderation: shop issue reports + flagged reviews
+import moderationAdminRoutes from './moderation';
+router.use('/moderation', moderationAdminRoutes);
+
 // System settings routes
 import settingsRoutes from './settings';
 router.use('/settings', settingsRoutes);

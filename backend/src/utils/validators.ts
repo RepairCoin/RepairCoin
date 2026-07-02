@@ -21,7 +21,8 @@ export function validateEmail(email: string): boolean {
     return false;
   }
   
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Require a real TLD (2+ letters) so "x@gmail.c" is rejected.
+  const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
   return emailRegex.test(email);
 }
 
