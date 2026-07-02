@@ -142,7 +142,11 @@ export const GoogleConnectCard: React.FC<{ onChanged?: () => void }> = ({ onChan
               <label className="block text-xs text-gray-500 mb-1">Google Ads account</label>
               <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={selectCls}>
                 {accounts.length === 0 && <option value="">No accounts found</option>}
-                {accounts.map((a) => <option key={a.customerId} value={a.customerId}>{a.name}</option>)}
+                {/* Show the customer id alongside the name — accounts can share a name (e.g. two
+                    "Test Client"s under a manager), so the id is what disambiguates them. */}
+                {accounts.map((a) => (
+                  <option key={a.customerId} value={a.customerId}>{a.name} · {fmtCustomerId(a.customerId)}</option>
+                ))}
               </select>
             </div>
             <button onClick={save} disabled={busy || !customerId} className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-md bg-[#FFCC00] text-black hover:bg-[#E6B800] disabled:opacity-50">
@@ -169,5 +173,12 @@ export const GoogleConnectCard: React.FC<{ onChanged?: () => void }> = ({ onChan
 };
 
 const selectCls = "w-full px-2.5 py-1.5 bg-[#0F0F0F] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00]";
+
+// Format a 10-digit Google customer id as XXX-XXX-XXXX (matches Google Ads' own display);
+// leaves anything unexpected untouched.
+const fmtCustomerId = (id: string): string => {
+  const d = (id || "").replace(/\D/g, "");
+  return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : id;
+};
 
 export default GoogleConnectCard;
