@@ -17,6 +17,7 @@ import { GoogleInsightsService } from './GoogleInsightsService';
 import { MetaConfigSyncService } from './MetaConfigSyncService';
 import { GoogleConfigSyncService } from './GoogleConfigSyncService';
 import { metaPushService } from './MetaPushService';
+import { googlePushService } from './GooglePushService';
 
 // Q9: unconverted leads are retained 180 days, then hard-deleted nightly.
 const LEAD_RETENTION_DAYS = 180;
@@ -81,11 +82,15 @@ export class SafeguardScheduler {
       const decisions = await this.evaluator.runNightly();
       const acted = decisions.filter((d) => d.action !== 'none').length;
       if (acted > 0) logger.info(`Ads safeguard scheduler: acted on ${acted} campaign(s)`);
-      // Push P4 — mirror safeguard hard-pauses to Meta so spend actually stops (best-effort).
+      // Push P4 — mirror safeguard hard-pauses to the ad platform so spend actually stops
+      // (best-effort). Each pushStatus no-ops for a campaign that isn't on that platform, so
+      // calling both is safe and platform-correct (Meta OR Google).
       for (const d of decisions) {
         if (d.action === 'hard_pause') {
           await metaPushService.pushStatus(d.campaignId, 'PAUSED')
             .catch((e: any) => logger.warn(`Safeguard Meta pause failed for ${d.campaignId}: ${e?.message || e}`));
+          await googlePushService.pushStatus(d.campaignId, 'PAUSED')
+            .catch((e: any) => logger.warn(`Safeguard Google pause failed for ${d.campaignId}: ${e?.message || e}`));
         }
       }
 

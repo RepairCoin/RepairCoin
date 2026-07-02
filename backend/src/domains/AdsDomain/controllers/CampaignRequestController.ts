@@ -74,6 +74,18 @@ export async function submitCampaignRequest(req: Request, res: Response): Promis
 
   const parsed = parseBrief(req.body?.brief);
   if ('error' in parsed) { res.status(400).json({ success: false, error: parsed.error }); return; }
+
+  // Server-side tier gate (defense-in-depth behind the FE channel picker): reject a Google-channel
+  // request at submission for a non-Business shop, so it fails immediately with a clear message
+  // instead of later at build. Mirrors the build-time check in buildCampaignFromRequest.
+  if (parsed.brief.channel === 'google') {
+    const plan = await plans.getOrDefault(shopId);
+    if (!limitsForTier(plan.flatTierName).channels.includes('google')) {
+      res.status(403).json({ success: false, error: 'google_requires_business_tier', message: 'Google Ads campaigns require the Business plan.' });
+      return;
+    }
+  }
+
   const message = (req.body?.message || '').toString().slice(0, 1000) || null;
   try {
     const r = await requests.create(shopId, parsed.brief, message);
