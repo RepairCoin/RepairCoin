@@ -135,7 +135,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     useState(false);
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
-    type: "suspend" | "reconsider" | null;
+    type: "suspend" | "reconsider" | "unsuspend" | null;
     shop: Shop | null;
   }>({ isOpen: false, type: null, shop: null });
   const [displayMode, setDisplayMode] = useState<"table" | "grid">("table");
@@ -223,14 +223,23 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     }
   }, [filterStatus]);
 
-  // Combine all shops for unified view
-  const allShops = [
-    ...activeShops.map((s) => ({ ...s, status: "active" as const })),
-    ...pendingShops.map((s) => ({ ...s, status: "pending" as const })),
-    ...rejectedShops.map((s) => ({
-      ...s,
-      status: ((s.suspended_at || s.suspendedAt) ? "suspended" : "rejected") as const
-    })),
+  // Combine all shops for unified view. The dashboard hook's shop shape is a
+  // superset of what we read here but typed loosely, so cast to the local Shop.
+  type CombinedShop = Shop & {
+    status: "active" | "pending" | "suspended" | "rejected";
+  };
+  const allShops: CombinedShop[] = [
+    ...activeShops.map((s) => ({ ...(s as unknown as Shop), status: "active" as const })),
+    ...pendingShops.map((s) => ({ ...(s as unknown as Shop), status: "pending" as const })),
+    ...rejectedShops.map((s) => {
+      const shop = s as unknown as Shop;
+      return {
+        ...shop,
+        status: (shop.suspended_at || shop.suspendedAt ? "suspended" : "rejected") as
+          | "suspended"
+          | "rejected",
+      };
+    }),
   ];
 
   // Filter shops based on filter status and search
@@ -868,10 +877,9 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           )}
 
         {/* Additional Actions */}
-        <div className={`flex flex-wrap gap-2 ${shop.status === "active" && shop.pendingMintAmount && shop.pendingMintAmount > 0 && onMintBalance ? "" : "hidden"}`}>
+        <div className={`flex flex-wrap gap-2 ${shop.status === "active" && shop.pendingMintAmount && shop.pendingMintAmount > 0 ? "" : "hidden"}`}>
           {shop.status === "active" &&
-            shop.pendingMintAmount && shop.pendingMintAmount > 0 &&
-            onMintBalance && (
+            shop.pendingMintAmount && shop.pendingMintAmount > 0 && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1032,8 +1040,8 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     total: allShops.length,
     active: activeShops.filter((s) => s.active && s.verified).length,
     pending: pendingShops.length,
-    suspended: rejectedShops.filter((s) => s.suspended_at || s.suspendedAt).length,
-    rejected: rejectedShops.filter((s) => !s.suspended_at && !s.suspendedAt).length,
+    suspended: rejectedShops.filter((s) => s.suspended_at || (s as unknown as Shop).suspendedAt).length,
+    rejected: rejectedShops.filter((s) => !s.suspended_at && !(s as unknown as Shop).suspendedAt).length,
     verified: activeShops.filter((s) => s.verified).length,
     totalTokensIssued: activeShops.reduce(
       (sum, s) => sum + (s.totalTokensIssued || 0),
