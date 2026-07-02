@@ -31,6 +31,10 @@ export interface AdCampaign {
   // Stage-4 push: present when the campaign was created on Meta.
   metaCampaignId?: string | null;
   metaStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ACTIVE
+  // Google plan push: present when the campaign was created on the shop's Google Ads account.
+  googleCampaignId?: string | null;
+  googleAdGroupId?: string | null;
+  googleStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ENABLED
   targetRadiusMiles?: number | null;
   currency?: string | null; // joined from shops.meta_currency — the connected ad account's currency
 }

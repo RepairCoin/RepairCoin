@@ -206,6 +206,67 @@ export class GoogleAdsService {
     return { adResourceName, keywordCount };
   }
 
+  /** Flip a campaign's serving state: set the campaign, its ad group, and its ad(s) to ENABLED
+   *  (go-live) or PAUSED. The RSA + all three objects are created PAUSED, so all must be enabled to
+   *  serve; keywords are already ENABLED. The ad-group-ad update is partial-failure so one
+   *  disapproved ad doesn't block the rest. Go-live / status-mirror. */
+  async setCampaignServingStatus(
+    customerId: string,
+    refreshToken: string,
+    input: { campaignId: string; adGroupId: string },
+    status: 'ENABLED' | 'PAUSED',
+    loginCustomerId?: string
+  ): Promise<{ ads: number }> {
+    const access = await this.refreshAccessToken(refreshToken);
+    // 1. Campaign.
+    await this.mutate(customerId, access, 'campaigns', [
+      { update: { resourceName: `customers/${customerId}/campaigns/${input.campaignId}`, status }, updateMask: 'status' },
+    ], false, loginCustomerId);
+    // 2. Ad group.
+    await this.mutate(customerId, access, 'adGroups', [
+      { update: { resourceName: `customers/${customerId}/adGroups/${input.adGroupId}`, status }, updateMask: 'status' },
+    ], false, loginCustomerId);
+    // 3. Ad(s) in the group — the RSA was created PAUSED, so it must be enabled to serve.
+    const rows = await this.search(customerId, access, loginCustomerId,
+      `SELECT ad_group_ad.resource_name FROM ad_group_ad WHERE ad_group.id = ${input.adGroupId}`);
+    const ops = rows.map((r: any) => ({ update: { resourceName: r.adGroupAd.resourceName, status }, updateMask: 'status' }));
+    let ads = 0;
+    if (ops.length) {
+      const res = await this.mutate(customerId, access, 'adGroupAds', ops, true, loginCustomerId);
+      ads = res.filter((r: any) => r?.resourceName).length;
+    }
+    return { ads };
+  }
+
+  /** Go-live preconditions on the shop's Google account: at least one ENABLED conversion action
+   *  (so the campaign can measure/optimize) and an APPROVED billing setup (a payment profile → real
+   *  spend). Both are unattainable on a TEST account, so go-live is effectively prod-only. Each
+   *  query is best-effort — a missing/blocked resource reads as "not satisfied", not an error. */
+  async getGoLivePreconditions(
+    customerId: string,
+    refreshToken: string,
+    loginCustomerId?: string
+  ): Promise<{ hasConversionAction: boolean; hasFunding: boolean }> {
+    const access = await this.refreshAccessToken(refreshToken);
+    let hasConversionAction = false;
+    let hasFunding = false;
+    try {
+      const ca = await this.search(customerId, access, loginCustomerId,
+        "SELECT conversion_action.id FROM conversion_action WHERE conversion_action.status = 'ENABLED' LIMIT 1");
+      hasConversionAction = ca.length > 0;
+    } catch (e: any) {
+      logger.warn(`GoogleAdsService.getGoLivePreconditions conversion_action query failed: ${e?.message || e}`);
+    }
+    try {
+      const bs = await this.search(customerId, access, loginCustomerId,
+        "SELECT billing_setup.id FROM billing_setup WHERE billing_setup.status = 'APPROVED' LIMIT 1");
+      hasFunding = bs.length > 0;
+    } catch (e: any) {
+      logger.warn(`GoogleAdsService.getGoLivePreconditions billing_setup query failed: ${e?.message || e}`);
+    }
+    return { hasConversionAction, hasFunding };
+  }
+
   /** Per-call login-customer-id (the shop's manager) takes precedence; falls back to the global env. */
   private apiHeaders(accessToken: string, loginCustomerId?: string): Record<string, string> {
     const h: Record<string, string> = {

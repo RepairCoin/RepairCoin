@@ -16,6 +16,7 @@ import { MarginPanel } from "@/components/ads/MarginPanel";
 import { CampaignRequestsQueue } from "@/components/ads/CampaignRequestsQueue";
 import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
 import { DraftComposer } from "@/components/ads/DraftComposer";
+import { GoogleDraftPanel } from "@/components/ads/GoogleDraftPanel";
 import { LandingPageSettings } from "@/components/ads/LandingPageSettings";
 import {
   listCampaigns, createCampaign, updateCampaign, goLiveCampaign, getCampaignPerformance,
@@ -170,11 +171,12 @@ export const AdminAdsTab: React.FC = () => {
       if (c.status === "active") {
         // Pausing is always safe.
         await updateCampaign(c.id, { status: "paused" });
-      } else if (c.metaCampaignId && !c.startedAt) {
-        // First-time go-live: must run the GATED flow (funding + creative-approved + account
-        // checks) with an explicit confirmation — NOT a silent raw activate that starts real
-        // ad spend. The backend also enforces this (409 use_go_live).
-        if (!window.confirm(`Take "${c.name}" live? Your ad account will start spending on Meta.`)) return;
+      } else if ((c.metaCampaignId || c.googleCampaignId) && !c.startedAt) {
+        // First-time go-live: must run the GATED flow (funding + creative/conversion checks) with an
+        // explicit confirmation — NOT a silent raw activate that starts real ad spend. The backend
+        // also enforces this (409 use_go_live) for both Meta and Google.
+        const platform = c.googleCampaignId ? "Google" : "Meta";
+        if (!window.confirm(`Take "${c.name}" live? Your ad account will start spending on ${platform}.`)) return;
         await goLiveCampaign(c.id);
         toast.success("Campaign is live!");
       } else {
@@ -327,9 +329,14 @@ export const AdminAdsTab: React.FC = () => {
           </div>
 
           {!launched ? (
-            /* ─── DRAFTING ─── one cohesive composer: creative + details form + push/go-live.
-               Everything needed to launch in a single card; nothing else. */
-            <DraftComposer campaign={selected} onChanged={load} />
+            /* ─── DRAFTING ─── a Google draft (copy + keywords live on Google, not our creative
+               table) gets the lighter Google review→go-live card; a Meta draft gets the full
+               creative composer. */
+            selected.googleCampaignId ? (
+              <GoogleDraftPanel campaign={selected} onGoLive={() => toggleStatus(selected)} />
+            ) : (
+              <DraftComposer campaign={selected} onChanged={load} />
+            )
           ) : !perf ? (
             <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading performance…</div>
           ) : (
