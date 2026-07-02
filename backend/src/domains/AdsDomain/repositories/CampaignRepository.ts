@@ -57,6 +57,8 @@ export interface AdCampaign {
   googleAdGroupId: string | null;
   googleBudgetId: string | null;
   googleStatus: string | null;
+  /** When Google insights (spend/impr/clicks) were last imported for this campaign (Slice 4). */
+  googleLastSyncedAt: Date | null;
   /** Per-campaign landing-page magnet overrides (Phase 2); null → auto-composed defaults. */
   landingConfig: LandingConfig | null;
 }
@@ -66,6 +68,7 @@ export interface GoogleObjectIds {
   googleAdGroupId?: string | null;
   googleBudgetId?: string | null;
   googleStatus?: string | null;
+  googleLastSyncedAt?: Date | null;
 }
 
 /** Shop-controlled landing-page magnet overrides. All optional — anything unset falls back to the
@@ -305,6 +308,7 @@ export class CampaignRepository extends BaseRepository {
     if (g.googleAdGroupId !== undefined) col('google_ad_group_id', g.googleAdGroupId);
     if (g.googleBudgetId !== undefined) col('google_budget_id', g.googleBudgetId);
     if (g.googleStatus !== undefined) col('google_status', g.googleStatus);
+    if (g.googleLastSyncedAt !== undefined) col('google_last_synced_at', g.googleLastSyncedAt);
     if (sets.length === 0) return this.findById(id);
     sets.push(`updated_at = now()`);
     params.push(id);
@@ -322,6 +326,15 @@ export class CampaignRepository extends BaseRepository {
         WHERE meta_campaign_id IS NOT NULL AND deleted_at IS NULL`
     );
     return res.rows.map((r) => ({ id: r.id, shopId: r.shop_id, metaCampaignId: r.meta_campaign_id }));
+  }
+
+  /** Campaigns pushed to Google (have a google_campaign_id) — the nightly insights-sync set. */
+  async listWithGoogleCampaign(): Promise<Array<{ id: string; shopId: string; googleCampaignId: string }>> {
+    const res = await this.pool.query(
+      `SELECT id, shop_id, google_campaign_id FROM ad_campaigns
+        WHERE google_campaign_id IS NOT NULL AND deleted_at IS NULL`
+    );
+    return res.rows.map((r) => ({ id: r.id, shopId: r.shop_id, googleCampaignId: r.google_campaign_id }));
   }
 
   /** Resolve our campaign from a Meta campaign id (webhook/insights attribution). */
@@ -385,6 +398,7 @@ export class CampaignRepository extends BaseRepository {
       googleAdGroupId: r.google_ad_group_id ?? null,
       googleBudgetId: r.google_budget_id ?? null,
       googleStatus: r.google_status ?? null,
+      googleLastSyncedAt: r.google_last_synced_at ?? null,
       landingConfig: r.landing_config ?? null,
     };
   }

@@ -8,6 +8,7 @@
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { googleAdsService } from '../services/GoogleAdsService';
+import { googleInsightsService } from '../services/GoogleInsightsService';
 import { signState, verifyStateDetailed } from '../services/metaOAuthState';
 import { encryptToken, decryptToken } from '../../../utils/tokenCrypto';
 import { GoogleConnectionRepository } from '../repositories/GoogleConnectionRepository';
@@ -133,6 +134,17 @@ export async function getMyGoogleConnection(req: Request, res: Response): Promis
   } catch (err) {
     logger.error('GoogleConnectController.getMyGoogleConnection failed', err);
     res.status(500).json({ success: false, error: 'Failed to load connection' });
+  }
+}
+
+// POST /ads/google/sync-insights (admin) — run the Google insights import now (also nightly). Slice 4.
+export async function triggerGoogleInsightsSync(_req: Request, res: Response): Promise<void> {
+  try {
+    const synced = await googleInsightsService.syncAll();
+    res.json({ success: true, data: { synced } });
+  } catch (err) {
+    logger.error('GoogleConnectController.triggerGoogleInsightsSync failed', err);
+    res.status(500).json({ success: false, error: 'Failed to sync Google insights' });
   }
 }
 
