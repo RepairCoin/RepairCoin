@@ -84,6 +84,42 @@ router.patch(
   }
 );
 
+// Edit a promo code (admin)
+router.put(
+  '/promo-codes/:id',
+  async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid promo code id' });
+      }
+
+      const { name, bonus_type, bonus_value, start_date, end_date, is_active } = req.body;
+      if (bonus_type && !['fixed', 'percentage'].includes(bonus_type)) {
+        return res.status(400).json({ success: false, error: 'bonus_type must be fixed or percentage' });
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (name !== undefined) updates.name = name;
+      if (bonus_type !== undefined) updates.bonus_type = bonus_type;
+      if (bonus_value !== undefined) updates.bonus_value = Number(bonus_value);
+      if (start_date !== undefined) updates.start_date = start_date;
+      if (end_date !== undefined) updates.end_date = end_date;
+      if (is_active !== undefined) updates.is_active = is_active;
+
+      const updated = await promoCodeService.adminUpdatePromoCode(id, updates as any);
+      res.json({ success: true, data: updated });
+    } catch (error: any) {
+      const notFound = error?.message === 'Promo code not found';
+      logger.error('Error updating promo code:', error);
+      res.status(notFound ? 404 : 500).json({
+        success: false,
+        error: notFound ? error.message : 'Failed to update promo code'
+      });
+    }
+  }
+);
+
 // Delete a promo code (admin) — also removes its usage history (cascade)
 router.delete(
   '/promo-codes/:id',

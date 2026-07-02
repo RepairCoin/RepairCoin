@@ -198,6 +198,34 @@ export class PromoCodeService {
     return updated;
   }
 
+  async adminUpdatePromoCode(promoCodeId: number, updates: Partial<PromoCode>): Promise<PromoCode> {
+    const existing = await this.promoCodeRepo.findById(promoCodeId);
+    if (!existing) {
+      throw new Error('Promo code not found');
+    }
+    // code and shop_id are immutable.
+    const safeUpdates = { ...updates };
+    delete (safeUpdates as Partial<PromoCode>).code;
+    delete (safeUpdates as Partial<PromoCode>).shop_id;
+    delete (safeUpdates as { id?: number }).id;
+
+    const updated = await this.promoCodeRepo.update(promoCodeId, safeUpdates);
+    if (!updated) {
+      throw new Error('Failed to update promo code');
+    }
+
+    eventBus.publish({
+      type: 'promo_code:updated',
+      aggregateId: existing.shop_id,
+      timestamp: new Date(),
+      source: 'PromoCodeService',
+      version: 1,
+      data: { shopId: existing.shop_id, promoCodeId, code: existing.code, by: 'admin', updates: safeUpdates }
+    });
+
+    return updated;
+  }
+
   async adminDeletePromoCode(promoCodeId: number): Promise<void> {
     const existing = await this.promoCodeRepo.findById(promoCodeId);
     if (!existing) {
