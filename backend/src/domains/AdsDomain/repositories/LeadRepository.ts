@@ -28,6 +28,8 @@ export interface AdLead {
   /** Google click id (from auto-tagging on the landing URL) — used to upload an offline
    *  conversion to Google when this lead converts (Google conversion-optimization, Phase 1). */
   gclid: string | null;
+  /** When this lead's offline conversion was uploaded to Google (Phase 2) — idempotency marker. */
+  conversionUploadedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,6 +75,14 @@ export class LeadRepository extends BaseRepository {
       ]
     );
     return this.mapRow(res.rows[0]);
+  }
+
+  /** Mark a lead's Google offline conversion as uploaded (idempotent — no-op if already set). */
+  async markConversionUploaded(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_leads SET conversion_uploaded_at = now() WHERE id = $1 AND conversion_uploaded_at IS NULL`,
+      [id]
+    );
   }
 
   /** Idempotency for Meta webhook re-delivery: existing lead id for a meta_lead_id. */
@@ -223,6 +233,7 @@ export class LeadRepository extends BaseRepository {
       notes: r.notes,
       lostReason: r.lost_reason,
       gclid: r.gclid ?? null,
+      conversionUploadedAt: r.conversion_uploaded_at ?? null,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };

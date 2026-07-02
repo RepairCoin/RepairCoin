@@ -42,11 +42,22 @@ export class GoogleConnectionRepository extends BaseRepository {
     };
   }
 
+  /** Cached FixFlow "Lead" conversion-action resource name for this shop's account (Phase 2). */
+  async getConversionAction(shopId: string): Promise<string | null> {
+    const res = await this.pool.query(`SELECT google_ads_conversion_action FROM shops WHERE shop_id = $1`, [shopId]);
+    return res.rows[0]?.google_ads_conversion_action ?? null;
+  }
+
+  async saveConversionAction(shopId: string, resourceName: string): Promise<void> {
+    await this.pool.query(`UPDATE shops SET google_ads_conversion_action = $2 WHERE shop_id = $1`, [shopId, resourceName]);
+  }
+
   async clearConnection(shopId: string): Promise<void> {
     await this.pool.query(
       `UPDATE shops
           SET google_ads_refresh_token = NULL, google_ads_customer_id = NULL,
-              google_ads_manager_id = NULL, google_ads_connected = false
+              google_ads_manager_id = NULL, google_ads_connected = false,
+              google_ads_conversion_action = NULL
         WHERE shop_id = $1`,
       [shopId]
     );
