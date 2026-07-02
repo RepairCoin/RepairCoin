@@ -20,7 +20,7 @@ import { GoogleDraftPanel } from "@/components/ads/GoogleDraftPanel";
 import { LandingPageSettings } from "@/components/ads/LandingPageSettings";
 import {
   listCampaigns, createCampaign, updateCampaign, goLiveCampaign, getCampaignPerformance,
-  enterDailyMetrics, getAllShopsSummary, regenerateAdImage, scaleCampaignBudget, syncCampaignFromMeta,
+  enterDailyMetrics, getAllShopsSummary, regenerateAdImage, scaleCampaignBudget, syncCampaignFromMeta, syncCampaignFromGoogle,
   getShopMetaAccount, fmtUsd, fmtMoney, fmtRoi,
   type AdCampaign, type CampaignPerformance, type AllShopsSummary, type ShopMetaAccount,
 } from "@/services/api/ads";
@@ -96,6 +96,34 @@ export const AdminAdsTab: React.FC = () => {
       }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || e?.message || "Couldn't sync from Meta.");
+    } finally { setSyncing(false); }
+  };
+
+  // Two-way config sync — pull budget/status back from Google for this campaign (Slice 5).
+  const syncFromGoogle = async (c: AdCampaign) => {
+    setSyncing(true);
+    try {
+      const r = await syncCampaignFromGoogle(c.id);
+      if (r.status === "synced") {
+        const n = Object.keys(r.changes || {}).length;
+        toast.success(`Synced from Google — updated ${n} field${n > 1 ? "s" : ""}.`);
+        await load();
+        if (selectedId === c.id) await select(c.id);
+      } else if (r.status === "in_sync") {
+        toast.success("Already in sync with Google.");
+      } else if (r.status === "diverged") {
+        toast.error("This campaign was removed in Google Ads — marked archived here. It can't go live again.");
+        await load();
+        if (selectedId === c.id) await select(c.id);
+      } else if (r.status === "skipped") {
+        toast(r.reason === "disconnected" ? "Reconnect the shop's Google account to sync." : "This campaign isn't on Google yet.");
+      } else if (r.status === "error") {
+        toast.error("Couldn't reach Google — please try again.");
+      } else {
+        toast("Google config sync isn't enabled.");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't sync from Google.");
     } finally { setSyncing(false); }
   };
 
@@ -353,6 +381,20 @@ export const AdminAdsTab: React.FC = () => {
                     title="Pull the latest budget & status from Meta Ads Manager"
                   >
                     {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh from Meta
+                  </button>
+                </div>
+              )}
+              {/* Two-way config sync for a Google campaign. Shown for any pushed Google campaign;
+                  if the feature flag is off server-side the toast says so (no shop-account gate). */}
+              {selected.googleCampaignId && (
+                <div className="flex items-center justify-end">
+                  <button
+                    onClick={() => syncFromGoogle(selected)}
+                    disabled={syncing}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
+                    title="Pull the latest budget & status from Google Ads"
+                  >
+                    {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh from Google
                   </button>
                 </div>
               )}

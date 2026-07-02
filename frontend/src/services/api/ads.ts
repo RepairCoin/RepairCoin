@@ -35,6 +35,7 @@ export interface AdCampaign {
   googleCampaignId?: string | null;
   googleAdGroupId?: string | null;
   googleStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ENABLED
+  googleSyncedConfigAt?: string | null; // last time budget/status was reconciled FROM Google (Slice 5)
   targetRadiusMiles?: number | null;
   currency?: string | null; // joined from shops.meta_currency — the connected ad account's currency
 }
@@ -696,6 +697,22 @@ export interface SyncFromMetaResult {
 export const syncCampaignFromMeta = async (id: string): Promise<SyncFromMetaResult> => {
   const res = await apiClient.post(`/ads/campaigns/${id}/sync-from-meta`, {});
   return unwrap<SyncFromMetaResult>(res);
+};
+
+/** Two-way config sync for a Google campaign — pull the current budget/status back from Google
+ *  (source-of-truth for live). Returns the fresh campaign + which fields changed (empty when in
+ *  sync, the feature is off, or the campaign isn't pushed). Mirrors syncCampaignFromMeta. */
+export type SyncFromGoogleStatus = 'disabled' | 'skipped' | 'synced' | 'in_sync' | 'diverged' | 'error';
+export interface SyncFromGoogleResult {
+  campaign: AdCampaign;
+  status: SyncFromGoogleStatus;
+  changes: Record<string, unknown>;
+  reason?: 'not_pushed' | 'disconnected' | 'google_removed';
+  error?: string;
+}
+export const syncCampaignFromGoogle = async (id: string): Promise<SyncFromGoogleResult> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/sync-from-google`, {});
+  return unwrap<SyncFromGoogleResult>(res);
 };
 
 // Landing-page magnet overrides (Phase 2). All optional — anything unset auto-composes.
