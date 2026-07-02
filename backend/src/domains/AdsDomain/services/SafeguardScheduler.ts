@@ -13,6 +13,7 @@ import { AdBillingService } from './AdBillingService';
 import { SubscriptionService } from './SubscriptionService';
 import { MetaConnectionService } from './MetaConnectionService';
 import { MetaInsightsService } from './MetaInsightsService';
+import { GoogleInsightsService } from './GoogleInsightsService';
 import { MetaConfigSyncService } from './MetaConfigSyncService';
 import { metaPushService } from './MetaPushService';
 
@@ -30,6 +31,7 @@ export class SafeguardScheduler {
     private readonly subscriptions = new SubscriptionService(),
     private readonly metaConnections = new MetaConnectionService(),
     private readonly metaInsights = new MetaInsightsService(),
+    private readonly googleInsights = new GoogleInsightsService(),
     private readonly metaConfigSync = new MetaConfigSyncService()
   ) {}
 
@@ -62,6 +64,10 @@ export class SafeguardScheduler {
       // fresh spend (no-op unless ADS_META_PUSH_ENABLED + a configured Meta App).
       const insightsSynced = await this.metaInsights.syncAll();
       if (insightsSynced > 0) logger.info(`Ads Meta insights: synced ${insightsSynced} campaign(s)`);
+      // Slice 4: import Google spend/impressions/clicks (no-op unless ADS_GOOGLE_PUSH_ENABLED + a
+      // configured Google app). Same partial-upsert contract as Meta insights.
+      const googleSynced = await this.googleInsights.syncAll();
+      if (googleSynced > 0) logger.info(`Ads Google insights: synced ${googleSynced} campaign(s)`);
       // Two-way config sync: pull budget/status back FROM Meta so the dashboard reflects manual
       // Ads-Manager edits (no-op unless ADS_META_CONFIG_SYNC + a configured Meta App).
       const configReconciled = await this.metaConfigSync.reconcileAll();

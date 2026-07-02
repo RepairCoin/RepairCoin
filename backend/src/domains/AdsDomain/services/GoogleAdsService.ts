@@ -267,6 +267,24 @@ export class GoogleAdsService {
     return { hasConversionAction, hasFunding };
   }
 
+  /** Daily campaign insights (spend/impressions/clicks) for the last N days, segmented by date.
+   *  cost is returned in micros of the account currency. Slice 4 (nightly import). */
+  async fetchCampaignInsights(
+    customerId: string,
+    refreshToken: string,
+    campaignId: string,
+    sinceDays: number,
+    loginCustomerId?: string
+  ): Promise<any[]> {
+    const access = await this.refreshAccessToken(refreshToken);
+    // GAQL DURING takes a named range; snap N to the supported windows (7/14/30).
+    const range = sinceDays <= 7 ? 'LAST_7_DAYS' : sinceDays <= 14 ? 'LAST_14_DAYS' : 'LAST_30_DAYS';
+    const query =
+      `SELECT segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks ` +
+      `FROM campaign WHERE campaign.id = ${String(campaignId).replace(/\D/g, '')} AND segments.date DURING ${range}`;
+    return this.search(customerId, access, loginCustomerId, query);
+  }
+
   /** Per-call login-customer-id (the shop's manager) takes precedence; falls back to the global env. */
   private apiHeaders(accessToken: string, loginCustomerId?: string): Record<string, string> {
     const h: Record<string, string> = {

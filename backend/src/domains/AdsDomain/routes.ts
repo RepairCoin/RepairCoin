@@ -40,7 +40,7 @@ import {
 import { getAdChannels } from './controllers/AdChannelController';
 import {
   getGoogleConnectUrl, handleGoogleOauthCallback, listMyGoogleAccounts,
-  selectMyGoogleAccount, getMyGoogleConnection, disconnectMyGoogle,
+  selectMyGoogleAccount, getMyGoogleConnection, disconnectMyGoogle, triggerGoogleInsightsSync,
 } from './controllers/GoogleConnectController';
 import {
   getMyMessages, postMyMessage, listShopMessages, postAdminMessage, getMessageInbox,
@@ -219,6 +219,7 @@ export function initializeRoutes(): Router {
   router.get('/shop/google/accounts', ...shop, listMyGoogleAccounts);     // customer-account picker
   router.post('/shop/google/select', ...shop, selectMyGoogleAccount);     // store choice + flip gate
   router.post('/shop/google/disconnect', ...shop, disconnectMyGoogle);
+  router.post('/google/sync-insights', ...admin, triggerGoogleInsightsSync); // Slice 4: import Google spend/impr/clicks now
 
   return router;
 }
