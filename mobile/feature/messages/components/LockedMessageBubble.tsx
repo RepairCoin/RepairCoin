@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -36,6 +36,7 @@ export default function LockedMessageBubble({
   const [isUnlocked, setIsUnlocked] = useState(!!cached);
   const [decryptedText, setDecryptedText] = useState<string | null>(cached?.text ?? null);
   const [decryptedAttachmentUrls, setDecryptedAttachmentUrls] = useState<string[]>(cached?.attachmentUrls ?? []);
+  const manuallyLocked = useRef(false);
 
   const senderInitial = isCustomer
     ? conversation?.shopName?.charAt(0).toUpperCase()
@@ -45,15 +46,19 @@ export default function LockedMessageBubble({
   const hint = encryption?.hint as string | undefined;
 
   const handleLock = () => {
+    manuallyLocked.current = true;
     setIsUnlocked(false);
     setDecryptedText(null);
     setDecryptedAttachmentUrls([]);
   };
 
-  // Called from ChatScreen after successful unlock
-  // Check session cache on each render in case it was unlocked via modal
-  if (!isUnlocked && cached) {
-    // Session was populated by the modal — sync local state
+  const handleUnlockPress = () => {
+    manuallyLocked.current = false;
+    onRequestUnlock?.(message);
+  };
+
+  // Sync from session cache when unlocked via modal (but not after user manually re-locked)
+  if (!isUnlocked && cached && !manuallyLocked.current) {
     setIsUnlocked(true);
     setDecryptedText(cached.text);
     setDecryptedAttachmentUrls(cached.attachmentUrls);
@@ -138,7 +143,7 @@ export default function LockedMessageBubble({
 
       <View className={`max-w-[70%] ${isOwnMessage ? "items-end" : "items-start"}`}>
         <Pressable
-          onPress={() => onRequestUnlock?.(message)}
+          onPress={handleUnlockPress}
           className={`rounded-2xl px-4 py-3 border ${
             isOwnMessage
               ? "bg-amber-500/10 border-amber-500/30"

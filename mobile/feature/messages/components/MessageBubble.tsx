@@ -1,4 +1,5 @@
-import { View, Text, Image } from "react-native";
+import { useState } from "react";
+import { View, Text, Image, Modal, Pressable, StatusBar } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Message, Conversation } from "../types";
 import { formatMessageTime } from "@/shared/utilities/messageFormatters";
@@ -40,11 +41,45 @@ export default function MessageBubble({
     );
   }
 
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
   const senderInitial = isCustomer
     ? conversation?.shopName?.charAt(0).toUpperCase()
     : conversation?.customerName?.charAt(0).toUpperCase();
 
   return (
+    <>
+      {/* Full-screen image viewer */}
+      <Modal
+        visible={!!fullScreenImage}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setFullScreenImage(null)}
+      >
+        <StatusBar hidden />
+        <Pressable
+          className="flex-1 bg-black items-center justify-center"
+          onPress={() => setFullScreenImage(null)}
+        >
+          {fullScreenImage && (
+            <Image
+              source={{ uri: fullScreenImage }}
+              style={{ width: "100%", height: "100%" }}
+              resizeMode="contain"
+            />
+          )}
+          {/* Close button */}
+          <Pressable
+            onPress={() => setFullScreenImage(null)}
+            className="absolute top-12 right-4 w-9 h-9 rounded-full bg-black/60 items-center justify-center"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="close" size={20} color="#fff" />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
     <View className={`flex-row mb-2 px-4 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
       {/* Avatar for received messages */}
       {!isOwnMessage && (
@@ -109,11 +144,13 @@ export default function MessageBubble({
               {message.attachments.map((attachment, idx) => (
                 <View key={idx} className="mb-1">
                   {attachment.type === "image" ? (
-                    <Image
-                      source={{ uri: attachment.url }}
-                      className="w-48 h-48 rounded-lg"
-                      resizeMode="cover"
-                    />
+                    <Pressable onPress={() => setFullScreenImage(attachment.url)}>
+                      <Image
+                        source={{ uri: attachment.url }}
+                        className="w-48 h-48 rounded-lg"
+                        resizeMode="cover"
+                      />
+                    </Pressable>
                   ) : (
                     <View
                       className={`flex-row items-center p-2 rounded-lg ${
@@ -160,5 +197,6 @@ export default function MessageBubble({
         </View>
       </View>
     </View>
+    </>
   );
 }
