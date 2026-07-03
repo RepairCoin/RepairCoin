@@ -443,20 +443,45 @@ export async function updateGoogleDraft(req: Request, res: Response): Promise<vo
 // + the request → live (billing starts §9.2).
 export async function goLiveCampaign(req: Request, res: Response): Promise<void> {
   const campaignId = req.params.id;
+  let campaign;
   try {
-    const campaign = await campaigns.findById(campaignId);
+    campaign = await campaigns.findById(campaignId);
     if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
-    // Google draft → enable on Google (conversion-action + funding checks); else Meta go-live.
-    if (campaign.googleCampaignId) {
-      await googlePushService.goLive(campaignId); // throws on conversion/funding/connect/Google error
-    } else {
-      await metaPushService.goLive(campaignId); // throws on funding / connect / Graph error
-    }
+  } catch (err: any) {
+    logger.error('CampaignRequestController.goLiveCampaign lookup failed', err?.message || err);
+    res.status(500).json({ success: false, error: 'Failed to start go-live.' });
+    return;
+  }
+
+  const activate = async () => {
     await campaigns.update(campaignId, { status: 'active' });
     await requests.setLiveByCampaign(campaignId);
-    void postEvent(campaign.shopId, `Campaign "${campaign.name}" is now live.`);
-    await notifyShop(campaign.shopId, `Your campaign "${campaign.name}" is now live.`);
-    await eventBus.publish(createDomainEvent(AdsEvents.CAMPAIGN_CREATED, campaignId, { shopId: campaign.shopId, name: campaign.name }, 'AdsDomain'));
+    void postEvent(campaign!.shopId, `Campaign "${campaign!.name}" is now live.`);
+    await notifyShop(campaign!.shopId, `Your campaign "${campaign!.name}" is now live.`);
+    await eventBus.publish(createDomainEvent(AdsEvents.CAMPAIGN_CREATED, campaignId, { shopId: campaign!.shopId, name: campaign!.name }, 'AdsDomain'));
+  };
+
+  // Google go-live does its precondition checks (conversion-action + billing) on the Graph, then the
+  // enable mutations — this can exceed the gateway timeout (→ 504). Ack fast and run it in the
+  // BACKGROUND, reporting the outcome (live, or the specific block reason) via the message feed.
+  if (campaign.googleCampaignId) {
+    res.status(202).json({ success: true, data: { campaignId, status: 'going_live', async: true } });
+    void (async () => {
+      try {
+        await googlePushService.goLive(campaignId); // throws on conversion/funding/connect/Google error
+        await activate();
+      } catch (err: any) {
+        logger.warn('goLiveCampaign (google, background) failed', { campaignId, message: err?.message });
+        void postEvent(campaign!.shopId, `Couldn't take "${campaign!.name}" live: ${err?.message || 'error'}`);
+      }
+    })();
+    return;
+  }
+
+  // Meta — synchronous (fast enough; the shop sees the result inline).
+  try {
+    await metaPushService.goLive(campaignId); // throws on funding / connect / Graph error
+    await activate();
     res.json({ success: true, data: { campaignId, status: 'active' } });
   } catch (err: any) {
     logger.error('CampaignRequestController.goLiveCampaign failed', err?.message || err);
