@@ -25,6 +25,8 @@ import {
 import { appointmentApi } from "@/feature/services/services/service.services";
 import { formatTimeSlot } from "@/shared/utilities/timeFormat";
 import { useAppToast } from "@/shared/hooks/useAppToast";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/shared/config/queryClient";
 
 const DAY_NAMES = [
   "Sunday",
@@ -42,6 +44,20 @@ export default function AvailabilitySettingsScreen() {
   const { userProfile } = useAuthStore();
   const shopId = userProfile?.shopId || "";
   const { showSuccess, showError } = useAppToast();
+  const queryClient = useQueryClient();
+
+  // Invalidate every cache the booking calendars read, so changes to hours /
+  // overrides here (add/delete/toggle) immediately reflect in the customer
+  // booking, reschedule, and manual-booking calendars (which use React Query,
+  // separate from this screen's manual reload). Keys are fragmented across the
+  // app, so invalidate all the variants.
+  const invalidateCalendarCaches = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["shop-date-overrides"] }); // reschedule + manual booking
+    queryClient.invalidateQueries({ queryKey: ["shopDateOverrides"] });   // customer booking calendar
+    queryClient.invalidateQueries({ queryKey: ["shop-availability"] });   // reschedule + manual booking
+    queryClient.invalidateQueries({ queryKey: ["time-slots"] });          // reschedule + manual booking slots
+    queryClient.invalidateQueries({ queryKey: queryKeys.appointments() }); // customer calendar slots/availability/overrides
+  }, [queryClient]);
 
   const [activeTab, setActiveTab] = useState<TabType>("hours");
   const [loading, setLoading] = useState(true);
@@ -157,6 +173,7 @@ export default function AvailabilitySettingsScreen() {
       showSuccess("Hours updated");
       setEditingDay(null);
       await loadAllData();
+      invalidateCalendarCaches();
     } catch (err) {
       showError("Failed to update hours");
     } finally {
@@ -194,6 +211,7 @@ export default function AvailabilitySettingsScreen() {
       showSuccess("Settings saved");
       setEditingConfig(false);
       await loadAllData();
+      invalidateCalendarCaches();
     } catch (err) {
       showError("Failed to save settings");
     } finally {
@@ -221,6 +239,7 @@ export default function AvailabilitySettingsScreen() {
       showSuccess("Override added");
       setNewOverride({ overrideDate: "", isClosed: true, customOpenTime: "", customCloseTime: "", reason: "" });
       await loadAllData();
+      invalidateCalendarCaches();
     } catch (err) {
       showError("Failed to add override");
     } finally {
@@ -243,6 +262,7 @@ export default function AvailabilitySettingsScreen() {
             await appointmentApi.deleteDateOverride(dateOnly);
             showSuccess("Override removed");
             await loadAllData();
+            invalidateCalendarCaches();
           } catch (err) {
             showError("Failed to delete override");
           }
