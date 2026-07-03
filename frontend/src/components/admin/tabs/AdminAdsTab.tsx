@@ -255,13 +255,21 @@ export const AdminAdsTab: React.FC = () => {
         const platform = c.googleCampaignId ? "Google" : "Meta";
         if (!window.confirm(`Take "${c.name}" live? Your ad account will start spending on ${platform}.`)) return;
         await goLiveCampaign(c.id);
-        toast.success("Campaign is live!");
+        if (c.googleCampaignId) {
+          // Google go-live runs in the background (avoids the gateway timeout) — the result (live, or
+          // "needs a payment method / conversion action") lands in the message feed shortly.
+          toast.success("Taking it live on Google — we'll confirm shortly. If the account needs a payment method or conversion action, you'll see it in Messages.");
+        } else {
+          toast.success("Campaign is live!");
+        }
       } else {
         // Re-activating a previously-live campaign — already vetted at first go-live.
         await updateCampaign(c.id, { status: "active" });
       }
       await load();
       if (selectedId === c.id) await select(c.id);
+      // Async Google go-live: re-check a few seconds later to reflect the background result.
+      if (c.googleCampaignId && !c.startedAt) setTimeout(() => { void load(); if (selectedId === c.id) void select(c.id); }, 6000);
     } catch (e: any) {
       // 409 = tier capacity (§9.5) or use_go_live; otherwise a go-live gate (funding/creative).
       toast.error(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Couldn't update status.");
