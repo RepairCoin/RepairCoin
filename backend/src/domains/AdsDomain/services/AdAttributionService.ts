@@ -112,7 +112,13 @@ export class AdAttributionService {
     for (const o of orders.rows) {
       try {
         const leadId = await this.linkOrGetLead(o.order_id, o.customer_address, o.shop_id);
-        if (leadId) { await this.advanceLead(leadId, o.customer_address, 'paid'); linked++; }
+        if (leadId) {
+          await this.advanceLead(leadId, o.customer_address, 'paid');
+          // Same as the live path: a backfilled paid lead with a gclid should report the offline
+          // conversion to Google (best-effort, self-gated).
+          void googleConversionService.uploadLeadConversion(leadId).catch(() => undefined);
+          linked++;
+        }
       } catch (err) {
         logger.warn('AdAttribution.backfill: one order failed, continuing', { orderId: o.order_id, error: (err as Error)?.message });
       }

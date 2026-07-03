@@ -9,7 +9,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, Rocket, ExternalLink, Plus, X, Wand2, Save, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
-import { fmtMoney, updateGoogleDraft, getGoogleDraftContent, type AdCampaign, type GoogleAdContent } from "@/services/api/ads";
+import { fmtMoney, updateGoogleDraft, getGoogleDraftContent, syncGoogleInsights, runAttributionBackfill, type AdCampaign, type GoogleAdContent } from "@/services/api/ads";
 
 const eq = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -144,6 +144,21 @@ export const GoogleDraftPanel: React.FC<{
     } finally { setBusy(null); }
   };
 
+  // Admin utilities (also run nightly / on order-paid) — handy for verifying the pipeline.
+  const [tool, setTool] = useState<null | "insights" | "attr">(null);
+  const syncInsights = async () => {
+    setTool("insights");
+    try { const r = await syncGoogleInsights(); toast.success(`Insights sync done — ${r.synced} campaign(s).`); }
+    catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Couldn't sync insights."); }
+    finally { setTool(null); }
+  };
+  const runBackfill = async () => {
+    setTool("attr");
+    try { const r = await runAttributionBackfill(campaign.shopId); toast.success(`Attribution done — linked ${r.linked} of ${r.scanned} order(s).`); }
+    catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Couldn't run attribution."); }
+    finally { setTool(null); }
+  };
+
   const managerUrl = `https://ads.google.com/aw/campaigns?campaignId=${campaign.googleCampaignId ?? ""}`;
 
   return (
@@ -160,9 +175,17 @@ export const GoogleDraftPanel: React.FC<{
           <Row label="Campaign ID" value={campaign.googleCampaignId ?? "—"} mono />
           <Row label="Ad group ID" value={campaign.googleAdGroupId ?? "—"} mono />
         </dl>
-        <a href={managerUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white">
-          <ExternalLink className="w-3.5 h-3.5" /> Review in Google Ads
-        </a>
+        <div className="flex items-center gap-4 flex-wrap">
+          <a href={managerUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white">
+            <ExternalLink className="w-3.5 h-3.5" /> Review in Google Ads
+          </a>
+          <button onClick={syncInsights} disabled={tool !== null} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-white disabled:opacity-50">
+            {tool === "insights" ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Sync insights now
+          </button>
+          <button onClick={runBackfill} disabled={tool !== null} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-white disabled:opacity-50">
+            {tool === "attr" ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Run attribution now
+          </button>
+        </div>
       </div>
 
       {/* Editor */}
