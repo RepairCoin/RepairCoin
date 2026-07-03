@@ -13,6 +13,17 @@ import { fmtMoney, updateGoogleDraft, getGoogleDraftContent, type AdCampaign, ty
 
 const eq = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify(b);
 
+// Soft recommended daily minimum (major units) — roughly a few local-service clicks/day. Google
+// enforces NO minimum, so this is advisory only. Per-currency defaults, overridable via env.
+const REC_MIN_BY_CCY: Record<string, number> = {
+  USD: 5, EUR: 5, GBP: 4, AUD: 7, CAD: 7, SGD: 7, NZD: 8, PHP: 200, INR: 300, MXN: 90, BRL: 25, JPY: 700,
+};
+const REC_MIN_ENV = parseFloat(process.env.NEXT_PUBLIC_ADS_GOOGLE_MIN_DAILY || "");
+function recommendedMinDaily(currency?: string | null): number | null {
+  if (Number.isFinite(REC_MIN_ENV) && REC_MIN_ENV > 0) return REC_MIN_ENV;
+  return REC_MIN_BY_CCY[(currency || "PHP").toUpperCase()] ?? null;
+}
+
 export const GoogleDraftPanel: React.FC<{
   campaign: AdCampaign;
   onGoLive: () => Promise<void> | void;
@@ -60,6 +71,9 @@ export const GoogleDraftPanel: React.FC<{
   };
 
   const status = campaign.googleStatus || "PAUSED";
+  const recMin = recommendedMinDaily(campaign.currency);
+  const budgetNum = parseFloat(budget);
+  const lowBudget = recMin != null && Number.isFinite(budgetNum) && budgetNum > 0 && budgetNum < recMin;
   const orig = campaign.googleAdContent;
   const cleanH = headlines.map((s) => s.trim()).filter(Boolean);
   const cleanD = descriptions.map((s) => s.trim()).filter(Boolean);
@@ -144,10 +158,16 @@ export const GoogleDraftPanel: React.FC<{
           </div>
         </div>
 
-        {/* Budget */}
-        <div className="max-w-[220px]">
-          <label className="block text-[11px] uppercase tracking-wide text-gray-500 mb-1">Daily budget ({campaign.currency || "PHP"})</label>
-          <input type="number" min={1} value={budget} onChange={(e) => setBudget(e.target.value)} className={inputCls} />
+        {/* Budget — Google has no hard minimum (unlike Meta), so this is soft guidance only. */}
+        <div>
+          <div className="max-w-[220px]">
+            <label className="block text-[11px] uppercase tracking-wide text-gray-500 mb-1">Daily budget ({campaign.currency || "PHP"})</label>
+            <input type="number" min={1} value={budget} onChange={(e) => setBudget(e.target.value)} className={inputCls} />
+          </div>
+          <p className="text-[11px] text-gray-500 mt-1">Google has no minimum — but a very low daily budget may get few or no clicks (it should cover at least a few keyword clicks/day).</p>
+          {lowBudget && recMin != null && (
+            <p className="text-[11px] text-amber-400 mt-1">This looks low — we recommend at least about {fmtMoney(recMin * 100, campaign.currency)}/day so your ads can get steady clicks. (Not required — you can save any amount.)</p>
+          )}
         </div>
 
         <ListEditor
