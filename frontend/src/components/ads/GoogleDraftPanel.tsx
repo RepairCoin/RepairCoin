@@ -78,7 +78,14 @@ export const GoogleDraftPanel: React.FC<{
   const cleanH = headlines.map((s) => s.trim()).filter(Boolean);
   const cleanD = descriptions.map((s) => s.trim()).filter(Boolean);
   const kwList = keywords.split(",").map((s) => s.trim()).filter(Boolean);
-  const rsaValid = cleanH.length >= 3 && cleanH.every((s) => s.length <= 30) && cleanD.length >= 2 && cleanD.every((s) => s.length <= 90);
+  // Specific RSA validation message (so a blocked save says exactly what's wrong, not "nothing happened").
+  const rsaError =
+    headlines.some((s) => s.trim().length > 30) ? "One or more headlines are over 30 characters — trim the fields marked in red."
+    : descriptions.some((s) => s.trim().length > 90) ? "One or more descriptions are over 90 characters — trim the fields marked in red."
+    : cleanH.length < 3 ? "Add at least 3 headlines (≤30 characters each)."
+    : cleanD.length < 2 ? "Add at least 2 descriptions (≤90 characters each)."
+    : null;
+  const rsaValid = !rsaError;
 
   // Unsaved-changes detection — Go Live only activates what's already synced to Google, so unsaved
   // composer edits would be silently dropped. Used to guard Go Live + show a dirty hint.
@@ -92,7 +99,7 @@ export const GoogleDraftPanel: React.FC<{
     const edits: any = {};
     if (budgetChanged) edits.dailyBudgetCents = Math.round(budgetNum * 100);
     if (copyChanged) {
-      if (!rsaValid) { toast.error("Need at least 3 headlines (≤30 chars) and 2 descriptions (≤90 chars)."); return false; }
+      if (rsaError) { toast.error(rsaError); return false; }
       edits.headlines = cleanH; edits.descriptions = cleanD;
     }
     if (kwChanged) edits.keywords = kwList;
@@ -206,10 +213,13 @@ export const GoogleDraftPanel: React.FC<{
           <p className="text-[11px] text-gray-500 mt-1">{kwList.length} keyword{kwList.length === 1 ? "" : "s"}</p>
         </div>
 
-        <button onClick={save} disabled={busy !== null}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-white/15 disabled:opacity-50">
-          {busy === "save" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save &amp; sync to Google
-        </button>
+        <div className="space-y-1">
+          <button onClick={save} disabled={busy !== null}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-white/15 disabled:opacity-50">
+            {busy === "save" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save &amp; sync to Google
+          </button>
+          {copyChanged && rsaError && <p className="text-[11px] text-red-400">{rsaError}</p>}
+        </div>
       </div>
 
       {/* Go live */}
