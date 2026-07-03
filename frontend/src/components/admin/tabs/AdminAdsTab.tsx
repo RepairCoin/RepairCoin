@@ -4,8 +4,8 @@
 // create + per-campaign performance (ROI computed-at-read) + manual daily-metric
 // entry. Admin-only; reads/writes /api/ads. Gated by ADS_DASHBOARD_ENABLED upstream.
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw, ChevronDown, ChevronUp, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { LeadKanban } from "@/components/ads/LeadKanban";
@@ -148,10 +148,26 @@ export const AdminAdsTab: React.FC = () => {
 
   useEffect(() => { void load(); }, [load]);
 
-  const select = async (id: string) => {
+  // Keep ?campaign=<id> in the URL so the detail view is deep-linkable + browser Back works.
+  // Preserves other params (tab=ads). Uses pushState — NOT a reload — so it never triggers the
+  // auth-bounce that drops query params (see the shop tab-refresh fix).
+  const syncCampaignUrl = (id: string | null) => {
+    try {
+      const url = new URL(window.location.href);
+      if (id) url.searchParams.set("campaign", id);
+      else url.searchParams.delete("campaign");
+      window.history.pushState({}, "", url);
+    } catch { /* SSR */ }
+  };
+
+  const select = async (id: string, pushUrl = true) => {
     setSelectedId(id);
     setPerf(null);
     setMetaAccount(null);
+    if (pushUrl) syncCampaignUrl(id);
+    // Swap to the detail view — scroll to top so it's obvious a campaign opened (the old inline
+    // panel appeared below the fold and read as "nothing happened").
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* SSR */ }
     try { setPerf(await getCampaignPerformance(id)); }
     catch (e: any) { toast.error(e?.message || "Couldn't load performance."); }
     // Best-effort: learn the shop's Meta-account state (incl. the config-sync flag) so the
@@ -159,6 +175,39 @@ export const AdminAdsTab: React.FC = () => {
     const shopId = campaigns.find((c) => c.id === id)?.shopId;
     if (shopId) getShopMetaAccount(shopId).then(setMetaAccount).catch(() => setMetaAccount(null));
   };
+
+  const backToList = () => {
+    setSelectedId(null);
+    setPerf(null);
+    syncCampaignUrl(null);
+    try { window.scrollTo({ top: 0 }); } catch { /* SSR */ }
+  };
+
+  // Deep-link: open the campaign named in ?campaign=<id> once the list has loaded (shared link /
+  // in-session refresh). Runs once; a stale/unknown id is cleared from the URL.
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (deepLinkDone.current || loading) return;
+    const id = new URLSearchParams(window.location.search).get("campaign");
+    if (id && campaigns.some((c) => c.id === id)) {
+      deepLinkDone.current = true;
+      void select(id, false); // URL already carries it → don't push a duplicate history entry
+    } else if (id && campaigns.length) {
+      deepLinkDone.current = true;
+      syncCampaignUrl(null);
+    }
+  }, [loading, campaigns]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Browser Back/Forward: reflect the URL's ?campaign into the open detail (close on Back to list).
+  useEffect(() => {
+    const onPop = () => {
+      const id = new URLSearchParams(window.location.search).get("campaign");
+      if (id) void select(id, false);
+      else { setSelectedId(null); setPerf(null); }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleAiAgent = async (c: AdCampaign) => {
     try {
@@ -255,14 +304,26 @@ export const AdminAdsTab: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-          <Megaphone className="w-5 h-5 text-[#FFCC00]" /> Ads
-        </h2>
-        <Button onClick={() => setShowCreate((v) => !v)} className="bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
-          <Plus className="w-4 h-4" /> New Campaign
-        </Button>
+        {selected ? (
+          <button onClick={backToList} className="inline-flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white">
+            <ArrowLeft className="w-4 h-4" /> Back to campaigns
+          </button>
+        ) : (
+          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-[#FFCC00]" /> Ads
+          </h2>
+        )}
+        {!selected && (
+          <Button onClick={() => setShowCreate((v) => !v)} className="bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
+            <Plus className="w-4 h-4" /> New Campaign
+          </Button>
+        )}
       </div>
 
+      {/* ── LIST MODE ── the dashboard (inbox + requests + summary + list) shows only when no
+          campaign is open; selecting one swaps to the focused detail view below (no off-screen panel). */}
+      {!selected && (
+        <>
       {/* Shop messages inbox (#2) — reachable in any lifecycle state, flags shops awaiting a reply */}
       <AdMessagesInbox />
 
@@ -333,8 +394,11 @@ export const AdminAdsTab: React.FC = () => {
           </tbody>
         </table>
       </div>
+        </>
+      )}
 
-      {/* Selected campaign — performance + metric entry */}
+      {/* ── DETAIL MODE ── the selected campaign, shown in place of the list (with a Back button in
+          the header above). Performance + composer/panel + metric entry. */}
       {selected && (
         <div className="rounded-xl border border-white/10 bg-[#141414] p-5 space-y-5">
           <div className="flex items-center justify-between">

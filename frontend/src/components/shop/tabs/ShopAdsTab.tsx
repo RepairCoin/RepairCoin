@@ -7,8 +7,8 @@
 //   Step 3  Request a campaign             (admin then builds it → goes live)
 // Each step unlocks the next; the campaign rail + performance appear once there's activity.
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Megaphone, TrendingUp, AlertTriangle, Plus, X, Lock } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, Megaphone, TrendingUp, AlertTriangle, Plus, X, Lock, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { LeadKanban } from "@/components/ads/LeadKanban";
 import { AdMessageThread } from "@/components/ads/AdMessageThread";
@@ -32,6 +32,13 @@ const REQ_STATUS_CLS: Record<string, string> = {
   live: "bg-green-500/15 text-green-400",
   declined: "bg-red-500/15 text-red-400",
   cancelled: "bg-gray-500/15 text-gray-400",
+};
+
+const CAMP_STATUS_CLS: Record<string, string> = {
+  active: "text-green-400",
+  paused: "text-amber-400",
+  draft: "text-blue-400",
+  archived: "text-gray-500",
 };
 
 export interface ShopAdsTabProps {
@@ -80,11 +87,25 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
 
   useEffect(() => { void load(); }, [load]);
 
+  // Anchor for the campaigns/detail region — we scroll THIS into view on select instead of the
+  // window top, so the detail lands in view without yanking the page up past the plan/connect cards.
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const scrollToSection = () => {
+    requestAnimationFrame(() => sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
   const select = async (id: string) => {
     setSelectedId(id);
     setPerf(null);
+    scrollToSection(); // bring the campaign section (→ detail) to the top of the viewport
     try { setPerf(await getShopCampaignPerformance(id)); }
     catch (e: any) { toast.error(e?.message || "Couldn't load performance."); }
+  };
+
+  const backToList = () => {
+    setSelectedId(null);
+    setPerf(null);
+    scrollToSection();
   };
 
   const submitRequest = async () => {
@@ -120,6 +141,7 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
   const needsConnect = subscribed && !connected;            // step 2 not yet done
   const canRequest = subscribed && connected;               // step 3 unlocked
   const hasActivity = campaigns.length > 0 || pendingReqs.length > 0;
+  const selectedCampaign = campaigns.find((c) => c.id === selectedId) || null;
 
   const stepLabels = ["Choose a plan", "Connect ad account", "Request a campaign"];
   const currentStep = !subscribed ? 0 : !connected ? 1 : 2;
@@ -189,7 +211,12 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
             <>
               <AwaitingResponse mode="shop" />
 
-              {reqOpen && (
+              {/* Scroll anchor — select()/back scroll HERE (not window-top) so the detail lands in
+                  view without jumping the page up past the plan/connect cards. */}
+              <div ref={sectionRef} className="scroll-mt-4" />
+
+              {/* Request form — list mode only */}
+              {!selectedId && reqOpen && (
                 <div className="rounded-xl border border-[#FFCC00]/30 bg-[#141414] p-4 space-y-3">
                   <p className="text-sm font-medium text-gray-200">Request a campaign</p>
                   <CampaignBriefFields shopId={shopId} value={brief} onChange={setBrief} />
@@ -210,88 +237,113 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
                 </div>
               )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
-                {/* Left rail: request button + campaigns + in-flight requests */}
-                <div className="space-y-2">
+              {!selectedId ? (
+                /* ── LIST MODE ── request button + campaigns table + requests in review. Clicking a
+                   row opens the performance detail (below), so identical names don't blur together. */
+                <div className="space-y-4">
                   <button
                     onClick={() => setReqOpen((v) => !v)}
-                    className="w-full inline-flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-md bg-[#FFCC00] text-black hover:bg-[#E6B800]"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-md bg-[#FFCC00] text-black hover:bg-[#E6B800]"
                   >
                     {reqOpen ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {reqOpen ? "Cancel" : "Request a campaign"}
                   </button>
 
-                  {campaigns.map((c) => {
-                    const monthly = monthlyOf(c.id);
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => select(c.id)}
-                        className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
-                          selectedId === c.id ? "border-[#FFCC00] bg-[#FFCC00]/10" : "border-white/10 bg-[#1A1A1A] hover:border-white/25"
-                        }`}
-                      >
-                        <p className="text-sm font-medium text-white">{c.name}</p>
-                        <p className="text-xs text-gray-500 capitalize">
-                          {c.status} · {fmtMoney(c.dailyBudgetCents, c.currency ?? metaConn?.currency)}/day
-                          {monthly != null && <span className="normal-case"> · {fmtMoney(monthly, c.currency ?? metaConn?.currency)}/mo</span>}
-                        </p>
-                      </button>
-                    );
-                  })}
-
-                  {pendingReqs.map((r) => (
-                    <div key={r.id} className="rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-white truncate capitalize">{r.goal ? r.goal.replace(/_/g, " ") : "Campaign"}</p>
-                        <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize shrink-0 ${REQ_STATUS_CLS[r.status] ?? "bg-gray-500/15 text-gray-400"}`}>{r.status}</span>
-                      </div>
-                      {(r.monthlyBudgetCents != null || r.declineReason) && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {r.monthlyBudgetCents != null && <>{fmtMoney(r.monthlyBudgetCents, metaConn?.currency)}/mo</>}
-                          {r.declineReason && <span className="text-red-400/80"> · {r.declineReason}</span>}
-                        </p>
-                      )}
+                  {campaigns.length > 0 && (
+                    <div className="rounded-xl border border-white/10 overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-[#1A1A1A] text-gray-400">
+                          <tr>
+                            <th className="text-left px-4 py-2 font-medium">Campaign</th>
+                            <th className="text-left px-4 py-2 font-medium">Status</th>
+                            <th className="text-left px-4 py-2 font-medium">Goal</th>
+                            <th className="text-right px-4 py-2 font-medium">Budget/day</th>
+                            <th className="text-right px-4 py-2 font-medium">Monthly</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {campaigns.map((c) => {
+                            const req = reqByCampaign.get(c.id);
+                            const monthly = monthlyOf(c.id);
+                            const ccy = c.currency ?? metaConn?.currency;
+                            return (
+                              <tr key={c.id} onClick={() => select(c.id)} className="border-t border-white/5 cursor-pointer hover:bg-white/5">
+                                <td className="px-4 py-2.5 text-white">{c.name}</td>
+                                <td className="px-4 py-2.5"><span className={`capitalize ${CAMP_STATUS_CLS[c.status] ?? "text-gray-300"}`}>{c.status}</span></td>
+                                <td className="px-4 py-2.5 text-gray-400 capitalize">{req?.goal ? req.goal.replace(/_/g, " ") : "—"}</td>
+                                <td className="px-4 py-2.5 text-right text-gray-300">{fmtMoney(c.dailyBudgetCents, ccy)}</td>
+                                <td className="px-4 py-2.5 text-right text-gray-300">{monthly != null ? fmtMoney(monthly, ccy) : "—"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
-                  ))}
+                  )}
+
+                  {pendingReqs.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-300">Requests in review</p>
+                      {pendingReqs.map((r) => {
+                        const ccy = metaConn?.currency;
+                        const line = [
+                          r.promoteServiceIds?.length ? `${r.promoteServiceIds.length} service${r.promoteServiceIds.length > 1 ? "s" : ""}` : null,
+                          r.monthlyBudgetCents != null ? `${fmtMoney(r.monthlyBudgetCents, ccy)}/mo` : null,
+                          r.targetRadiusMiles != null ? `${r.targetRadiusMiles} mi` : null,
+                          r.goal ? r.goal.replace(/_/g, " ") : null,
+                        ].filter(Boolean).join(" · ");
+                        return (
+                          <div key={r.id} className="rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-medium text-white capitalize">{r.goal ? r.goal.replace(/_/g, " ") : "Campaign"}</p>
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize shrink-0 ${REQ_STATUS_CLS[r.status] ?? "bg-gray-500/15 text-gray-400"}`}>{r.status}</span>
+                            </div>
+                            {line && <p className="text-xs text-gray-400 mt-0.5 capitalize">{line}</p>}
+                            {r.offer && <p className="text-xs text-gray-500 mt-0.5">Offer: {r.offer}</p>}
+                            {r.message && <p className="text-xs text-gray-500 mt-0.5 italic">“{r.message}”</p>}
+                            {r.declineReason && <p className="text-xs text-red-400/80 mt-0.5">{r.declineReason}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {!hasActivity && (
-                    <p className="text-xs text-gray-500 px-1 py-2">No campaigns yet — request your first one above.</p>
+                    <p className="text-sm text-gray-500 py-8 text-center rounded-xl border border-white/10 bg-[#141414]">No campaigns yet — request your first one above.</p>
                   )}
                 </div>
-
-                {/* Performance card */}
-                <div className="min-w-0 rounded-xl border border-white/10 bg-[#141414] p-5">
-                  {!selectedId ? (
-                    <div className="text-center text-gray-400 text-sm py-8">
-                      {campaigns.length === 0
-                        ? "Once our team builds your campaign, performance shows up here."
-                        : "Select a campaign to see its performance."}
-                    </div>
-                  ) : !perf ? (
-                    <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
-                  ) : (
-                    <>
-                      <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-[#FFCC00]" /> Performance
-                      </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <Stat label="Spend" value={fmtMoney(perf.roi.totalSpendCents, metaConn?.currency)} />
-                        <Stat label="Revenue" value={fmtMoney(perf.roi.totalRevenueCents, metaConn?.currency)} />
-                        <Stat label="ROI" value={fmtRoi(perf.roi.roi)} accent />
-                        <Stat label="Bookings" value={String(perf.roi.totalBookings)} />
-                        <Stat label="Leads" value={String(perf.roi.totalLeads)} />
-                        <Stat label="Cost / Lead" value={fmtMoney(perf.roi.cplCents, metaConn?.currency)} />
-                        <Stat label="Cost / Booking" value={fmtMoney(perf.roi.cpbCents, metaConn?.currency)} />
-                        <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
-                      </div>
-                      <div className="mt-5">
-                        <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
-                        {selectedId && <LeadKanban mode="shop" campaignId={selectedId} />}
-                      </div>
-                    </>
-                  )}
+              ) : (
+                /* ── DETAIL MODE ── the selected campaign's performance, in place of the list. */
+                <div className="space-y-4">
+                  <button onClick={backToList} className="inline-flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white">
+                    <ArrowLeft className="w-4 h-4" /> Back to campaigns
+                  </button>
+                  <div className="rounded-xl border border-white/10 bg-[#141414] p-5">
+                    {!perf ? (
+                      <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+                    ) : (
+                      <>
+                        <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5 text-[#FFCC00]" /> {selectedCampaign?.name ?? "Performance"}
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <Stat label="Spend" value={fmtMoney(perf.roi.totalSpendCents, metaConn?.currency)} />
+                          <Stat label="Revenue" value={fmtMoney(perf.roi.totalRevenueCents, metaConn?.currency)} />
+                          <Stat label="ROI" value={fmtRoi(perf.roi.roi)} accent />
+                          <Stat label="Bookings" value={String(perf.roi.totalBookings)} />
+                          <Stat label="Leads" value={String(perf.roi.totalLeads)} />
+                          <Stat label="Cost / Lead" value={fmtMoney(perf.roi.cplCents, metaConn?.currency)} />
+                          <Stat label="Cost / Booking" value={fmtMoney(perf.roi.cpbCents, metaConn?.currency)} />
+                          <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
+                        </div>
+                        <div className="mt-5">
+                          <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
+                          {selectedId && <LeadKanban mode="shop" campaignId={selectedId} />}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
 
