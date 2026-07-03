@@ -80,22 +80,32 @@ export const GoogleDraftPanel: React.FC<{
   const kwList = keywords.split(",").map((s) => s.trim()).filter(Boolean);
   const rsaValid = cleanH.length >= 3 && cleanH.every((s) => s.length <= 30) && cleanD.length >= 2 && cleanD.every((s) => s.length <= 90);
 
-  const save = async () => {
+  // Unsaved-changes detection — Go Live only activates what's already synced to Google, so unsaved
+  // composer edits would be silently dropped. Used to guard Go Live + show a dirty hint.
+  const budgetChanged = Number.isFinite(budgetNum) && Math.round(budgetNum * 100) !== campaign.dailyBudgetCents;
+  const copyChanged = !eq(cleanH, orig?.headlines ?? []) || !eq(cleanD, orig?.descriptions ?? []);
+  const kwChanged = !eq(kwList, orig?.keywords ?? []);
+  const isDirty = budgetChanged || copyChanged || kwChanged;
+
+  // Push only the changed parts to Google. Returns false when RSA validation blocks a copy edit.
+  const pushEdits = async (): Promise<boolean> => {
     const edits: any = {};
-    const b = parseFloat(budget);
-    if (!Number.isNaN(b) && Math.round(b * 100) !== campaign.dailyBudgetCents) edits.dailyBudgetCents = Math.round(b * 100);
-    const copyChanged = !eq(cleanH, orig?.headlines ?? []) || !eq(cleanD, orig?.descriptions ?? []);
+    if (budgetChanged) edits.dailyBudgetCents = Math.round(budgetNum * 100);
     if (copyChanged) {
-      if (!rsaValid) { toast.error("Need at least 3 headlines (≤30 chars) and 2 descriptions (≤90 chars)."); return; }
+      if (!rsaValid) { toast.error("Need at least 3 headlines (≤30 chars) and 2 descriptions (≤90 chars)."); return false; }
       edits.headlines = cleanH; edits.descriptions = cleanD;
     }
-    if (!eq(kwList, orig?.keywords ?? [])) edits.keywords = kwList;
-    if (Object.keys(edits).length === 0) { toast("Nothing to update."); return; }
+    if (kwChanged) edits.keywords = kwList;
+    if (Object.keys(edits).length === 0) return true;
+    await updateGoogleDraft(campaign.id, edits);
+    return true;
+  };
+
+  const save = async () => {
+    if (!isDirty) { toast("Nothing to update."); return; }
     setBusy("save");
     try {
-      await updateGoogleDraft(campaign.id, edits);
-      toast.success("Saved & synced to Google.");
-      onChanged?.();
+      if (await pushEdits()) { toast.success("Saved & synced to Google."); onChanged?.(); }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || e?.message || "Couldn't save.");
     } finally { setBusy(null); }
@@ -113,8 +123,20 @@ export const GoogleDraftPanel: React.FC<{
   };
 
   const goLive = async () => {
+    // Guard: Go Live activates what's ON Google, not the composer's unsaved edits — sync them first.
+    if (isDirty && !window.confirm(
+      "You have unsaved changes to this ad — they won't go live unless synced.\n\nOK = Save & sync to Google, then go live\nCancel = keep editing"
+    )) return;
     setBusy("golive");
-    try { await onGoLive(); } finally { setBusy(null); }
+    try {
+      if (isDirty) {
+        if (!(await pushEdits())) return; // validation blocked → stay in the composer
+        onChanged?.();
+      }
+      await onGoLive();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't go live.");
+    } finally { setBusy(null); }
   };
 
   const managerUrl = `https://ads.google.com/aw/campaigns?campaignId=${campaign.googleCampaignId ?? ""}`;
@@ -197,6 +219,9 @@ export const GoogleDraftPanel: React.FC<{
           shop&apos;s account to have a <span className="text-gray-200">conversion action</span> and a
           <span className="text-gray-200"> payment method</span> first; Go Live checks both and tells you what&apos;s missing.
         </p>
+        {isDirty && (
+          <p className="text-[11px] text-amber-400">You have unsaved changes — Go Live will offer to save &amp; sync them first.</p>
+        )}
         <button onClick={goLive} disabled={busy !== null}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FFCC00] text-black font-medium hover:bg-[#E6B800] disabled:opacity-50">
           {busy === "golive" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} Go Live on Google
