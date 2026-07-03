@@ -28,6 +28,34 @@ export class GoogleComposerService {
     return process.env.ADS_GOOGLE_PUSH_ENABLED === 'true' && googleAdsService.isConfigured();
   }
 
+  /** Populate/backfill: return the campaign with its Google ad content. When the content is empty
+   *  (built before the composer, or first open) or forceRefresh is set, read the current RSA copy +
+   *  keywords FROM Google and store them, so the composer shows the real AI-generated content. Never
+   *  throws — returns the campaign as-is when disabled / not-google / disconnected / on read error. */
+  async getDraftContent(campaignId: string, forceRefresh = false): Promise<AdCampaign | null> {
+    const campaign = await this.campaigns.findById(campaignId);
+    if (!campaign?.googleCampaignId || !campaign.googleAdGroupId) return campaign;
+    const hasContent = !!(campaign.googleAdContent && campaign.googleAdContent.headlines?.length);
+    if (hasContent && !forceRefresh) return campaign;
+    if (!this.enabled()) return campaign;
+    try {
+      const conn = await this.connections.getConnection(campaign.shopId);
+      if (!conn?.refreshTokenEnc || !conn.customerId) return campaign;
+      const token = decryptToken(conn.refreshTokenEnc);
+      const fetched = await googleAdsService.fetchAdContent(conn.customerId, token, campaign.googleAdGroupId, conn.managerId ?? undefined);
+      if (!fetched.headlines.length && !fetched.keywords.length) return campaign; // nothing to store
+      await this.campaigns.setGoogleObjects(campaignId, {
+        googleAdContent: { headlines: fetched.headlines, descriptions: fetched.descriptions, keywords: fetched.keywords, finalUrl: fetched.finalUrl },
+        ...(fetched.adId ? { googleAdId: fetched.adId } : {}),
+      });
+      logger.info('GoogleComposerService: backfilled ad content from Google', { campaignId });
+      return this.campaigns.findById(campaignId);
+    } catch (err: any) {
+      logger.warn('GoogleComposerService.getDraftContent read failed (non-fatal)', { campaignId, error: err?.message || err });
+      return campaign;
+    }
+  }
+
   /** Apply edits to a pushed Google draft: push only the changed parts to Google, persist the copy
    *  locally. Throws a descriptive error for the UI. Returns the fresh campaign. */
   async updateDraft(campaignId: string, edits: GoogleDraftEdits): Promise<AdCampaign | null> {

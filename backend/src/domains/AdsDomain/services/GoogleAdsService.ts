@@ -27,6 +27,19 @@ export function campaignBiddingSpec(optimizeForConversions: boolean): Record<str
   return optimizeForConversions ? { maximizeConversions: {} } : { manualCpc: {} };
 }
 
+/** PURE: shape GAQL ad_group_ad + ad_group_criterion rows into local ad content. Reads the first
+ *  non-removed RSA. Tolerant of missing fields. Used by the composer populate + config-sync reflect. */
+export function mapAdContentRows(adRows: any[], kwRows: any[]): { headlines: string[]; descriptions: string[]; keywords: string[]; finalUrl: string | null; adId: string | null } {
+  const ad = (adRows || [])[0]?.adGroupAd;
+  const rsa = ad?.ad?.responsiveSearchAd || {};
+  const headlines = (rsa.headlines || []).map((h: any) => String(h?.text || '').trim()).filter(Boolean);
+  const descriptions = (rsa.descriptions || []).map((d: any) => String(d?.text || '').trim()).filter(Boolean);
+  const finalUrl = ad?.ad?.finalUrls?.[0] ?? null;
+  const adId = ad?.resourceName ? String(ad.resourceName).split('/').pop() ?? null : null;
+  const keywords = Array.from(new Set((kwRows || []).map((r: any) => String(r?.adGroupCriterion?.keyword?.text || '').trim()).filter(Boolean)));
+  return { headlines, descriptions, keywords, finalUrl, adId };
+}
+
 /** PURE: validate + normalize RSA copy to Google's rules (≥3 headlines ≤30, ≥2 descriptions ≤90).
  *  Trims, drops empties/over-length, dedupes, caps at 15/4. Returns {error} when the minimums aren't
  *  met so the composer can reject before pushing (Google rejects an invalid RSA). */
@@ -381,6 +394,23 @@ export class GoogleAdsService {
     );
     const pfe = res.data?.partialFailureError;
     if (pfe) logger.warn('GoogleAdsService.uploadClickConversion partial failure', { gclid: input.gclid, message: pfe.message });
+  }
+
+  /** Composer read: fetch the current RSA copy + keywords for an ad group FROM Google (populate /
+   *  reflect). Returns the mapped content. */
+  async fetchAdContent(customerId: string, refreshToken: string, adGroupId: string, loginCustomerId?: string): Promise<{ headlines: string[]; descriptions: string[]; keywords: string[]; finalUrl: string | null; adId: string | null }> {
+    const access = await this.refreshAccessToken(refreshToken);
+    const id = String(adGroupId).replace(/\D/g, '');
+    const [adRows, kwRows] = await Promise.all([
+      this.search(customerId, access, loginCustomerId,
+        `SELECT ad_group_ad.resource_name, ad_group_ad.ad.responsive_search_ad.headlines, ` +
+        `ad_group_ad.ad.responsive_search_ad.descriptions, ad_group_ad.ad.final_urls ` +
+        `FROM ad_group_ad WHERE ad_group.id = ${id} AND ad_group_ad.status != 'REMOVED'`),
+      this.search(customerId, access, loginCustomerId,
+        `SELECT ad_group_criterion.keyword.text FROM ad_group_criterion ` +
+        `WHERE ad_group.id = ${id} AND ad_group_criterion.type = 'KEYWORD' AND ad_group_criterion.status != 'REMOVED'`),
+    ]);
+    return mapAdContentRows(adRows, kwRows);
   }
 
   /** Composer: update the campaign's daily budget (micros). budgetId is the resource id stored at build. */
