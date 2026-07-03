@@ -25,6 +25,7 @@ import { metaPushService } from '../services/MetaPushService';
 import { metaConfigSyncService } from '../services/MetaConfigSyncService';
 import { googlePushService } from '../services/GooglePushService';
 import { googleConfigSyncService } from '../services/GoogleConfigSyncService';
+import { googleComposerService } from '../services/GoogleComposerService';
 import { shopRepository } from '../../../repositories';
 import { imageStorageService } from '../../../services/ImageStorageService';
 
@@ -185,10 +186,15 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
           });
           const copy = await googleAdsCreativeService.generateRsaCopy(r.shopId, { offer: r.offer, campaignId: campaign.id });
           const landingBase = (process.env.ADS_LANDING_BASE_URL || process.env.FRONTEND_URL || 'https://staging.repaircoin.ai').replace(/\/$/, '');
-          await googleAdsService.addResponsiveSearchAdAndKeywords(gCustomerId, token, g.adGroupResourceName, {
-            headlines: copy.headlines, descriptions: copy.descriptions, keywords: copy.keywords,
-            finalUrl: `${landingBase}/l/${campaign.id}`,
+          const finalUrl = `${landingBase}/l/${campaign.id}`;
+          const ad = await googleAdsService.addResponsiveSearchAdAndKeywords(gCustomerId, token, g.adGroupResourceName, {
+            headlines: copy.headlines, descriptions: copy.descriptions, keywords: copy.keywords, finalUrl,
           }, gManagerId);
+          // Store the copy + ad id locally so the dashboard composer can display/edit them.
+          await campaigns.setGoogleObjects(campaign.id, {
+            googleAdContent: { headlines: copy.headlines, descriptions: copy.descriptions, keywords: copy.keywords, finalUrl },
+            googleAdId: ad.adResourceName.split('/').pop(),
+          });
           await campaigns.update(campaign.id, { status: 'draft' }); // local draft; PAUSED on Google
           void postEvent(r.shopId, `Google campaign "${gName}" created (paused) — review, then take it live.`);
         } catch (err: any) {
@@ -387,6 +393,33 @@ export async function syncCampaignFromGoogle(req: Request, res: Response): Promi
   } catch (err: any) {
     logger.error('CampaignRequestController.syncCampaignFromGoogle failed', err?.message || err);
     res.status(502).json({ success: false, error: 'sync_failed', message: err?.message || 'Failed to sync from Google.' });
+  }
+}
+
+// PATCH /campaigns/:id/google-draft (admin) — Google composer: edit budget / RSA copy / keywords on a
+// pushed Google draft, synced to Google. `regenerate: true` re-runs the AI copy first. Returns the
+// fresh campaign. Maps composer errors (validation / disabled / disconnected) to 422 for the UI.
+export async function updateGoogleDraft(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const b = req.body || {};
+    let edits: any = {
+      dailyBudgetCents: typeof b.dailyBudgetCents === 'number' ? b.dailyBudgetCents : undefined,
+      headlines: Array.isArray(b.headlines) ? b.headlines : undefined,
+      descriptions: Array.isArray(b.descriptions) ? b.descriptions : undefined,
+      keywords: Array.isArray(b.keywords) ? b.keywords : undefined,
+    };
+    if (b.regenerate) {
+      const campaign = await campaigns.findById(campaignId);
+      const request = await requests.findByCampaignId(campaignId);
+      const copy = await googleAdsCreativeService.generateRsaCopy(campaign?.shopId ?? request?.shopId ?? '', { offer: request?.offer, campaignId });
+      edits = { ...edits, headlines: copy.headlines, descriptions: copy.descriptions, keywords: copy.keywords };
+    }
+    const campaign = await googleComposerService.updateDraft(campaignId, edits);
+    res.json({ success: true, data: campaign });
+  } catch (err: any) {
+    logger.warn('CampaignRequestController.updateGoogleDraft failed', { campaignId, message: err?.message });
+    res.status(422).json({ success: false, error: 'update_failed', message: err?.message || 'Failed to update the Google draft.' });
   }
 }
 
