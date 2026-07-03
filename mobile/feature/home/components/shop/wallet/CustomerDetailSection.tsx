@@ -64,7 +64,7 @@ function CustomerDetailSection({
           </Text>
         </View>
         <Pressable
-          onPress={() => router.push("/shop/tabs/customer")}
+          onPress={() => router.navigate("/shop/tabs/customer")}
           className="flex-row items-center"
         >
           <Text className="text-[#FFCC00] text-sm mr-1">View Recent</Text>

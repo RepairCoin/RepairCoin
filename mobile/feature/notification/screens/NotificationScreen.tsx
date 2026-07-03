@@ -29,7 +29,6 @@ export default function NotificationScreen() {
     isRegistered,
     isConnected,
     unreadCount,
-    totalCount,
     handleRefresh,
     handleLoadMore,
     handleNotificationPress,
@@ -73,7 +72,6 @@ export default function NotificationScreen() {
       <NotificationTabs
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        totalCount={totalCount}
         unreadCount={unreadCount}
         onMarkAllAsRead={handleMarkAllAsRead}
         isConnected={isConnected}

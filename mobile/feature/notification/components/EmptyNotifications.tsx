@@ -13,8 +13,8 @@ export default function EmptyNotifications({ activeTab }: EmptyNotificationsProp
       <Text className="text-zinc-400 text-lg mt-4">
         {activeTab === "ai"
           ? "No AI assistant messages"
-          : activeTab === "updates"
-          ? "No updates yet"
+          : activeTab === "unread"
+          ? "You're all caught up"
           : "No notifications yet"}
       </Text>
       <Text className="text-zinc-600 text-sm mt-2 text-center px-8">

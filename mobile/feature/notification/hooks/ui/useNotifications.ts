@@ -177,6 +177,8 @@ export function useNotifications() {
   const filteredNotifications =
     activeTab === "all"
       ? notifications || []
+      : activeTab === "unread"
+      ? (notifications || []).filter((n) => !n.isRead)
       : (notifications || []).filter(
           (n) => getNotificationCategory(n.notificationType) === activeTab
         );

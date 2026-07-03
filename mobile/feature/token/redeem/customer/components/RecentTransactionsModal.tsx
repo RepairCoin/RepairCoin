@@ -68,7 +68,7 @@ export default function RecentTransactionsModal({
 
   const handleViewAll = () => {
     onClose();
-    router.push("/customer/tabs/history");
+    router.navigate("/customer/tabs/history");
   };
 
   const renderItem = ({ item }: { item: TransactionData }) => {

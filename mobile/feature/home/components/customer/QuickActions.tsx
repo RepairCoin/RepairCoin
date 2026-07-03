@@ -34,7 +34,11 @@ const ACTIONS: QuickAction[] = [
     label: "My Bookings",
     icon: <Ionicons name="calendar-outline" size={24} color="#fff" />,
     // Bookings live in the Services tab's Bookings sub-tab.
-    onPress: () => router.push("/customer/tabs/service"),
+    onPress: () =>
+      router.navigate({
+        pathname: "/customer/tabs/service",
+        params: { tab: "Bookings" },
+      }),
   },
 ];
 

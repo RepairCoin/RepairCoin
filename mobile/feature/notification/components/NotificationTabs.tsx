@@ -5,9 +5,7 @@ import { TabType } from "../types";
 type NotificationTabsProps = {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
-  /** Total notifications, shown as a badge on the "All" tab. */
-  totalCount: number;
-  /** Unread count — drives the "Mark all read" button visibility. */
+  /** Unread count — badge on the "Unread" tab + "Mark all read" button visibility. */
   unreadCount: number;
   onMarkAllAsRead: () => void;
   /** Live WebSocket status — drives the realtime "connected" indicator dot. */
@@ -16,14 +14,13 @@ type NotificationTabsProps = {
 
 const TABS: { key: TabType; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "ai", label: "AI Assistant" },
-  { key: "updates", label: "Updates" },
+  // { key: "ai", label: "AI Assistant" },
+  { key: "unread", label: "Unread" },
 ];
 
 export default function NotificationTabs({
   activeTab,
   onTabChange,
-  totalCount,
   unreadCount,
   onMarkAllAsRead,
   isConnected = false,
@@ -54,10 +51,10 @@ export default function NotificationTabs({
                   >
                     {tab.label}
                   </Text>
-                  {tab.key === "all" && totalCount > 0 && (
+                  {tab.key === "unread" && unreadCount > 0 && (
                     <View className="ml-1.5 px-1.5 rounded bg-[#FFCC00] min-w-[20px] items-center">
                       <Text className="text-black text-xs font-bold">
-                        {totalCount}
+                        {unreadCount}
                       </Text>
                     </View>
                   )}
