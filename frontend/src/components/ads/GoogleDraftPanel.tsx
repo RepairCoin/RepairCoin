@@ -7,9 +7,9 @@
 // and edit them. Custom dark ads theme (the ads UI isn't shadcn).
 
 import React, { useEffect, useState } from "react";
-import { Loader2, Rocket, ExternalLink, Plus, X, Wand2, Save } from "lucide-react";
+import { Loader2, Rocket, ExternalLink, Plus, X, Wand2, Save, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
-import { fmtMoney, updateGoogleDraft, type AdCampaign } from "@/services/api/ads";
+import { fmtMoney, updateGoogleDraft, getGoogleDraftContent, type AdCampaign, type GoogleAdContent } from "@/services/api/ads";
 
 const eq = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -18,20 +18,46 @@ export const GoogleDraftPanel: React.FC<{
   onGoLive: () => Promise<void> | void;
   onChanged?: () => void;
 }> = ({ campaign, onGoLive, onChanged }) => {
-  const [busy, setBusy] = useState<null | "save" | "regen" | "golive">(null);
+  const [busy, setBusy] = useState<null | "save" | "regen" | "golive" | "refresh">(null);
+  const [loadingContent, setLoadingContent] = useState(false);
   const [budget, setBudget] = useState("");
   const [headlines, setHeadlines] = useState<string[]>([]);
   const [descriptions, setDescriptions] = useState<string[]>([]);
   const [keywords, setKeywords] = useState("");
 
-  // (Re)initialize the editor from the campaign whenever it changes (e.g. after a save reload).
-  useEffect(() => {
-    const c = campaign.googleAdContent;
-    setBudget(String((campaign.dailyBudgetCents / 100).toFixed(0)));
+  const applyContent = (dailyBudgetCents: number, c?: GoogleAdContent | null) => {
+    setBudget(String((dailyBudgetCents / 100).toFixed(0)));
     setHeadlines(c?.headlines?.length ? c.headlines : [""]);
     setDescriptions(c?.descriptions?.length ? c.descriptions : [""]);
     setKeywords((c?.keywords ?? []).join(", "));
+  };
+
+  // (Re)initialize the editor from the campaign; when we have no copy locally (built before the
+  // composer, or first open), backfill it FROM Google so the composer shows the real AI-generated ad.
+  useEffect(() => {
+    const c = campaign.googleAdContent;
+    applyContent(campaign.dailyBudgetCents, c);
+    if (c?.headlines?.length) return;
+    let alive = true;
+    setLoadingContent(true);
+    getGoogleDraftContent(campaign.id)
+      .then((camp) => { if (alive) applyContent(camp.dailyBudgetCents, camp.googleAdContent); })
+      .catch(() => { /* leave empty — admin can regenerate */ })
+      .finally(() => { if (alive) setLoadingContent(false); });
+    return () => { alive = false; };
   }, [campaign.id, campaign.dailyBudgetCents, campaign.googleAdContent]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const refresh = async () => {
+    setBusy("refresh");
+    try {
+      const camp = await getGoogleDraftContent(campaign.id, true);
+      applyContent(camp.dailyBudgetCents, camp.googleAdContent);
+      toast.success("Loaded the latest from Google.");
+      onChanged?.();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't refresh from Google.");
+    } finally { setBusy(null); }
+  };
 
   const status = campaign.googleStatus || "PAUSED";
   const orig = campaign.googleAdContent;
@@ -101,11 +127,21 @@ export const GoogleDraftPanel: React.FC<{
       {/* Editor */}
       <div className="rounded-lg border border-white/10 bg-[#1A1A1A] p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-white">Ad content</p>
-          <button onClick={regenerate} disabled={busy !== null}
-            className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md text-gray-300 hover:text-white hover:bg-white/5 disabled:opacity-50">
-            {busy === "regen" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} Regenerate with AI
-          </button>
+          <p className="text-sm font-semibold text-white flex items-center gap-2">
+            Ad content
+            {loadingContent && <span className="inline-flex items-center gap-1 text-xs text-gray-500"><Loader2 className="w-3 h-3 animate-spin" /> loading from Google…</span>}
+          </p>
+          <div className="flex items-center gap-1">
+            <button onClick={refresh} disabled={busy !== null}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md text-gray-300 hover:text-white hover:bg-white/5 disabled:opacity-50"
+              title="Pull the latest copy & keywords from Google Ads">
+              {busy === "refresh" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh
+            </button>
+            <button onClick={regenerate} disabled={busy !== null}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md text-gray-300 hover:text-white hover:bg-white/5 disabled:opacity-50">
+              {busy === "regen" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} Regenerate with AI
+            </button>
+          </div>
         </div>
 
         {/* Budget */}

@@ -732,6 +732,13 @@ export const updateGoogleDraft = async (
   return unwrap<AdCampaign>(res);
 };
 
+// Load a Google draft's content — backfills headlines/descriptions/keywords FROM Google when we
+// don't have them locally (built before the composer, or first open). refresh=true forces a re-read.
+export const getGoogleDraftContent = async (id: string, refresh = false): Promise<AdCampaign> => {
+  const res = await apiClient.get(`/ads/campaigns/${id}/google-draft${refresh ? "?refresh=1" : ""}`);
+  return unwrap<AdCampaign>(res);
+};
+
 // Landing-page magnet overrides (Phase 2). All optional — anything unset auto-composes.
 export interface LandingConfig {
   headline?: string;

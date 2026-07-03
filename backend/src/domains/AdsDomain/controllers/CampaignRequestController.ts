@@ -396,6 +396,21 @@ export async function syncCampaignFromGoogle(req: Request, res: Response): Promi
   }
 }
 
+// GET /campaigns/:id/google-draft (admin) — Google composer: return the campaign with its ad content,
+// backfilling headlines/descriptions/keywords FROM Google when we don't have them locally (built
+// before the composer, or first open). `?refresh=1` forces a re-read (reflect external edits).
+export async function getGoogleDraft(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const campaign = await googleComposerService.getDraftContent(campaignId, req.query.refresh === '1');
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    res.json({ success: true, data: campaign });
+  } catch (err: any) {
+    logger.error('CampaignRequestController.getGoogleDraft failed', err?.message || err);
+    res.status(500).json({ success: false, error: 'Failed to load the Google draft.' });
+  }
+}
+
 // PATCH /campaigns/:id/google-draft (admin) — Google composer: edit budget / RSA copy / keywords on a
 // pushed Google draft, synced to Google. `regenerate: true` re-runs the AI copy first. Returns the
 // fresh campaign. Maps composer errors (validation / disabled / disconnected) to 422 for the UI.

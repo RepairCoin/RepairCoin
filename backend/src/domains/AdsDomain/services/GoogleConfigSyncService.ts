@@ -71,9 +71,27 @@ export class GoogleConfigSyncService {
         });
       }
 
-      // Stamp the check; persist the raw Google status when it changed.
+      // Reflect RSA copy + keywords from Google (composer parity with Meta D3). Google is source for a
+      // pushed campaign; unsaved local composer edits aren't persisted, so they're never clobbered.
+      let nextContent: any;
+      if (c.googleAdGroupId) {
+        try {
+          const fetched = await googleAdsService.fetchAdContent(conn.customerId, token, c.googleAdGroupId, login);
+          if (fetched.headlines.length || fetched.keywords.length) {
+            const cur = c.googleAdContent;
+            const key = (h: string[], d: string[], k: string[]) => JSON.stringify([h, d, k]);
+            if (!cur || key(cur.headlines, cur.descriptions, cur.keywords) !== key(fetched.headlines, fetched.descriptions, fetched.keywords)) {
+              nextContent = { headlines: fetched.headlines, descriptions: fetched.descriptions, keywords: fetched.keywords, finalUrl: fetched.finalUrl };
+              (changes as any).adContent = true;
+            }
+          }
+        } catch { /* content read is best-effort — budget/status already reconciled */ }
+      }
+
+      // Stamp the check; persist the raw Google status + reflected content when they changed.
       await this.campaigns.setGoogleObjects(campaignId, {
         ...(changes.googleStatus !== undefined ? { googleStatus: changes.googleStatus } : {}),
+        ...(nextContent ? { googleAdContent: nextContent } : {}),
         googleSyncedConfigAt: new Date(),
       });
 
