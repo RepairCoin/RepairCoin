@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button";
 import { LeadKanban } from "@/components/ads/LeadKanban";
 import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import { IndustryAnalytics } from "@/components/ads/IndustryAnalytics";
-import { CreativePreview } from "@/components/ads/CreativePreview";
 import { MarginPanel } from "@/components/ads/MarginPanel";
+import { MetaCampaignPanel } from "@/components/ads/MetaCampaignPanel";
+import { GoogleCampaignPanel } from "@/components/ads/GoogleCampaignPanel";
 import { CampaignRequestsQueue } from "@/components/ads/CampaignRequestsQueue";
 import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
 import { DraftComposer } from "@/components/ads/DraftComposer";
@@ -24,7 +25,6 @@ import {
   getShopMetaAccount, fmtUsd, fmtMoney, fmtRoi,
   type AdCampaign, type CampaignPerformance, type AllShopsSummary, type ShopMetaAccount,
 } from "@/services/api/ads";
-import { Wand2, TrendingUp as TrendingUpIcon } from "lucide-react";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -357,10 +357,12 @@ export const AdminAdsTab: React.FC = () => {
           </div>
 
           {!launched ? (
-            /* ─── DRAFTING ─── a Google draft (copy + keywords live on Google, not our creative
-               table) gets the lighter Google review→go-live card; a Meta draft gets the full
-               creative composer. */
-            selected.googleCampaignId ? (
+            /* ─── DRAFTING ─── a Google campaign (RSA copy + keywords live on Google, not our
+               creative table; no image / "Push to Meta") gets the lighter Google review→go-live
+               card; a Meta campaign gets the full creative composer. Gate on PLATFORM, not on
+               googleCampaignId, so a Google campaign whose objects are still being created never
+               shows the Meta-only creative UI. */
+            selected.platform === "google" ? (
               <GoogleDraftPanel campaign={selected} onGoLive={() => toggleStatus(selected)} />
             ) : (
               <DraftComposer campaign={selected} onChanged={load} />
@@ -368,36 +370,9 @@ export const AdminAdsTab: React.FC = () => {
           ) : !perf ? (
             <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading performance…</div>
           ) : (
-            /* ─── LIVE / OPERATING ─── metrics, true margin, creative, leads. */
+            /* ─── LIVE / OPERATING ─── shared metrics + a per-platform panel (Meta vs Google) so
+               each platform's element set is self-contained, no per-element guards. */
             <>
-              {/* Two-way config sync — pull budget/status back from Meta. Shown only for pushed
-                  campaigns AND when the feature flag is on (from the shop's meta-account check). */}
-              {selected.metaCampaignId && metaAccount?.configSyncEnabled && (
-                <div className="flex items-center justify-end">
-                  <button
-                    onClick={() => syncFromMeta(selected)}
-                    disabled={syncing}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
-                    title="Pull the latest budget & status from Meta Ads Manager"
-                  >
-                    {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh from Meta
-                  </button>
-                </div>
-              )}
-              {/* Two-way config sync for a Google campaign. Shown for any pushed Google campaign;
-                  if the feature flag is off server-side the toast says so (no shop-account gate). */}
-              {selected.googleCampaignId && (
-                <div className="flex items-center justify-end">
-                  <button
-                    onClick={() => syncFromGoogle(selected)}
-                    disabled={syncing}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
-                    title="Pull the latest budget & status from Google Ads"
-                  >
-                    {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh from Google
-                  </button>
-                </div>
-              )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Stat label="Spend" value={fmtMoney(perf.roi.totalSpendCents, selected.currency)} />
                 <Stat label="Revenue" value={fmtMoney(perf.roi.totalRevenueCents, selected.currency)} />
@@ -409,39 +384,30 @@ export const AdminAdsTab: React.FC = () => {
                 <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
               </div>
 
-              {/* True margin (Q6) — admin only */}
+              {/* True margin (Q6) — admin only. Shared (cost/revenue based). */}
               <MarginPanel campaignId={selected.id} />
 
-              {/* Safeguard 4 — test budget performed: scale up to full budget */}
-              {selected.testBudgetUpgradeReady && (
-                <div className="rounded-lg border border-green-500/40 bg-green-500/10 p-3 flex items-start justify-between gap-3 flex-wrap">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-green-300">Test budget is performing</p>
-                    <p className="text-xs text-green-200/80 mt-0.5">It's hit at least break-even ROI over the test window{selected.fullDailyBudgetCents ? ` — scale to ${fmtMoney(selected.fullDailyBudgetCents, selected.currency)}/day` : ""}.</p>
-                  </div>
-                  <button onClick={() => scaleBudget(selected)} disabled={scaling}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-50 shrink-0">
-                    {scaling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TrendingUpIcon className="w-3.5 h-3.5" />} Scale to full budget
-                  </button>
-                </div>
+              {/* Platform-specific operating panel — one component per platform, no per-element
+                  guards. Google's ad copy/keywords live in Google Ads (small panel); Meta carries
+                  the image creative + safeguards. */}
+              {selected.platform === "google" ? (
+                <GoogleCampaignPanel
+                  campaign={selected}
+                  syncing={syncing}
+                  onSync={() => syncFromGoogle(selected)}
+                />
+              ) : (
+                <MetaCampaignPanel
+                  campaign={selected}
+                  configSyncEnabled={!!(selected.metaCampaignId && metaAccount?.configSyncEnabled)}
+                  syncing={syncing}
+                  onSync={() => syncFromMeta(selected)}
+                  scaling={scaling}
+                  onScale={() => scaleBudget(selected)}
+                  refreshing={refreshingCreative}
+                  onRefreshCreative={() => refreshCreative(selected)}
+                />
               )}
-
-              {/* Safeguard 5 — underperformance nudge: swap the creative for free */}
-              {selected.needsCreativeRefresh && (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-start justify-between gap-3 flex-wrap">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-amber-300">This campaign is underperforming</p>
-                    <p className="text-xs text-amber-200/80 mt-0.5">{selected.creativeRefreshReason || "Try a fresh creative."} — swapping the creative is free.</p>
-                  </div>
-                  <button onClick={() => refreshCreative(selected)} disabled={refreshingCreative}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#FFCC00] text-black hover:bg-[#E6B800] disabled:opacity-50 shrink-0">
-                    {refreshingCreative ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} Refresh creative (free)
-                  </button>
-                </div>
-              )}
-
-              {/* Current ad — read-only (editing lives in the draft, pre-launch) */}
-              <CreativePreview campaignId={selected.id} />
 
               {/* Lead pipeline (Stage 2) */}
               <div>
