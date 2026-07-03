@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { View, Text, Image, Modal, Pressable, StatusBar } from "react-native";
+import { View, Text, Image, Modal, Pressable, StatusBar, Alert, Linking } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 import { Message, Conversation } from "../types";
 import { formatMessageTime } from "@/shared/utilities/messageFormatters";
 import LockedMessageBubble from "./LockedMessageBubble";
@@ -43,6 +45,36 @@ export default function MessageBubble({
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
+  const handleDownloadImage = async (url: string) => {
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission required", "Allow access to your photo library to save images.");
+      return;
+    }
+    try {
+      const filename = url.split("/").pop()?.split("?")[0] || `image_${Date.now()}.jpg`;
+      const localUri = `${FileSystem.cacheDirectory}${filename}`;
+      await FileSystem.downloadAsync(url, localUri);
+      await MediaLibrary.saveToLibraryAsync(localUri);
+      Alert.alert("Saved", "Image saved to your photo library.");
+    } catch {
+      Alert.alert("Error", "Failed to save image. Please try again.");
+    }
+  };
+
+  const handleOpenFile = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Error", "Cannot open this file on your device.");
+      }
+    } catch {
+      Alert.alert("Error", "Failed to open file. Please try again.");
+    }
+  };
+
   const senderInitial = isCustomer
     ? conversation?.shopName?.charAt(0).toUpperCase()
     : conversation?.customerName?.charAt(0).toUpperCase();
@@ -76,6 +108,14 @@ export default function MessageBubble({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="close" size={20} color="#fff" />
+          </Pressable>
+          {/* Download button */}
+          <Pressable
+            onPress={() => fullScreenImage && handleDownloadImage(fullScreenImage)}
+            className="absolute top-12 left-4 w-9 h-9 rounded-full bg-black/60 items-center justify-center"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="download-outline" size={20} color="#fff" />
           </Pressable>
         </Pressable>
       </Modal>
@@ -144,15 +184,26 @@ export default function MessageBubble({
               {message.attachments.map((attachment, idx) => (
                 <View key={idx} className="mb-1">
                   {attachment.type === "image" ? (
-                    <Pressable onPress={() => setFullScreenImage(attachment.url)}>
-                      <Image
-                        source={{ uri: attachment.url }}
-                        className="w-48 h-48 rounded-lg"
-                        resizeMode="cover"
-                      />
-                    </Pressable>
+                    <View>
+                      <Pressable onPress={() => setFullScreenImage(attachment.url)}>
+                        <Image
+                          source={{ uri: attachment.url }}
+                          className="w-48 h-48 rounded-lg"
+                          resizeMode="cover"
+                        />
+                      </Pressable>
+                      {/* Download icon — top-right corner of image */}
+                      <Pressable
+                        onPress={() => handleDownloadImage(attachment.url)}
+                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 items-center justify-center"
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Ionicons name="download-outline" size={14} color="#fff" />
+                      </Pressable>
+                    </View>
                   ) : (
-                    <View
+                    <Pressable
+                      onPress={() => handleOpenFile(attachment.url)}
                       className={`flex-row items-center p-2 rounded-lg ${
                         isOwnMessage ? "bg-black/10" : "bg-zinc-700"
                       }`}
@@ -163,12 +214,18 @@ export default function MessageBubble({
                         color={isOwnMessage ? "#000" : "#fff"}
                       />
                       <Text
-                        className={`ml-2 text-xs ${isOwnMessage ? "text-black" : "text-white"}`}
+                        className={`ml-2 text-xs flex-1 ${isOwnMessage ? "text-black" : "text-white"}`}
                         numberOfLines={1}
                       >
                         {attachment.name}
                       </Text>
-                    </View>
+                      <Ionicons
+                        name="open-outline"
+                        size={14}
+                        color={isOwnMessage ? "#00000080" : "#9CA3AF"}
+                        style={{ marginLeft: 6 }}
+                      />
+                    </Pressable>
                   )}
                 </View>
               ))}
