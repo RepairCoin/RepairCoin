@@ -77,6 +77,18 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
     !Number.isNaN(parseFloat(dailyBudget)) &&
     Math.round(parseFloat(dailyBudget) * 100) < acct.minDailyBudgetCents;
 
+  // Unsaved-changes detection (mirrors saveDetails) — Go Live activates what's on Meta, so unsaved
+  // form/creative edits would be silently dropped. We block Go Live until saved (a creative edit also
+  // re-arms review, so auto-saving isn't safe here — the shop must Save + re-approve deliberately).
+  const budgetDirty = (() => { const b = parseFloat(dailyBudget); return !Number.isNaN(b) && Math.round(b * 100) !== campaign.dailyBudgetCents; })();
+  const radiusDirty = (() => { const r = parseInt(radius, 10); return !Number.isNaN(r) && r !== campaign.targetRadiusMiles; })();
+  const objectiveDirty = !onMeta && objective !== (campaign.objective || "OUTCOME_TRAFFIC");
+  const enhanceDirty = metaEnhance !== !!campaign.allowMetaEnhancements;
+  const testBudgetDirty = !onMeta && testBudget !== !!campaign.isTestBudget;
+  const headlineDirty = !!headline.trim() && headline.trim() !== (creative?.headline || "");
+  const primaryDirty = !!primaryText.trim() && primaryText.trim() !== (creative?.body || "");
+  const isDirty = budgetDirty || radiusDirty || objectiveDirty || enhanceDirty || testBudgetDirty || headlineDirty || primaryDirty;
+
   const saveDetails = async () => {
     const edits: any = {};
     const b = parseFloat(dailyBudget);
@@ -142,6 +154,12 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
   };
 
   const push = async () => {
+    // Same guard as Go Live: push creates the Meta objects from the SAVED config, so unsaved edits
+    // would be dropped. Make the shop Save first.
+    if (isDirty) {
+      toast.error("You have unsaved changes — Save them first (and re-approve the creative if the copy or image changed) before pushing to Meta.");
+      return;
+    }
     setBusy("push");
     const pushStart = Date.now();
     try {
@@ -184,6 +202,11 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
   };
 
   const goLive = async () => {
+    // Guard: Go Live activates what's ON Meta, not the composer's unsaved edits — sync them first.
+    if (isDirty) {
+      toast.error("You have unsaved changes — Save them first (and re-approve the creative if the copy or image changed) before going live.");
+      return;
+    }
     if (!window.confirm("Take this campaign live? Your ad account will start spending on Meta.")) return;
     setBusy("live");
     try {
@@ -418,7 +441,8 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
                 className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-200 hover:border-[#FFCC00] hover:text-white disabled:opacity-50">
                 {busy === "save" ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save changes
               </button>
-              {!approved && <span className="text-xs text-amber-400/90">Approve the creative to enable {onMeta ? "“Go live”" : "“Push to Meta”"}.</span>}
+              {isDirty && <span className="text-xs text-amber-400/90">Unsaved changes — Save before {onMeta ? "“Go live”" : "“Push to Meta”"}.</span>}
+              {!isDirty && !approved && <span className="text-xs text-amber-400/90">Approve the creative to enable {onMeta ? "“Go live”" : "“Push to Meta”"}.</span>}
             </div>
             <p className="text-[11px] text-gray-500">
               {onMeta
