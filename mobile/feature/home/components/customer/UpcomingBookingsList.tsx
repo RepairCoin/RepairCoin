@@ -51,7 +51,12 @@ function UpcomingBookingsList() {
     <View>
       <SectionHeader
         title="Upcoming Bookings"
-        onSeeAll={() => router.push("/customer/tabs/service")}
+        onSeeAll={() =>
+          router.navigate({
+            pathname: "/customer/tabs/service",
+            params: { tab: "Bookings" },
+          })
+        }
       />
       <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-2">
         {upcoming.map((item, idx) => (

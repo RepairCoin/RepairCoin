@@ -39,7 +39,7 @@ function CategoryGrid({ limit = 8 }: CategoryGridProps) {
     <View>
       <SectionHeader
         title="Explore Service Categories"
-        onSeeAll={() => router.push("/customer/tabs/service")}
+        onSeeAll={() => router.navigate("/customer/tabs/service")}
       />
       <View className="flex-row flex-wrap -mx-1">
         {categories.map((cat) => (

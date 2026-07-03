@@ -28,7 +28,7 @@ function NearbyShopsSection() {
     <View>
       <SectionHeader
         title="Nearby Shops"
-        onSeeAll={() => router.push("/customer/tabs/find-shop")}
+        onSeeAll={() => router.navigate("/customer/tabs/find-shop")}
       />
       {isLoading ? (
         <SkeletonHorizontalCards count={3} cardWidth={CARD_WIDTH} />
@@ -44,7 +44,7 @@ function NearbyShopsSection() {
             {shops.map((shop) => (
               <Pressable
                 key={shop.shopId}
-                onPress={() => router.push("/customer/tabs/find-shop")}
+                onPress={() => router.navigate("/customer/tabs/find-shop")}
                 style={{ width: CARD_WIDTH, marginRight: 12 }}
                 className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden active:border-[#FFCC00]/50"
               >

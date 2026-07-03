@@ -4,7 +4,9 @@ import { router } from "expo-router";
 
 export default function CustomerSuccessScreen() {
   const handleGoToDashboard = () => {
-    router.push("/customer/tabs/home");
+    // replace (not push): clear the registration/auth stack so Back doesn't
+    // return to the success or login screens.
+    router.replace("/customer/tabs/home");
   };
 
   return (

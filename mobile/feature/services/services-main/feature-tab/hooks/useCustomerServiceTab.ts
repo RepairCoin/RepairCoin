@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { CustomerServiceTab } from "@/feature/services/services/service.interface";
 import { CUSTOMER_SERVICE_TABS } from "@/shared/constants/services";
@@ -7,6 +7,15 @@ export function useCustomerServiceTab() {
   const params = useLocalSearchParams<{ tab?: string }>();
   const initialTab = (params.tab as CustomerServiceTab) || "Services";
   const [activeTab, setActiveTab] = useState<CustomerServiceTab>(initialTab);
+
+  // When navigating to an already-mounted screen (router.navigate reuses the
+  // instance), the initial useState won't re-run — sync the active tab to the
+  // incoming `tab` param so deep links / quick actions still switch sub-tabs.
+  useEffect(() => {
+    if (params.tab && CUSTOMER_SERVICE_TABS.includes(params.tab as CustomerServiceTab)) {
+      setActiveTab(params.tab as CustomerServiceTab);
+    }
+  }, [params.tab]);
 
   const handleTabChange = useCallback((tab: CustomerServiceTab) => {
     setActiveTab(tab);

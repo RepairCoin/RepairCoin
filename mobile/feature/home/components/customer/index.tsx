@@ -165,7 +165,7 @@ export default function CustomerWalletTab() {
   };
 
   const handleViewAllServices = () => {
-    router.push("/customer/tabs/service");
+    router.navigate("/customer/tabs/service");
   };
 
   const handleViewAllTrendingServices = () => {
