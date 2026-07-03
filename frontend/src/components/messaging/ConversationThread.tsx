@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   Hand,
   Play,
+  Trash2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
@@ -87,6 +88,7 @@ interface ConversationThreadProps {
   onArchiveConversation?: (archived: boolean) => Promise<void>;
   onRetryMessage?: (messageId: string) => void;
   onDiscardMessage?: (messageId: string) => void;
+  onDeleteMessage?: (messageId: string) => Promise<void>;
   /**
    * Mobile/tablet back-to-inbox callback. When provided, renders an inline
    * back-arrow button as the first item in the chat header (before the
@@ -144,6 +146,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   onArchiveConversation,
   onRetryMessage,
   onDiscardMessage,
+  onDeleteMessage,
   conversationDetails,
   onBack,
   aiEnabled = false,
@@ -158,6 +161,8 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -505,6 +510,17 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmId || !onDeleteMessage) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteMessage(deleteConfirmId);
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmId(null);
+    }
+  };
+
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString("en-US", {
@@ -827,8 +843,18 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                 return (
                   <div
                     key={message.id}
-                    className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
+                    className={`group flex items-end gap-2 ${isOwnMessage ? "justify-end" : "justify-start"}`}
                   >
+                    {/* Delete button — own messages only, appears on hover to the left of the bubble */}
+                    {isOwnMessage && onDeleteMessage && (
+                      <button
+                        onClick={() => setDeleteConfirmId(message.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-1 rounded text-gray-600 hover:text-red-400"
+                        title="Delete message"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <div className={`flex gap-2 max-w-[70%] ${isOwnMessage ? "flex-row-reverse" : "flex-row"}`}>
                       {/* Avatar (only for received messages) - Show shop logo if available */}
                       {!isOwnMessage && (
@@ -1331,6 +1357,34 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Delete Message Confirmation Dialog */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
+          <div className="bg-[#1A1A1A] rounded-2xl p-6 border border-gray-800 w-full max-w-sm">
+            <h3 className="text-white text-lg font-bold mb-1">Delete message?</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              This message and its attachments will be permanently removed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                disabled={isDeleting}
+                className="flex-1 py-3 rounded-xl bg-[#0A0A0A] border border-gray-700 text-gray-300 font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors disabled:opacity-50 disabled:bg-red-900"
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

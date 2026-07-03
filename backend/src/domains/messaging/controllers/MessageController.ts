@@ -728,6 +728,27 @@ export class MessageController {
   };
 
   /**
+   * Delete a single message (soft delete, sender only)
+   * DELETE /api/messages/:messageId
+   */
+  deleteMessage = async (req: Request, res: Response) => {
+    try {
+      const userAddress = req.user?.address;
+      if (!userAddress) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      const { messageId } = req.params;
+      await this.messageService.deleteMessage(messageId, userAddress);
+      res.json({ success: true, message: 'Message deleted' });
+    } catch (error: unknown) {
+      logger.error('Error in deleteMessage controller:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete message';
+      const status = message.includes('not found') || message.includes('not the sender') ? 404 : 400;
+      res.status(status).json({ success: false, error: message });
+    }
+  };
+
+  /**
    * Delete a conversation (soft delete)
    * DELETE /api/messages/conversations/:conversationId
    */

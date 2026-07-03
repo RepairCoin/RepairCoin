@@ -21,6 +21,7 @@ type LockedMessageBubbleProps = {
   isCustomer: boolean;
   unlockSession?: UnlockSession;
   onRequestUnlock?: (message: Message) => void;
+  onLongPress?: (message: Message) => void;
 };
 
 export default function LockedMessageBubble({
@@ -30,6 +31,7 @@ export default function LockedMessageBubble({
   isCustomer,
   unlockSession,
   onRequestUnlock,
+  onLongPress,
 }: LockedMessageBubbleProps) {
   const cached = unlockSession?.getUnlocked(message.messageId);
 
@@ -75,7 +77,10 @@ export default function LockedMessageBubble({
         )}
 
         <View className={`max-w-[70%] ${isOwnMessage ? "items-end" : "items-start"}`}>
-          <View
+          <Pressable
+            onPress={() => {}}
+            onLongPress={() => isOwnMessage && onLongPress?.(message)}
+            delayLongPress={400}
             className={`rounded-2xl px-4 py-2 border ${
               isOwnMessage
                 ? "bg-amber-500/20 border-amber-500/30"
@@ -114,7 +119,7 @@ export default function LockedMessageBubble({
             {decryptedText && (
               <Text className="text-sm text-white">{decryptedText}</Text>
             )}
-          </View>
+          </Pressable>
 
           <View className="flex-row items-center mt-1">
             <Text className="text-xs text-zinc-500">{formatMessageTime(message.createdAt)}</Text>
@@ -144,6 +149,8 @@ export default function LockedMessageBubble({
       <View className={`max-w-[70%] ${isOwnMessage ? "items-end" : "items-start"}`}>
         <Pressable
           onPress={handleUnlockPress}
+          onLongPress={() => isOwnMessage && onLongPress?.(message)}
+          delayLongPress={400}
           className={`rounded-2xl px-4 py-3 border ${
             isOwnMessage
               ? "bg-amber-500/10 border-amber-500/30"

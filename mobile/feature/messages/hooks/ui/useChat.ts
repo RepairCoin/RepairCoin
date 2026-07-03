@@ -300,6 +300,10 @@ export function useChat() {
     dismissConversationNotifications(conversationId, { titleMatch: otherPartyName });
   }, [conversationId, otherPartyName]);
 
+  const removeMessage = useCallback((messageId: string) => {
+    setMessages((prev) => prev.filter((m) => m.messageId !== messageId));
+  }, []);
+
   return {
     conversationId,
     messages,
@@ -318,5 +322,6 @@ export function useChat() {
     loadMore,
     scrollToBottom,
     refetchConversation: fetchConversation,
+    removeMessage,
   };
 }

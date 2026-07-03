@@ -19,6 +19,7 @@ type MessageBubbleProps = {
   isCustomer: boolean;
   unlockSession?: UnlockSession;
   onRequestUnlock?: (message: Message) => void;
+  onLongPress?: (message: Message) => void;
 };
 
 export default function MessageBubble({
@@ -28,6 +29,7 @@ export default function MessageBubble({
   isCustomer,
   unlockSession,
   onRequestUnlock,
+  onLongPress,
 }: MessageBubbleProps) {
   // Route encrypted messages to LockedMessageBubble
   if (message.isEncrypted || message.messageType === "encrypted") {
@@ -39,6 +41,7 @@ export default function MessageBubble({
         isCustomer={isCustomer}
         unlockSession={unlockSession}
         onRequestUnlock={onRequestUnlock}
+        onLongPress={onLongPress}
       />
     );
   }
@@ -130,7 +133,10 @@ export default function MessageBubble({
 
       <View className={`max-w-[70%] ${isOwnMessage ? "items-end" : "items-start"}`}>
         {/* Message Bubble */}
-        <View
+        <Pressable
+          onPress={() => {}}
+          onLongPress={() => isOwnMessage && onLongPress?.(message)}
+          delayLongPress={400}
           className={`rounded-2xl px-4 py-2 ${
             isOwnMessage ? "bg-[#FFCC00]" : "bg-zinc-800 border border-zinc-700"
           }`}
@@ -238,7 +244,7 @@ export default function MessageBubble({
               {message.messageText}
             </Text>
           )}
-        </View>
+        </Pressable>
 
         {/* Timestamp */}
         <View className="flex-row items-center mt-1">

@@ -24,6 +24,7 @@ interface MessagesLayoutProps {
   onLoadMore: () => void;
   onRetryMessage: (messageId: string) => void;
   onDiscardMessage: (messageId: string) => void;
+  onDeleteMessage: (messageId: string) => Promise<void>;
   onArchiveConversation?: (archived: boolean) => Promise<void>;
 }
 
@@ -46,6 +47,7 @@ export const MessagesLayout: React.FC<MessagesLayoutProps> = ({
   onLoadMore,
   onRetryMessage,
   onDiscardMessage,
+  onDeleteMessage,
   onArchiveConversation,
 }) => {
   const inbox = (
@@ -77,6 +79,7 @@ export const MessagesLayout: React.FC<MessagesLayoutProps> = ({
       conversationStatus={selectedConversation.status}
       onRetryMessage={onRetryMessage}
       onDiscardMessage={onDiscardMessage}
+      onDeleteMessage={onDeleteMessage}
       onBack={onBackToInbox}
       {...(userType === "shop" && onArchiveConversation
         ? { onArchiveConversation }

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Modal, Pressable, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useChat, useConversationPresence } from "../hooks";
 import { useUnlockSession } from "../hooks/useUnlockSession";
@@ -37,6 +37,7 @@ export default function ChatScreen() {
     handleGoBack,
     loadMore,
     refetchConversation,
+    removeMessage,
   } = useChat();
 
   // Tell the backend we're viewing this thread (over the shared WebSocket) so it
@@ -53,6 +54,8 @@ export default function ChatScreen() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [unlockMessage, setUnlockMessage] = useState<Message | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState<Message | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [, forceUpdate] = useState(0);
 
   const handleTextChange = useCallback(
@@ -61,6 +64,21 @@ export default function ChatScreen() {
     },
     [setMessageText]
   );
+
+  const handleConfirmDelete = async () => {
+    if (!deleteMessage) return;
+    setIsDeleting(true);
+    try {
+      await messageApi.deleteMessage(deleteMessage.messageId);
+      removeMessage(deleteMessage.messageId);
+      showSuccess("Message deleted.");
+    } catch {
+      showError("Failed to delete message. Please try again.");
+    } finally {
+      setIsDeleting(false);
+      setDeleteMessage(null);
+    }
+  };
 
   const handleArchive = async () => {
     if (!conversation) return;
@@ -160,6 +178,7 @@ export default function ChatScreen() {
             isCustomer={isCustomer}
             unlockSession={unlockSession}
             onRequestUnlock={(msg) => setUnlockMessage(msg)}
+            onLongPress={(msg) => setDeleteMessage(msg)}
           />
         )}
       </View>
@@ -263,6 +282,47 @@ export default function ChatScreen() {
         isCustomer={isCustomer}
         messageCount={messages.length}
       />
+
+      {/* Delete Message Modal */}
+      <Modal
+        visible={!!deleteMessage}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setDeleteMessage(null)}
+      >
+        <Pressable
+          className="flex-1 bg-black/70 justify-center px-6"
+          onPress={() => setDeleteMessage(null)}
+        >
+          <Pressable
+            onPress={() => {}}
+            className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800"
+          >
+            <Text className="text-white text-lg font-bold mb-1">Delete message?</Text>
+            <Text className="text-zinc-400 text-sm mb-6">
+              This message and its attachments will be permanently removed.
+            </Text>
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={() => setDeleteMessage(null)}
+                className="flex-1 py-3 rounded-xl bg-zinc-800 items-center"
+              >
+                <Text className="text-zinc-300 font-semibold">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleConfirmDelete}
+                disabled={isDeleting}
+                className={`flex-1 py-3 rounded-xl items-center ${isDeleting ? "bg-red-900" : "bg-red-500"}`}
+              >
+                <Text className="text-white font-semibold">
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Unlock Message Modal — outside KeyboardAvoidingView */}
       <UnlockModal

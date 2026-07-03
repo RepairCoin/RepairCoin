@@ -166,6 +166,18 @@ class MessageApi {
   }
 
   /**
+   * Delete a single message (soft delete, sender only)
+   */
+  async deleteMessage(messageId: string): Promise<{ success: boolean }> {
+    try {
+      return await apiClient.delete<{ success: boolean }>(`/messages/${messageId}`);
+    } catch (error) {
+      console.error("Failed to delete message:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Delete a conversation (soft delete)
    */
   async deleteConversation(

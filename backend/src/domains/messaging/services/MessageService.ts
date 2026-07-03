@@ -763,6 +763,16 @@ export class MessageService {
   }
 
   /**
+   * Delete a single message (soft delete, sender only).
+   */
+  async deleteMessage(messageId: string, senderAddress: string): Promise<void> {
+    const deleted = await this.messageRepo.deleteMessage(messageId, senderAddress);
+    if (!deleted) {
+      throw new Error('Message not found or you are not the sender');
+    }
+  }
+
+  /**
    * Delete a conversation (soft delete)
    */
   async deleteConversation(
