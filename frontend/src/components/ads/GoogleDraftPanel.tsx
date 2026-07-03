@@ -130,14 +130,12 @@ export const GoogleDraftPanel: React.FC<{
   };
 
   const goLive = async () => {
-    // Guard: Go Live activates what's ON Google, not the composer's unsaved edits — sync them first.
-    if (isDirty && !window.confirm(
-      "You have unsaved changes to this ad — they won't go live unless synced.\n\nOK = Save & sync to Google, then go live\nCancel = keep editing"
-    )) return;
+    // Go Live activates what's ON Google, not the composer's unsaved edits — so save any edits FIRST
+    // (the button says "Save & Go Live" when dirty). The spend confirmation happens in onGoLive.
     setBusy("golive");
     try {
       if (isDirty) {
-        if (!(await pushEdits())) return; // validation blocked → stay in the composer
+        if (!(await pushEdits())) return; // validation blocked → stay in the composer (rsaError toast shown)
         onChanged?.();
       }
       await onGoLive();
@@ -218,7 +216,9 @@ export const GoogleDraftPanel: React.FC<{
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-white/15 disabled:opacity-50">
             {busy === "save" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save &amp; sync to Google
           </button>
-          {copyChanged && rsaError && <p className="text-[11px] text-red-400">{rsaError}</p>}
+          {copyChanged && rsaError
+            ? <p className="text-[11px] text-red-400">{rsaError}</p>
+            : <p className="text-[11px] text-gray-500">Saves your edits to Google. The ad stays <span className="text-gray-400">paused</span> — it won&apos;t spend until you Go Live.</p>}
         </div>
       </div>
 
@@ -230,11 +230,11 @@ export const GoogleDraftPanel: React.FC<{
           <span className="text-gray-200"> payment method</span> first; Go Live checks both and tells you what&apos;s missing.
         </p>
         {isDirty && (
-          <p className="text-[11px] text-amber-400">You have unsaved changes — Go Live will offer to save &amp; sync them first.</p>
+          <p className="text-[11px] text-amber-400">Your unsaved changes will be saved &amp; synced to Google first, then it goes live.</p>
         )}
         <button onClick={goLive} disabled={busy !== null}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FFCC00] text-black font-medium hover:bg-[#E6B800] disabled:opacity-50">
-          {busy === "golive" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} Go Live on Google
+          {busy === "golive" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} {isDirty ? "Save & Go Live on Google" : "Go Live on Google"}
         </button>
       </div>
     </div>
