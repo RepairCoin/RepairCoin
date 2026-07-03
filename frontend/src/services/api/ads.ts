@@ -739,6 +739,19 @@ export const getGoogleDraftContent = async (id: string, refresh = false): Promis
   return unwrap<AdCampaign>(res);
 };
 
+// Admin: import Google spend/impressions/clicks now (also runs nightly). Returns { synced }.
+export const syncGoogleInsights = async (): Promise<{ synced: number }> => {
+  const res = await apiClient.post(`/ads/google/sync-insights`, {});
+  return unwrap<{ synced: number }>(res);
+};
+
+// Admin: run the conversion-attribution backfill now — contact-match paid orders → leads, advance
+// to paid, and upload offline conversions to Google for gclid leads. Returns { scanned, linked }.
+export const runAttributionBackfill = async (shopId?: string): Promise<{ scanned: number; linked: number }> => {
+  const res = await apiClient.post(`/ads/attribution/backfill${shopId ? `?shopId=${encodeURIComponent(shopId)}` : ""}`, {});
+  return unwrap<{ scanned: number; linked: number }>(res);
+};
+
 // Landing-page magnet overrides (Phase 2). All optional — anything unset auto-composes.
 export interface LandingConfig {
   headline?: string;

@@ -11,6 +11,7 @@ import { LeadRepository } from '../repositories/LeadRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { AdLeadActivityRepository, type AdLeadActivityType } from '../repositories/AdLeadActivityRepository';
 import { leadAttributionService } from '../services/LeadAttributionService';
+import { getAdAttributionService } from '../services/AdAttributionService';
 import { leadAIService } from '../services/LeadAIService';
 import { leadAutoAnswerService } from '../services/LeadAutoAnswerService';
 import { leadEmailService } from '../services/LeadEmailService';
@@ -353,6 +354,20 @@ export async function autoAnswerLead(req: Request, res: Response): Promise<void>
     const status = err?.status ?? 500;
     if (status >= 500) logger.error('LeadController.autoAnswerLead failed', err);
     res.status(status).json({ success: false, error: err?.message || 'Failed to auto-answer' });
+  }
+}
+
+// POST /attribution/backfill (admin) — run the conversion-attribution backfill now (contact-match
+// unlinked paid orders → ad leads, advance to 'paid', and upload the offline conversion to Google
+// for gclid leads). Normally runs on the order-paid event; this is a manual trigger. Optional ?shopId.
+export async function triggerAttributionBackfill(req: Request, res: Response): Promise<void> {
+  try {
+    const shopId = (req.query.shopId as string) || undefined;
+    const r = await getAdAttributionService().backfillUnattributed({ shopId, sinceDays: 180, limit: 500 });
+    res.json({ success: true, data: r });
+  } catch (err) {
+    logger.error('LeadController.triggerAttributionBackfill failed', err);
+    res.status(500).json({ success: false, error: 'Failed to run attribution backfill' });
   }
 }
 

@@ -18,7 +18,7 @@ import {
 import {
   listLeads, createManualLead, updateLeadStatus, updateShopLeadStatus, listShopLeads, webformLead, draftLeadReply,
   listAwaitingLeads, listShopAwaitingLeads,
-  getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage,
+  getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage, triggerAttributionBackfill,
   getLeadActivities, logLeadActivity, emailLead,
   getShopLeadActivities, logShopLeadActivity, emailShopLead,
 } from './controllers/LeadController';
@@ -223,6 +223,7 @@ export function initializeRoutes(): Router {
   router.post('/shop/google/select', ...shop, selectMyGoogleAccount);     // store choice + flip gate
   router.post('/shop/google/disconnect', ...shop, disconnectMyGoogle);
   router.post('/google/sync-insights', ...admin, triggerGoogleInsightsSync); // Slice 4: import Google spend/impr/clicks now
+  router.post('/attribution/backfill', ...admin, triggerAttributionBackfill); // contact-match paid orders → leads + upload conversions now
 
   return router;
 }
