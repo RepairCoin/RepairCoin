@@ -13,6 +13,10 @@ import { fmtMoney, updateGoogleDraft, getGoogleDraftContent, syncGoogleInsights,
 
 const eq = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify(b);
 
+// Admin debug utilities (manual insights sync + attribution backfill) — hidden unless the debug
+// flag is on. They trigger shop-wide/global ops that normally run on a cron / order-paid event.
+const DEBUG_TOOLS = process.env.NEXT_PUBLIC_ADS_DEBUG_TOOLS === "true";
+
 // Soft recommended daily minimum (major units) — roughly a few local-service clicks/day. Google
 // enforces NO minimum, so this is advisory only. Per-currency defaults, overridable via env.
 const REC_MIN_BY_CCY: Record<string, number> = {
@@ -179,12 +183,16 @@ export const GoogleDraftPanel: React.FC<{
           <a href={managerUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white">
             <ExternalLink className="w-3.5 h-3.5" /> Review in Google Ads
           </a>
-          <button onClick={syncInsights} disabled={tool !== null} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-white disabled:opacity-50">
-            {tool === "insights" ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Sync insights now
-          </button>
-          <button onClick={runBackfill} disabled={tool !== null} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-white disabled:opacity-50">
-            {tool === "attr" ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Run attribution now
-          </button>
+          {DEBUG_TOOLS && (
+            <>
+              <button onClick={syncInsights} disabled={tool !== null} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-white disabled:opacity-50">
+                {tool === "insights" ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Sync insights now
+              </button>
+              <button onClick={runBackfill} disabled={tool !== null} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-white disabled:opacity-50">
+                {tool === "attr" ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Run attribution now
+              </button>
+            </>
+          )}
         </div>
       </div>
 
