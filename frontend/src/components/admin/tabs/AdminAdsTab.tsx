@@ -363,7 +363,7 @@ export const AdminAdsTab: React.FC = () => {
                googleCampaignId, so a Google campaign whose objects are still being created never
                shows the Meta-only creative UI. */
             selected.platform === "google" ? (
-              <GoogleDraftPanel campaign={selected} onGoLive={() => toggleStatus(selected)} />
+              <GoogleDraftPanel campaign={selected} onGoLive={() => toggleStatus(selected)} onChanged={load} />
             ) : (
               <DraftComposer campaign={selected} onChanged={load} />
             )

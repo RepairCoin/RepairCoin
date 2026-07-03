@@ -61,8 +61,20 @@ export interface AdCampaign {
   googleLastSyncedAt: Date | null;
   /** When config was last reconciled FROM Google (Slice 5) — distinct from googleLastSyncedAt (insights). */
   googleSyncedConfigAt: Date | null;
+  /** RSA copy + keywords stored locally so the dashboard can display/edit them (composer). */
+  googleAdContent: GoogleAdContent | null;
+  /** The RSA ad resource id — RSA ads are immutable, so a copy edit recreates the ad. */
+  googleAdId: string | null;
   /** Per-campaign landing-page magnet overrides (Phase 2); null → auto-composed defaults. */
   landingConfig: LandingConfig | null;
+}
+
+/** Locally-stored Google Search ad content (mirrors what's on Google), for the composer. */
+export interface GoogleAdContent {
+  headlines: string[];
+  descriptions: string[];
+  keywords: string[];
+  finalUrl?: string | null;
 }
 
 export interface GoogleObjectIds {
@@ -72,6 +84,8 @@ export interface GoogleObjectIds {
   googleStatus?: string | null;
   googleLastSyncedAt?: Date | null;
   googleSyncedConfigAt?: Date | null;
+  googleAdContent?: GoogleAdContent | null;
+  googleAdId?: string | null;
 }
 
 /** Shop-controlled landing-page magnet overrides. All optional — anything unset falls back to the
@@ -313,6 +327,8 @@ export class CampaignRepository extends BaseRepository {
     if (g.googleStatus !== undefined) col('google_status', g.googleStatus);
     if (g.googleLastSyncedAt !== undefined) col('google_last_synced_at', g.googleLastSyncedAt);
     if (g.googleSyncedConfigAt !== undefined) col('google_synced_config_at', g.googleSyncedConfigAt);
+    if (g.googleAdContent !== undefined) col('google_ad_content', g.googleAdContent ? JSON.stringify(g.googleAdContent) : null);
+    if (g.googleAdId !== undefined) col('google_ad_id', g.googleAdId);
     if (sets.length === 0) return this.findById(id);
     sets.push(`updated_at = now()`);
     params.push(id);
@@ -404,6 +420,8 @@ export class CampaignRepository extends BaseRepository {
       googleStatus: r.google_status ?? null,
       googleLastSyncedAt: r.google_last_synced_at ?? null,
       googleSyncedConfigAt: r.google_synced_config_at ?? null,
+      googleAdContent: r.google_ad_content ?? null,
+      googleAdId: r.google_ad_id ?? null,
       landingConfig: r.landing_config ?? null,
     };
   }

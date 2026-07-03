@@ -48,7 +48,7 @@ import {
 import {
   submitCampaignRequest, listMyCampaignRequests, listCampaignRequests,
   buildCampaignFromRequest, declineCampaignRequest, setAdsAccountConnected,
-  pushCampaignToMeta, goLiveCampaign, updateCampaignDraft, uploadCreativeImage, scaleCampaignBudget,
+  pushCampaignToMeta, goLiveCampaign, updateCampaignDraft, updateGoogleDraft, uploadCreativeImage, scaleCampaignBudget,
   syncCampaignFromMeta, syncCampaignFromGoogle,
 } from './controllers/CampaignRequestController';
 import {
@@ -144,6 +144,7 @@ export function initializeRoutes(): Router {
   router.post('/campaigns/:id/sync-from-meta', ...admin, syncCampaignFromMeta); // two-way config sync: pull budget/status from Meta
   router.post('/campaigns/:id/sync-from-google', ...admin, syncCampaignFromGoogle); // Slice 5: pull budget/status from Google
   router.patch('/campaigns/:id/draft', ...admin, updateCampaignDraft);          // push P5: edit budget/radius/creative (draft or paused)
+  router.patch('/campaigns/:id/google-draft', ...admin, updateGoogleDraft);      // Google composer: edit budget/RSA copy/keywords, synced to Google
   router.get('/campaigns/:id/landing-config', ...admin, getLandingConfig);       // landing magnet overrides (editor)
   router.put('/campaigns/:id/landing-config', ...admin, updateLandingConfig);    // save landing magnet overrides
   router.post('/shops/:shopId/ads-account', ...admin, setAdsAccountConnected);  // §9.6 connect gate

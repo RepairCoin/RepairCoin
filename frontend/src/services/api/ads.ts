@@ -36,6 +36,7 @@ export interface AdCampaign {
   googleAdGroupId?: string | null;
   googleStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ENABLED
   googleSyncedConfigAt?: string | null; // last time budget/status was reconciled FROM Google (Slice 5)
+  googleAdContent?: GoogleAdContent | null; // RSA copy + keywords stored locally (composer)
   targetRadiusMiles?: number | null;
   currency?: string | null; // joined from shops.meta_currency — the connected ad account's currency
 }
@@ -713,6 +714,22 @@ export interface SyncFromGoogleResult {
 export const syncCampaignFromGoogle = async (id: string): Promise<SyncFromGoogleResult> => {
   const res = await apiClient.post(`/ads/campaigns/${id}/sync-from-google`, {});
   return unwrap<SyncFromGoogleResult>(res);
+};
+
+// Google Search composer — edit budget / RSA copy / keywords on a pushed Google draft, synced to
+// Google. Any provided field is applied; `regenerate` re-runs the AI copy first. Returns the campaign.
+export interface GoogleAdContent {
+  headlines: string[];
+  descriptions: string[];
+  keywords: string[];
+  finalUrl?: string | null;
+}
+export const updateGoogleDraft = async (
+  id: string,
+  edits: { dailyBudgetCents?: number; headlines?: string[]; descriptions?: string[]; keywords?: string[]; regenerate?: boolean }
+): Promise<AdCampaign> => {
+  const res = await apiClient.patch(`/ads/campaigns/${id}/google-draft`, edits);
+  return unwrap<AdCampaign>(res);
 };
 
 // Landing-page magnet overrides (Phase 2). All optional — anything unset auto-composes.

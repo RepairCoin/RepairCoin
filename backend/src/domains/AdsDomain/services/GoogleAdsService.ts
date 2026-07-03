@@ -27,6 +27,21 @@ export function campaignBiddingSpec(optimizeForConversions: boolean): Record<str
   return optimizeForConversions ? { maximizeConversions: {} } : { manualCpc: {} };
 }
 
+/** PURE: validate + normalize RSA copy to Google's rules (≥3 headlines ≤30, ≥2 descriptions ≤90).
+ *  Trims, drops empties/over-length, dedupes, caps at 15/4. Returns {error} when the minimums aren't
+ *  met so the composer can reject before pushing (Google rejects an invalid RSA). */
+export function validateRsaContent(
+  headlines: string[], descriptions: string[]
+): { headlines: string[]; descriptions: string[] } | { error: string } {
+  const norm = (arr: string[], max: number) =>
+    Array.from(new Set((arr || []).map((s) => String(s || '').trim()).filter((s) => s && s.length <= max)));
+  const h = norm(headlines, 30);
+  const d = norm(descriptions, 90);
+  if (h.length < 3) return { error: 'need at least 3 headlines, each ≤30 characters' };
+  if (d.length < 2) return { error: 'need at least 2 descriptions, each ≤90 characters' };
+  return { headlines: h.slice(0, 15), descriptions: d.slice(0, 4) };
+}
+
 export interface GoogleTokenResult { accessToken: string; refreshToken: string | null; expiresIn: number; }
 export interface GoogleCustomer { customerId: string; name: string; }
 
@@ -366,6 +381,59 @@ export class GoogleAdsService {
     );
     const pfe = res.data?.partialFailureError;
     if (pfe) logger.warn('GoogleAdsService.uploadClickConversion partial failure', { gclid: input.gclid, message: pfe.message });
+  }
+
+  /** Composer: update the campaign's daily budget (micros). budgetId is the resource id stored at build. */
+  async updateCampaignBudget(customerId: string, refreshToken: string, budgetId: string, dailyBudgetMicros: number, loginCustomerId?: string): Promise<void> {
+    const access = await this.refreshAccessToken(refreshToken);
+    await this.mutate(customerId, access, 'campaignBudgets', [
+      { update: { resourceName: `customers/${customerId}/campaignBudgets/${budgetId}`, amountMicros: String(dailyBudgetMicros) }, updateMask: 'amount_micros' },
+    ], false, loginCustomerId);
+  }
+
+  /** Composer: replace the RSA (ads are immutable) — create a fresh PAUSED responsive search ad from
+   *  the edited headlines/descriptions, then remove the old one. Returns the new ad resource name. */
+  async replaceResponsiveSearchAd(
+    customerId: string, refreshToken: string, adGroupResourceName: string, oldAdResourceName: string | null,
+    input: { headlines: string[]; descriptions: string[]; finalUrl: string }, loginCustomerId?: string
+  ): Promise<{ adResourceName: string }> {
+    const access = await this.refreshAccessToken(refreshToken);
+    const created = await this.mutate(customerId, access, 'adGroupAds', [
+      { create: {
+        adGroup: adGroupResourceName,
+        status: 'PAUSED',
+        ad: { finalUrls: [input.finalUrl], responsiveSearchAd: {
+          headlines: input.headlines.slice(0, 15).map((t) => ({ text: t })),
+          descriptions: input.descriptions.slice(0, 4).map((t) => ({ text: t })),
+        } },
+      } },
+    ], false, loginCustomerId);
+    const adResourceName = created[0].resourceName as string;
+    if (oldAdResourceName && oldAdResourceName !== adResourceName) {
+      await this.mutate(customerId, access, 'adGroupAds', [{ remove: oldAdResourceName }], true, loginCustomerId).catch(() => undefined);
+    }
+    return { adResourceName };
+  }
+
+  /** Composer: reconcile the ad group's keywords to `desired` — add missing, remove extra. BROAD match
+   *  (as at build). partial-failure so a policy-flagged term skips. Returns the applied keyword set. */
+  async reconcileKeywords(customerId: string, refreshToken: string, adGroupId: string, adGroupResourceName: string, desired: string[], loginCustomerId?: string): Promise<{ keywords: string[] }> {
+    const access = await this.refreshAccessToken(refreshToken);
+    const want = Array.from(new Set((desired || []).map((k) => k.trim()).filter(Boolean).slice(0, 20)));
+    const rows = await this.search(customerId, access, loginCustomerId,
+      `SELECT ad_group_criterion.resource_name, ad_group_criterion.keyword.text FROM ad_group_criterion ` +
+      `WHERE ad_group.id = ${adGroupId} AND ad_group_criterion.type = 'KEYWORD' AND ad_group_criterion.status != 'REMOVED'`);
+    const current = new Map<string, string>(); // lowercased text → resource name
+    for (const r of rows) { const t = r.adGroupCriterion?.keyword?.text; if (t) current.set(String(t).toLowerCase(), r.adGroupCriterion.resourceName); }
+    const wantLower = new Set(want.map((k) => k.toLowerCase()));
+    const toAdd = want.filter((k) => !current.has(k.toLowerCase()));
+    const toRemove = [...current.entries()].filter(([t]) => !wantLower.has(t)).map(([, rn]) => rn);
+    const ops: any[] = [
+      ...toAdd.map((k) => ({ create: { adGroup: adGroupResourceName, status: 'ENABLED', keyword: { text: k, matchType: 'BROAD' } } })),
+      ...toRemove.map((rn) => ({ remove: rn })),
+    ];
+    if (ops.length) await this.mutate(customerId, access, 'adGroupCriteria', ops, true, loginCustomerId);
+    return { keywords: want };
   }
 
   /** Per-call login-customer-id (the shop's manager) takes precedence; falls back to the global env. */
