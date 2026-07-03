@@ -207,7 +207,7 @@ export type UpdateGeneralNotificationPreferences = Partial<
 
 // ─── Feature-specific types ─────────────────────────────────────────────────
 
-export type TabType = "all" | "ai" | "updates";
+export type TabType = "all" | "ai" | "unread";
 
 export type NotificationStyle = {
   icon: React.ReactNode;
