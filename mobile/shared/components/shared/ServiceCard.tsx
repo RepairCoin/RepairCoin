@@ -226,7 +226,7 @@ function ServiceCard({
 
   return (
     <View
-      className="bg-white rounded-2xl overflow-hidden"
+      className="bg-white rounded-2xl overflow-hidden flex-1"
       style={{
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
@@ -235,7 +235,11 @@ function ServiceCard({
         elevation: 3,
       }}
     >
-      <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.85}
+        className="flex-1"
+      >
         {imageUrl !== undefined && (
           <View className="relative bg-white">
             {imageSource ? (
