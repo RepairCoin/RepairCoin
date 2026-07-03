@@ -208,10 +208,10 @@ export default function CustomerWalletTab() {
         }
       >
         <NoShowWarningBanner />
-        <AiSearchBar
-          // TODO(wire-later): route to the mobile AI assistant screen once it exists.
+        {/* <AiSearchBar
+          // TODO(wire-later): route to the mobile AI assistant screen once it exists. waiting for ai Business logic 
           onPress={() => router.push("/customer/tabs/service")}
-        />
+        /> */}
         <QuickActions />
         {/* <Modal visible={showMintModal} transparent animationType="fade">
           <Pressable

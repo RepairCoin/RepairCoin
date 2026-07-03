@@ -154,7 +154,8 @@ export default function CustomerAccountScreen() {
             label="Refer a Friend"
             onPress={() => router.push("/customer/referral")}
           />
-          <MenuRow
+
+          {/*<MenuRow
             icon="storefront-outline"
             label="Refer a Shop"
             // TODO(wire-later): dedicated refer-a-shop flow; reuse referral for now.
@@ -166,7 +167,7 @@ export default function CustomerAccountScreen() {
             isLast
             // TODO(wire-later): dedicated support screen; route to messages for now.
             onPress={() => router.push("/customer/messages")}
-          />
+          /> */}
         </View>
 
         {/* Bottom Padding */}
