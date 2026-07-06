@@ -37,7 +37,7 @@ export const ConversationInbox: React.FC<{ mode: "admin" | "shop"; campaignId?: 
   const [items, setItems] = useState<LeadConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"needs" | "all">("needs");
-  const [convo, setConvo] = useState<{ id: string; name: string | null } | null>(null);
+  const [convo, setConvo] = useState<{ id: string; name: string | null; aiPaused: boolean } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,7 +90,7 @@ export const ConversationInbox: React.FC<{ mode: "admin" | "shop"; campaignId?: 
             return (
               <button
                 key={c.id}
-                onClick={() => setConvo({ id: c.id, name: c.name })}
+                onClick={() => setConvo({ id: c.id, name: c.name, aiPaused: c.aiPaused })}
                 className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors flex items-start gap-3"
               >
                 <div className="mt-0.5 shrink-0 text-gray-500">
@@ -105,7 +105,9 @@ export const ConversationInbox: React.FC<{ mode: "admin" | "shop"; campaignId?: 
                     {c.lastDirection === "inbound" ? "" : c.lastAuthor === "ai" ? "AI: " : "You: "}{preview}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
+                    {c.escalated
+                      ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-200 border border-red-500/40">🔥 Ready to book</span>
+                      : <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>}
                     {mode === "admin" && c.campaignName && <span className="text-[10px] text-gray-500 truncate">{c.campaignName}</span>}
                   </div>
                 </div>
@@ -121,6 +123,7 @@ export const ConversationInbox: React.FC<{ mode: "admin" | "shop"; campaignId?: 
           leadName={convo.name}
           open={!!convo}
           mode={mode}
+          initialAiPaused={convo.aiPaused}
           onClose={() => { setConvo(null); void load(); }}
         />
       )}

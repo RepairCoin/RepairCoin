@@ -70,6 +70,8 @@ export class LeadAutoAnswerService {
     const channel = LeadChannelSender.pickChannel(lead);
     const deliveryStatus = await this.channel.deliver(channel, lead, body);
     await this.markRespondedIfNew(lead.id, lead.leadStatus);
+    // A human engaged → clear any escalation (P3), so the hot-lead flag doesn't linger.
+    await this.leads.clearEscalated(lead.id).catch(() => undefined);
     return this.messages.append({ leadId, direction: 'outbound', author: 'admin', channel, body, deliveryStatus });
   }
 
@@ -167,6 +169,10 @@ export class LeadAutoAnswerService {
     const lead = await this.leads.findById(leadId);
     const campaign = lead ? await this.campaigns.findById(lead.campaignId) : null;
 
+    // Take-over (P3): a human seized the conversation → record the reply but don't auto-answer over them.
+    if (lead?.aiPaused) {
+      return { inbound, reply: null, autoAnswered: false, reason: 'ai_paused' };
+    }
     if (!campaign?.aiAgentEnabled) {
       return { inbound, reply: null, autoAnswered: false, reason: 'ai_agent_disabled' };
     }

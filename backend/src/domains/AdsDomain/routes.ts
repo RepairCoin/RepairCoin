@@ -22,7 +22,7 @@ import {
   getLeadActivities, logLeadActivity, emailLead,
   getShopLeadActivities, logShopLeadActivity, emailShopLead,
   getShopLeadThread, postShopLeadMessage, autoAnswerShopLead, draftShopLeadReply,
-  getShopConversations, getLeadConversations,
+  getShopConversations, getLeadConversations, setLeadAiPaused, setShopLeadAiPaused,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
@@ -187,6 +187,7 @@ export function initializeRoutes(): Router {
   router.get('/leads/:id/messages', ...admin, getLeadThread);        // Stage 3.5: conversation thread
   router.post('/leads/:id/messages', ...admin, postLeadMessage);     // Stage 3.5: admin manual reply
   router.post('/leads/:id/auto-answer', ...admin, autoAnswerLead);   // Stage 3.5: trigger AI reply
+  router.patch('/leads/:id/ai-paused', ...admin, setLeadAiPaused);   // P3: take over / resume AI
   router.get('/leads/:id/activities', ...admin, getLeadActivities);  // lead-tracking P1: timeline
   router.post('/leads/:id/activities', ...admin, logLeadActivity);   // lead-tracking P1: log note/call
   router.post('/leads/:id/email', ...admin, emailLead);              // lead-tracking P2: tracked email send
@@ -213,6 +214,7 @@ export function initializeRoutes(): Router {
   router.post('/shop/leads/:id/messages', ...shop, postShopLeadMessage);     // shop manual reply
   router.post('/shop/leads/:id/auto-answer', ...shop, autoAnswerShopLead);   // shop-triggered AI reply
   router.post('/shop/leads/:id/draft-reply', ...shop, draftShopLeadReply);   // shop-side AI draft
+  router.patch('/shop/leads/:id/ai-paused', ...shop, setShopLeadAiPaused);   // P3: take over / resume AI
   router.get('/shop/enrollment', ...shop, getMyEnrollment);             // "Request ads" status
   router.post('/shop/enrollment', ...shop, requestAds);                 // "Request ads" opt-in
   router.get('/shop/messages', ...shop, getMyMessages);                 // durable thread (Phase 2)

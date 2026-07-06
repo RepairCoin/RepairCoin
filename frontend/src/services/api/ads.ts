@@ -99,6 +99,8 @@ export interface AdLead {
   hasChatChannel?: boolean;
   /** First time the shop/admin actually contacted the lead (call/email/status→contacted). Null = never. */
   firstResponseAt?: string | null;
+  /** Take-over (P3): the AI is paused for this lead — a human is handling it. */
+  aiPaused?: boolean;
   createdAt: string;
 }
 
@@ -923,6 +925,8 @@ export interface LeadConversationItem {
   messageCount: number;
   conversationState: ConversationState;
   needsHuman: boolean;
+  aiPaused: boolean;
+  escalated: boolean;
   createdAt: string;
 }
 export const getShopConversations = async (campaignId?: string) => {
@@ -932,6 +936,11 @@ export const getShopConversations = async (campaignId?: string) => {
 export const getLeadConversations = async (params?: { campaignId?: string; shopId?: string }) => {
   const res = await apiClient.get('/ads/leads/conversations', { params: params ?? {} });
   return unwrap<LeadConversationItem[]>(res);
+};
+// Take-over (P3) — pause/resume the AI for a lead. Mode-aware (shop → ownership-gated base).
+export const setLeadAiPaused = async (id: string, paused: boolean, mode: LeadMode = 'admin') => {
+  const res = await apiClient.patch(`${leadBase(mode)}/${id}/ai-paused`, { paused });
+  return unwrap<{ id: string; aiPaused: boolean }>(res);
 };
 
 export const listShopLeads = async (params?: { campaignId?: string; status?: LeadStatus }) => {

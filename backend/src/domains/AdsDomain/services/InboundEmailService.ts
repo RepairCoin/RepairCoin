@@ -19,6 +19,7 @@ import { CampaignRepository } from '../repositories/CampaignRepository';
 import { LeadMessageRepository } from '../repositories/LeadMessageRepository';
 import { leadAutoAnswerService } from './LeadAutoAnswerService';
 import { tokenFromAddress } from './inboundEmailConfig';
+import { detectBookingIntent } from './leadIntent';
 
 const MAX_AUTOANSWERS_PER_HOUR = (() => {
   const n = parseInt(process.env.ADS_INBOUND_MAX_AUTOANSWERS_PER_HOUR || '5', 10);
@@ -146,14 +147,20 @@ export class InboundEmailService {
     const recentAi = await this.messages.countByAuthorSince(lead.id, 'ai', 60);
     const overLimit = recentAi >= MAX_AUTOANSWERS_PER_HOUR;
 
+    // Escalation (P3): a customer reply showing booking intent → flag the lead (forces 'needs_human')
+    // and fire a high-urgency notification, so a human closes the hot lead even if the AI answers.
+    const hot = !fromShop && detectBookingIntent(clean);
+    if (hot) await this.leads.setEscalated(lead.id).catch(() => undefined);
+
     if (fromShop || overLimit) {
       await this.autoAnswer.recordInbound(lead.id, clean, 'email', externalId);
+      if (campaign?.shopId && hot) void this.notifyShop(campaign.shopId, lead.name, lead.id, true).catch(() => undefined);
       logger.info(`InboundEmail: recorded without auto-answer (${fromShop ? 'from_shop' : 'rate_limited'})`, { leadId: lead.id });
       return { outcome: 'recorded', leadId: lead.id };
     }
 
     await this.autoAnswer.handleInbound(lead.id, clean, 'email', externalId);
-    if (campaign?.shopId) void this.notifyShop(campaign.shopId, lead.name, lead.id).catch(() => undefined);
+    if (campaign?.shopId) void this.notifyShop(campaign.shopId, lead.name, lead.id, hot).catch(() => undefined);
     return { outcome: 'handled', leadId: lead.id };
   }
 
@@ -181,15 +188,17 @@ export class InboundEmailService {
     }
   }
 
-  private async notifyShop(shopId: string, leadName: string | null, leadId: string): Promise<void> {
+  private async notifyShop(shopId: string, leadName: string | null, leadId: string, escalated = false): Promise<void> {
     const shop = await shopRepository.getShop(shopId).catch(() => null);
     const receiver = (shop as any)?.walletAddress || (shop as any)?.wallet_address;
     if (!receiver) return;
     await this.notifications.create({
       senderAddress: 'system',
       receiverAddress: receiver,
-      notificationType: 'ad_lead_reply',
-      message: `New email reply from ${leadName || 'a lead'}.`,
+      notificationType: escalated ? 'ad_lead_ready' : 'ad_lead_reply',
+      message: escalated
+        ? `${leadName || 'A lead'} looks ready to book — reply now to close it.`
+        : `New email reply from ${leadName || 'a lead'}.`,
       metadata: { shopId, leadId },
     });
   }

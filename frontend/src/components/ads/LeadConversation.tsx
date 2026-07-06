@@ -7,10 +7,10 @@
 // override. Uses the shadcn Dialog shell, dark-themed to match the ads surface.
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Send, Sparkles, Bot, User, Headset } from "lucide-react";
+import { Loader2, Send, Sparkles, Bot, User, Headset, PauseCircle, PlayCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getLeadThread, sendLeadMessage, autoAnswerLead, type LeadMessage } from "@/services/api/ads";
+import { getLeadThread, sendLeadMessage, autoAnswerLead, setLeadAiPaused, type LeadMessage } from "@/services/api/ads";
 
 const AUTHOR_META: Record<LeadMessage["author"], { label: string; icon: React.ReactNode; align: string; bubble: string }> = {
   lead: { label: "Lead", icon: <User className="w-3.5 h-3.5" />, align: "items-start", bubble: "bg-[#1A1A1A] text-gray-200 border border-white/10" },
@@ -25,12 +25,16 @@ export const LeadConversation: React.FC<{
   onClose: () => void;
   /** Which API base to hit — shop uses the ownership-gated /ads/shop/leads/... routes. */
   mode?: "admin" | "shop";
-}> = ({ leadId, leadName, open, onClose, mode = "admin" }) => {
+  /** Take-over (P3): whether the AI is currently paused for this lead. */
+  initialAiPaused?: boolean;
+}> = ({ leadId, leadName, open, onClose, mode = "admin", initialAiPaused = false }) => {
   const [thread, setThread] = useState<LeadMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [paused, setPaused] = useState(initialAiPaused);
+  const [pausing, setPausing] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
@@ -69,6 +73,23 @@ export const LeadConversation: React.FC<{
     }
   };
 
+  useEffect(() => { if (open) setPaused(initialAiPaused); }, [open, initialAiPaused]);
+
+  // Take over / hand back: pause stops the AI from auto-answering this lead's replies.
+  const toggleTakeover = async () => {
+    setPausing(true);
+    try {
+      const next = !paused;
+      await setLeadAiPaused(leadId, next, mode);
+      setPaused(next);
+      toast.success(next ? "You've taken over — the AI won't reply to this lead." : "AI resumed for this lead.");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || e?.message || "Couldn't update.");
+    } finally {
+      setPausing(false);
+    }
+  };
+
   // The AI answers the customer's last message — only meaningful when the most
   // recent message is from the lead (otherwise there's nothing new to reply to).
   const canAiAnswer = thread.length > 0 && thread[thread.length - 1].author === "lead";
@@ -81,6 +102,12 @@ export const LeadConversation: React.FC<{
             <Sparkles className="w-4 h-4 text-[#FFCC00]" /> Conversation{leadName ? ` — ${leadName}` : ""}
           </DialogTitle>
         </DialogHeader>
+
+        {paused && (
+          <div className="rounded-md border border-amber-500/30 bg-amber-900/15 px-3 py-2 text-xs text-amber-200 flex items-center gap-2">
+            <PauseCircle className="w-3.5 h-3.5 shrink-0" /> You've taken over — the AI won't reply to this lead until you resume.
+          </div>
+        )}
 
         <div className="min-h-[240px] max-h-[50vh] overflow-y-auto pr-1 space-y-2">
           {loading ? (
@@ -113,14 +140,25 @@ export const LeadConversation: React.FC<{
             className="w-full px-2.5 py-1.5 bg-[#1A1A1A] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00]"
           />
           <div className="flex items-center justify-between gap-2">
-            <button
-              onClick={aiAnswer}
-              disabled={aiBusy || !canAiAnswer}
-              title={canAiAnswer ? "Generate the shop's reply to the customer's last message" : "Waiting on the customer — nothing new to answer"}
-              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50"
-            >
-              {aiBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />} AI answer
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleTakeover}
+                disabled={pausing}
+                title={paused ? "Let the AI handle this lead again" : "Take over — pause the AI for this lead so you can reply yourself"}
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border disabled:opacity-50 ${paused ? "bg-amber-500/15 border-amber-500/40 text-amber-200 hover:bg-amber-500/25" : "bg-[#1A1A1A] border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white"}`}
+              >
+                {pausing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : paused ? <PlayCircle className="w-3.5 h-3.5" /> : <PauseCircle className="w-3.5 h-3.5" />}
+                {paused ? "Resume AI" : "Take over"}
+              </button>
+              <button
+                onClick={aiAnswer}
+                disabled={aiBusy || !canAiAnswer || paused}
+                title={paused ? "AI is paused — resume to use it" : canAiAnswer ? "Generate the shop's reply to the customer's last message" : "Waiting on the customer — nothing new to answer"}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50"
+              >
+                {aiBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />} AI answer
+              </button>
+            </div>
             <button
               onClick={send}
               disabled={sending || !draft.trim()}

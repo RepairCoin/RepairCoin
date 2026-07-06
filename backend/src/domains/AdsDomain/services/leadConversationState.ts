@@ -20,14 +20,18 @@ export interface ConversationStateInput {
   lastAtMs: number | null;
   /** True when this campaign will auto-send the first outreach (auto mode + flag on). */
   aiWillInitiate: boolean;
+  /** Escalation (P3): a hot lead (booking intent) — forces needs_human even if the AI answered. */
+  escalated?: boolean;
   nowMs: number;
   dormantDays?: number;
 }
 
 /** PURE: derive the conversation state. "needs_human" is the actionable queue — a customer reply that
- *  nobody (not even the AI) has answered. AI-sent-and-waiting-on-the-customer is calm (ai_engaged). */
+ *  nobody (not even the AI) has answered, or an escalated (hot) lead. AI-sent-and-waiting-on-the-customer
+ *  is calm (ai_engaged). */
 export function deriveConversationState(input: ConversationStateInput): ConversationState {
   const dormantMs = (input.dormantDays ?? 7) * 86400000;
+  if (input.escalated) return 'needs_human'; // hot lead — a human should close it, even if the AI replied
   if (!input.hasMessages) return input.aiWillInitiate ? 'awaiting_ai' : 'quiet';
   if (input.lastDirection === 'inbound') return 'needs_human';
   // last message was outbound (ours) → waiting on the customer
