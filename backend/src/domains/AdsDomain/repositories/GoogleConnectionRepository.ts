@@ -42,6 +42,16 @@ export class GoogleConnectionRepository extends BaseRepository {
     };
   }
 
+  /** Shop location (lat/lng) for radius/proximity targeting. Same source as Meta's getShopGeo. */
+  async getShopGeo(shopId: string): Promise<{ lat: number | null; lng: number | null }> {
+    const res = await this.pool.query(`SELECT location_lat, location_lng FROM shops WHERE shop_id = $1`, [shopId]);
+    const r = res.rows[0];
+    return {
+      lat: r?.location_lat != null ? Number(r.location_lat) : null,
+      lng: r?.location_lng != null ? Number(r.location_lng) : null,
+    };
+  }
+
   /** Cached FixFlow "Lead" conversion-action resource name for this shop's account (Phase 2). */
   async getConversionAction(shopId: string): Promise<string | null> {
     const res = await this.pool.query(`SELECT google_ads_conversion_action FROM shops WHERE shop_id = $1`, [shopId]);

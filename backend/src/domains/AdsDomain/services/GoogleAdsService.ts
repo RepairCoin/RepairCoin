@@ -27,6 +27,23 @@ export function campaignBiddingSpec(optimizeForConversions: boolean): Record<str
   return optimizeForConversions ? { maximizeConversions: {} } : { manualCpc: {} };
 }
 
+/** PURE: a Google campaign PROXIMITY criterion (radius around a point) from lat/lng + miles.
+ *  Google wants lat/lng in micro-degrees (×1e6, integer). Local-service ads should target nearby
+ *  searchers, not nationwide. Unit-testable. */
+export function proximityCriterion(customerId: string, campaignId: string, lat: number, lng: number, radiusMiles: number): Record<string, unknown> {
+  return {
+    campaign: `customers/${customerId}/campaigns/${String(campaignId).replace(/\D/g, '')}`,
+    proximity: {
+      geoPoint: {
+        latitudeInMicroDegrees: Math.round(lat * 1_000_000),
+        longitudeInMicroDegrees: Math.round(lng * 1_000_000),
+      },
+      radius: radiusMiles,
+      radiusUnits: 'MILES',
+    },
+  };
+}
+
 /** PURE: shape GAQL ad_group_ad + ad_group_criterion rows into local ad content. Reads the first
  *  non-removed RSA. Tolerant of missing fields. Used by the composer populate + config-sync reflect. */
 export function mapAdContentRows(adRows: any[], kwRows: any[]): { headlines: string[]; descriptions: string[]; keywords: string[]; finalUrl: string | null; adId: string | null } {
@@ -394,6 +411,19 @@ export class GoogleAdsService {
     );
     const pfe = res.data?.partialFailureError;
     if (pfe) logger.warn('GoogleAdsService.uploadClickConversion partial failure', { gclid: input.gclid, message: pfe.message });
+  }
+
+  /** Set the campaign's radius (proximity) location targeting — replaces any existing proximity so a
+   *  radius edit doesn't stack. Without this a Search campaign serves untargeted (nationwide), wasting
+   *  a local shop's budget. Idempotent (remove existing PROXIMITY criteria + add the new one). */
+  async setLocationTargeting(customerId: string, refreshToken: string, campaignId: string, input: { lat: number; lng: number; radiusMiles: number }, loginCustomerId?: string): Promise<void> {
+    const access = await this.refreshAccessToken(refreshToken);
+    const existing = await this.search(customerId, access, loginCustomerId,
+      `SELECT campaign_criterion.resource_name FROM campaign_criterion ` +
+      `WHERE campaign.id = ${String(campaignId).replace(/\D/g, '')} AND campaign_criterion.type = 'PROXIMITY' AND campaign_criterion.status != 'REMOVED'`);
+    const ops: any[] = existing.map((r: any) => ({ remove: r.campaignCriterion.resourceName }));
+    ops.push({ create: proximityCriterion(customerId, campaignId, input.lat, input.lng, input.radiusMiles) });
+    await this.mutate(customerId, access, 'campaignCriteria', ops, true, loginCustomerId);
   }
 
   /** Composer read: fetch the current RSA copy + keywords for an ad group FROM Google (populate /

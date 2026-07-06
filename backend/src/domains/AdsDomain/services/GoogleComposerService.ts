@@ -13,6 +13,7 @@ import { CampaignRepository, AdCampaign, GoogleAdContent } from '../repositories
 
 export interface GoogleDraftEdits {
   dailyBudgetCents?: number;
+  radiusMiles?: number;
   headlines?: string[];
   descriptions?: string[];
   keywords?: string[];
@@ -79,6 +80,14 @@ export class GoogleComposerService {
       if (!campaign.googleBudgetId) throw new Error('missing_budget_id');
       await googleAdsService.updateCampaignBudget(customerId, token, campaign.googleBudgetId, edits.dailyBudgetCents * 10000, login);
       await this.campaigns.update(campaignId, { dailyBudgetCents: edits.dailyBudgetCents });
+    }
+
+    // 1b) Radius / location targeting.
+    if (edits.radiusMiles != null && edits.radiusMiles !== campaign.targetRadiusMiles) {
+      const geo = await this.connections.getShopGeo(campaign.shopId);
+      if (geo.lat == null || geo.lng == null) throw new Error('no_shop_location: add the shop\'s address/location before setting a radius');
+      await googleAdsService.setLocationTargeting(customerId, token, campaign.googleCampaignId, { lat: geo.lat, lng: geo.lng, radiusMiles: edits.radiusMiles }, login);
+      await this.campaigns.update(campaignId, { targetRadiusMiles: edits.radiusMiles });
     }
 
     // 2) RSA copy (headlines / descriptions) — immutable, so recreate the ad.

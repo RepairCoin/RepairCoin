@@ -726,7 +726,7 @@ export interface GoogleAdContent {
 }
 export const updateGoogleDraft = async (
   id: string,
-  edits: { dailyBudgetCents?: number; headlines?: string[]; descriptions?: string[]; keywords?: string[]; regenerate?: boolean }
+  edits: { dailyBudgetCents?: number; radiusMiles?: number; headlines?: string[]; descriptions?: string[]; keywords?: string[]; regenerate?: boolean }
 ): Promise<AdCampaign> => {
   const res = await apiClient.patch(`/ads/campaigns/${id}/google-draft`, edits);
   return unwrap<AdCampaign>(res);
