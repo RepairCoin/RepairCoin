@@ -184,6 +184,16 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
             googleCampaignId: g.campaignId, googleAdGroupId: g.adGroupId,
             googleBudgetId: g.budgetResourceName.split('/').pop(), googleStatus: 'PAUSED',
           });
+          // Radius/location targeting — without it a Search campaign serves nationwide, wasting a
+          // local shop's budget. Best-effort: needs the shop's lat/lng + a radius on the brief.
+          if (r.targetRadiusMiles) {
+            const geo = await googleConnections.getShopGeo(r.shopId);
+            if (geo.lat != null && geo.lng != null) {
+              await googleAdsService.setLocationTargeting(gCustomerId, token, g.campaignId, { lat: geo.lat, lng: geo.lng, radiusMiles: r.targetRadiusMiles }, gManagerId);
+            } else {
+              logger.warn('buildCampaignFromRequest: google radius set but shop has no location — skipping geo targeting', { shopId: r.shopId });
+            }
+          }
           const copy = await googleAdsCreativeService.generateRsaCopy(r.shopId, { offer: r.offer, campaignId: campaign.id });
           const landingBase = (process.env.ADS_LANDING_BASE_URL || process.env.FRONTEND_URL || 'https://staging.repaircoin.ai').replace(/\/$/, '');
           const finalUrl = `${landingBase}/l/${campaign.id}`;
@@ -420,6 +430,7 @@ export async function updateGoogleDraft(req: Request, res: Response): Promise<vo
     const b = req.body || {};
     let edits: any = {
       dailyBudgetCents: typeof b.dailyBudgetCents === 'number' ? b.dailyBudgetCents : undefined,
+      radiusMiles: typeof b.radiusMiles === 'number' ? b.radiusMiles : undefined,
       headlines: Array.isArray(b.headlines) ? b.headlines : undefined,
       descriptions: Array.isArray(b.descriptions) ? b.descriptions : undefined,
       keywords: Array.isArray(b.keywords) ? b.keywords : undefined,

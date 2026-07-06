@@ -36,6 +36,7 @@ export const GoogleDraftPanel: React.FC<{
   const [busy, setBusy] = useState<null | "save" | "regen" | "golive" | "refresh">(null);
   const [loadingContent, setLoadingContent] = useState(false);
   const [budget, setBudget] = useState("");
+  const [radius, setRadius] = useState("");
   const [headlines, setHeadlines] = useState<string[]>([]);
   const [descriptions, setDescriptions] = useState<string[]>([]);
   const [keywords, setKeywords] = useState("");
@@ -52,6 +53,7 @@ export const GoogleDraftPanel: React.FC<{
   useEffect(() => {
     const c = campaign.googleAdContent;
     applyContent(campaign.dailyBudgetCents, c);
+    setRadius(campaign.targetRadiusMiles != null ? String(campaign.targetRadiusMiles) : "");
     if (c?.headlines?.length) return;
     let alive = true;
     setLoadingContent(true);
@@ -94,14 +96,17 @@ export const GoogleDraftPanel: React.FC<{
   // Unsaved-changes detection — Go Live only activates what's already synced to Google, so unsaved
   // composer edits would be silently dropped. Used to guard Go Live + show a dirty hint.
   const budgetChanged = Number.isFinite(budgetNum) && Math.round(budgetNum * 100) !== campaign.dailyBudgetCents;
+  const radiusNum = parseInt(radius, 10);
+  const radiusChanged = Number.isFinite(radiusNum) && radiusNum > 0 && radiusNum !== (campaign.targetRadiusMiles ?? null);
   const copyChanged = !eq(cleanH, orig?.headlines ?? []) || !eq(cleanD, orig?.descriptions ?? []);
   const kwChanged = !eq(kwList, orig?.keywords ?? []);
-  const isDirty = budgetChanged || copyChanged || kwChanged;
+  const isDirty = budgetChanged || radiusChanged || copyChanged || kwChanged;
 
   // Push only the changed parts to Google. Returns false when RSA validation blocks a copy edit.
   const pushEdits = async (): Promise<boolean> => {
     const edits: any = {};
     if (budgetChanged) edits.dailyBudgetCents = Math.round(budgetNum * 100);
+    if (radiusChanged) edits.radiusMiles = radiusNum;
     if (copyChanged) {
       if (rsaError) { toast.error(rsaError); return false; }
       edits.headlines = cleanH; edits.descriptions = cleanD;
@@ -216,11 +221,18 @@ export const GoogleDraftPanel: React.FC<{
           </div>
         </div>
 
-        {/* Budget — Google has no hard minimum (unlike Meta), so this is soft guidance only. */}
+        {/* Budget + radius. Google has no hard minimum (unlike Meta), so budget is soft guidance only. */}
         <div>
-          <div className="max-w-[220px]">
-            <label className="block text-[11px] uppercase tracking-wide text-gray-500 mb-1">Daily budget ({campaign.currency || "PHP"})</label>
-            <input type="number" min={1} value={budget} onChange={(e) => setBudget(e.target.value)} className={inputCls} />
+          <div className="flex flex-wrap gap-4">
+            <div className="max-w-[220px]">
+              <label className="block text-[11px] uppercase tracking-wide text-gray-500 mb-1">Daily budget ({campaign.currency || "PHP"})</label>
+              <input type="number" min={1} value={budget} onChange={(e) => setBudget(e.target.value)} className={inputCls} />
+            </div>
+            <div className="max-w-[180px]">
+              <label className="block text-[11px] uppercase tracking-wide text-gray-500 mb-1">Target radius (miles)</label>
+              <input type="number" min={1} max={500} value={radius} onChange={(e) => setRadius(e.target.value)} placeholder="e.g. 10" className={inputCls} />
+              <p className="text-[11px] text-gray-500 mt-1">Only shows to searchers near the shop.</p>
+            </div>
           </div>
           <p className="text-[11px] text-gray-500 mt-1">Google has no minimum — but a very low daily budget may get few or no clicks (it should cover at least a few keyword clicks/day).</p>
           {lowBudget && recMin != null && (

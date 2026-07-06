@@ -5,7 +5,7 @@
 // Google mutations are externally gated, so the googleAdsService singleton is monkeypatched and
 // repos are faked. Mirrors AdsGooglePush style.
 
-import { validateRsaContent } from '../../src/domains/AdsDomain/services/GoogleAdsService';
+import { validateRsaContent, proximityCriterion } from '../../src/domains/AdsDomain/services/GoogleAdsService';
 import { GoogleComposerService } from '../../src/domains/AdsDomain/services/GoogleComposerService';
 import { googleAdsService } from '../../src/domains/AdsDomain/services/GoogleAdsService';
 import { encryptToken } from '../../src/utils/tokenCrypto';
@@ -115,5 +115,18 @@ describe('GoogleComposerService.updateDraft', () => {
     await svc.updateDraft('c1', { keywords: ['phone repair', 'screen fix'] });
     expect(calls).toEqual(['keywords']);
     expect(setObjs.some((s) => s.googleAdContent?.keywords?.includes('screen fix'))).toBe(true);
+  });
+});
+
+describe('proximityCriterion (pure)', () => {
+  it('builds a Google proximity criterion with micro-degrees + miles', () => {
+    expect(proximityCriterion('999', '111', 14.5995, 120.9842, 10)).toEqual({
+      campaign: 'customers/999/campaigns/111',
+      proximity: {
+        geoPoint: { latitudeInMicroDegrees: 14599500, longitudeInMicroDegrees: 120984200 },
+        radius: 10,
+        radiusUnits: 'MILES',
+      },
+    });
   });
 });
