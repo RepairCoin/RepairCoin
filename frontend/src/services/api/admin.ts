@@ -1004,6 +1004,26 @@ export const adminApi = {
   getRevenueProjections: async (monthlyVolume: number, averageTier: string) => {
     return apiClient.get(`/admin/revenue/projections${buildQueryString({ monthlyVolume, averageTier })}`);
   },
+
+  // Webhook monitoring
+  getWebhookLogs: async (params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    source?: string;
+    eventType?: string;
+  }) => {
+    const queryString = buildQueryString(params);
+    return apiClient.get(`/admin/webhooks/logs${queryString}`);
+  },
+
+  getWebhookHealth: async () => {
+    return apiClient.get('/admin/webhooks/health');
+  },
+
+  retryWebhookById: async (webhookId: string) => {
+    return apiClient.post(`/admin/webhooks/retry/${webhookId}`, {});
+  },
 } as const;
 
 // Platform Settings Types

@@ -407,9 +407,36 @@ router.post('/unsuspend-requests/:requestId/reject',
 );
 
 // Webhook management
-router.get('/webhooks/failed', 
+router.get('/webhooks/failed',
   asyncHandler(adminController.getFailedWebhooks.bind(adminController))
 );
+
+// Webhook monitoring console (admin-authed; reuses the real logging service)
+router.get('/webhooks/logs', asyncHandler(async (req, res) => {
+  const { webhookLoggingService } = await import('../../../services/WebhookLoggingService');
+  const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
+  const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '25', 10)));
+  const result = await webhookLoggingService.getWebhookLogs({
+    page,
+    limit,
+    status: req.query.status as string,
+    source: req.query.source as string,
+    eventType: req.query.eventType as string,
+  });
+  res.json({ success: true, data: result });
+}));
+
+router.get('/webhooks/health', asyncHandler(async (req, res) => {
+  const { webhookLoggingService } = await import('../../../services/WebhookLoggingService');
+  const health = await webhookLoggingService.checkWebhookHealth();
+  res.json({ success: true, data: health });
+}));
+
+router.post('/webhooks/retry/:webhookId', asyncHandler(async (req, res) => {
+  const { webhookService } = await import('../../webhook/services/WebhookService');
+  const result = await webhookService.retryFailedWebhook(req.params.webhookId);
+  res.json({ success: result?.success !== false, data: result });
+}));
 
 // System maintenance
 router.post('/maintenance/cleanup-webhooks', 
