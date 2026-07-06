@@ -90,7 +90,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const draft = async (lead: AdLead) => {
     setDraftingId(lead.id);
     try {
-      const text = await draftLeadReply(lead.id);
+      const text = await draftLeadReply(lead.id, mode);
       setDrafts((prev) => ({ ...prev, [lead.id]: text }));
     } catch (e: any) {
       toast.error(e?.message || "Couldn't draft a reply.");
@@ -235,6 +235,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
           leadName={convoLead.name}
           open={!!convoLead}
           onClose={() => setConvoLead(null)}
+          mode={mode}
         />
       )}
 

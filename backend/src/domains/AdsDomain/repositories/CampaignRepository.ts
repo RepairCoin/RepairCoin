@@ -33,6 +33,9 @@ export interface AdCampaign {
    *  ad money (budget/spend/etc.) in the right currency. Null until the account is connected. */
   currency: string | null;
   aiAgentEnabled: boolean;
+  /** AI-initiated first-contact mode (Part B): 'off' | 'draft' | 'auto'. Distinct from
+   *  aiAgentEnabled (which answers inbound replies). See migration 205. */
+  aiOutreachMode: 'off' | 'draft' | 'auto';
   notes: string | null;
   startedAt: Date | null;
   pausedAt: Date | null;
@@ -141,6 +144,7 @@ export interface UpdateCampaignInput {
   testBudgetStartedAt?: Date | null;
   testBudgetUpgradeReady?: boolean;
   aiAgentEnabled?: boolean;
+  aiOutreachMode?: 'off' | 'draft' | 'auto';
   notes?: string | null;
 }
 
@@ -226,6 +230,7 @@ export class CampaignRepository extends BaseRepository {
     if (input.testBudgetStartedAt !== undefined) col('test_budget_started_at', input.testBudgetStartedAt);
     if (input.testBudgetUpgradeReady !== undefined) col('test_budget_upgrade_ready', input.testBudgetUpgradeReady);
     if (input.aiAgentEnabled !== undefined) col('ai_agent_enabled', input.aiAgentEnabled);
+    if (input.aiOutreachMode !== undefined) col('ai_outreach_mode', input.aiOutreachMode);
     if (input.notes !== undefined) col('notes', input.notes);
     // status transitions also stamp the matching timestamp
     if (input.status !== undefined) {
@@ -398,6 +403,7 @@ export class CampaignRepository extends BaseRepository {
       testBudgetUpgradeReady: r.test_budget_upgrade_ready === true,
       currency: r.currency ?? null,
       aiAgentEnabled: r.ai_agent_enabled,
+      aiOutreachMode: r.ai_outreach_mode ?? 'off',
       notes: r.notes,
       startedAt: r.started_at,
       pausedAt: r.paused_at,

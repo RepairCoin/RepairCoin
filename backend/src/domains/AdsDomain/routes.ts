@@ -10,7 +10,7 @@ import { authMiddleware, requireRole } from '../../middleware/auth';
 import { requireShopPermission } from '../../middleware/permissions';
 import {
   createCampaign, listCampaigns, getCampaign, updateCampaign, deleteCampaign,
-  listShopCampaigns, getShopCapacity,
+  listShopCampaigns, getShopCapacity, setShopCampaignOutreachMode,
 } from './controllers/CampaignController';
 import {
   createCreative, listCreatives, updateCreative, reviewCreative, deleteCreative,
@@ -21,6 +21,7 @@ import {
   getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage, triggerAttributionBackfill,
   getLeadActivities, logLeadActivity, emailLead,
   getShopLeadActivities, logShopLeadActivity, emailShopLead,
+  getShopLeadThread, postShopLeadMessage, autoAnswerShopLead, draftShopLeadReply,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
@@ -194,6 +195,7 @@ export function initializeRoutes(): Router {
 
   // ---- Shop: own read-only + self-serve enrollment ----
   router.get('/shop/campaigns', ...shop, listShopCampaigns);
+  router.patch('/shop/campaigns/:id/outreach-mode', ...shop, setShopCampaignOutreachMode); // Part B: AI first-contact mode
   router.get('/shop/capacity', ...shop, getShopCapacity);               // tier limit vs. used (§9.5)
   router.get('/shop/campaigns/:id/performance', ...shop, getShopCampaignPerformance);
   router.get('/shop/ad-channels', ...shop, getAdChannels);              // multi-channel: brief channel picker eligibility
@@ -204,6 +206,10 @@ export function initializeRoutes(): Router {
   router.get('/shop/leads/:id/activities', ...shop, getShopLeadActivities);
   router.post('/shop/leads/:id/activities', ...shop, logShopLeadActivity);
   router.post('/shop/leads/:id/email', ...shop, emailShopLead);
+  router.get('/shop/leads/:id/messages', ...shop, getShopLeadThread);        // conversation thread (own leads)
+  router.post('/shop/leads/:id/messages', ...shop, postShopLeadMessage);     // shop manual reply
+  router.post('/shop/leads/:id/auto-answer', ...shop, autoAnswerShopLead);   // shop-triggered AI reply
+  router.post('/shop/leads/:id/draft-reply', ...shop, draftShopLeadReply);   // shop-side AI draft
   router.get('/shop/enrollment', ...shop, getMyEnrollment);             // "Request ads" status
   router.post('/shop/enrollment', ...shop, requestAds);                 // "Request ads" opt-in
   router.get('/shop/messages', ...shop, getMyMessages);                 // durable thread (Phase 2)
