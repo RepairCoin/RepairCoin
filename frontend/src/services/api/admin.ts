@@ -1024,6 +1024,20 @@ export const adminApi = {
   retryWebhookById: async (webhookId: string) => {
     return apiClient.post(`/admin/webhooks/retry/${webhookId}`, {});
   },
+
+  // RCG governance token management
+  getRcgDistribution: async () => {
+    return apiClient.get('/admin/rcg/distribution');
+  },
+
+  recordRcgOtcSale: async (data: {
+    shopId: string;
+    package: "standard" | "premium" | "elite";
+    paymentMethod?: string;
+    paymentReference?: string;
+  }) => {
+    return apiClient.post('/admin/rcg/otc-sale', data);
+  },
 } as const;
 
 // Platform Settings Types
