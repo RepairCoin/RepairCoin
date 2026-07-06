@@ -9,6 +9,7 @@ import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw, ChevronDo
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { LeadKanban } from "@/components/ads/LeadKanban";
+import { ConversationInbox } from "@/components/ads/ConversationInbox";
 import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import { IndustryAnalytics } from "@/components/ads/IndustryAnalytics";
 import { MarginPanel } from "@/components/ads/MarginPanel";
@@ -33,6 +34,7 @@ export const AdminAdsTab: React.FC = () => {
   const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [leadView, setLeadView] = useState<"inbox" | "pipeline">("inbox");
   const [perf, setPerf] = useState<CampaignPerformance | null>(null);
   const [metaAccount, setMetaAccount] = useState<ShopMetaAccount | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -481,10 +483,28 @@ export const AdminAdsTab: React.FC = () => {
                 />
               )}
 
-              {/* Lead pipeline (Stage 2) */}
+              {/* Leads — Conversation Inbox (primary) vs. Pipeline Kanban */}
               <div>
-                <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
-                <LeadKanban mode="admin" campaignId={selected.id} />
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-300">Leads</p>
+                  <div className="inline-flex rounded-md border border-white/10 overflow-hidden">
+                    {([
+                      { v: "inbox", label: "Conversations" },
+                      { v: "pipeline", label: "Pipeline" },
+                    ] as const).map(({ v, label }) => (
+                      <button
+                        key={v}
+                        onClick={() => setLeadView(v)}
+                        className={`px-3 py-1 text-xs font-medium transition-colors border-r border-white/10 last:border-r-0 ${leadView === v ? "bg-[#FFCC00] text-black" : "bg-transparent text-gray-300 hover:bg-white/5"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {leadView === "inbox"
+                  ? <ConversationInbox mode="admin" campaignId={selected.id} />
+                  : <LeadKanban mode="admin" campaignId={selected.id} />}
               </div>
 
               {/* 30-day rows */}
