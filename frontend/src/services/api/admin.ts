@@ -974,6 +974,19 @@ export const adminApi = {
     const qs = refresh ? '?refresh=true' : '';
     return apiClient.get(`/admin/bug-reports/${id}/ai-inspect${qs}`);
   },
+
+  getActivityLogs: async (params: {
+    page?: number;
+    limit?: number;
+    adminAddress?: string;
+    actionType?: string;
+    entityType?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    const queryString = buildQueryString(params);
+    return apiClient.get(`/admin/analytics/activity-logs${queryString}`);
+  },
 } as const;
 
 // Platform Settings Types
