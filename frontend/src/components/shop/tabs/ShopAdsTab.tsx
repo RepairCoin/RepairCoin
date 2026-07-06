@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Megaphone, TrendingUp, AlertTriangle, Plus, X, Lock, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { LeadKanban } from "@/components/ads/LeadKanban";
+import { ConversationInbox } from "@/components/ads/ConversationInbox";
 import { AdMessageThread } from "@/components/ads/AdMessageThread";
 import { SubscriptionPanel } from "@/components/ads/SubscriptionPanel";
 import { MetaConnectCard } from "@/components/ads/MetaConnectCard";
@@ -108,7 +109,8 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
     scrollToSection();
   };
 
-  // Part B — AI first-contact mode for the selected campaign (off / draft / auto).
+  // Part B — leads view (Conversation Inbox primary vs. Pipeline Kanban) + AI first-contact mode.
+  const [leadView, setLeadView] = useState<"inbox" | "pipeline">("inbox");
   const [savingMode, setSavingMode] = useState(false);
   const changeOutreachMode = async (mode: "off" | "draft" | "auto") => {
     if (!selectedId) return;
@@ -388,8 +390,26 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
                           )}
                         </div>
                         <div className="mt-5">
-                          <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
-                          {selectedId && <LeadKanban mode="shop" campaignId={selectedId} />}
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm font-medium text-gray-300">Leads</p>
+                            <div className="inline-flex rounded-md border border-white/10 overflow-hidden">
+                              {([
+                                { v: "inbox", label: "Conversations" },
+                                { v: "pipeline", label: "Pipeline" },
+                              ] as const).map(({ v, label }) => (
+                                <button
+                                  key={v}
+                                  onClick={() => setLeadView(v)}
+                                  className={`px-3 py-1 text-xs font-medium transition-colors border-r border-white/10 last:border-r-0 ${leadView === v ? "bg-[#FFCC00] text-black" : "bg-transparent text-gray-300 hover:bg-white/5"}`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          {selectedId && (leadView === "inbox"
+                            ? <ConversationInbox mode="shop" campaignId={selectedId} />
+                            : <LeadKanban mode="shop" campaignId={selectedId} />)}
                         </div>
                       </>
                     )}

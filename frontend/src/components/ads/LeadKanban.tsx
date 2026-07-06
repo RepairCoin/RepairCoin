@@ -170,30 +170,26 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                         >
                           <Clock className="w-3 h-3" /> History
                         </button>
-                        {/* Chat only for admins on leads with a real 2-way channel (Messenger/WhatsApp).
-                            Everyone else (shop, or form/manual leads) reaches the customer by call/email. */}
-                        {isAdmin && lead.hasChatChannel ? (
-                          <button
-                            onClick={() => setConvoLead(lead)}
-                            className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00] ml-auto"
-                            title="Open conversation"
-                          >
-                            <MessageSquare className="w-3 h-3" /> Chat
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-2 ml-auto">
-                            {lead.phone && (
-                              <button onClick={() => setCallLead(lead)} title="Call and log the outcome" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
-                                <Phone className="w-3 h-3" /> Call
-                              </button>
-                            )}
-                            {lead.email && (
-                              <button onClick={() => setEmailLead(lead)} title="Send a tracked email" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
-                                <Mail className="w-3 h-3" /> Email
-                              </button>
-                            )}
-                          </div>
-                        )}
+                        {/* Contact actions. The Conversation thread (lead replies + AI answers) is reachable for
+                            ANY lead with a 2-way channel — email OR Messenger/WhatsApp — on BOTH shop and admin
+                            (Part A). Call is for phone leads; Email opens the formatted composer. */}
+                        <div className="flex flex-wrap items-center gap-2 ml-auto">
+                          {lead.phone && (
+                            <button onClick={() => setCallLead(lead)} title="Call and log the outcome" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
+                              <Phone className="w-3 h-3" /> Call
+                            </button>
+                          )}
+                          {lead.email && (
+                            <button onClick={() => setEmailLead(lead)} title="Send a formatted email" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
+                              <Mail className="w-3 h-3" /> Email
+                            </button>
+                          )}
+                          {(lead.hasChatChannel || lead.email) && (
+                            <button onClick={() => setConvoLead(lead)} title="Open the conversation thread" className="inline-flex items-center gap-1 text-[11px] font-medium text-[#FFCC00]/90 hover:text-[#FFCC00]">
+                              <MessageSquare className="w-3 h-3" /> Conversation
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
 

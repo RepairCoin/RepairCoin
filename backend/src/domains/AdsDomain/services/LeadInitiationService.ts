@@ -60,7 +60,9 @@ export class LeadInitiationService {
     // records-for-manual-relay otherwise. Either way the message lands in the thread the shop sees.
     const status = await this.channel.deliver('email', lead, draft);
     await this.messages.append({ leadId, direction: 'outbound', author: 'ai', channel: 'email', body: draft, deliveryStatus: status });
-    await this.leads.markContacted(leadId); // stamp first_response_at + advance new → contacted
+    // Record speed-to-lead, but DON'T advance the pipeline stage — an AI email isn't a human 'contacted'
+    // milestone. Conversation state ('ai_engaged') expresses "AI reached out"; the funnel stays honest.
+    await this.leads.stampFirstResponse(leadId);
     logger.info('LeadInitiation: AI first outreach sent', { leadId, campaignId, status });
     return 'sent';
   }

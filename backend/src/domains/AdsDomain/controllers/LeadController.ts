@@ -7,8 +7,9 @@ import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AdsEvents } from '../events';
-import { LeadRepository } from '../repositories/LeadRepository';
+import { LeadRepository, type LeadConversationRow } from '../repositories/LeadRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
+import { deriveConversationState, needsHuman as isNeedsHuman } from '../services/leadConversationState';
 import { AdLeadActivityRepository, type AdLeadActivityType } from '../repositories/AdLeadActivityRepository';
 import { leadAttributionService } from '../services/LeadAttributionService';
 import { getAdAttributionService } from '../services/AdAttributionService';
@@ -412,6 +413,60 @@ export async function draftShopLeadReply(req: Request, res: Response): Promise<v
     const status = err?.status ?? 500;
     logger.error('LeadController.draftShopLeadReply failed', err);
     res.status(status).json({ success: false, error: err?.message || 'Failed to draft reply' });
+  }
+}
+
+// --- Conversation inbox (Part B redesign, P2) — leads as conversation rows with a derived state, so
+//     the shop works by conversation and the 'needs you' queue is meaningful in an AI-first flow. ---
+
+/** Shape a repo row into an inbox item + its derived conversation state / needs-you flag. */
+function toConversationItem(row: LeadConversationRow, nowMs: number) {
+  const aiWillInitiate = row.campaignOutreachMode === 'auto' && process.env.ADS_AI_INITIATE_ENABLED === 'true';
+  const state = deriveConversationState({
+    hasMessages: (row.messageCount ?? 0) > 0,
+    lastDirection: row.lastDirection,
+    lastAtMs: row.lastAt ? new Date(row.lastAt).getTime() : null,
+    aiWillInitiate,
+    nowMs,
+  });
+  return {
+    id: row.id, campaignId: row.campaignId, campaignName: row.campaignName,
+    name: row.name, email: row.email, phone: row.phone,
+    leadStatus: row.leadStatus, hasChatChannel: row.hasChatChannel,
+    lastDirection: row.lastDirection, lastAuthor: row.lastAuthor, lastBody: row.lastBody,
+    lastAt: row.lastAt, messageCount: row.messageCount ?? 0,
+    conversationState: state, needsHuman: isNeedsHuman(state),
+    createdAt: row.createdAt,
+  };
+}
+
+// GET /shop/conversations (shop) — the shop's own lead conversations (optional ?campaignId).
+export async function getShopConversations(req: Request, res: Response): Promise<void> {
+  const shopId = shopIdOf(req);
+  if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
+  try {
+    const rows = await leads.listConversations({ shopId, campaignId: (req.query.campaignId as string) || undefined, limit: 200 });
+    const now = Date.now();
+    res.json({ success: true, data: rows.map((r) => toConversationItem(r, now)) });
+  } catch (err) {
+    logger.error('LeadController.getShopConversations failed', err);
+    res.status(500).json({ success: false, error: 'Failed to load conversations' });
+  }
+}
+
+// GET /leads/conversations (admin) — all lead conversations (optional ?campaignId / ?shopId).
+export async function getLeadConversations(req: Request, res: Response): Promise<void> {
+  try {
+    const rows = await leads.listConversations({
+      campaignId: (req.query.campaignId as string) || undefined,
+      shopId: (req.query.shopId as string) || undefined,
+      limit: 200,
+    });
+    const now = Date.now();
+    res.json({ success: true, data: rows.map((r) => toConversationItem(r, now)) });
+  } catch (err) {
+    logger.error('LeadController.getLeadConversations failed', err);
+    res.status(500).json({ success: false, error: 'Failed to load conversations' });
   }
 }
 
