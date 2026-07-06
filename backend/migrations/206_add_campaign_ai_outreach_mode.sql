@@ -1,4 +1,6 @@
--- 205 — AI-initiated first contact (Part B). Per-campaign engagement mode governs whether the AI
+-- 206 — AI-initiated first contact (Part B). (Renumbered from 205: staging's shared DB already had a
+-- 205 recorded from another branch, which silently skipped this file.)
+-- Per-campaign engagement mode governs whether the AI
 -- reaches out FIRST when a lead is captured (distinct from ai_agent_enabled, which answers inbound
 -- replies):
 --   off   — no AI outreach (manual only; today's behaviour)
