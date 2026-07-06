@@ -166,6 +166,27 @@ export async function listShopCampaigns(req: Request, res: Response): Promise<vo
   }
 }
 
+// PATCH /shop/campaigns/:id/outreach-mode (shop) — set the AI first-contact mode ('off'|'draft'|'auto')
+// for an OWNED campaign (Part B). Ownership via campaign.shopId === the caller's shop; never a param.
+export async function setShopCampaignOutreachMode(req: Request, res: Response): Promise<void> {
+  const shopId = shopIdOf(req);
+  const mode = req.body?.mode;
+  if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
+  if (mode !== 'off' && mode !== 'draft' && mode !== 'auto') {
+    res.status(400).json({ success: false, error: "mode must be 'off', 'draft', or 'auto'" });
+    return;
+  }
+  try {
+    const campaign = await campaigns.findById(req.params.id);
+    if (!campaign || campaign.shopId !== shopId) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    const updated = await campaigns.update(req.params.id, { aiOutreachMode: mode });
+    res.json({ success: true, data: { id: updated.id, aiOutreachMode: updated.aiOutreachMode } });
+  } catch (err) {
+    logger.error('CampaignController.setShopCampaignOutreachMode failed', err);
+    res.status(500).json({ success: false, error: 'Failed to update outreach mode' });
+  }
+}
+
 // GET /shop/capacity (shop) — tier campaign limit vs. live campaigns used (lifecycle §9.5).
 export async function getShopCapacity(req: Request, res: Response): Promise<void> {
   const shopId = shopIdOf(req);

@@ -10,7 +10,7 @@ import { authMiddleware, requireRole } from '../../middleware/auth';
 import { requireShopPermission } from '../../middleware/permissions';
 import {
   createCampaign, listCampaigns, getCampaign, updateCampaign, deleteCampaign,
-  listShopCampaigns, getShopCapacity,
+  listShopCampaigns, getShopCapacity, setShopCampaignOutreachMode,
 } from './controllers/CampaignController';
 import {
   createCreative, listCreatives, updateCreative, reviewCreative, deleteCreative,
@@ -195,6 +195,7 @@ export function initializeRoutes(): Router {
 
   // ---- Shop: own read-only + self-serve enrollment ----
   router.get('/shop/campaigns', ...shop, listShopCampaigns);
+  router.patch('/shop/campaigns/:id/outreach-mode', ...shop, setShopCampaignOutreachMode); // Part B: AI first-contact mode
   router.get('/shop/capacity', ...shop, getShopCapacity);               // tier limit vs. used (§9.5)
   router.get('/shop/campaigns/:id/performance', ...shop, getShopCampaignPerformance);
   router.get('/shop/ad-channels', ...shop, getAdChannels);              // multi-channel: brief channel picker eligibility

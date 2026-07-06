@@ -25,6 +25,7 @@ export interface AdCampaign {
   fullDailyBudgetCents?: number | null;
   testBudgetUpgradeReady?: boolean; // window passed + ROI ok → nudge scale-up
   aiAgentEnabled: boolean;
+  aiOutreachMode?: 'off' | 'draft' | 'auto'; // Part B: AI-initiated first contact
   notes: string | null;
   createdAt: string;
   startedAt?: string | null; // set the first time it goes live — distinguishes pre-live drafts
@@ -896,6 +897,12 @@ export const listShopCampaigns = async (params?: { status?: CampaignStatus }) =>
 export const getShopCampaignPerformance = async (id: string) => {
   const res = await apiClient.get(`/ads/shop/campaigns/${id}/performance`);
   return unwrap<CampaignPerformance>(res);
+};
+
+// Part B — set the AI first-contact mode for an owned campaign ('off' | 'draft' | 'auto').
+export const setShopCampaignOutreachMode = async (id: string, mode: 'off' | 'draft' | 'auto') => {
+  const res = await apiClient.patch(`/ads/shop/campaigns/${id}/outreach-mode`, { mode });
+  return unwrap<{ id: string; aiOutreachMode: 'off' | 'draft' | 'auto' }>(res);
 };
 
 export const listShopLeads = async (params?: { campaignId?: string; status?: LeadStatus }) => {

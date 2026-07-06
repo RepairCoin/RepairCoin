@@ -11,6 +11,7 @@ import { CampaignRepository } from '../repositories/CampaignRepository';
 import { NotificationRepository } from '../../../repositories/NotificationRepository';
 import { shopRepository } from '../../../repositories';
 import { getAdAttributionService } from './AdAttributionService';
+import { leadInitiationService } from './LeadInitiationService';
 
 let registered = false;
 
@@ -69,9 +70,30 @@ export function registerAdsEventListeners(): void {
     }
   };
 
+  // AI-initiated first contact (Part B): on capture, auto-send the first outreach when the campaign is
+  // in 'auto' outreach mode + the lead is fresh/contactable. Gated by ADS_AI_INITIATE_ENABLED (default
+  // off). Separate subscriber from the notify handler above (both fire on LEAD_CAPTURED). Non-throwing.
+  eventBus.subscribe(
+    AdsEvents.LEAD_CAPTURED,
+    async (event: any) => {
+      try {
+        const campaignId = event?.data?.campaignId;
+        const leadId = event?.aggregateId;
+        if (!campaignId || !leadId) return;
+        const outcome = await leadInitiationService.onLeadCaptured(leadId, campaignId);
+        if (outcome !== 'disabled' && outcome !== 'mode_not_auto') {
+          logger.info(`AdsDomain: AI-initiated outreach → ${outcome}`, { leadId });
+        }
+      } catch (err) {
+        logger.error('AdsDomain: AI-initiated outreach failed', err);
+      }
+    },
+    'AdsDomain'
+  );
+
   eventBus.subscribe('service.order_created', attributeFromEvent('booked'), 'AdsDomain');
   eventBus.subscribe('service.order_paid', attributeFromEvent('paid'), 'AdsDomain');
   eventBus.subscribe('service.order_completed', attributeFromEvent('completed'), 'AdsDomain');
 
-  logger.info('AdsDomain event listeners registered (lead_captured → notify; order created/paid/completed → attribution + Kanban auto-advance)');
+  logger.info('AdsDomain event listeners registered (lead_captured → notify + AI-initiated outreach; order created/paid/completed → attribution + Kanban auto-advance)');
 }

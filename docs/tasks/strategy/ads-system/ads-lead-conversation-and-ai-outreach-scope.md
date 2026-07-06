@@ -12,6 +12,9 @@ Status as of 2026-07-06. Inbound email → AI auto-reply is built + verified (se
 
 ## Part A — Shop lead-conversation visibility
 
+**Status: BUILT + committed** (`08f7d284c`) — shop-gated `GET/POST /shop/leads/:id/messages` + `/auto-answer`,
+`/draft-reply`; mode-aware frontend; `AdsShopLeadOwnership` test (6).
+
 ### Why it matters
 In the AI-email model, a lead's reply is delivered to `<token>@reply.fixflow.ai` (our app), **not** the shop's inbox.
 If the shop can't read the thread in-app, they are blind to their own leads and can't (a) see what the AI said on their
@@ -49,6 +52,12 @@ ownership rejection (shop A can't read shop B's lead), thread read, shop reply r
 ---
 
 ## Part B — Should the AI initiate first contact?
+
+**Status: v1 BUILT** (uncommitted) — migration 205 (`ad_campaigns.ai_outreach_mode` off/draft/auto),
+`LeadInitiationService` on `LEAD_CAPTURED` (flag `ADS_AI_INITIATE_ENABLED`, default off), shop opt-in via
+`PATCH /shop/campaigns/:id/outreach-mode` + a selector in the shop campaign detail, `AdsLeadInitiation` test (7).
+v1 engine auto-sends only in **`auto`** mode (email); `draft`-on-capture pre-drafting is reserved (the manual draft
+button already covers draft-then-send). Quiet-hours + rate-limit = P3, still open.
 
 ### The question
 Today: a lead arrives (landing form / Meta webhook / manual) → `LeadAIService.draftOutreach()` **drafts** a first message,

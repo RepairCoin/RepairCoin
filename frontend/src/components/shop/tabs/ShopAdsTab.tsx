@@ -19,7 +19,7 @@ import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import { AdEnrollmentCTA } from "@/components/ads/AdEnrollmentCTA";
 import { CampaignBriefFields, briefToApi, emptyBrief, type BriefValue } from "@/components/ads/CampaignBriefFields";
 import {
-  listShopCampaigns, getShopCampaignPerformance, getShopCapacity,
+  listShopCampaigns, getShopCampaignPerformance, getShopCapacity, setShopCampaignOutreachMode,
   listMyCampaignRequests, submitCampaignRequest, getMySubscription, getMetaConnection, fmtMoney, fmtRoi,
   type AdCampaign, type CampaignPerformance, type ShopCapacity, type AdCampaignRequest,
   type FlatTierName, type MetaConnection,
@@ -106,6 +106,26 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
     setSelectedId(null);
     setPerf(null);
     scrollToSection();
+  };
+
+  // Part B — AI first-contact mode for the selected campaign (off / draft / auto).
+  const [savingMode, setSavingMode] = useState(false);
+  const changeOutreachMode = async (mode: "off" | "draft" | "auto") => {
+    if (!selectedId) return;
+    setSavingMode(true);
+    try {
+      await setShopCampaignOutreachMode(selectedId, mode);
+      setCampaigns((prev) => prev.map((c) => (c.id === selectedId ? { ...c, aiOutreachMode: mode } : c)));
+      toast.success(
+        mode === "auto" ? "AI will greet new leads automatically."
+          : mode === "draft" ? "AI will draft a first message for you to send."
+          : "AI first-contact turned off."
+      );
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || e?.message || "Couldn't update outreach mode.");
+    } finally {
+      setSavingMode(false);
+    }
   };
 
   const submitRequest = async () => {
@@ -334,6 +354,38 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
                           <Stat label="Cost / Lead" value={fmtMoney(perf.roi.cplCents, metaConn?.currency)} />
                           <Stat label="Cost / Booking" value={fmtMoney(perf.roi.cpbCents, metaConn?.currency)} />
                           <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
+                        </div>
+                        <div className="mt-5 rounded-lg border border-white/10 bg-[#1A1A1A] p-4">
+                          <p className="text-sm font-medium text-gray-200">AI first contact</p>
+                          <p className="text-xs text-gray-400 mt-0.5 mb-3">
+                            How the AI reaches out when a new lead comes in. Speed wins leads — replies still route
+                            back to you.
+                          </p>
+                          <div className="inline-flex rounded-md border border-white/10 overflow-hidden">
+                            {([
+                              { m: "off", label: "Off", hint: "You contact leads manually" },
+                              { m: "draft", label: "Draft", hint: "AI writes it, you send" },
+                              { m: "auto", label: "Auto", hint: "AI sends the first message" },
+                            ] as const).map(({ m, label, hint }) => {
+                              const active = (selectedCampaign?.aiOutreachMode ?? "off") === m;
+                              return (
+                                <button
+                                  key={m}
+                                  onClick={() => changeOutreachMode(m)}
+                                  disabled={savingMode || active}
+                                  title={hint}
+                                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${active ? "bg-[#FFCC00] text-black" : "bg-transparent text-gray-300 hover:bg-white/5"} disabled:opacity-100 border-r border-white/10 last:border-r-0`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {(selectedCampaign?.aiOutreachMode ?? "off") === "auto" && (
+                            <p className="text-[11px] text-[#FFCC00]/80 mt-2">
+                              New leads with an email get an instant AI greeting, on your brand.
+                            </p>
+                          )}
                         </div>
                         <div className="mt-5">
                           <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
