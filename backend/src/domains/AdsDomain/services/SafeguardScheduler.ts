@@ -9,6 +9,8 @@ import { logger } from '../../../utils/logger';
 import { SafeguardEvaluator } from './SafeguardEvaluator';
 import { PerformanceRepository } from '../repositories/PerformanceRepository';
 import { LeadRepository } from '../repositories/LeadRepository';
+import { NotificationRepository } from '../../../repositories/NotificationRepository';
+import { shopRepository } from '../../../repositories';
 import { AdBillingService } from './AdBillingService';
 import { SubscriptionService } from './SubscriptionService';
 import { MetaConnectionService } from './MetaConnectionService';
@@ -35,7 +37,8 @@ export class SafeguardScheduler {
     private readonly metaInsights = new MetaInsightsService(),
     private readonly googleInsights = new GoogleInsightsService(),
     private readonly metaConfigSync = new MetaConfigSyncService(),
-    private readonly googleConfigSync = new GoogleConfigSyncService()
+    private readonly googleConfigSync = new GoogleConfigSyncService(),
+    private readonly notifications = new NotificationRepository()
   ) {}
 
   start(): void {
@@ -92,6 +95,25 @@ export class SafeguardScheduler {
           await googlePushService.pushStatus(d.campaignId, 'PAUSED')
             .catch((e: any) => logger.warn(`Safeguard Google pause failed for ${d.campaignId}: ${e?.message || e}`));
         }
+      }
+
+      // P3 dormant sweep: nudge the shop about conversations that JUST went quiet (once, as they cross
+      // the 7-day window), so a warm lead gets a follow-up instead of being forgotten.
+      try {
+        const dormant = await this.leads.listJustDormant(7, 24);
+        for (const d of dormant) {
+          const shop = await shopRepository.getShop(d.shopId).catch(() => null);
+          const receiver = (shop as any)?.walletAddress || (shop as any)?.wallet_address;
+          if (!receiver) continue;
+          await this.notifications.create({
+            senderAddress: 'system', receiverAddress: receiver, notificationType: 'ad_lead_dormant',
+            message: `${d.name || 'A lead'} went quiet — a quick follow-up could win it back.`,
+            metadata: { leadId: d.id },
+          }).catch(() => undefined);
+        }
+        if (dormant.length) logger.info(`Ads dormant sweep: nudged ${dormant.length} conversation(s)`);
+      } catch (e) {
+        logger.warn('Ads dormant sweep failed:', e);
       }
 
       // Q9 retention: purge unconverted leads past the retention window.

@@ -33,6 +33,8 @@ export interface AdLead {
   conversionUploadedAt: Date | null;
   /** Take-over (P3): when true, the AI stops auto-answering this lead's replies — a human is handling it. */
   aiPaused: boolean;
+  /** Escalation (P3): set when an inbound reply showed booking intent — forces 'needs_human'. Null = not escalated. */
+  escalatedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -259,6 +261,40 @@ export class LeadRepository extends BaseRepository {
     await this.pool.query(`UPDATE ad_leads SET ai_paused = $2, updated_at = now() WHERE id = $1`, [id, paused]);
   }
 
+  /** Escalation (P3): flag a hot lead (no-op once flagged). Returns true if this call set it. */
+  async setEscalated(id: string): Promise<boolean> {
+    const r = await this.pool.query(
+      `UPDATE ad_leads SET escalated_at = now(), updated_at = now() WHERE id = $1 AND escalated_at IS NULL`,
+      [id]
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  /** Clear escalation — a human has engaged the lead. */
+  async clearEscalated(id: string): Promise<void> {
+    await this.pool.query(`UPDATE ad_leads SET escalated_at = NULL, updated_at = now() WHERE id = $1 AND escalated_at IS NOT NULL`, [id]);
+  }
+
+  /** Dormant sweep (P3): leads whose last (our) message JUST crossed the dormancy window in the last
+   *  `graceHours` — so the nightly sweep notifies once, as it goes dormant, not every night. Excludes
+   *  terminal stages. Returns lead + shop for the notification. */
+  async listJustDormant(windowDays = 7, graceHours = 24): Promise<Array<{ id: string; name: string | null; shopId: string; campaignName: string | null }>> {
+    const res = await this.pool.query(
+      `SELECT l.id, l.name, c.shop_id, c.name AS campaign_name
+         FROM ad_leads l
+         JOIN ad_campaigns c ON c.id = l.campaign_id
+         JOIN LATERAL (
+           SELECT direction, created_at FROM ad_lead_messages WHERE lead_id = l.id ORDER BY created_at DESC LIMIT 1
+         ) m ON true
+        WHERE l.lead_status NOT IN ('booked','paid','completed','lost')
+          AND m.direction = 'outbound'
+          AND m.created_at <  now() - ($1 || ' days')::interval
+          AND m.created_at >= now() - ($1 || ' days')::interval - ($2 || ' hours')::interval`,
+      [String(windowDays), String(graceHours)]
+    );
+    return res.rows.map((r) => ({ id: r.id, name: r.name, shopId: r.shop_id, campaignName: r.campaign_name }));
+  }
+
   /** Speed-to-lead stamp: record first_response_at WITHOUT advancing the pipeline stage. Used by AI
    *  auto-outreach (Part B redesign) — an AI email is a fast first touch, but not a human 'contacted'
    *  sales milestone, so the funnel stage stays honest. No-op once first_response_at is set. */
@@ -326,6 +362,7 @@ export class LeadRepository extends BaseRepository {
       gclid: r.gclid ?? null,
       conversionUploadedAt: r.conversion_uploaded_at ?? null,
       aiPaused: r.ai_paused === true,
+      escalatedAt: r.escalated_at ?? null,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };

@@ -422,11 +422,13 @@ export async function draftShopLeadReply(req: Request, res: Response): Promise<v
 /** Shape a repo row into an inbox item + its derived conversation state / needs-you flag. */
 function toConversationItem(row: LeadConversationRow, nowMs: number) {
   const aiWillInitiate = row.campaignOutreachMode === 'auto' && process.env.ADS_AI_INITIATE_ENABLED === 'true';
+  const escalated = !!row.escalatedAt;
   const state = deriveConversationState({
     hasMessages: (row.messageCount ?? 0) > 0,
     lastDirection: row.lastDirection,
     lastAtMs: row.lastAt ? new Date(row.lastAt).getTime() : null,
     aiWillInitiate,
+    escalated,
     nowMs,
   });
   return {
@@ -436,7 +438,7 @@ function toConversationItem(row: LeadConversationRow, nowMs: number) {
     lastDirection: row.lastDirection, lastAuthor: row.lastAuthor, lastBody: row.lastBody,
     lastAt: row.lastAt, messageCount: row.messageCount ?? 0,
     conversationState: state, needsHuman: isNeedsHuman(state),
-    aiPaused: row.aiPaused,
+    aiPaused: row.aiPaused, escalated,
     createdAt: row.createdAt,
   };
 }

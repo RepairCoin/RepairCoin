@@ -926,6 +926,7 @@ export interface LeadConversationItem {
   conversationState: ConversationState;
   needsHuman: boolean;
   aiPaused: boolean;
+  escalated: boolean;
   createdAt: string;
 }
 export const getShopConversations = async (campaignId?: string) => {

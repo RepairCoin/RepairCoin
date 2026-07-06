@@ -70,6 +70,8 @@ export class LeadAutoAnswerService {
     const channel = LeadChannelSender.pickChannel(lead);
     const deliveryStatus = await this.channel.deliver(channel, lead, body);
     await this.markRespondedIfNew(lead.id, lead.leadStatus);
+    // A human engaged → clear any escalation (P3), so the hot-lead flag doesn't linger.
+    await this.leads.clearEscalated(lead.id).catch(() => undefined);
     return this.messages.append({ leadId, direction: 'outbound', author: 'admin', channel, body, deliveryStatus });
   }
 

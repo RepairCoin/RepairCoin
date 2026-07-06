@@ -105,7 +105,9 @@ export const ConversationInbox: React.FC<{ mode: "admin" | "shop"; campaignId?: 
                     {c.lastDirection === "inbound" ? "" : c.lastAuthor === "ai" ? "AI: " : "You: "}{preview}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
+                    {c.escalated
+                      ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-200 border border-red-500/40">🔥 Ready to book</span>
+                      : <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>}
                     {mode === "admin" && c.campaignName && <span className="text-[10px] text-gray-500 truncate">{c.campaignName}</span>}
                   </div>
                 </div>
