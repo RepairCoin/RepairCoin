@@ -14,7 +14,7 @@ import { EmailService } from '../../../services/EmailService';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
-import { resolveBookingLocationId } from '../../../utils/multiLocationEntitlement';
+import { resolveBookingLocationId, getCalendarLocationLabel } from '../../../utils/multiLocationEntitlement';
 import { AppointmentService } from '../services/AppointmentService';
 import Stripe from 'stripe';
 
@@ -326,6 +326,7 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
       const endTime = bookingEndTime
         ? bookingEndTime.substring(0, 5)
         : addMinutesToTime(startTime, service.duration_minutes || 60);
+      const branchLabel = await getCalendarLocationLabel(resolvedLocationId);
 
       await googleCalendarService.createEvent({
         orderId: order.order_id,
@@ -340,6 +341,7 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
         endTime,
         totalAmount: Number(service.price_usd) || 0,
         shopTimezone,
+        ...branchLabel,
       });
     } catch (calendarError) {
       console.error('Failed to sync manual booking to Google Calendar:', calendarError);

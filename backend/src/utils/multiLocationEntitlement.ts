@@ -63,6 +63,24 @@ export async function setMultiLocationActive(shopId: string): Promise<boolean> {
 }
 
 /**
+ * Branch label for a booking's calendar event. Only returns a value for a non-primary location, so
+ * single-location and primary-branch bookings don't get a redundant address line on the event.
+ */
+export async function getCalendarLocationLabel(
+  locationId?: string | null
+): Promise<{ locationName?: string; locationAddress?: string }> {
+  if (!locationId) return {};
+  try {
+    const loc = await shopLocationRepository.getById(locationId);
+    if (!loc || loc.isPrimary) return {};
+    const address = [loc.address, loc.city].filter(Boolean).join(', ') || undefined;
+    return { locationName: loc.name, locationAddress: address };
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Pick the location a booking should be tagged with. Non-entitled shops always book at the primary
  * (any submitted location is ignored); entitled shops get the requested location when it belongs to
  * the shop and is active, otherwise the primary. Returns null if the shop has no location.

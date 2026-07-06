@@ -23,6 +23,8 @@ export interface CalendarEvent {
   endTime: string; // HH:MM
   totalAmount: number;
   shopTimezone?: string;
+  locationName?: string; // branch name — only set for non-primary locations of multi-location shops
+  locationAddress?: string; // branch address, used for the calendar event's native location field
 }
 
 export class GoogleCalendarService {
@@ -482,6 +484,7 @@ export class GoogleCalendarService {
     return {
       summary: `${eventData.customerName || 'Customer'} - ${eventData.serviceName}`,
       description: this.buildEventDescription(eventData),
+      location: eventData.locationAddress || eventData.locationName || undefined,
       start: {
         dateTime: startDateTime,
         timeZone: eventData.shopTimezone || 'America/New_York',
@@ -521,6 +524,10 @@ export class GoogleCalendarService {
 
     if (eventData.serviceDescription) {
       lines.push(`📝 Details: ${eventData.serviceDescription}`);
+    }
+
+    if (eventData.locationName) {
+      lines.push(`📍 Location: ${eventData.locationName}${eventData.locationAddress ? ` — ${eventData.locationAddress}` : ''}`);
     }
 
     lines.push(

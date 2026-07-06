@@ -70,7 +70,7 @@ export class RescheduleService {
       // Get order details
       const orderQuery = await this.rescheduleRepo['pool'].query(
         `SELECT
-          order_id, shop_id, service_id, customer_address, status,
+          order_id, shop_id, service_id, customer_address, status, location_id,
           booking_date, booking_time_slot, booking_end_time,
           COALESCE(reschedule_count, 0) as reschedule_count,
           COALESCE(has_pending_reschedule, false) as has_pending_reschedule
@@ -135,7 +135,8 @@ export class RescheduleService {
       const availableSlots = await this.appointmentService.getAvailableTimeSlots(
         order.shop_id,
         order.service_id,
-        requestedDate
+        requestedDate,
+        order.location_id
       );
 
       const normalizedRequestedTime = requestedTimeSlot.substring(0, 5); // HH:MM

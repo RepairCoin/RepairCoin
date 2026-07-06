@@ -15,7 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Stripe from 'stripe';
 import { NoShowPolicyService } from '../../../services/NoShowPolicyService';
 import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
-import { resolveBookingLocationId } from '../../../utils/multiLocationEntitlement';
+import { resolveBookingLocationId, getCalendarLocationLabel } from '../../../utils/multiLocationEntitlement';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
@@ -851,6 +851,7 @@ export class PaymentService {
               order.shopId
             );
             const shopTimezone = shopConfig?.timezone || 'America/New_York';
+            const branchLabel = await getCalendarLocationLabel(order.locationId);
 
             await this.googleCalendarService.createEvent({
               orderId: order.orderId,
@@ -866,6 +867,7 @@ export class PaymentService {
               endTime,
               totalAmount: order.totalAmount,
               shopTimezone,
+              ...branchLabel,
             });
             logger.info('Calendar event created for booking', { orderId: order.orderId });
           }
