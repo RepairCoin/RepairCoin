@@ -1,6 +1,7 @@
 # Multi-Location Management — Implementation Plan
 
-**Status:** Slice 1 in progress
+**Status:** Slices 1 & 2 shipped (PR #516) · Slice 3 shipped (per-location operations) · Slices 4
+(inventory) & 5 (staff) planned
 **Tier:** Business ($599) — gated feature `multiLocation`
 **Author:** Nico Regalado
 
@@ -8,7 +9,7 @@
 
 Let a single shop manage multiple physical locations under one account. The shop remains the
 single billing / wallet / subscription / tier identity; each location is a physical site
-(address, geo, phone, primary flag). Delivered in 3 additive, independently-shippable slices.
+(address, geo, phone, primary flag). Delivered in 4 additive, independently-shippable slices.
 
 ## Decisions
 
@@ -169,14 +170,114 @@ location. Customer-facing branch selection is deferred to Slice 3.
 | Downgraded (starter/growth) | edit primary only; no add | hidden — primary only | dormant, preserved |
 | Re-upgraded | full again | active again | relit |
 
-## Slice 3 — Per-location operations
+## Slice 3 — Per-location operations (Business $599 only) — SHIPPED
 
-- **Customer-facing branch picker** — ✅ shipped in Slice 2.
-- **Inventory per-location** — larger change: inventory tables are keyed by `shop_id` today;
-  scope stock/POs to `location_id`.
-- Per-location hours/holidays (`shop_time_slot_config.location_id`) + per-location concurrency.
-- Per-location analytics filter on reports dashboards.
-- Optional: team members assigned to specific locations.
+Locations stop merely inheriting shop-level settings and become independently operable: each branch
+can have its own hours, its own booking capacity, and its own reports. Same paid-entitlement gate as
+Slice 2 (`hasPaidMultiLocation` / `multi_location_active`) — when a shop isn't entitled, everything
+falls back to shop-level / primary-only behavior. **Inventory is NOT in this slice** (→ Slice 4);
+**per-location staff moved to its own Slice 5.**
+
+### Data model — migration 204
+
+1. `shop_time_slot_config.location_id UUID REFERENCES shop_locations(id) ON DELETE CASCADE`
+   (nullable; `NULL` row = shop-level default / fallback) + index.
+2. Holiday/override tables gain `location_id` the same way (nullable = applies to all branches).
+3. No backfill needed — absent `location_id` continues to mean "shop-level," preserving today's
+   behavior for every existing shop. (`shop_team_members.location_id` for per-branch staff → Slice 5.)
+
+### Per-location hours, holidays & concurrency
+
+- Availability resolution reads the branch's time-slot config when present, else falls back to the
+  shop-level row. `max_concurrent_bookings` becomes per-location with the same fallback.
+- Customer checkout availability and the shop calendar both honor the active/selected branch's
+  hours (replaces the "inherit shop hours" rule from Slice 2).
+- Not entitled → always use the shop-level config (dormant branches never expose custom hours).
+
+**Shipped (hours, holidays, slot/concurrency config):** migration 204 adds nullable `location_id` to
+`shop_availability`, `shop_time_slot_config`, `shop_date_overrides` (partial unique indexes; NULL row
+= shop-level default). `AppointmentRepository` resolves per-branch with shop-level fallback for weekly
+hours, date overrides, and slot/concurrency config (`getTimeSlotConfig`/`updateTimeSlotConfig`/
+`deleteTimeSlotConfig` take `locationId`); timezone always resolves shop-level (per-location tz out of
+scope). `getAvailableTimeSlots` threads `locationId` through availability, the holiday closure check,
+config, and booked-slot counts; the booking-creation concurrency checks (`PaymentService`,
+`ManualBookingController`) read the branch's `maxConcurrentBookings`/`minBookingHours`. Config +
+date-override CRUD (shop and public) is branch-scoped via a shared `resolveWritableLocation` guard —
+editing the primary writes the shop-level rows; non-primary branches require the paid entitlement.
+Frontend: shared branch selector across the Availability Operating Hours / Booking Settings / Date
+Overrides tabs, plus `locationId` threaded through the customer date/time pickers (closed holidays
+grey out per branch). This sub-area is complete.
+
+### Per-location reports & analytics
+
+- Reports/analytics dashboards gain a `?locationId=` filter (plus an "All locations" default),
+  reusing the `location_id` already stamped on `service_orders` in Slice 2.
+- Revenue, bookings, top services, and conversion metrics can be viewed per branch or aggregated.
+
+**Shipped (dashboard analytics):** `ServiceAnalyticsRepository` (`getShopMetrics`,
+`getServicePerformance`, `getOrderTrends`, `getShopCategoryPerformance`) threads `locationId`,
+filtering only the `service_orders` reads (`($n::uuid IS NULL OR location_id = $n::uuid)`;
+`service_orders`-JOIN predicate on the LEFT JOINs so services with no branch orders still show).
+Service-catalog columns (service count, avg price, rating) stay shop-wide by design. Controller
+gates the filter behind `hasPaidMultiLocation` (`resolveLocationFilter`); CSV exports honor it too.
+Frontend: `ServiceAnalyticsTab` renders the shared `<LocationSwitcher/>` and passes
+`activeLocationId` into `serviceAnalyticsApi.getShopAnalytics`.
+
+**Shipped (booking + group-performance analytics):** `getBookingAnalytics` (all six
+`service_orders` reads) and `getGroupPerformanceAnalytics` (the three `service_orders` LEFT JOINs,
+so the service/group catalog still lists even with no branch orders) thread `locationId`; both
+controller endpoints gate it behind `resolveLocationFilter`/`hasPaidMultiLocation`. Frontend:
+`BookingAnalyticsTab` renders the `<LocationSwitcher/>` and its Zustand cache is keyed by
+`${trendDays}:${locationId}` so switching branches never shows another branch's data;
+`GroupPerformanceSection` reads `activeLocationId` and refetches on change. This sub-area is complete.
+
+### Backend (as built)
+
+- Availability/time-slot services resolve config by `location_id` with shop-level fallback.
+- Booking creation validates the requested slot against the branch's hours/concurrency, not the shop's.
+- Reports controllers accept and enforce `?locationId=` scoping (ownership + entitlement checked via
+  `resolveLocationFilter` / `resolveWritableLocation`).
+- Calendar timezone stays shop-level (per-location tz deferred — see cross-cutting).
+
+### Frontend (as built)
+
+- Availability tab: shared branch selector across Operating Hours / Booking Settings / Date Overrides.
+- Reports dashboards: branch filter wired to the shared `<LocationSwitcher/>` (location-store context).
+
+### Decisions
+1. Per-location config is **opt-in per branch** — absent config inherits shop-level, so nothing
+   breaks for shops that don't customize.
+2. Timezone stays shop-level in Slice 3.
+3. Per-location staff split out to its own **Slice 5**; hours + config + reports were the core.
+
+---
+
+## Slice 4 — Per-location inventory (Business $599 only)
+
+The largest change: inventory is keyed by `shop_id` today and must be scoped to `location_id` so
+each branch tracks its own stock. Deferred out of Slice 3 to ship independently.
+
+- Scope stock levels and purchase orders to `location_id` (migration adds `location_id` to
+  inventory tables; backfill existing stock to the shop's primary location).
+- Booking/checkout reads and decrements the selected branch's stock; low/out-of-stock flags per
+  branch.
+- Inventory UI gains a branch selector (reusing the location switcher context).
+- Same paid-entitlement gate; not entitled → primary-location stock only.
+
+---
+
+## Slice 5 — Per-location staff (Business $599 only)
+
+Split out of Slice 3. Assign team members to specific branches and scope their views, without
+changing the shop-level billing/permission model.
+
+- **Data model:** `shop_team_members.location_id UUID REFERENCES shop_locations(id) ON DELETE SET
+  NULL` (nullable = all-locations access, today's behavior; no backfill).
+- Assign members to one (or all) locations; scope their dashboard / bookings / calendar to their
+  branch, reusing the location-switcher context.
+- Same paid-entitlement gate — not entitled → all staff see the primary/shop-level view only.
+- **Left-off = all-locations access**, so existing team members are unaffected until explicitly
+  scoped.
 
 ---
 

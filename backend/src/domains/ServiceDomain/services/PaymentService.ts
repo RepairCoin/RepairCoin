@@ -7,6 +7,7 @@ import { NotificationGateway, getNotificationGateway } from '../../notification/
 import { EmailService } from '../../../services/EmailService';
 import { RcnRedemptionService } from './RcnRedemptionService';
 import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
+import { AppointmentService } from './AppointmentService';
 import { TransactionRepository } from '../../../repositories/TransactionRepository';
 import { customerRepository, shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
@@ -149,6 +150,7 @@ export class PaymentService {
   private emailService: EmailService;
   private rcnRedemptionService: RcnRedemptionService;
   private appointmentRepository: AppointmentRepository;
+  private appointmentService: AppointmentService;
   private transactionRepository: TransactionRepository;
   private noShowPolicyService: NoShowPolicyService;
   private googleCalendarService: GoogleCalendarService;
@@ -162,6 +164,7 @@ export class PaymentService {
     this.emailService = new EmailService();
     this.rcnRedemptionService = new RcnRedemptionService();
     this.appointmentRepository = new AppointmentRepository();
+    this.appointmentService = new AppointmentService();
     this.transactionRepository = new TransactionRepository();
     this.noShowPolicyService = new NoShowPolicyService();
     this.googleCalendarService = new GoogleCalendarService();
@@ -225,14 +228,15 @@ export class PaymentService {
         const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
         bookingEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
 
-        // Get time slot configuration
-        const config = await this.appointmentRepository.getTimeSlotConfig(service.shopId);
+        // Resolve the branch this booking is for, then read its config + booked slots.
+        const preCheckLocationId = await resolveBookingLocationId(service.shopId, request.locationId);
+
+        const config = await this.appointmentRepository.getTimeSlotConfig(service.shopId, preCheckLocationId);
         if (!config) {
           throw new Error('Shop has not configured appointment scheduling');
         }
 
-        // Get booked slots for this date
-        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, bookingDateStr);
+        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, bookingDateStr, preCheckLocationId);
         const normalizedRequestTime = normalizeTimeSlot(request.bookingTime);
         const bookedCount = bookedSlots.find(slot => normalizeTimeSlot(slot.timeSlot) === normalizedRequestTime)?.count || 0;
 
@@ -260,6 +264,13 @@ export class PaymentService {
           } else {
             throw new Error(`Bookings require at least ${requiredAdvanceHours} hours advance notice. Please select a later time.`);
           }
+        }
+
+        const withinHours = await this.appointmentService.isWithinOperatingHours(
+          service.shopId, bookingDateStr, request.bookingTime, preCheckLocationId
+        );
+        if (!withinHours) {
+          throw new Error(`The selected time (${request.bookingTime}) is outside the shop's operating hours. Please choose an available time slot.`);
         }
 
         logger.info('Time slot validated', {
@@ -445,14 +456,15 @@ export class PaymentService {
         const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
         bookingEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
 
-        // Get time slot configuration
-        const config = await this.appointmentRepository.getTimeSlotConfig(service.shopId);
+        // Resolve the branch this booking is for, then read its config + booked slots.
+        const preCheckLocationId = await resolveBookingLocationId(service.shopId, request.locationId);
+
+        const config = await this.appointmentRepository.getTimeSlotConfig(service.shopId, preCheckLocationId);
         if (!config) {
           throw new Error('Shop has not configured appointment scheduling');
         }
 
-        // Get booked slots for this date
-        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, bookingDateStr);
+        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, bookingDateStr, preCheckLocationId);
         const normalizedRequestTime = normalizeTimeSlot(request.bookingTime);
         const bookedCount = bookedSlots.find(slot => normalizeTimeSlot(slot.timeSlot) === normalizedRequestTime)?.count || 0;
 
@@ -476,6 +488,13 @@ export class PaymentService {
           } else {
             throw new Error(`Bookings require at least ${requiredAdvanceHours} hours advance notice. Please select a later time.`);
           }
+        }
+
+        const withinHours = await this.appointmentService.isWithinOperatingHours(
+          service.shopId, bookingDateStr, request.bookingTime, preCheckLocationId
+        );
+        if (!withinHours) {
+          throw new Error(`The selected time (${request.bookingTime}) is outside the shop's operating hours. Please choose an available time slot.`);
         }
 
         logger.info('Time slot validated (checkout)', {

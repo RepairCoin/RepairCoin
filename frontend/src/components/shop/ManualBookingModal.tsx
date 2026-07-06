@@ -184,7 +184,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
     }
   }, [isOpen, preSelectedDate]);
 
-  // Load time slots when date and service change
+  // Load time slots when date, service, or active branch change
   useEffect(() => {
     if (selectedServiceId && bookingDate) {
       loadTimeSlots();
@@ -192,7 +192,8 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
       setAvailableSlots([]);
       setSelectedTimeSlot('');
     }
-  }, [selectedServiceId, bookingDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedServiceId, bookingDate, activeLocationId]);
 
   const loadServices = async () => {
     try {
@@ -225,7 +226,8 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
       const slots = await appointmentsApi.getAvailableTimeSlots(
         shopId,
         selectedServiceId,
-        bookingDate
+        bookingDate,
+        activeLocationId || undefined
       );
       setAvailableSlots(slots);
     } catch (error) {

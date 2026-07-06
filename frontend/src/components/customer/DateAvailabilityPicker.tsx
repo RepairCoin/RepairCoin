@@ -14,6 +14,7 @@ interface DateAvailabilityPickerProps {
   maxAdvanceDays?: number;
   minBookingHours?: number;
   allowWeekendBooking?: boolean;
+  locationId?: string; // selected branch, for per-location open days
 }
 
 export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
@@ -23,7 +24,8 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
   minDate = new Date(),
   maxAdvanceDays = 60,
   minBookingHours = 0,
-  allowWeekendBooking = true
+  allowWeekendBooking = true,
+  locationId
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [shopAvailability, setShopAvailability] = useState<ShopAvailability[]>([]);
@@ -32,14 +34,15 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
 
   useEffect(() => {
     loadShopAvailability();
-  }, [shopId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId, locationId]);
 
   const loadShopAvailability = async () => {
     try {
       setLoading(true);
       const [availability, overrides] = await Promise.all([
-        appointmentsApi.getShopAvailability(shopId),
-        appointmentsApi.getShopDateOverrides(shopId).catch(() => [] as DateOverride[])
+        appointmentsApi.getShopAvailability(shopId, locationId),
+        appointmentsApi.getShopDateOverrides(shopId, undefined, undefined, locationId).catch(() => [] as DateOverride[])
       ]);
       setShopAvailability(availability);
       setClosedDates(

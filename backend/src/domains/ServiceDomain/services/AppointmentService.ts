@@ -26,13 +26,14 @@ export class AppointmentService {
   async getAvailableTimeSlots(
     shopId: string,
     serviceId: string,
-    date: string
+    date: string,
+    locationId?: string | null
   ): Promise<TimeSlot[]> {
     try {
-      logger.info('getAvailableTimeSlots called', { shopId, serviceId, date });
+      logger.info('getAvailableTimeSlots called', { shopId, serviceId, date, locationId });
 
-      // Get shop configuration (lazy init: auto-create defaults if missing)
-      let config = await this.appointmentRepo.getTimeSlotConfig(shopId);
+      // Get config for this branch (per-location when set, else shop-level; lazy init seeds shop-level).
+      let config = await this.appointmentRepo.getTimeSlotConfig(shopId, locationId);
       if (!config) {
         logger.warn('No time slot config found, auto-creating defaults', { shopId });
         config = await this.appointmentRepo.updateTimeSlotConfig({ shopId });
@@ -76,7 +77,7 @@ export class AppointmentService {
       // row. We must NOT compare `o.overrideDate === date`: node-postgres returns
       // the DATE column as a Date object, so === against the `date` string never
       // matches and the closure below was silently skipped.
-      const overrides = await this.appointmentRepo.getDateOverrides(shopId, date, date);
+      const overrides = await this.appointmentRepo.getDateOverrides(shopId, date, date, locationId);
       const dateOverride = overrides[0];
 
       if (dateOverride && dateOverride.isClosed) {
@@ -84,8 +85,9 @@ export class AppointmentService {
         return [];
       }
 
-      // Get shop availability for this day (lazy init: auto-create defaults if missing)
-      let availability = await this.appointmentRepo.getShopAvailability(shopId);
+      // Get availability for this day (per-location hours when set, else shop-level).
+      // Lazy init seeds shop-level defaults; per-location rows are opt-in.
+      let availability = await this.appointmentRepo.getShopAvailability(shopId, locationId);
       if (availability.length === 0) {
         logger.warn('No availability found, auto-creating defaults', { shopId });
         for (let day = 0; day <= 6; day++) {
@@ -98,7 +100,7 @@ export class AppointmentService {
             closeTime: isOpen ? '18:00:00' : null,
           });
         }
-        availability = await this.appointmentRepo.getShopAvailability(shopId);
+        availability = await this.appointmentRepo.getShopAvailability(shopId, locationId);
       }
 
       logger.debug('Shop availability loaded', {
@@ -228,8 +230,8 @@ export class AppointmentService {
         return [];
       }
 
-      // Get already booked slots for this date
-      const bookedSlots = await this.appointmentRepo.getBookedSlots(shopId, date);
+      // Get already booked slots for this date (scoped to the branch when entitled)
+      const bookedSlots = await this.appointmentRepo.getBookedSlots(shopId, date, locationId);
 
       logger.debug('Raw booked slots from database', {
         shopId,
@@ -457,6 +459,59 @@ export class AppointmentService {
   /**
    * Helper: Check if time is within break period
    */
+  /**
+   * Operating-hours guard for booking creation: is `time` (HH:MM[:SS]) inside the branch's open
+   * hours for `date` — open day, within [open, close), not a closed/holiday override, not in a
+   * break, and weekend allowed. Unlike getAvailableTimeSlots it ignores min-notice / advance-window
+   * / concurrency (enforced elsewhere / customer-only policies). Fails open on unexpected error so a
+   * transient DB issue never blocks a legitimate booking.
+   */
+  async isWithinOperatingHours(
+    shopId: string,
+    date: string,
+    time: string,
+    locationId?: string | null
+  ): Promise<boolean> {
+    try {
+      const [y, m, d] = date.split('-').map(Number);
+      const dayOfWeek = new Date(y, m - 1, d).getDay();
+
+      const config = await this.appointmentRepo.getTimeSlotConfig(shopId, locationId);
+      if ((dayOfWeek === 0 || dayOfWeek === 6) && config && !config.allowWeekendBooking) {
+        return false;
+      }
+
+      const overrides = await this.appointmentRepo.getDateOverrides(shopId, date, date, locationId);
+      const override = overrides[0];
+      if (override?.isClosed) return false;
+
+      const availability = await this.appointmentRepo.getShopAvailability(shopId, locationId);
+      // Shop has never configured hours → don't block (matches pre-guard behavior; the picker
+      // lazy-seeds defaults, so this only affects shops with no schedule set up at all).
+      if (availability.length === 0) return true;
+      const dayAvail = availability.find(a => a.dayOfWeek === dayOfWeek);
+      if (!dayAvail || !dayAvail.isOpen) return false;
+
+      const openTime = override?.customOpenTime || dayAvail.openTime;
+      const closeTime = override?.customCloseTime || dayAvail.closeTime;
+      if (!openTime || !closeTime) return false;
+
+      const slotMin = this.timeToMinutes(this.normalizeTimeSlot(time));
+      const openMin = this.timeToMinutes(this.normalizeTimeSlot(openTime));
+      const closeMin = this.timeToMinutes(this.normalizeTimeSlot(closeTime));
+      const overnight = closeMin <= openMin;
+      const withinHours = overnight
+        ? (slotMin >= openMin || slotMin < closeMin)
+        : (slotMin >= openMin && slotMin < closeMin);
+      if (!withinHours) return false;
+
+      return !this.isInBreakTime(this.normalizeTimeSlot(time), dayAvail.breakStartTime, dayAvail.breakEndTime);
+    } catch (error) {
+      logger.error('Error validating operating hours:', error);
+      return true;
+    }
+  }
+
   private isInBreakTime(
     time: string,
     breakStart: string | null,

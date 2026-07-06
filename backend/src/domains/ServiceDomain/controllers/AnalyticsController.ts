@@ -3,12 +3,21 @@ import { Request, Response } from 'express';
 import { ServiceAnalyticsService } from '../services/ServiceAnalyticsService';
 import { logger } from '../../../utils/logger';
 import { CSVExportService, CSVColumn } from '../../../utils/csvExport';
+import { hasPaidMultiLocation } from '../../../utils/multiLocationEntitlement';
 
 export class AnalyticsController {
   private analyticsService: ServiceAnalyticsService;
 
   constructor() {
     this.analyticsService = new ServiceAnalyticsService();
+  }
+
+  // Branch filter from the location switcher (omitted = all branches). Only honored for shops with
+  // the paid multi-location entitlement, so dormant/trial branches can't scope reports.
+  private async resolveLocationFilter(shopId: string, req: Request): Promise<string | null> {
+    const requested = req.query.locationId as string | undefined;
+    if (!requested) return null;
+    return (await hasPaidMultiLocation(shopId)) ? requested : null;
   }
 
   /**
@@ -28,10 +37,12 @@ export class AnalyticsController {
       const trendDays = req.query.trendDays
         ? parseInt(req.query.trendDays as string)
         : undefined;
+      const locationId = await this.resolveLocationFilter(shopId, req);
 
       const analytics = await this.analyticsService.getShopAnalytics(shopId, {
         topServicesLimit,
-        trendDays
+        trendDays,
+        locationId
       });
 
       res.json({
@@ -58,7 +69,8 @@ export class AnalyticsController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const overview = await this.analyticsService.getShopOverview(shopId);
+      const locationId = await this.resolveLocationFilter(shopId, req);
+      const overview = await this.analyticsService.getShopOverview(shopId, locationId);
 
       res.json({
         success: true,
@@ -85,8 +97,9 @@ export class AnalyticsController {
       }
 
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const locationId = await this.resolveLocationFilter(shopId, req);
 
-      const topServices = await this.analyticsService.getTopServices(shopId, limit);
+      const topServices = await this.analyticsService.getTopServices(shopId, limit, locationId);
 
       res.json({
         success: true,
@@ -113,8 +126,9 @@ export class AnalyticsController {
       }
 
       const days = req.query.days ? parseInt(req.query.days as string) : 30;
+      const locationId = await this.resolveLocationFilter(shopId, req);
 
-      const trends = await this.analyticsService.getShopOrderTrends(shopId, days);
+      const trends = await this.analyticsService.getShopOrderTrends(shopId, days, locationId);
 
       res.json({
         success: true,
@@ -308,7 +322,8 @@ export class AnalyticsController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const analytics = await this.analyticsService.getShopAnalytics(shopId, {});
+      const locationId = await this.resolveLocationFilter(shopId, req);
+      const analytics = await this.analyticsService.getShopAnalytics(shopId, { locationId });
 
       // Export top performing services
       const servicesColumns: CSVColumn[] = [
@@ -344,7 +359,8 @@ export class AnalyticsController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const categories = await this.analyticsService.getShopCategoryBreakdown(shopId);
+      const locationId = await this.resolveLocationFilter(shopId, req);
+      const categories = await this.analyticsService.getShopCategoryBreakdown(shopId, locationId);
 
       const columns: CSVColumn[] = [
         { key: 'category', label: 'Category' },
@@ -378,7 +394,8 @@ export class AnalyticsController {
       }
 
       const days = req.query.days ? parseInt(req.query.days as string) : 30;
-      const trends = await this.analyticsService.getShopOrderTrends(shopId, days);
+      const locationId = await this.resolveLocationFilter(shopId, req);
+      const trends = await this.analyticsService.getShopOrderTrends(shopId, days, locationId);
 
       const columns: CSVColumn[] = [
         { key: 'date', label: 'Date' },
@@ -493,7 +510,8 @@ export class AnalyticsController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const analytics = await this.analyticsService.getGroupPerformanceAnalytics(shopId);
+      const locationId = await this.resolveLocationFilter(shopId, req);
+      const analytics = await this.analyticsService.getGroupPerformanceAnalytics(shopId, locationId);
 
       res.json({
         success: true,
@@ -523,7 +541,8 @@ export class AnalyticsController {
         ? parseInt(req.query.trendDays as string)
         : 30;
 
-      const result = await this.analyticsService.getBookingAnalytics(shopId, trendDays);
+      const locationId = await this.resolveLocationFilter(shopId, req);
+      const result = await this.analyticsService.getBookingAnalytics(shopId, trendDays, locationId);
 
       res.json({
         success: true,

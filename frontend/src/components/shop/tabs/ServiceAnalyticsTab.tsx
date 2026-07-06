@@ -7,15 +7,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, TrendingUp, DollarSign, Package, Star, ShoppingCart, Gift, Percent } from 'lucide-react';
 import { GroupPerformanceSection } from '../GroupPerformanceSection';
 import { SectionHeader } from '@/components/ui/SectionHeader';
+import { LocationSwitcher } from '../LocationSwitcher';
+import { useLocationStore } from '@/stores/locationStore';
 
 export function ServiceAnalyticsTab() {
   const [analytics, setAnalytics] = useState<ShopAnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [trendDays, setTrendDays] = useState(30);
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
 
   useEffect(() => {
     loadAnalytics();
-  }, [trendDays]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trendDays, activeLocationId]);
 
   const loadAnalytics = async () => {
     try {
@@ -23,7 +27,8 @@ export function ServiceAnalyticsTab() {
       console.log('Fetching shop analytics...');
       const data = await serviceAnalyticsApi.getShopAnalytics({
         topServicesLimit: 5,
-        trendDays
+        trendDays,
+        ...(activeLocationId ? { locationId: activeLocationId } : {})
       });
       console.log('Analytics data loaded successfully:', data);
       setAnalytics(data);
@@ -84,6 +89,7 @@ export function ServiceAnalyticsTab() {
         subtitle="Track your service performance and revenue"
         action={
           <div className="flex items-center gap-2">
+            <LocationSwitcher />
             {[7, 30, 90].map((days) => (
               <button
                 key={days}

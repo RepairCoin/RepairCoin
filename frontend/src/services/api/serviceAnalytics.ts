@@ -151,10 +151,11 @@ export interface BookingAnalytics {
 // Shop Analytics API
 export const serviceAnalyticsApi = {
   // Shop endpoints
-  async getShopAnalytics(options?: { topServicesLimit?: number; trendDays?: number }): Promise<ShopAnalyticsSummary> {
+  async getShopAnalytics(options?: { topServicesLimit?: number; trendDays?: number; locationId?: string }): Promise<ShopAnalyticsSummary> {
     const params = new URLSearchParams();
     if (options?.topServicesLimit) params.append('topServicesLimit', options.topServicesLimit.toString());
     if (options?.trendDays) params.append('trendDays', options.trendDays.toString());
+    if (options?.locationId) params.append('locationId', options.locationId);
 
     const response = await axios.get<{ success: boolean; data: ShopAnalyticsSummary }>(
       `${getApiBaseUrl()}/services/analytics/shop${params.toString() ? '?' + params.toString() : ''}`,
@@ -195,17 +196,24 @@ export const serviceAnalyticsApi = {
     return response.data.data;
   },
 
-  async getGroupPerformanceAnalytics(): Promise<GroupPerformanceAnalytics> {
+  async getGroupPerformanceAnalytics(locationId?: string): Promise<GroupPerformanceAnalytics> {
+    const params = new URLSearchParams();
+    if (locationId) params.append('locationId', locationId);
+
     const response = await axios.get<{ success: boolean; data: GroupPerformanceAnalytics }>(
-      `${getApiBaseUrl()}/services/analytics/shop/group-performance`,
+      `${getApiBaseUrl()}/services/analytics/shop/group-performance${params.toString() ? '?' + params.toString() : ''}`,
       { withCredentials: true }
     );
     return response.data.data;
   },
 
-  async getBookingAnalytics(trendDays: number = 30): Promise<BookingAnalytics> {
+  async getBookingAnalytics(trendDays: number = 30, locationId?: string): Promise<BookingAnalytics> {
+    const params = new URLSearchParams();
+    params.append('trendDays', trendDays.toString());
+    if (locationId) params.append('locationId', locationId);
+
     const response = await axios.get<{ success: boolean; data: BookingAnalytics }>(
-      `${getApiBaseUrl()}/services/analytics/shop/bookings?trendDays=${trendDays}`,
+      `${getApiBaseUrl()}/services/analytics/shop/bookings?${params.toString()}`,
       { withCredentials: true }
     );
     return response.data.data;

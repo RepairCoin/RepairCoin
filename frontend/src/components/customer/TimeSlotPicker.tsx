@@ -14,6 +14,7 @@ interface TimeSlotPickerProps {
   selectedTimeSlot: string | null;
   onTimeSlotSelect: (timeSlot: string) => void;
   shopTimezone?: string; // IANA timezone identifier (e.g., 'America/New_York')
+  locationId?: string; // selected branch, for per-location hours/availability
 }
 
 // Map timezone identifiers to user-friendly labels
@@ -37,7 +38,8 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   selectedDate,
   selectedTimeSlot,
   onTimeSlotSelect,
-  shopTimezone = 'America/New_York'
+  shopTimezone = 'America/New_York',
+  locationId
 }) => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,7 +50,8 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
     } else {
       setTimeSlots([]);
     }
-  }, [selectedDate, shopId, serviceId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, shopId, serviceId, locationId]);
 
   const loadTimeSlots = async () => {
     if (!selectedDate) return;
@@ -56,7 +59,7 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
     try {
       setLoading(true);
       const dateStr = formatLocalDate(selectedDate); // YYYY-MM-DD
-      const slots = await appointmentsApi.getAvailableTimeSlots(shopId, serviceId, dateStr);
+      const slots = await appointmentsApi.getAvailableTimeSlots(shopId, serviceId, dateStr, locationId);
       setTimeSlots(slots);
       // UI message already shows "No available time slots" - no need for toast
     } catch (error) {

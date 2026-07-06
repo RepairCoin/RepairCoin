@@ -852,6 +852,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                       maxAdvanceDays={timeSlotConfig?.bookingAdvanceDays || 30}
                       minBookingHours={timeSlotConfig?.minBookingHours || 0}
                       allowWeekendBooking={timeSlotConfig?.allowWeekendBooking ?? true}
+                      locationId={selectedLocationId || undefined}
                     />
                   </div>
 
@@ -864,6 +865,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                       selectedTimeSlot={bookingTimeSlot}
                       onTimeSlotSelect={setBookingTimeSlot}
                       shopTimezone={timeSlotConfig?.timezone || 'America/New_York'}
+                      locationId={selectedLocationId || undefined}
                     />
                   )}
                 </div>

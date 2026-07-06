@@ -47,7 +47,7 @@ export class RescheduleService {
   private async getShopTimezone(shopId: string): Promise<string> {
     try {
       const result = await getSharedPool().query(
-        `SELECT COALESCE(timezone, 'America/New_York') AS timezone FROM shop_time_slot_config WHERE shop_id = $1`,
+        `SELECT COALESCE(timezone, 'America/New_York') AS timezone FROM shop_time_slot_config WHERE shop_id = $1 AND location_id IS NULL`,
         [shopId]
       );
       return result.rows[0]?.timezone || 'America/New_York';
