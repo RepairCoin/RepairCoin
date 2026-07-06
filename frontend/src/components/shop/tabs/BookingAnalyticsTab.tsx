@@ -2,6 +2,8 @@
 
 import React, { useEffect } from 'react';
 import { useBookingAnalyticsStore } from '@/stores/bookingAnalyticsStore';
+import { useLocationStore } from '@/stores/locationStore';
+import { LocationSwitcher } from '../LocationSwitcher';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Calendar, CheckCircle, AlertTriangle, Clock, RefreshCw, XCircle, Users } from 'lucide-react';
 
@@ -58,14 +60,16 @@ function formatHour(hour: number): string {
 export function BookingAnalyticsTab() {
   const { trendDays, setTrendDays, fetchAnalytics, getData, isDataStale, isRefreshing, error } =
     useBookingAnalyticsStore();
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
 
-  const analytics = getData(trendDays);
+  const analytics = getData(trendDays, activeLocationId);
 
   useEffect(() => {
-    if (isDataStale(trendDays)) {
-      fetchAnalytics(trendDays);
+    if (isDataStale(trendDays, activeLocationId)) {
+      fetchAnalytics(trendDays, activeLocationId);
     }
-  }, [trendDays]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trendDays, activeLocationId]);
 
   const isLoading = !analytics && isRefreshing;
 
@@ -82,7 +86,7 @@ export function BookingAnalyticsTab() {
       <div className="text-center py-12">
         <p className="text-gray-400">{error}</p>
         <button
-          onClick={() => fetchAnalytics(trendDays, true)}
+          onClick={() => fetchAnalytics(trendDays, activeLocationId, true)}
           className="mt-4 px-6 py-2 bg-[#FFCC00] text-black font-semibold rounded-lg hover:bg-[#FFD700] transition-colors"
         >
           Retry
@@ -117,7 +121,8 @@ export function BookingAnalyticsTab() {
         </div>
 
         {/* Time Range Selector */}
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <LocationSwitcher />
           {[7, 30, 90].map((days) => (
             <button
               key={days}

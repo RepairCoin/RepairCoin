@@ -13,6 +13,7 @@ export interface TimeSlot {
 export interface ShopAvailability {
   availabilityId: string;
   shopId: string;
+  locationId: string | null;
   dayOfWeek: number; // 0 = Sunday, 6 = Saturday
   isOpen: boolean;
   openTime: string | null; // HH:MM:SS format
@@ -26,6 +27,7 @@ export interface ShopAvailability {
 export interface TimeSlotConfig {
   configId: string;
   shopId: string;
+  locationId: string | null;
   slotDurationMinutes: number;
   bufferTimeMinutes: number;
   maxConcurrentBookings: number;
@@ -154,22 +156,24 @@ export const appointmentsApi = {
   async getAvailableTimeSlots(
     shopId: string,
     serviceId: string,
-    date: string
+    date: string,
+    locationId?: string
   ): Promise<TimeSlot[]> {
     const userTimezone = getUserTimezone();
     const response = await apiClient.get<{ success: boolean; data: TimeSlot[] }>(
       `/services/appointments/available-slots`,
       {
-        params: { shopId, serviceId, date, userTimezone }
+        params: { shopId, serviceId, date, userTimezone, ...(locationId ? { locationId } : {}) }
       }
     );
     return (response as unknown as { success: boolean; data: TimeSlot[] }).data;
   },
 
   // Public: Get shop availability (operating hours)
-  async getShopAvailability(shopId: string): Promise<ShopAvailability[]> {
+  async getShopAvailability(shopId: string, locationId?: string): Promise<ShopAvailability[]> {
     const response = await apiClient.get<{ success: boolean; data: ShopAvailability[] }>(
-      `/services/appointments/shop-availability/${shopId}`
+      `/services/appointments/shop-availability/${shopId}`,
+      { params: locationId ? { locationId } : {} }
     );
     return (response as unknown as { success: boolean; data: ShopAvailability[] }).data;
   },
@@ -178,21 +182,23 @@ export const appointmentsApi = {
   async getShopDateOverrides(
     shopId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    locationId?: string
   ): Promise<DateOverride[]> {
     const response = await apiClient.get<{ success: boolean; data: DateOverride[] }>(
       `/services/appointments/shop-date-overrides/${shopId}`,
       {
-        params: { startDate, endDate }
+        params: { startDate, endDate, ...(locationId ? { locationId } : {}) }
       }
     );
     return (response as unknown as { success: boolean; data: DateOverride[] }).data;
   },
 
   // Public: Get time slot configuration by shop ID (for customers)
-  async getPublicTimeSlotConfig(shopId: string): Promise<TimeSlotConfig | null> {
+  async getPublicTimeSlotConfig(shopId: string, locationId?: string): Promise<TimeSlotConfig | null> {
     const response = await apiClient.get<{ success: boolean; data: TimeSlotConfig | null }>(
-      `/services/appointments/time-slot-config/${shopId}`
+      `/services/appointments/time-slot-config/${shopId}`,
+      { params: locationId ? { locationId } : {} }
     );
     return (response as unknown as { success: boolean; data: TimeSlotConfig | null }).data;
   },
@@ -205,6 +211,7 @@ export const appointmentsApi = {
     closeTime?: string;
     breakStartTime?: string;
     breakEndTime?: string;
+    locationId?: string;
   }): Promise<ShopAvailability> {
     const response = await apiClient.put<{ success: boolean; data: ShopAvailability }>(
       `/services/appointments/shop-availability`,
@@ -214,9 +221,10 @@ export const appointmentsApi = {
   },
 
   // Shop: Get time slot configuration
-  async getTimeSlotConfig(): Promise<TimeSlotConfig | null> {
+  async getTimeSlotConfig(locationId?: string): Promise<TimeSlotConfig | null> {
     const response = await apiClient.get<{ success: boolean; data: TimeSlotConfig | null }>(
-      `/services/appointments/time-slot-config`
+      `/services/appointments/time-slot-config`,
+      { params: locationId ? { locationId } : {} }
     );
     return (response as unknown as { success: boolean; data: TimeSlotConfig | null }).data;
   },
@@ -231,16 +239,18 @@ export const appointmentsApi = {
   },
 
   // Shop: Delete time slot configuration
-  async deleteTimeSlotConfig(): Promise<void> {
-    await apiClient.delete(`/services/appointments/time-slot-config`);
+  async deleteTimeSlotConfig(locationId?: string): Promise<void> {
+    await apiClient.delete(`/services/appointments/time-slot-config`, {
+      params: locationId ? { locationId } : {}
+    });
   },
 
   // Shop: Get date overrides
-  async getDateOverrides(startDate?: string, endDate?: string): Promise<DateOverride[]> {
+  async getDateOverrides(startDate?: string, endDate?: string, locationId?: string): Promise<DateOverride[]> {
     const response = await apiClient.get<{ success: boolean; data: DateOverride[] }>(
       `/services/appointments/date-overrides`,
       {
-        params: { startDate, endDate }
+        params: { startDate, endDate, ...(locationId ? { locationId } : {}) }
       }
     );
     return (response as unknown as { success: boolean; data: DateOverride[] }).data;
@@ -253,6 +263,7 @@ export const appointmentsApi = {
     customOpenTime?: string;
     customCloseTime?: string;
     reason?: string;
+    locationId?: string;
   }): Promise<DateOverride> {
     const response = await apiClient.post<{ success: boolean; data: DateOverride }>(
       `/services/appointments/date-overrides`,
@@ -262,8 +273,10 @@ export const appointmentsApi = {
   },
 
   // Shop: Delete date override
-  async deleteDateOverride(date: string): Promise<void> {
-    await apiClient.delete(`/services/appointments/date-overrides/${date}`);
+  async deleteDateOverride(date: string, locationId?: string): Promise<void> {
+    await apiClient.delete(`/services/appointments/date-overrides/${date}`, {
+      params: locationId ? { locationId } : {}
+    });
   },
 
   // Shop: Get calendar view

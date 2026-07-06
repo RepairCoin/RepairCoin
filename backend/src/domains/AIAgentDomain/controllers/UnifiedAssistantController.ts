@@ -170,7 +170,7 @@ async function fetchShopTimezone(
 ): Promise<string | null> {
   try {
     const r = await pool.query<{ timezone: string | null }>(
-      `SELECT timezone FROM shop_time_slot_config WHERE shop_id = $1`,
+      `SELECT timezone FROM shop_time_slot_config WHERE shop_id = $1 AND location_id IS NULL`,
       [shopId]
     );
     return r.rows[0]?.timezone ?? null;

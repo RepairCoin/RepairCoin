@@ -37,19 +37,21 @@ export class ServiceAnalyticsService {
   async getShopAnalytics(shopId: string, options?: {
     topServicesLimit?: number;
     trendDays?: number;
+    locationId?: string | null;
   }): Promise<ShopAnalyticsSummary> {
     try {
       const topServicesLimit = options?.topServicesLimit || 10;
       const trendDays = options?.trendDays || 30;
+      const locationId = options?.locationId ?? null;
 
-      logger.info('Fetching shop analytics', { shopId, topServicesLimit, trendDays });
+      logger.info('Fetching shop analytics', { shopId, topServicesLimit, trendDays, locationId });
 
       // Fetch all analytics in parallel
       const [overview, topServices, orderTrends, categoryBreakdown] = await Promise.all([
-        this.analyticsRepository.getShopMetrics(shopId),
-        this.analyticsRepository.getServicePerformance(shopId, topServicesLimit),
-        this.analyticsRepository.getOrderTrends(shopId, trendDays),
-        this.analyticsRepository.getShopCategoryPerformance(shopId)
+        this.analyticsRepository.getShopMetrics(shopId, locationId),
+        this.analyticsRepository.getServicePerformance(shopId, topServicesLimit, locationId),
+        this.analyticsRepository.getOrderTrends(shopId, trendDays, locationId),
+        this.analyticsRepository.getShopCategoryPerformance(shopId, locationId)
       ]);
 
       return {
@@ -67,9 +69,9 @@ export class ServiceAnalyticsService {
   /**
    * Get shop overview metrics only
    */
-  async getShopOverview(shopId: string): Promise<ShopServiceMetrics> {
+  async getShopOverview(shopId: string, locationId?: string | null): Promise<ShopServiceMetrics> {
     try {
-      return await this.analyticsRepository.getShopMetrics(shopId);
+      return await this.analyticsRepository.getShopMetrics(shopId, locationId);
     } catch (error) {
       logger.error('Error getting shop overview:', error);
       throw new Error('Failed to get shop overview');
@@ -79,9 +81,9 @@ export class ServiceAnalyticsService {
   /**
    * Get top performing services for a shop
    */
-  async getTopServices(shopId: string, limit: number = 10): Promise<ServicePerformance[]> {
+  async getTopServices(shopId: string, limit: number = 10, locationId?: string | null): Promise<ServicePerformance[]> {
     try {
-      return await this.analyticsRepository.getServicePerformance(shopId, limit);
+      return await this.analyticsRepository.getServicePerformance(shopId, limit, locationId);
     } catch (error) {
       logger.error('Error getting top services:', error);
       throw new Error('Failed to get top services');
@@ -91,9 +93,9 @@ export class ServiceAnalyticsService {
   /**
    * Get order trends for a shop
    */
-  async getShopOrderTrends(shopId: string, days: number = 30): Promise<OrderTrend[]> {
+  async getShopOrderTrends(shopId: string, days: number = 30, locationId?: string | null): Promise<OrderTrend[]> {
     try {
-      return await this.analyticsRepository.getOrderTrends(shopId, days);
+      return await this.analyticsRepository.getOrderTrends(shopId, days, locationId);
     } catch (error) {
       logger.error('Error getting shop order trends:', error);
       throw new Error('Failed to get shop order trends');
@@ -103,9 +105,9 @@ export class ServiceAnalyticsService {
   /**
    * Get category performance for a shop
    */
-  async getShopCategoryBreakdown(shopId: string): Promise<CategoryPerformance[]> {
+  async getShopCategoryBreakdown(shopId: string, locationId?: string | null): Promise<CategoryPerformance[]> {
     try {
-      return await this.analyticsRepository.getShopCategoryPerformance(shopId);
+      return await this.analyticsRepository.getShopCategoryPerformance(shopId, locationId);
     } catch (error) {
       logger.error('Error getting shop category breakdown:', error);
       throw new Error('Failed to get shop category breakdown');
@@ -265,7 +267,7 @@ export class ServiceAnalyticsService {
    * Get group performance analytics for a shop
    * Shows which affiliate groups are driving bookings and token issuance
    */
-  async getGroupPerformanceAnalytics(shopId: string): Promise<{
+  async getGroupPerformanceAnalytics(shopId: string, locationId?: string | null): Promise<{
     summary: {
       totalServicesLinked: number;
       totalGroupsActive: number;
@@ -298,7 +300,7 @@ export class ServiceAnalyticsService {
     }>;
   }> {
     try {
-      return await this.analyticsRepository.getGroupPerformanceAnalytics(shopId);
+      return await this.analyticsRepository.getGroupPerformanceAnalytics(shopId, locationId);
     } catch (error) {
       logger.error('Error getting group performance analytics:', error);
       throw new Error('Failed to get group performance analytics');
@@ -308,9 +310,9 @@ export class ServiceAnalyticsService {
   /**
    * Get booking analytics for a shop
    */
-  async getBookingAnalytics(shopId: string, trendDays: number = 30): Promise<BookingAnalytics> {
+  async getBookingAnalytics(shopId: string, trendDays: number = 30, locationId?: string | null): Promise<BookingAnalytics> {
     try {
-      return await this.analyticsRepository.getBookingAnalytics(shopId, trendDays);
+      return await this.analyticsRepository.getBookingAnalytics(shopId, trendDays, locationId);
     } catch (error) {
       logger.error('Error getting booking analytics:', error);
       throw new Error('Failed to get booking analytics');

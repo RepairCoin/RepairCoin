@@ -15,10 +15,12 @@ import { ModerationRepository } from '../../../repositories/ModerationRepository
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
 import { resolveBookingLocationId } from '../../../utils/multiLocationEntitlement';
+import { AppointmentService } from '../services/AppointmentService';
 import Stripe from 'stripe';
 
 const pool = getSharedPool();
 const googleCalendarService = new GoogleCalendarService();
+const appointmentService = new AppointmentService();
 
 // Add minutes to an HH:MM (or HH:MM:SS) wall time, returning HH:MM.
 const addMinutesToTime = (time: string, minutes: number): string => {
@@ -212,14 +214,19 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
 
     const customerData = customer.rows[0];
 
-    // Check for time slot conflicts
+    // Resolve which location this booking belongs to (falls back to primary; ignores the
+    // requested location for shops without the paid multi-location entitlement).
+    const resolvedLocationId = await resolveBookingLocationId(shopId, locationId);
+
+    // Check for time slot conflicts within the same branch
     const conflictCheck = await pool.query(
       `SELECT order_id FROM service_orders
        WHERE shop_id = $1
        AND booking_date = $2
        AND booking_time_slot = $3
-       AND status NOT IN ('cancelled', 'refunded')`,
-      [shopId, bookingDate, bookingTimeSlot]
+       AND status NOT IN ('cancelled', 'refunded')
+       AND ($4::uuid IS NULL OR location_id = $4::uuid)`,
+      [shopId, bookingDate, bookingTimeSlot, resolvedLocationId]
     );
 
     if (conflictCheck.rows.length > 0) {
@@ -230,8 +237,18 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Check shop availability configuration (optional - can be added later)
-    // For now, we'll allow any time slot booking
+    // Reject times outside the branch's operating hours (closed day/holiday, outside open–close,
+    // during a break, or a blocked weekend). Scoped to the booking's location.
+    const withinHours = await appointmentService.isWithinOperatingHours(
+      shopId, bookingDate, bookingTimeSlot, resolvedLocationId
+    );
+    if (!withinHours) {
+      res.status(400).json({
+        error: 'Outside operating hours',
+        message: 'The selected time is outside this location\'s operating hours. Please choose a time within business hours.'
+      });
+      return;
+    }
 
     // Determine order status based on payment status
     // 'send_link' and 'qr_code' create order in 'pending' status until customer pays
@@ -240,10 +257,6 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
     const orderStatus = paymentStatus === 'paid' ? 'paid' : 'pending';
     const dbPaymentStatus = requiresPayment ? 'pending' : paymentStatus;
     console.log('Step 10: Order status will be:', orderStatus, ', dbPaymentStatus:', dbPaymentStatus);
-
-    // Resolve which location this booking belongs to (falls back to primary; ignores the
-    // requested location for shops without the paid multi-location entitlement).
-    const resolvedLocationId = await resolveBookingLocationId(shopId, locationId);
 
     // Create the manual booking
     console.log('Step 11: Creating order...');
@@ -304,7 +317,7 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
     // Push the booking to the shop's Google Calendar (no-op if not connected).
     try {
       const tzResult = await pool.query(
-        `SELECT COALESCE(timezone, 'America/New_York') AS timezone FROM shop_time_slot_config WHERE shop_id = $1`,
+        `SELECT COALESCE(timezone, 'America/New_York') AS timezone FROM shop_time_slot_config WHERE shop_id = $1 AND location_id IS NULL`,
         [shopId]
       );
       const shopTimezone = tzResult.rows[0]?.timezone || 'America/New_York';
