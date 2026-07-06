@@ -13,8 +13,6 @@ import {
   type AdLead, type LeadStatus,
 } from "@/services/api/ads";
 import { LeadConversation } from "@/components/ads/LeadConversation";
-import { LeadActivityTimeline } from "@/components/ads/LeadActivityTimeline";
-import { LeadEmailComposer } from "@/components/ads/LeadEmailComposer";
 import { LeadCallLogger } from "@/components/ads/LeadCallLogger";
 
 // "Last contacted" line for a card. Compact relative-ish label off first_response_at.
@@ -54,8 +52,6 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [convoLead, setConvoLead] = useState<AdLead | null>(null);
-  const [timelineLead, setTimelineLead] = useState<AdLead | null>(null);
-  const [emailLead, setEmailLead] = useState<AdLead | null>(null);
   const [callLead, setCallLead] = useState<AdLead | null>(null);
   const isAdmin = mode === "admin";
   // Both admin and shop can work a lead (advance status, call/email) — the shop owns the
@@ -162,30 +158,17 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                             Lost
                           </button>
                         )}
-                        {/* Activity timeline — available for every lead (calls/emails/notes/status). */}
-                        <button
-                          onClick={() => setTimelineLead(lead)}
-                          className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]"
-                          title="Activity timeline"
-                        >
-                          <Clock className="w-3 h-3" /> History
-                        </button>
-                        {/* Contact actions. The Conversation thread (lead replies + AI answers) is reachable for
-                            ANY lead with a 2-way channel — email OR Messenger/WhatsApp — on BOTH shop and admin
-                            (Part A). Call is for phone leads; Email opens the formatted composer. */}
+                        {/* Contact actions consolidated into ONE messaging surface: Conversation opens the
+                            thread (Messages + Activity tabs + formatted-email option) for any lead with a 2-way
+                            channel — email or Messenger/WhatsApp — on shop and admin. Call is for phone leads. */}
                         <div className="flex flex-wrap items-center gap-2 ml-auto">
                           {lead.phone && (
                             <button onClick={() => setCallLead(lead)} title="Call and log the outcome" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
                               <Phone className="w-3 h-3" /> Call
                             </button>
                           )}
-                          {lead.email && (
-                            <button onClick={() => setEmailLead(lead)} title="Send a formatted email" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
-                              <Mail className="w-3 h-3" /> Email
-                            </button>
-                          )}
                           {(lead.hasChatChannel || lead.email) && (
-                            <button onClick={() => setConvoLead(lead)} title="Open the conversation thread" className="inline-flex items-center gap-1 text-[11px] font-medium text-[#FFCC00]/90 hover:text-[#FFCC00]">
+                            <button onClick={() => setConvoLead(lead)} title="Open the conversation (messages, activity, email)" className="inline-flex items-center gap-1 text-[11px] font-medium text-[#FFCC00]/90 hover:text-[#FFCC00]">
                               <MessageSquare className="w-3 h-3" /> Conversation
                             </button>
                           )}
@@ -233,26 +216,6 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
           onClose={() => setConvoLead(null)}
           mode={mode}
           initialAiPaused={convoLead.aiPaused}
-        />
-      )}
-
-      {timelineLead && (
-        <LeadActivityTimeline
-          leadId={timelineLead.id}
-          leadName={timelineLead.name}
-          open={!!timelineLead}
-          onClose={() => setTimelineLead(null)}
-          mode={mode}
-        />
-      )}
-
-      {emailLead && (
-        <LeadEmailComposer
-          lead={emailLead}
-          open={!!emailLead}
-          onClose={() => setEmailLead(null)}
-          onSent={() => { void load(); }}
-          mode={mode}
         />
       )}
 

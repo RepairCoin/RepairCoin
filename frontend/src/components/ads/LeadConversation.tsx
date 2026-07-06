@@ -10,7 +10,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Send, Sparkles, Bot, User, Headset, PauseCircle, PlayCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getLeadThread, sendLeadMessage, autoAnswerLead, setLeadAiPaused, type LeadMessage } from "@/services/api/ads";
+import { getLeadThread, sendLeadMessage, sendLeadEmail, autoAnswerLead, setLeadAiPaused, type LeadMessage } from "@/services/api/ads";
+import { LeadActivityList } from "@/components/ads/LeadActivityList";
+
+// Plain reply text → minimal HTML (for the formatted-email send path).
+const toHtml = (text: string) =>
+  `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a">${text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>")}</div>`;
 
 const AUTHOR_META: Record<LeadMessage["author"], { label: string; icon: React.ReactNode; align: string; bubble: string }> = {
   lead: { label: "Lead", icon: <User className="w-3.5 h-3.5" />, align: "items-start", bubble: "bg-[#1A1A1A] text-gray-200 border border-white/10" },
@@ -35,6 +41,9 @@ export const LeadConversation: React.FC<{
   const [aiBusy, setAiBusy] = useState(false);
   const [paused, setPaused] = useState(initialAiPaused);
   const [pausing, setPausing] = useState(false);
+  const [tab, setTab] = useState<"messages" | "activity">("messages");
+  const [formatted, setFormatted] = useState(false);
+  const [subject, setSubject] = useState("");
   const endRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
@@ -49,10 +58,12 @@ export const LeadConversation: React.FC<{
   const send = async () => {
     const body = draft.trim();
     if (!body) return;
+    if (formatted && !subject.trim()) { toast.error("Add a subject for the formatted email."); return; }
     setSending(true);
     try {
-      await sendLeadMessage(leadId, body, mode);
-      setDraft("");
+      if (formatted) await sendLeadEmail(leadId, subject.trim(), toHtml(body), mode);
+      else await sendLeadMessage(leadId, body, mode);
+      setDraft(""); setSubject(""); setFormatted(false);
       await load();
     } catch (e: any) {
       toast.error(e?.response?.data?.error || e?.message || "Couldn't send.");
@@ -73,7 +84,7 @@ export const LeadConversation: React.FC<{
     }
   };
 
-  useEffect(() => { if (open) setPaused(initialAiPaused); }, [open, initialAiPaused]);
+  useEffect(() => { if (open) { setPaused(initialAiPaused); setTab("messages"); } }, [open, initialAiPaused]);
 
   // Take over / hand back: pause stops the AI from auto-answering this lead's replies.
   const toggleTakeover = async () => {
@@ -103,6 +114,24 @@ export const LeadConversation: React.FC<{
           </DialogTitle>
         </DialogHeader>
 
+        <div className="flex items-center gap-1 border-b border-white/10 -mt-1">
+          {([{ v: "messages", label: "Messages" }, { v: "activity", label: "Activity" }] as const).map(({ v, label }) => (
+            <button
+              key={v}
+              onClick={() => setTab(v)}
+              className={`px-3 py-1.5 text-xs font-medium border-b-2 -mb-px ${tab === v ? "border-[#FFCC00] text-white" : "border-transparent text-gray-400 hover:text-white"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "activity" ? (
+          <div className="min-h-[240px] max-h-[55vh] overflow-y-auto pr-1 pt-1">
+            <LeadActivityList leadId={leadId} mode={mode} active={tab === "activity"} />
+          </div>
+        ) : (
+        <>
         {paused && (
           <div className="rounded-md border border-amber-500/30 bg-amber-900/15 px-3 py-2 text-xs text-amber-200 flex items-center gap-2">
             <PauseCircle className="w-3.5 h-3.5 shrink-0" /> You've taken over — the AI won't reply to this lead until you resume.
@@ -132,10 +161,24 @@ export const LeadConversation: React.FC<{
         </div>
 
         <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-500">{formatted ? "Formatted email (subject + rich)" : "Quick reply"}</span>
+            <button onClick={() => setFormatted((f) => !f)} className="text-[11px] text-gray-400 hover:text-[#FFCC00]">
+              {formatted ? "Switch to quick reply" : "Formatted email"}
+            </button>
+          </div>
+          {formatted && (
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Subject"
+              className="w-full px-2.5 py-1.5 bg-[#1A1A1A] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00]"
+            />
+          )}
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Type a reply…"
+            placeholder={formatted ? "Write your email…" : "Type a reply…"}
             rows={2}
             className="w-full px-2.5 py-1.5 bg-[#1A1A1A] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00]"
           />
@@ -168,6 +211,8 @@ export const LeadConversation: React.FC<{
             </button>
           </div>
         </div>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );
