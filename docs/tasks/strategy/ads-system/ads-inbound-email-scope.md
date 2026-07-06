@@ -241,7 +241,11 @@ like a silent failure — the domain reads "Verified").
    and `nslookup -type=MX reply.fixflow.ai` before clicking Verify in Resend.
 
 ### 14.4 New account — API key
-- Resend → **API Keys → Create** (Sending + Domains, or Full access). Copy once → this is `RESEND_API_KEY`.
+- Resend → **API Keys → Create** with **Full access**. Copy once → this is `RESEND_API_KEY`.
+- ⚠️ **Must be Full access, NOT "Sending access".** Inbound processing reads the received email's body via
+  `GET /emails/receiving/{email_id}` (see §14.9); a sending-only key returns **`401 { "name": "restricted_api_key",
+  "message": "This API key is restricted to only send emails" }`**, so replies get fetched-empty and silently dropped
+  (`ignored_empty`) while the webhook still shows `200`. Full access also covers sending, so it's safe for outbound.
 
 ### 14.5 New account — recreate BOTH webhooks
 - **Webhooks → Add Endpoint** for each:
@@ -285,3 +289,23 @@ Set on **staging first**, then prod:
 **DKIM caution (fallback path only):** DKIM tokens are per-account, so a *fresh* `send.fixflow.ai` can't be verified in both
 accounts without stacking records — do the DKIM swap in a low-send window and keep the old account sending until the new
 domain shows Verified. The claim/transfer path avoids this entirely (same DKIM, no gap).
+
+### 14.9 Inbound payload is metadata-only — the body is fetched by `email_id` (verified 2026-07-06)
+
+Resend's `email.received` webhook carries **only metadata** — `email_id`, `from`, `to`, `received_for`, `subject`,
+`message_id`, `attachments` — and **no `text` / `html` / `headers`** (kept small for serverless). `InboundEmailService`
+therefore fetches the body via **`GET https://api.resend.com/emails/receiving/{email_id}`** (`Authorization: Bearer
+RESEND_API_KEY`, so §14.4's **Full-access** key is mandatory) and merges `text`/`html`/`headers` back into the payload
+before parsing (`hydrateContent`). Dedupe keys on the stable `email_id`.
+
+**Debugging map** (from the live bring-up):
+- Domain "Verified" but replies bounce → **Receiving toggle off** or the receiving MX missing (§14.2).
+- Webhook shows `200` but no `ad_lead_messages` row → the **body fetch failed**; check Resend → **Logs** for a
+  `GET /emails/receiving/{id}` entry. `401 restricted_api_key` = sending-only key → upgrade to Full access (§14.4).
+  The webhook acks `200` *before* fetching, so a fetch failure never surfaces as a webhook error — only in Resend Logs
+  and the backend's `InboundEmail: failed to fetch received email content` log.
+- A healthy cycle in Resend **Logs** = three rows: `GET /emails/receiving/{id}` **200** (body fetch) +
+  `POST /emails` **200** (AI reply sent), and the inbound email under **Emails → Receiving**.
+
+**P0 status:** the live round-trip is **verified on staging** — inbound reply stored with the correct body, lead advanced
+`new → contacted`, and a brand-grounded AI reply emailed back. The earlier "unverified P0" caveats in §10/§14.7 are closed.

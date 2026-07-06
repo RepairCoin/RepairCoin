@@ -78,7 +78,7 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
       setRequests(reqs);
       setSubTier(sub?.tier ?? null);
       setMetaConn(meta);
-      if (c.items[0]) void select(c.items[0].id);
+      // Land on the campaign LIST (master), not a campaign's detail — the shop picks one to drill in.
     } finally {
       setLoading(false);
     }
