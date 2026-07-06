@@ -12,8 +12,12 @@ import { DeliveryStatus, MsgChannel } from '../repositories/LeadMessageRepositor
 import { resendEmailService } from '../../../services/ResendEmailService';
 import { shopRepository } from '../../../repositories';
 import { CampaignRepository } from '../repositories/CampaignRepository';
+import { LeadRepository } from '../repositories/LeadRepository';
+import { isInboundEmailEnabled, replyAddressFor } from './inboundEmailConfig';
 
 export interface LeadContact {
+  /** Lead id — used by the email channel to mint the per-lead inbound reply token. */
+  id?: string | null;
   phone: string | null;
   email: string | null;
   messengerId?: string | null;
@@ -29,7 +33,10 @@ function bodyToHtml(text: string): string {
 }
 
 export class LeadChannelSender {
-  constructor(private readonly campaigns = new CampaignRepository()) {}
+  constructor(
+    private readonly campaigns = new CampaignRepository(),
+    private readonly leads = new LeadRepository()
+  ) {}
 
   /** PURE — best channel for a lead from its contact fields. Messenger/WhatsApp (the chat moat)
    *  win when present. Email is preferred over SMS because email is the only WIRED transport today
@@ -75,10 +82,17 @@ export class LeadChannelSender {
     let shopName = 'FixFlow';
     let replyTo: string | undefined;
     try {
-      const shopId = to.campaignId ? await this.campaigns.getShopIdForCampaign(to.campaignId) : null;
+      const campaign = to.campaignId ? await this.campaigns.findById(to.campaignId).catch(() => null) : null;
+      const shopId = campaign?.shopId ?? null;
       const shop = shopId ? await shopRepository.getShop(shopId).catch(() => null) : null;
       shopName = (shop as any)?.name || 'FixFlow';
       replyTo = (shop as any)?.email || undefined;
+      // Model B: when inbound email is on AND the AI agent is on, route replies to a per-lead address
+      // WE receive (so the AI can answer) instead of the shop inbox.
+      if (isInboundEmailEnabled() && campaign?.aiAgentEnabled && to.id) {
+        const token = await this.leads.getOrCreateReplyToken(to.id).catch(() => null);
+        if (token) replyTo = replyAddressFor(token);
+      }
     } catch (e) {
       logger.warn(`LeadChannelSender: shop resolve failed for email reply: ${(e as Error)?.message || e}`);
     }

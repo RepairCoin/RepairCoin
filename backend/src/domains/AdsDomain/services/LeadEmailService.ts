@@ -14,6 +14,7 @@ import { LeadRepository } from '../repositories/LeadRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { AdLeadActivityRepository } from '../repositories/AdLeadActivityRepository';
 import { LeadMessageRepository } from '../repositories/LeadMessageRepository';
+import { isInboundEmailEnabled, replyAddressFor } from './inboundEmailConfig';
 
 export interface SendLeadEmailInput {
   leadId: string;
@@ -45,12 +46,18 @@ export class LeadEmailService {
     if (!lead) throw Object.assign(new Error('Lead not found'), { status: 404 });
     if (!lead.email) throw Object.assign(new Error('This lead has no email address'), { status: 400 });
 
-    // Email goes out under the shop's name from the FixFlow sending domain, but replies route
-    // back to the shop's own inbox.
-    const shopId = await this.campaigns.getShopIdForCampaign(lead.campaignId);
+    // Email goes out under the shop's name from the FixFlow sending domain. Reply-to is normally the
+    // shop's own inbox — but when inbound email is on AND the campaign's AI agent is on, route replies
+    // to a per-lead address WE receive (so the AI can answer them). See inboundEmailConfig.
+    const campaign = await this.campaigns.findById(lead.campaignId).catch(() => null);
+    const shopId = campaign?.shopId ?? null;
     const shop = shopId ? await shopRepository.getShop(shopId).catch(() => null) : null;
     const shopName = (shop as any)?.name || 'FixFlow';
-    const replyTo = (shop as any)?.email || undefined;
+    let replyTo = (shop as any)?.email || undefined;
+    if (isInboundEmailEnabled() && campaign?.aiAgentEnabled) {
+      const token = await this.leads.getOrCreateReplyToken(lead.id).catch(() => null);
+      if (token) replyTo = replyAddressFor(token);
+    }
 
     if (!resendEmailService.isReady()) {
       // Surface a clear, typed error so the UI can fall back to mailto: instead of failing hard.
