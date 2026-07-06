@@ -31,6 +31,8 @@ export interface AdLead {
   gclid: string | null;
   /** When this lead's offline conversion was uploaded to Google (Phase 2) — idempotency marker. */
   conversionUploadedAt: Date | null;
+  /** Take-over (P3): when true, the AI stops auto-answering this lead's replies — a human is handling it. */
+  aiPaused: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -252,6 +254,11 @@ export class LeadRepository extends BaseRepository {
     return res.rowCount ?? 0;
   }
 
+  /** Take-over (P3): pause/resume the AI auto-answer for this lead. */
+  async setAiPaused(id: string, paused: boolean): Promise<void> {
+    await this.pool.query(`UPDATE ad_leads SET ai_paused = $2, updated_at = now() WHERE id = $1`, [id, paused]);
+  }
+
   /** Speed-to-lead stamp: record first_response_at WITHOUT advancing the pipeline stage. Used by AI
    *  auto-outreach (Part B redesign) — an AI email is a fast first touch, but not a human 'contacted'
    *  sales milestone, so the funnel stage stays honest. No-op once first_response_at is set. */
@@ -318,6 +325,7 @@ export class LeadRepository extends BaseRepository {
       lostReason: r.lost_reason,
       gclid: r.gclid ?? null,
       conversionUploadedAt: r.conversion_uploaded_at ?? null,
+      aiPaused: r.ai_paused === true,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };

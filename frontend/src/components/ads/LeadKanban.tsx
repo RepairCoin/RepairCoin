@@ -232,6 +232,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
           open={!!convoLead}
           onClose={() => setConvoLead(null)}
           mode={mode}
+          initialAiPaused={convoLead.aiPaused}
         />
       )}
 

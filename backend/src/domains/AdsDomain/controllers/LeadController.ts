@@ -436,6 +436,7 @@ function toConversationItem(row: LeadConversationRow, nowMs: number) {
     lastDirection: row.lastDirection, lastAuthor: row.lastAuthor, lastBody: row.lastBody,
     lastAt: row.lastAt, messageCount: row.messageCount ?? 0,
     conversationState: state, needsHuman: isNeedsHuman(state),
+    aiPaused: row.aiPaused,
     createdAt: row.createdAt,
   };
 }
@@ -467,6 +468,36 @@ export async function getLeadConversations(req: Request, res: Response): Promise
   } catch (err) {
     logger.error('LeadController.getLeadConversations failed', err);
     res.status(500).json({ success: false, error: 'Failed to load conversations' });
+  }
+}
+
+// PATCH /leads/:id/ai-paused (admin) — take over / resume the AI for a lead.
+export async function setLeadAiPaused(req: Request, res: Response): Promise<void> {
+  const paused = req.body?.paused;
+  if (typeof paused !== 'boolean') { res.status(400).json({ success: false, error: 'paused (boolean) is required' }); return; }
+  try {
+    const lead = await leads.findById(req.params.id);
+    if (!lead) { res.status(404).json({ success: false, error: 'Lead not found' }); return; }
+    await leads.setAiPaused(req.params.id, paused);
+    res.json({ success: true, data: { id: req.params.id, aiPaused: paused } });
+  } catch (err) {
+    logger.error('LeadController.setLeadAiPaused failed', err);
+    res.status(500).json({ success: false, error: 'Failed to update' });
+  }
+}
+
+// PATCH /shop/leads/:id/ai-paused (shop) — take over / resume for an OWNED lead.
+export async function setShopLeadAiPaused(req: Request, res: Response): Promise<void> {
+  const paused = req.body?.paused;
+  if (typeof paused !== 'boolean') { res.status(400).json({ success: false, error: 'paused (boolean) is required' }); return; }
+  try {
+    const lead = await getOwnedShopLead(req, res);
+    if (!lead) return;
+    await leads.setAiPaused(req.params.id, paused);
+    res.json({ success: true, data: { id: req.params.id, aiPaused: paused } });
+  } catch (err) {
+    logger.error('LeadController.setShopLeadAiPaused failed', err);
+    res.status(500).json({ success: false, error: 'Failed to update' });
   }
 }
 

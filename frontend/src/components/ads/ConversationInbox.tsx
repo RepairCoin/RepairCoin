@@ -37,7 +37,7 @@ export const ConversationInbox: React.FC<{ mode: "admin" | "shop"; campaignId?: 
   const [items, setItems] = useState<LeadConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"needs" | "all">("needs");
-  const [convo, setConvo] = useState<{ id: string; name: string | null } | null>(null);
+  const [convo, setConvo] = useState<{ id: string; name: string | null; aiPaused: boolean } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,7 +90,7 @@ export const ConversationInbox: React.FC<{ mode: "admin" | "shop"; campaignId?: 
             return (
               <button
                 key={c.id}
-                onClick={() => setConvo({ id: c.id, name: c.name })}
+                onClick={() => setConvo({ id: c.id, name: c.name, aiPaused: c.aiPaused })}
                 className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors flex items-start gap-3"
               >
                 <div className="mt-0.5 shrink-0 text-gray-500">
@@ -121,6 +121,7 @@ export const ConversationInbox: React.FC<{ mode: "admin" | "shop"; campaignId?: 
           leadName={convo.name}
           open={!!convo}
           mode={mode}
+          initialAiPaused={convo.aiPaused}
           onClose={() => { setConvo(null); void load(); }}
         />
       )}
