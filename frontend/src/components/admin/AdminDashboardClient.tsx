@@ -27,6 +27,7 @@ import AdminAdsTab from "@/components/admin/tabs/AdminAdsTab";
 import { AdminSettingsTab } from "@/components/admin/tabs/AdminSettingsTab";
 import { BugReportsTab } from "@/components/admin/tabs/BugReportsTab";
 import { AuditLogTab } from "@/components/admin/tabs/AuditLogTab";
+import { RevenueAnalyticsTab } from "@/components/admin/tabs/RevenueAnalyticsTab";
 import { AdminAISettingsTab } from "@/components/admin/tabs/AdminAISettingsTab";
 import { SmartCommandBar } from "@/components/admin/SmartCommandBar";
 import DashboardLayout from "@/components/ui/DashboardLayout";
@@ -459,6 +460,13 @@ export default function AdminDashboardClient() {
           {activeTab === "audit-log" && hasAdminAccess && (
             <LazyTabWrapper isActive={activeTab === "audit-log"}>
               <AuditLogTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Revenue Analytics Tab */}
+          {activeTab === "revenue" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "revenue"}>
+              <RevenueAnalyticsTab />
             </LazyTabWrapper>
           )}
 

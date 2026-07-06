@@ -987,6 +987,23 @@ export const adminApi = {
     const queryString = buildQueryString(params);
     return apiClient.get(`/admin/analytics/activity-logs${queryString}`);
   },
+
+  // Revenue analytics
+  getCurrentWeekRevenue: async () => {
+    return apiClient.get('/admin/revenue/current-week');
+  },
+
+  getRevenueRange: async (startDate: string, endDate: string) => {
+    return apiClient.get(`/admin/revenue/range${buildQueryString({ startDate, endDate })}`);
+  },
+
+  getRevenueByTier: async () => {
+    return apiClient.get('/admin/revenue/by-tier');
+  },
+
+  getRevenueProjections: async (monthlyVolume: number, averageTier: string) => {
+    return apiClient.get(`/admin/revenue/projections${buildQueryString({ monthlyVolume, averageTier })}`);
+  },
 } as const;
 
 // Platform Settings Types
