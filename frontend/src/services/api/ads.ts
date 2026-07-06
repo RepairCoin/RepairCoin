@@ -414,9 +414,10 @@ export const logLeadActivity = async (
   return unwrap<AdLeadActivity>(res);
 };
 
-// Stage 3 (Option C) — AI-drafted first outreach for a lead (admin).
-export const draftLeadReply = async (id: string): Promise<string> => {
-  const res = await apiClient.post(`/ads/leads/${id}/draft-reply`);
+// Stage 3 (Option C) — AI-drafted first outreach for a lead. Mode-aware: shop hits the
+// ownership-gated /ads/shop/leads/... base, admin hits /ads/leads/...
+export const draftLeadReply = async (id: string, mode: LeadMode = 'admin'): Promise<string> => {
+  const res = await apiClient.post(`${leadBase(mode)}/${id}/draft-reply`);
   return unwrap<{ draft: string }>(res).draft;
 };
 
@@ -432,16 +433,16 @@ export interface LeadMessage {
   deliveryStatus: 'recorded' | 'queued' | 'sent' | 'delivered' | 'failed';
   createdAt: string;
 }
-export const getLeadThread = async (id: string): Promise<LeadMessage[]> => {
-  const res = await apiClient.get(`/ads/leads/${id}/messages`);
+export const getLeadThread = async (id: string, mode: LeadMode = 'admin'): Promise<LeadMessage[]> => {
+  const res = await apiClient.get(`${leadBase(mode)}/${id}/messages`);
   return unwrap<LeadMessage[]>(res);
 };
-export const sendLeadMessage = async (id: string, body: string): Promise<LeadMessage> => {
-  const res = await apiClient.post(`/ads/leads/${id}/messages`, { body });
+export const sendLeadMessage = async (id: string, body: string, mode: LeadMode = 'admin'): Promise<LeadMessage> => {
+  const res = await apiClient.post(`${leadBase(mode)}/${id}/messages`, { body });
   return unwrap<LeadMessage>(res);
 };
-export const autoAnswerLead = async (id: string): Promise<LeadMessage> => {
-  const res = await apiClient.post(`/ads/leads/${id}/auto-answer`);
+export const autoAnswerLead = async (id: string, mode: LeadMode = 'admin'): Promise<LeadMessage> => {
+  const res = await apiClient.post(`${leadBase(mode)}/${id}/auto-answer`);
   return unwrap<LeadMessage>(res);
 };
 

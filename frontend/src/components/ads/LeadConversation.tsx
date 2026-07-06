@@ -23,7 +23,9 @@ export const LeadConversation: React.FC<{
   leadName?: string | null;
   open: boolean;
   onClose: () => void;
-}> = ({ leadId, leadName, open, onClose }) => {
+  /** Which API base to hit — shop uses the ownership-gated /ads/shop/leads/... routes. */
+  mode?: "admin" | "shop";
+}> = ({ leadId, leadName, open, onClose, mode = "admin" }) => {
   const [thread, setThread] = useState<LeadMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
@@ -33,9 +35,9 @@ export const LeadConversation: React.FC<{
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setThread(await getLeadThread(leadId).catch(() => [])); }
+    try { setThread(await getLeadThread(leadId, mode).catch(() => [])); }
     finally { setLoading(false); }
-  }, [leadId]);
+  }, [leadId, mode]);
 
   useEffect(() => { if (open) void load(); }, [open, load]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [thread]);
@@ -45,7 +47,7 @@ export const LeadConversation: React.FC<{
     if (!body) return;
     setSending(true);
     try {
-      await sendLeadMessage(leadId, body);
+      await sendLeadMessage(leadId, body, mode);
       setDraft("");
       await load();
     } catch (e: any) {
@@ -58,7 +60,7 @@ export const LeadConversation: React.FC<{
   const aiAnswer = async () => {
     setAiBusy(true);
     try {
-      await autoAnswerLead(leadId);
+      await autoAnswerLead(leadId, mode);
       await load();
     } catch (e: any) {
       toast.error(e?.response?.data?.error || e?.message || "Couldn't generate a reply.");

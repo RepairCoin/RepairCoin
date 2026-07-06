@@ -21,6 +21,7 @@ import {
   getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage, triggerAttributionBackfill,
   getLeadActivities, logLeadActivity, emailLead,
   getShopLeadActivities, logShopLeadActivity, emailShopLead,
+  getShopLeadThread, postShopLeadMessage, autoAnswerShopLead, draftShopLeadReply,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
@@ -204,6 +205,10 @@ export function initializeRoutes(): Router {
   router.get('/shop/leads/:id/activities', ...shop, getShopLeadActivities);
   router.post('/shop/leads/:id/activities', ...shop, logShopLeadActivity);
   router.post('/shop/leads/:id/email', ...shop, emailShopLead);
+  router.get('/shop/leads/:id/messages', ...shop, getShopLeadThread);        // conversation thread (own leads)
+  router.post('/shop/leads/:id/messages', ...shop, postShopLeadMessage);     // shop manual reply
+  router.post('/shop/leads/:id/auto-answer', ...shop, autoAnswerShopLead);   // shop-triggered AI reply
+  router.post('/shop/leads/:id/draft-reply', ...shop, draftShopLeadReply);   // shop-side AI draft
   router.get('/shop/enrollment', ...shop, getMyEnrollment);             // "Request ads" status
   router.post('/shop/enrollment', ...shop, requestAds);                 // "Request ads" opt-in
   router.get('/shop/messages', ...shop, getMyMessages);                 // durable thread (Phase 2)

@@ -357,6 +357,64 @@ export async function autoAnswerLead(req: Request, res: Response): Promise<void>
   }
 }
 
+// --- Shop-scoped conversation thread (ownership-gated mirror of the admin message/draft/auto-answer
+//     handlers above). Lets a shop READ the conversation (incl. the lead's email replies + AI answers)
+//     and respond for its OWN leads — since in the AI-email model replies land in the app, not the
+//     shop inbox. Ownership is verified via getOwnedShopLead (the lead's campaign shop_id). ---
+
+// GET /shop/leads/:id/messages (shop) — conversation thread for an owned lead.
+export async function getShopLeadThread(req: Request, res: Response): Promise<void> {
+  try {
+    const lead = await getOwnedShopLead(req, res);
+    if (!lead) return;
+    res.json({ success: true, data: await leadAutoAnswerService.getThread(req.params.id) });
+  } catch (err) {
+    logger.error('LeadController.getShopLeadThread failed', err);
+    res.status(500).json({ success: false, error: 'Failed to load conversation' });
+  }
+}
+
+// POST /shop/leads/:id/messages (shop) — shop sends a manual reply to its own lead.
+export async function postShopLeadMessage(req: Request, res: Response): Promise<void> {
+  const body = (req.body?.body || '').toString().trim();
+  if (!body) { res.status(400).json({ success: false, error: 'body is required' }); return; }
+  try {
+    const lead = await getOwnedShopLead(req, res);
+    if (!lead) return;
+    res.status(201).json({ success: true, data: await leadAutoAnswerService.sendAdminMessage(req.params.id, body) });
+  } catch (err: any) {
+    const status = err?.status ?? 500;
+    if (status >= 500) logger.error('LeadController.postShopLeadMessage failed', err);
+    res.status(status).json({ success: false, error: err?.message || 'Failed to send message' });
+  }
+}
+
+// POST /shop/leads/:id/auto-answer (shop) — generate + send an AI reply for an owned lead.
+export async function autoAnswerShopLead(req: Request, res: Response): Promise<void> {
+  try {
+    const lead = await getOwnedShopLead(req, res);
+    if (!lead) return;
+    res.json({ success: true, data: await leadAutoAnswerService.generateReply(req.params.id) });
+  } catch (err: any) {
+    const status = err?.status ?? 500;
+    if (status >= 500) logger.error('LeadController.autoAnswerShopLead failed', err);
+    res.status(status).json({ success: false, error: err?.message || 'Failed to auto-answer' });
+  }
+}
+
+// POST /shop/leads/:id/draft-reply (shop) — AI-drafted outreach for an owned lead.
+export async function draftShopLeadReply(req: Request, res: Response): Promise<void> {
+  try {
+    const lead = await getOwnedShopLead(req, res);
+    if (!lead) return;
+    res.json({ success: true, data: await leadAIService.draftOutreach(req.params.id) });
+  } catch (err: any) {
+    const status = err?.status ?? 500;
+    logger.error('LeadController.draftShopLeadReply failed', err);
+    res.status(status).json({ success: false, error: err?.message || 'Failed to draft reply' });
+  }
+}
+
 // POST /attribution/backfill (admin) — run the conversion-attribution backfill now (contact-match
 // unlinked paid orders → ad leads, advance to 'paid', and upload the offline conversion to Google
 // for gclid leads). Normally runs on the order-paid event; this is a manual trigger. Optional ?shopId.
