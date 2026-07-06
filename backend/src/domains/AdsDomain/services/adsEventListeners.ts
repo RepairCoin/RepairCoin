@@ -32,11 +32,16 @@ export function registerAdsEventListeners(): void {
         const shop = await shopRepository.getShop(campaign.shopId);
         const receiver = (shop as any)?.walletAddress || (shop as any)?.wallet_address;
         if (!receiver) return;
+        // When the AI is set to greet new leads (auto outreach + flag on), say so — otherwise the
+        // "respond quickly" push contradicts the AI having already replied.
+        const aiHandling = process.env.ADS_AI_INITIATE_ENABLED === 'true' && (campaign as any).aiOutreachMode === 'auto';
         await notifications.create({
           senderAddress: 'system',
           receiverAddress: receiver,
           notificationType: 'ad_lead_new',
-          message: `New ad lead for "${campaign.name}". Respond quickly to win it.`,
+          message: aiHandling
+            ? `New lead for "${campaign.name}" — the AI is handling first contact. Open the conversation to review or take over.`
+            : `New lead for "${campaign.name}". Open it to reach out.`,
           metadata: { campaignId, leadId: event?.aggregateId },
         });
       } catch (err) {

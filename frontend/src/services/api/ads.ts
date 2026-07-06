@@ -905,6 +905,35 @@ export const setShopCampaignOutreachMode = async (id: string, mode: 'off' | 'dra
   return unwrap<{ id: string; aiOutreachMode: 'off' | 'draft' | 'auto' }>(res);
 };
 
+// Part B redesign (P2) — conversation inbox: leads as conversation rows with a derived state.
+export type ConversationState = 'awaiting_ai' | 'ai_engaged' | 'needs_human' | 'dormant' | 'quiet';
+export interface LeadConversationItem {
+  id: string;
+  campaignId: string;
+  campaignName: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  leadStatus: string;
+  hasChatChannel: boolean;
+  lastDirection: 'inbound' | 'outbound' | null;
+  lastAuthor: 'lead' | 'ai' | 'admin' | null;
+  lastBody: string | null;
+  lastAt: string | null;
+  messageCount: number;
+  conversationState: ConversationState;
+  needsHuman: boolean;
+  createdAt: string;
+}
+export const getShopConversations = async (campaignId?: string) => {
+  const res = await apiClient.get('/ads/shop/conversations', { params: campaignId ? { campaignId } : {} });
+  return unwrap<LeadConversationItem[]>(res);
+};
+export const getLeadConversations = async (params?: { campaignId?: string; shopId?: string }) => {
+  const res = await apiClient.get('/ads/leads/conversations', { params: params ?? {} });
+  return unwrap<LeadConversationItem[]>(res);
+};
+
 export const listShopLeads = async (params?: { campaignId?: string; status?: LeadStatus }) => {
   const res = await apiClient.get('/ads/shop/leads', { params });
   return { items: unwrap<AdLead[]>(res), total: (res.data.total ?? 0) as number };

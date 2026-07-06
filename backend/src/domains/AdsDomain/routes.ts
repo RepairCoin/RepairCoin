@@ -22,6 +22,7 @@ import {
   getLeadActivities, logLeadActivity, emailLead,
   getShopLeadActivities, logShopLeadActivity, emailShopLead,
   getShopLeadThread, postShopLeadMessage, autoAnswerShopLead, draftShopLeadReply,
+  getShopConversations, getLeadConversations,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
@@ -179,6 +180,7 @@ export function initializeRoutes(): Router {
   // ---- Admin: leads ----
   router.get('/leads', ...admin, listLeads);
   router.get('/leads/awaiting', ...admin, listAwaitingLeads);   // SLA (Stage 2)
+  router.get('/leads/conversations', ...admin, getLeadConversations); // P2: conversation inbox
   router.post('/leads/manual', ...admin, createManualLead);
   router.patch('/leads/:id/status', ...admin, updateLeadStatus);
   router.post('/leads/:id/draft-reply', ...admin, draftLeadReply);   // Stage 3: AI outreach draft
@@ -202,6 +204,7 @@ export function initializeRoutes(): Router {
   router.get('/shop/leads', ...shop, listShopLeads);
   router.patch('/shop/leads/:id/status', ...shop, updateShopLeadStatus); // shop works its own leads
   router.get('/shop/leads/awaiting', ...shop, listShopAwaitingLeads);   // SLA (Stage 2)
+  router.get('/shop/conversations', ...shop, getShopConversations);     // P2: conversation inbox
   // Shop lead follow-up (ownership-gated): timeline, log call/note, tracked email.
   router.get('/shop/leads/:id/activities', ...shop, getShopLeadActivities);
   router.post('/shop/leads/:id/activities', ...shop, logShopLeadActivity);

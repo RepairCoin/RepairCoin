@@ -56,6 +56,17 @@ export interface ListLeadsFilter {
   limit?: number;
 }
 
+/** A lead plus a summary of its last message + its campaign's AI mode — for the conversation inbox (P2). */
+export interface LeadConversationRow extends AdLead {
+  lastDirection: 'inbound' | 'outbound' | null;
+  lastAuthor: 'lead' | 'ai' | 'admin' | null;
+  lastBody: string | null;
+  lastAt: Date | null;
+  messageCount: number;
+  campaignName: string | null;
+  campaignOutreachMode: 'off' | 'draft' | 'auto' | null;
+}
+
 export class LeadRepository extends BaseRepository {
   async create(input: CreateLeadInput): Promise<AdLead> {
     const res = await this.pool.query(
@@ -239,6 +250,54 @@ export class LeadRepository extends BaseRepository {
       [String(retentionDays)]
     );
     return res.rowCount ?? 0;
+  }
+
+  /** Speed-to-lead stamp: record first_response_at WITHOUT advancing the pipeline stage. Used by AI
+   *  auto-outreach (Part B redesign) — an AI email is a fast first touch, but not a human 'contacted'
+   *  sales milestone, so the funnel stage stays honest. No-op once first_response_at is set. */
+  async stampFirstResponse(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_leads SET first_response_at = COALESCE(first_response_at, now()), updated_at = now() WHERE id = $1`,
+      [id]
+    );
+  }
+
+  /** Conversation inbox (P2): each lead with a summary of its most-recent message, newest activity
+   *  first. Shop-scoped (through ad_campaigns.shop_id) or campaign-scoped. State is derived in the
+   *  service layer from these fields (see leadConversationState). */
+  async listConversations(filter: { shopId?: string; campaignId?: string; limit?: number }): Promise<LeadConversationRow[]> {
+    const where: string[] = [];
+    const params: any[] = [];
+    if (filter.shopId) { params.push(filter.shopId); where.push(`c.shop_id = $${params.length}`); }
+    if (filter.campaignId) { params.push(filter.campaignId); where.push(`l.campaign_id = $${params.length}`); }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    params.push(filter.limit ?? 100);
+    const res = await this.pool.query(
+      `SELECT l.*, c.name AS campaign_name, c.ai_outreach_mode AS campaign_outreach_mode,
+              m.direction AS last_direction, m.author AS last_author,
+              left(m.body, 140) AS last_body, m.created_at AS last_at, cnt.n AS message_count
+         FROM ad_leads l
+         LEFT JOIN ad_campaigns c ON c.id = l.campaign_id
+         LEFT JOIN LATERAL (
+           SELECT direction, author, body, created_at FROM ad_lead_messages
+            WHERE lead_id = l.id ORDER BY created_at DESC LIMIT 1
+         ) m ON true
+         LEFT JOIN LATERAL (SELECT COUNT(*)::int AS n FROM ad_lead_messages WHERE lead_id = l.id) cnt ON true
+         ${whereSql}
+         ORDER BY COALESCE(m.created_at, l.created_at) DESC
+         LIMIT $${params.length}`,
+      params
+    );
+    return res.rows.map((r) => ({
+      ...this.mapRow(r),
+      lastDirection: r.last_direction ?? null,
+      lastAuthor: r.last_author ?? null,
+      lastBody: r.last_body ?? null,
+      lastAt: r.last_at ?? null,
+      messageCount: r.message_count ?? 0,
+      campaignName: r.campaign_name ?? null,
+      campaignOutreachMode: r.campaign_outreach_mode ?? null,
+    }));
   }
 
   private mapRow(r: any): AdLead {

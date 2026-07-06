@@ -1,6 +1,6 @@
 // Part B — AI-initiated first contact engine. LeadInitiationService.onLeadCaptured decision logic:
 // flag gate, per-campaign 'auto' mode, contactable + fresh + not-already-messaged guards, and the
-// happy path (draft → deliver → record → markContacted). Repos/AI/sender are injected fakes; the
+// happy path (draft → deliver → record → stampFirstResponse). Repos/AI/sender are injected fakes; the
 // LeadAIService singleton (constructs an AnthropicClient on import) is module-mocked.
 
 jest.mock('../../src/domains/AdsDomain/services/LeadAIService', () => ({
@@ -13,7 +13,7 @@ const baseCampaign = { id: 'c1', shopId: 's1', aiOutreachMode: 'auto' };
 const baseLead = { id: 'l1', email: 'lead@x.com', leadStatus: 'new', firstResponseAt: null, campaignId: 'c1' };
 
 const makeSvc = (over: { campaign?: any; lead?: any; messages?: any[]; draftThrows?: boolean } = {}) => {
-  const leads: any = { findById: jest.fn(async () => over.lead === undefined ? baseLead : over.lead), markContacted: jest.fn(async () => {}) };
+  const leads: any = { findById: jest.fn(async () => over.lead === undefined ? baseLead : over.lead), stampFirstResponse: jest.fn(async () => {}) };
   const campaigns: any = { findById: jest.fn(async () => over.campaign === undefined ? baseCampaign : over.campaign) };
   const messages: any = { listByLead: jest.fn(async () => over.messages ?? []), append: jest.fn(async () => ({ id: 'm1' })) };
   const ai: any = { draftOutreach: jest.fn(async () => { if (over.draftThrows) throw Object.assign(new Error('over budget'), { status: 429 }); return { draft: 'Hi! Saw you were interested — happy to help.', costUsd: 0.001 }; }) };
@@ -60,7 +60,7 @@ describe('LeadInitiationService.onLeadCaptured', () => {
     expect(await svc.onLeadCaptured('l1', 'c1')).toBe('draft_failed');
     expect(channel.deliver).not.toHaveBeenCalled();
     expect(messages.append).not.toHaveBeenCalled();
-    expect(leads.markContacted).not.toHaveBeenCalled();
+    expect(leads.stampFirstResponse).not.toHaveBeenCalled();
   });
 
   it('happy path: drafts, sends by email, records the message, marks contacted', async () => {
@@ -69,6 +69,6 @@ describe('LeadInitiationService.onLeadCaptured', () => {
     expect(ai.draftOutreach).toHaveBeenCalledWith('l1');
     expect(channel.deliver).toHaveBeenCalledWith('email', baseLead, expect.stringContaining('happy to help'));
     expect(messages.append).toHaveBeenCalledWith(expect.objectContaining({ leadId: 'l1', direction: 'outbound', author: 'ai', channel: 'email' }));
-    expect(leads.markContacted).toHaveBeenCalledWith('l1');
+    expect(leads.stampFirstResponse).toHaveBeenCalledWith('l1');
   });
 });
