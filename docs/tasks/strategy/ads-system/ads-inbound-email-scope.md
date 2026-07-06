@@ -144,3 +144,144 @@ Inbound emails carry the **entire quoted history + signatures**. We must extract
 3. **Reply-token (§5):** stored random token (recommended) vs HMAC-signed leadId vs plus-addressing.
 4. **Shop visibility (§8):** in-app notification only (recommended v1) vs also BCC/forward the shop a copy.
 5. **Rate-limit threshold (§7):** auto-answers per lead per hour (default?).
+
+---
+
+## 14. Resend account migration — full runbook (recreate domains, DNS in Hostinger, webhooks, env)
+
+**Context.** The original Resend account was not the company's real account. Management provisioned a **new** Resend
+account (invited us in) with an upgraded payment method / plan — inbound receiving requires the paid plan. In Resend,
+**domains, API keys, and webhooks are account-scoped — nothing transfers.** Recreating them in the new account mints
+**new DKIM keys** (→ new DNS records in Hostinger) and **new webhook signing secrets** (→ new env). We rebuild two
+domains and two webhooks:
+- **`send.fixflow.ai`** — sending domain (outbound campaign / lead email, `leads@send.fixflow.ai`).
+- **`reply.fixflow.ai`** — receiving/inbound subdomain (customer replies → our webhook).
+- Webhook **`POST /api/ads/webhooks/resend`** — engagement events (sent/delivered/bounced/opened), secret `RESEND_WEBHOOK_SECRET`.
+- Webhook **`POST /api/ads/webhooks/resend-inbound`** — inbound email, secret `RESEND_INBOUND_WEBHOOK_SECRET`.
+Both routes are raw-body + Svix-verified in `app.ts`; a wrong secret returns **401** (a fast way to confirm the secret).
+
+DNS for `fixflow.ai` is hosted at **Hostinger**. All the records below go in Hostinger's DNS Zone editor.
+
+### 14.0 Prereqs
+- Accept the Resend invite; confirm a role that can manage **Domains / API Keys / Webhooks** (Admin or Developer, not Viewer),
+  and that the **paid plan is active** (inbound receiving needs it).
+- **Keep the old Resend account live** until cutover so outbound mail doesn't drop.
+- **Confirm Hostinger is authoritative for `fixflow.ai`:** hPanel → Domains → `fixflow.ai` → *DNS / Nameservers*. The
+  nameservers must be Hostinger's (`ns1.dns-parking.com` / `ns2.dns-parking.com`) for the DNS Zone editor to take effect.
+  If they point elsewhere (e.g. Cloudflare), add all records **there** instead — the Hostinger zone is ignored.
+- In Hostinger, temporarily set new records' **TTL to 300** (5 min) for fast propagation during the migration; raise back
+  to default (14400) once verified.
+
+### 14.1 New account — claim the SENDING domain `send.fixflow.ai` (ownership transfer)
+
+Because `send.fixflow.ai` already exists in the **old** Resend team, adding it in the new team triggers Resend's
+**claim / ownership-transfer** flow, not a from-scratch setup. Resend shows the banner *"send.fixflow.ai is in use by
+another Resend team. Verifying ownership will transfer the domain to your team and revoke their access."* and asks for a
+**single ownership TXT** (`resend-domain-…`). **This is the recommended path** — the existing DKIM/SPF/MX carry over, so
+there's **no new DKIM to add and no sending gap**. Do *not* delete the domain from the old account first (that turns it
+into a fresh setup with new DKIM keys + a downtime window; see the fallback below).
+
+1. Resend (new team) → **Domains → Add Domain** → `send.fixflow.ai` (same region as prod). The **Claim domain** screen appears.
+2. Resend shows one record, e.g. `Type TXT · Name @ · Content resend-domain-…` — **use the exact value shown.**
+3. **Hostinger `@` gotcha:** Resend's `Name = @` means *the domain being claimed* (`send.fixflow.ai`), **not** the zone root.
+   In Hostinger, add: **Type** `TXT`, **Name/Host** = `send` (Hostinger appends `.fixflow.ai` → `send.fixflow.ai`),
+   **Value** = the `resend-domain-…` string, TTL Auto/300. Do **not** enter `@` in Hostinger. Verify with
+   `nslookup -type=TXT send.fixflow.ai`.
+4. Click **Verify ownership**. On success the domain (with its DKIM/SPF/MX) transfers to your team and the old team loses it.
+5. Confirm the domain page now shows **Verified** with DKIM/MX present. Only add missing records if it flags any.
+6. **Hand-off (do right after Verify):** once ownership transfers, the **old account's API key can no longer send** from this
+   domain. Immediately swap `RESEND_API_KEY` (+ the webhook secrets, §14.5/14.6) to the new account and redeploy. DKIM is
+   unchanged, so the cutover is seamless.
+
+**Fallback — only if the claim/transfer won't work** (e.g. can't add the TXT, or you deliberately deleted the domain from
+the old account): it becomes a normal fresh setup — Resend generates **new** DKIM keys and you add the full record set in
+Hostinger (host prefixes shown; use the exact values from the Resend page):
+- **MX** — host `send`, value like `feedback-smtp.us-east-1.amazonses.com`, priority `10`.
+- **TXT (SPF)** — host `send`, value `v=spf1 include:amazonses.com ~all`.
+- **TXT (DKIM)** — host `resend._domainkey.send`, value the long `p=…` key.
+- **TXT (DMARC), optional** — host `_dmarc`, value `v=DMARC1; p=none;` (only if not already at root).
+Leave the old DKIM stacked until the new domain verifies (avoids a sending gap), then remove it. Expect brief outbound
+downtime while new DKIM propagates.
+
+### 14.2 New account — recreate the RECEIVING domain `reply.fixflow.ai`
+
+⚠️ **Receiving is a SEPARATE toggle from sending — this is the step that's easy to miss.** Adding the domain only
+provisions the **sending** records by default (DKIM `resend._domainkey.reply` + SPF on `send.reply` + an MX on
+`send.reply` → `feedback-smtp.<region>.amazonses.com`). Those verifying and the domain showing "Verified" means
+**sending** works — it does **NOT** mean the domain can receive mail. Inbound needs the Receiving toggle flipped, which
+provisions a **different** MX. If you skip it, mail to `…@reply.fixflow.ai` bounces and the webhook never fires (looks
+like a silent failure — the domain reads "Verified").
+
+1. Resend → **Domains → Add Domain** → `reply.fixflow.ai`. It sets up as a sending domain (DKIM/SPF/`send.reply` MX).
+2. On the domain page, scroll to **"Enable Receiving"** and **toggle it ON**. **The inbound MX host only appears after this
+   toggle is on** — there's nothing to add in Hostinger until you flip it.
+   - **Permission gate:** the Receiving toggle requires **Admin/Owner** on the Resend account. A **Member cannot** flip it —
+     get an admin (management) to enable it or to upgrade your role first.
+3. Resend now shows the **receiving MX** — on the bare domain (Name `reply` / `@`), pointing to **Resend's inbound host**
+   (e.g. `inbound-smtp.…`), **not** `feedback-smtp`/amazonses. Copy the exact host + priority.
+4. In Hostinger add: **Type** MX, **Name** `reply` (the bare `reply`, **NOT** `send.reply`), **Value** = the Resend inbound
+   host, **Priority** as shown (usually `10`), **TTL** `300`.
+   - **Do not confuse or delete the `send.reply` MX** (`feedback-smtp.<region>.amazonses.com`) — that's the sending
+     bounce/return-path record and must stay. The receiving MX is an **additional** record on a different host; they coexist.
+5. Verify the receiving MX resolves before testing: `nslookup -type=MX reply.fixflow.ai` must return the **Resend inbound
+   host** (not `feedback-smtp`; if it returns nothing, the record is on `send.reply`, not `reply`).
+6. Confirm Resend shows **Receiving enabled/verified** for `reply.fixflow.ai`.
+
+### 14.3 Hostinger DNS Zone — how to add each record
+1. hPanel → **Domains** → `fixflow.ai` → **DNS / Nameservers** → **DNS records** (DNS Zone editor).
+2. **Manage / delete** any stale records first: old Resend/SES **DKIM TXT** and any duplicate **SPF** on `send` (keep only
+   one SPF per host). Don't touch unrelated records (website A/CNAME, Google MX on root, etc.).
+3. **Add record** for each row from §14.1/§14.2:
+   - **Type** = MX / TXT (as specified).
+   - **Name/Host** = the prefix only (`send`, `resend._domainkey.send`, `reply`, `_dmarc`; `@` = root).
+   - **Points to / Value** = the exact string from Resend (paste long DKIM keys whole).
+   - **Priority** = required for MX (e.g. `10`).
+   - **TTL** = 300 during migration.
+4. Save. Propagation is usually minutes at TTL 300; verify with `nslookup -type=TXT resend._domainkey.send.fixflow.ai`
+   and `nslookup -type=MX reply.fixflow.ai` before clicking Verify in Resend.
+
+### 14.4 New account — API key
+- Resend → **API Keys → Create** (Sending + Domains, or Full access). Copy once → this is `RESEND_API_KEY`.
+
+### 14.5 New account — recreate BOTH webhooks
+- **Webhooks → Add Endpoint** for each:
+  - Engagement/events (sent, delivered, bounced, opened): URL `https://<backend-host>/api/ads/webhooks/resend`
+    → copy signing secret → `RESEND_WEBHOOK_SECRET`.
+  - Inbound (email received): URL `https://<backend-host>/api/ads/webhooks/resend-inbound`
+    → copy signing secret → `RESEND_INBOUND_WEBHOOK_SECRET`.
+- Two **different** `whsec_…` secrets — do not reuse one for both.
+- `<backend-host>` = the DO backend (staging first, e.g. `https://staging-api.repaircoin.ai`).
+
+### 14.6 Env vars (DigitalOcean backend) — rotate/verify all
+Set on **staging first**, then prod:
+- `RESEND_API_KEY` — new key (§14.4).
+- `RESEND_WEBHOOK_SECRET` — new engagement secret (§14.5).
+- `RESEND_INBOUND_WEBHOOK_SECRET` — new inbound secret (§14.5).
+- `RESEND_FROM_EMAIL` — stays `leads@send.fixflow.ai` (domain Verified in §14.1).
+- `RESEND_FROM_NAME` — unchanged.
+- `RESEND_REPLY_DOMAIN` — stays `reply.fixflow.ai` (Verified in §14.2).
+- `ADS_INBOUND_EMAIL_ENABLED` — keep `false` until the inbound payload is verified against a live delivery (§10/P0);
+  flip to `true` after.
+- (optional) `ADS_INBOUND_MAX_AUTOANSWERS_PER_HOUR` (default `5`); `ADS_INBOUND_WEBHOOK_TOKEN` only guards the separate
+  manual `POST /leads/inbound` test endpoint — not the Resend path.
+
+### 14.7 Deploy + verify (in order)
+1. Redeploy/restart the backend so it picks up the new env.
+2. **Outbound:** send a test campaign / lead email → confirm it sends from the **new** account (new account → Logs) with a
+   clean **DKIM/SPF pass**.
+3. **Engagement webhook:** confirm delivered/opened events arrive, no 401s in backend logs (401 = wrong `RESEND_WEBHOOK_SECRET`).
+4. **Inbound:** reply to an AI-agent campaign email → confirm the hit on `/resend-inbound` and that `InboundEmailService`
+   parsed `from` / `text` / headers correctly (still the unverified P0 — dump one raw payload if fields come back empty).
+
+### 14.8 Decommission the old account
+- If you used the **claim/transfer** (§14.1), `send.fixflow.ai` is already off the old team and its DKIM carried over — so
+  there's **no old DKIM to prune** and nothing to remove for that domain. Just remove the old **webhooks** (avoid double
+  delivery) and **delete the old API key**.
+- Remove any **other** domains still on the old team, then close/downgrade the old account.
+- Restore Hostinger TTLs to default (14400) once everything is confirmed working.
+- **Only in the fallback (fresh-setup) path** do you prune the leftover old DKIM TXT from Hostinger after the new domain
+  is confirmed sending.
+
+**DKIM caution (fallback path only):** DKIM tokens are per-account, so a *fresh* `send.fixflow.ai` can't be verified in both
+accounts without stacking records — do the DKIM swap in a low-send window and keep the old account sending until the new
+domain shows Verified. The claim/transfer path avoids this entirely (same DKIM, no gap).

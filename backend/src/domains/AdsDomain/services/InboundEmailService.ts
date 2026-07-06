@@ -10,6 +10,7 @@
 // inbound delivery before relying on this (the scope's P0 verify task).
 // See docs/tasks/strategy/ads-system/ads-inbound-email-scope.md.
 
+import axios from 'axios';
 import { logger } from '../../../utils/logger';
 import { shopRepository } from '../../../repositories';
 import { NotificationRepository } from '../../../repositories/NotificationRepository';
@@ -117,13 +118,17 @@ export class InboundEmailService {
     const lead = await this.leads.findByReplyToken(token);
     if (!lead) return { outcome: 'ignored_unknown_token' };
 
+    // 1b. Resend's `email.received` webhook is metadata-only (no body/headers/attachments — keeps the
+    //     serverless payload small). Fetch the text/html/headers by email_id before parsing.
+    await this.hydrateContent(payload);
+
     // 2. Safety: drop machine mail (auto-replies / OOO / bounces).
     const headers = normalizeHeaders(payload);
     if (isMachineMail(headers)) return { outcome: 'ignored_auto_mail', leadId: lead.id };
 
-    // 3. Dedupe on Message-ID (re-delivered webhook).
-    const messageId = headers['message-id'] || null;
-    if (messageId && (await this.messages.existsByExternalId(lead.id, messageId))) {
+    // 3. Dedupe on Resend's stable received-email id (falls back to Message-ID) for re-delivered webhooks.
+    const externalId = payload?.data?.email_id || headers['message-id'] || payload?.data?.message_id || null;
+    if (externalId && (await this.messages.existsByExternalId(lead.id, externalId))) {
       return { outcome: 'ignored_duplicate', leadId: lead.id };
     }
 
@@ -142,14 +147,38 @@ export class InboundEmailService {
     const overLimit = recentAi >= MAX_AUTOANSWERS_PER_HOUR;
 
     if (fromShop || overLimit) {
-      await this.autoAnswer.recordInbound(lead.id, clean, 'email', messageId);
+      await this.autoAnswer.recordInbound(lead.id, clean, 'email', externalId);
       logger.info(`InboundEmail: recorded without auto-answer (${fromShop ? 'from_shop' : 'rate_limited'})`, { leadId: lead.id });
       return { outcome: 'recorded', leadId: lead.id };
     }
 
-    await this.autoAnswer.handleInbound(lead.id, clean, 'email', messageId);
+    await this.autoAnswer.handleInbound(lead.id, clean, 'email', externalId);
     if (campaign?.shopId) void this.notifyShop(campaign.shopId, lead.name, lead.id).catch(() => undefined);
     return { outcome: 'handled', leadId: lead.id };
+  }
+
+  /** Fetch the inbound email's body + headers from Resend's Received-emails API and merge them into
+   *  payload.data. The `email.received` webhook only carries metadata, so without this the body is empty.
+   *  Non-throwing: on any failure the caller falls through to `ignored_empty` (better than crashing). */
+  private async hydrateContent(payload: any): Promise<void> {
+    const d = payload?.data;
+    if (!d?.email_id) return;
+    const hasBody = (d.text && String(d.text).trim()) || (d.html && String(d.html).trim());
+    if (hasBody) return; // already inline (defensive — tests / future payloads may include it)
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) { logger.warn('InboundEmail: RESEND_API_KEY not set — cannot fetch inbound email body'); return; }
+    try {
+      const res = await axios.get(`https://api.resend.com/emails/receiving/${encodeURIComponent(d.email_id)}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        timeout: 15000,
+      });
+      const c = res.data || {};
+      if (c.text != null) d.text = c.text;
+      if (c.html != null) d.html = c.html;
+      if (c.headers && !d.headers) d.headers = c.headers;
+    } catch (err: any) {
+      logger.error('InboundEmail: failed to fetch received email content', { emailId: d.email_id, error: err?.response?.data || err?.message });
+    }
   }
 
   private async notifyShop(shopId: string, leadName: string | null, leadId: string): Promise<void> {
