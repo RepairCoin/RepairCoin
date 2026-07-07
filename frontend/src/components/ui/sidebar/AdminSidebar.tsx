@@ -250,6 +250,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       tabId: "support",
     },
     {
+      title: "Announcements",
+      href: "/admin?tab=announcements",
+      icon: <Megaphone className="w-5 h-5" />,
+      tabId: "announcements",
+    },
+    {
       title: "Disputes",
       href: "/admin?tab=disputes",
       icon: <AlertTriangle className="w-5 h-5" />,

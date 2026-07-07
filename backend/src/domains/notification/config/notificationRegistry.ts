@@ -75,6 +75,23 @@ export interface NotificationTypeConfig {
  * fallback applied to unregistered types.
  */
 export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
+  // ── Admin platform announcement / broadcast ──────────────────────────────
+  // Not transactional: recipients can mute announcements via preferences.
+  admin_announcement: {
+    channels: ['persist', 'ws', 'push'],
+    display: {
+      title: (m) => m.title || 'Announcement',
+      icon: 'campaign',
+      color: '#FFCC00',
+    },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'default',
+      title: (m) => m.title || 'RepairCoin Announcement',
+      body: (m) => m.message || '',
+    },
+  },
+
   // ── Shop-cancelled booking (migrated from PaymentService) ─────────────────
   service_order_cancelled: {
     channels: ['persist', 'ws', 'push'],

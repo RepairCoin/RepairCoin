@@ -438,6 +438,81 @@ router.post('/webhooks/retry/:webhookId', asyncHandler(async (req, res) => {
   res.json({ success: result?.success !== false, data: result });
 }));
 
+// Announcement broadcast — recipient counts for the composer
+router.get('/notifications/audience-counts', asyncHandler(async (req, res) => {
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const pool = getSharedPool();
+  const shopRes = await pool.query(
+    `SELECT COUNT(*)::int AS c FROM shops WHERE COALESCE(wallet_address, address) IS NOT NULL`
+  );
+  const custRes = await pool.query(
+    `SELECT COUNT(*)::int AS c FROM customers WHERE COALESCE(address, wallet_address) IS NOT NULL`
+  );
+  const shops = shopRes.rows[0].c;
+  const customers = custRes.rows[0].c;
+  res.json({ success: true, data: { shops, customers, all: shops + customers } });
+}));
+
+// Announcement broadcast — fan out a platform announcement via the notification gateway
+router.post('/notifications/broadcast', asyncHandler(async (req, res) => {
+  const { audience, title, message } = req.body || {};
+  if (!['shops', 'customers', 'all'].includes(audience)) {
+    return res.status(400).json({ success: false, error: 'audience must be shops, customers, or all' });
+  }
+  if (!message || !String(message).trim()) {
+    return res.status(400).json({ success: false, error: 'message is required' });
+  }
+
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const { getNotificationGateway } = await import('../../notification/services/NotificationGateway');
+  const pool = getSharedPool();
+
+  const addresses: string[] = [];
+  if (audience === 'shops' || audience === 'all') {
+    const r = await pool.query(
+      `SELECT DISTINCT COALESCE(wallet_address, address) AS addr FROM shops WHERE COALESCE(wallet_address, address) IS NOT NULL`
+    );
+    addresses.push(...r.rows.map((x: { addr: string }) => x.addr));
+  }
+  if (audience === 'customers' || audience === 'all') {
+    const r = await pool.query(
+      `SELECT DISTINCT COALESCE(address, wallet_address) AS addr FROM customers WHERE COALESCE(address, wallet_address) IS NOT NULL`
+    );
+    addresses.push(...r.rows.map((x: { addr: string }) => x.addr));
+  }
+  const unique = Array.from(new Set(addresses.map((a) => a.toLowerCase())));
+
+  const gateway = getNotificationGateway();
+  const sender = req.user?.address || 'ADMIN';
+  const meta = { title: title ? String(title).trim() : undefined, message: String(message).trim() };
+
+  // Fan out in batches so a large recipient list doesn't overwhelm the pool.
+  let delivered = 0;
+  const BATCH = 25;
+  for (let i = 0; i < unique.length; i += BATCH) {
+    const chunk = unique.slice(i, i + BATCH);
+    const results = await Promise.allSettled(
+      chunk.map((addr) =>
+        gateway.dispatch('admin_announcement', addr, {
+          message: meta.message,
+          metadata: meta,
+          senderAddress: sender,
+        })
+      )
+    );
+    // Non-null result = delivered (null = muted by preference or suppressed).
+    delivered += results.filter((r) => r.status === 'fulfilled' && r.value).length;
+  }
+
+  logger.info('Admin announcement broadcast', {
+    audience,
+    recipients: unique.length,
+    delivered,
+    by: sender,
+  });
+  res.json({ success: true, data: { recipients: unique.length, delivered } });
+}));
+
 // System maintenance
 router.post('/maintenance/cleanup-webhooks', 
   asyncHandler(adminController.cleanupWebhooks.bind(adminController))

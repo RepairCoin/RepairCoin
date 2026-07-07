@@ -1038,6 +1038,19 @@ export const adminApi = {
   }) => {
     return apiClient.post('/admin/rcg/otc-sale', data);
   },
+
+  // Announcement broadcast
+  getAudienceCounts: async () => {
+    return apiClient.get('/admin/notifications/audience-counts');
+  },
+
+  sendBroadcast: async (data: {
+    audience: "shops" | "customers" | "all";
+    title?: string;
+    message: string;
+  }) => {
+    return apiClient.post('/admin/notifications/broadcast', data);
+  },
 } as const;
 
 // Platform Settings Types
