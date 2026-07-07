@@ -513,6 +513,71 @@ router.post('/notifications/broadcast', asyncHandler(async (req, res) => {
   res.json({ success: true, data: { recipients: unique.length, delivered } });
 }));
 
+// Affiliate shop groups — platform oversight (coalitions + custom-token liability)
+router.get('/affiliate-groups', asyncHandler(async (req, res) => {
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const pool = getSharedPool();
+
+  const groupsRes = await pool.query(`
+    SELECT
+      g.group_id,
+      g.group_name,
+      g.group_type,
+      g.active,
+      g.custom_token_name,
+      g.custom_token_symbol,
+      COALESCE(g.token_value_usd, 0)::float AS token_value_usd,
+      g.created_by_shop_id,
+      g.created_at,
+      (SELECT COUNT(*) FROM affiliate_shop_group_members m WHERE m.group_id = g.group_id AND m.status = 'active')::int AS member_count,
+      (SELECT COUNT(*) FROM affiliate_shop_group_members m WHERE m.group_id = g.group_id AND m.status = 'pending')::int AS pending_members,
+      COALESCE((SELECT SUM(balance) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id), 0)::float AS outstanding_balance,
+      COALESCE((SELECT SUM(lifetime_earned) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id), 0)::float AS lifetime_earned,
+      COALESCE((SELECT SUM(lifetime_redeemed) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id), 0)::float AS lifetime_redeemed,
+      (SELECT COUNT(DISTINCT customer_address) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id)::int AS holder_count,
+      COALESCE((SELECT SUM(allocated_rcn) FROM shop_group_rcn_allocations a WHERE a.group_id = g.group_id), 0)::float AS rcn_allocated,
+      COALESCE((SELECT SUM(available_rcn) FROM shop_group_rcn_allocations a WHERE a.group_id = g.group_id), 0)::float AS rcn_available
+    FROM affiliate_shop_groups g
+    ORDER BY g.created_at DESC
+  `);
+
+  const groups = groupsRes.rows.map((g: Record<string, unknown>) => {
+    const outstanding = Number(g.outstanding_balance) || 0;
+    const tokenValue = Number(g.token_value_usd) || 0;
+    return {
+      groupId: g.group_id as string,
+      groupName: g.group_name as string,
+      groupType: g.group_type as string,
+      active: Boolean(g.active),
+      customTokenName: g.custom_token_name as string | null,
+      customTokenSymbol: g.custom_token_symbol as string | null,
+      tokenValueUsd: tokenValue,
+      createdByShopId: g.created_by_shop_id as string | null,
+      createdAt: g.created_at as string,
+      memberCount: Number(g.member_count) || 0,
+      pendingMembers: Number(g.pending_members) || 0,
+      outstandingBalance: outstanding,
+      lifetimeEarned: Number(g.lifetime_earned) || 0,
+      lifetimeRedeemed: Number(g.lifetime_redeemed) || 0,
+      holderCount: Number(g.holder_count) || 0,
+      rcnAllocated: Number(g.rcn_allocated) || 0,
+      rcnAvailable: Number(g.rcn_available) || 0,
+      liabilityUsd: outstanding * tokenValue,
+    };
+  });
+
+  const summary = {
+    totalGroups: groups.length,
+    activeGroups: groups.filter((g) => g.active).length,
+    totalMembers: groups.reduce((s, g) => s + (g.memberCount || 0), 0),
+    totalOutstandingTokens: groups.reduce((s, g) => s + (g.outstandingBalance || 0), 0),
+    totalLiabilityUsd: groups.reduce((s, g) => s + (g.liabilityUsd || 0), 0),
+    totalRcnAllocated: groups.reduce((s, g) => s + (g.rcnAllocated || 0), 0),
+  };
+
+  res.json({ success: true, data: { summary, groups } });
+}));
+
 // Referral program analytics (platform-wide)
 router.get('/referrals/analytics', asyncHandler(async (req, res) => {
   const { getSharedPool } = await import('../../../utils/database-pool');

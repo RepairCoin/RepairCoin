@@ -33,6 +33,7 @@ import { RcgManagementTab } from "@/components/admin/tabs/RcgManagementTab";
 import { AnnouncementsTab } from "@/components/admin/tabs/AnnouncementsTab";
 import { ReferralAnalyticsTab } from "@/components/admin/tabs/ReferralAnalyticsTab";
 import ServiceMarketplaceAnalyticsSection from "@/components/admin/ServiceMarketplaceAnalyticsSection";
+import { AffiliateGroupsTab } from "@/components/admin/tabs/AffiliateGroupsTab";
 import { AdminAISettingsTab } from "@/components/admin/tabs/AdminAISettingsTab";
 import { SmartCommandBar } from "@/components/admin/SmartCommandBar";
 import DashboardLayout from "@/components/ui/DashboardLayout";
@@ -507,6 +508,13 @@ export default function AdminDashboardClient() {
           {activeTab === "marketplace" && hasAdminAccess && (
             <LazyTabWrapper isActive={activeTab === "marketplace"}>
               <ServiceMarketplaceAnalyticsSection />
+            </LazyTabWrapper>
+          )}
+
+          {/* Affiliate Groups Tab */}
+          {activeTab === "affiliate-groups" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "affiliate-groups"}>
+              <AffiliateGroupsTab />
             </LazyTabWrapper>
           )}
 
