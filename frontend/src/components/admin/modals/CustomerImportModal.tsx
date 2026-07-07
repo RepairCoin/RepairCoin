@@ -28,11 +28,15 @@ interface CustomerImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImportComplete?: () => void;
+  /** 'admin' (default) shows the target-shop picker; 'shop' imports into the caller's own shop
+   *  (the backend auto-scopes to their shopId), so the picker is hidden. */
+  role?: 'admin' | 'shop';
 }
 
 type ViewState = 'upload' | 'validating' | 'results';
 
-export default function CustomerImportModal({ isOpen, onClose, onImportComplete }: CustomerImportModalProps) {
+export default function CustomerImportModal({ isOpen, onClose, onImportComplete, role = 'admin' }: CustomerImportModalProps) {
+  const isShop = role === 'shop';
   const [viewState, setViewState] = useState<ViewState>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importMode, setImportMode] = useState<ImportMode>('add');
@@ -51,11 +55,11 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isShop) return; // a shop imports into itself — no all-shops picker
     getAdminShops({ active: true } as any)
       .then((list: any[]) => setShops((list || []).map((s) => ({ shopId: s.shopId || s.shop_id, name: s.name }))))
       .catch(() => setShops([]));
-  }, [isOpen]);
+  }, [isOpen, isShop]);
 
   if (!isOpen) return null;
 
@@ -79,7 +83,8 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
   const importExtra = () => ({
     columnMapping: Object.keys(mapping).length ? mapping : undefined,
     source: 'import',
-    homeShopId: homeShopId || undefined,
+    // Shop imports auto-scope to the caller's shop server-side; only admin picks a target shop.
+    homeShopId: isShop ? undefined : (homeShopId || undefined),
   });
 
   const handleDrag = (e: React.DragEvent) => {
@@ -295,7 +300,9 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
           {/* Upload View */}
           {viewState === 'upload' && (
             <div className="space-y-6">
-              {/* Target shop — imported customers are attributed to this shop (home_shop_id) */}
+              {/* Target shop — admin picks which shop the customers belong to (home_shop_id). A shop
+                  importing its own list skips this: the backend attributes them to the caller's shop. */}
+              {!isShop && (
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
                   <Store className="w-4 h-4 text-[#FFCC00]" /> Import into shop
@@ -314,6 +321,7 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete 
                     : '⚠ Pick a shop, or imported customers won’t be attributed to any shop (orphaned/global).'}
                 </p>
               </div>
+              )}
 
               {/* Template Download Section */}
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
