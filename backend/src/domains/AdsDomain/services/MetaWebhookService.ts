@@ -16,6 +16,14 @@ export interface MetaLeadEvent {
   createdTime?: number;
 }
 
+export interface MetaMessagingEvent {
+  pageId: string;      // recipient Page id (entry.id) → maps to a shop's connected Page
+  senderPsid: string;  // the user's Page-Scoped ID → ad_leads.messenger_id
+  text: string;
+  mid?: string;        // message id (dedupe)
+  refAdId?: string;    // click-to-Messenger referral ad id (m.me/ad ref) when the thread opened from an ad
+}
+
 /** Verify Meta's `X-Hub-Signature-256: sha256=<hex>` against the raw body using
  *  the app secret. Constant-time compare. Returns false on any missing input. */
 export function verifyMetaSignature(
@@ -66,6 +74,34 @@ export function parseLeadEvents(payload: any): MetaLeadEvent[] {
         adId: v.ad_id ? String(v.ad_id) : undefined,
         campaignId: v.campaign_id ? String(v.campaign_id) : undefined,
         createdTime: typeof v.created_time === 'number' ? v.created_time : undefined,
+      });
+    }
+  }
+  return out;
+}
+
+/** PURE: pull inbound Messenger text messages from a Meta page webhook (object='page', entry[].messaging[]).
+ *  Skips echoes (our own sends), delivery/read receipts, and non-text messages. Captures the click-to-
+ *  Messenger referral ad id when the thread opened from an ad (m.me ref or the referral object). */
+export function parseMessagingEvents(payload: any): MetaMessagingEvent[] {
+  const out: MetaMessagingEvent[] = [];
+  const entries = Array.isArray(payload?.entry) ? payload.entry : [];
+  for (const entry of entries) {
+    const pageId = entry?.id ? String(entry.id) : '';
+    const events = Array.isArray(entry?.messaging) ? entry.messaging : [];
+    for (const ev of events) {
+      const senderPsid = ev?.sender?.id ? String(ev.sender.id) : '';
+      if (!pageId || !senderPsid) continue;
+      if (ev?.message?.is_echo) continue;                 // our own outbound, echoed back
+      const text = ev?.message?.text ? String(ev.message.text) : '';
+      if (!text.trim()) continue;                         // ignore attachments/receipts (v1 = text only)
+      const refAdId = ev?.referral?.ad_id || ev?.message?.referral?.ad_id || ev?.postback?.referral?.ad_id;
+      out.push({
+        pageId,
+        senderPsid,
+        text,
+        mid: ev?.message?.mid ? String(ev.message.mid) : undefined,
+        refAdId: refAdId ? String(refAdId) : undefined,
       });
     }
   }
