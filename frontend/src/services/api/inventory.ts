@@ -24,8 +24,9 @@ import type {
 
 export const inventoryApi = {
   // Get inventory statistics
-  async getStats(): Promise<InventoryStats> {
-    const response = await apiClient.get('/inventory/stats');
+  async getStats(locationId?: string | null): Promise<InventoryStats> {
+    const qs = locationId ? `?locationId=${encodeURIComponent(locationId)}` : '';
+    const response = await apiClient.get(`/inventory/stats${qs}`);
     return response.stats;
   },
 
@@ -40,6 +41,7 @@ export const inventoryApi = {
       limit: limit.toString(),
     });
 
+    if (filters.locationId) params.append('locationId', filters.locationId);
     if (filters.categoryId) params.append('categoryId', filters.categoryId);
     if (filters.vendorId) params.append('vendorId', filters.vendorId);
     if (filters.status) params.append('status', filters.status);
@@ -53,8 +55,9 @@ export const inventoryApi = {
   },
 
   // Get single inventory item
-  async getItem(itemId: string): Promise<InventoryItem> {
-    const response = await apiClient.get(`/inventory/items/${itemId}`);
+  async getItem(itemId: string, locationId?: string | null): Promise<InventoryItem> {
+    const qs = locationId ? `?locationId=${encodeURIComponent(locationId)}` : '';
+    const response = await apiClient.get(`/inventory/items/${itemId}${qs}`);
     return response.item;
   },
 

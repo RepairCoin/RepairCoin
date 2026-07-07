@@ -43,6 +43,8 @@ import { InventoryAILauncher } from '../inventory/InventoryAILauncher';
 import { BarcodeScannerModal } from '../modals/BarcodeScannerModal';
 import { BatchStockCountModal } from '../modals/BatchStockCountModal';
 import { useAuthStore } from '@/stores/authStore';
+import { useLocationStore } from '@/stores/locationStore';
+import { LocationSwitcher } from '../LocationSwitcher';
 
 interface InventoryTabProps {
   shopId: string;
@@ -59,6 +61,8 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
   // Manage actions (add/edit/delete/adjust) require inventory:manage; view-only
   // members (inventory:view) see the list but not the action buttons.
   const canManage = !!userProfile && hasPermission('inventory:manage');
+  // Active branch (shared, persisted). null = all locations / shop-total.
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
   // State
   const [items, setItems] = useState<InventoryItemWithDetails[]>([]);
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
@@ -102,12 +106,14 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
     loadCategories();
     loadVendors();
     loadStats();
-  }, [page, searchQuery, selectedCategory, selectedVendor, selectedStatus, showLowStock, showOutOfStock, sortBy, productType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, searchQuery, selectedCategory, selectedVendor, selectedStatus, showLowStock, showOutOfStock, sortBy, productType, activeLocationId]);
 
   const loadInventory = async () => {
     try {
       setLoading(true);
       const filters: InventoryFilters = {
+        locationId: activeLocationId || undefined,
         search: searchQuery || undefined,
         categoryId: selectedCategory || undefined,
         vendorId: selectedVendor || undefined,
@@ -148,7 +154,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
 
   const loadStats = async () => {
     try {
-      const statistics = await inventoryApi.getStats();
+      const statistics = await inventoryApi.getStats(activeLocationId);
       setStats(statistics);
     } catch (error) {
       console.error('Failed to load stats:', error);
@@ -305,12 +311,15 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
   return (
     <div className="space-y-6">
       {/* Header with Stats */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Inventory Management</h2>
-          <p className="text-gray-400 mt-1">
-            Manage your inventory items and track stock levels
-          </p>
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Inventory Management</h2>
+            <p className="text-gray-400 mt-1">
+              Manage your inventory items and track stock levels
+            </p>
+          </div>
+          <LocationSwitcher />
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <InventoryAILauncher />

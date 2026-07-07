@@ -80,6 +80,7 @@ export interface InventoryStats {
 }
 
 export interface InventoryFilters {
+  locationId?: string;
   categoryId?: string;
   vendorId?: string;
   status?: InventoryStatus;
@@ -159,6 +160,7 @@ export interface AdjustStockData {
   notes?: string;
   referenceType?: string;
   referenceId?: string;
+  locationId?: string; // branch to adjust (defaults to the shop's primary server-side)
 }
 
 export interface PaginatedInventoryResponse {
@@ -205,6 +207,8 @@ export interface PurchaseOrder {
   total: number;
   notes?: string;
   trackingNumber?: string;
+  locationId?: string;
+  locationName?: string;
   items: PurchaseOrderItem[];
   createdAt: string;
   updatedAt: string;
@@ -215,6 +219,7 @@ export interface CreatePurchaseOrderData {
   vendorName: string;
   expectedDeliveryDate?: string;
   notes?: string;
+  locationId?: string;
   items: Array<{
     inventoryItemId: string;
     itemName: string;
@@ -232,6 +237,7 @@ export interface UpdatePurchaseOrderData {
   receivedDate?: string;
   notes?: string;
   trackingNumber?: string;
+  locationId?: string | null;
 }
 
 export interface ReceiveItemsData {

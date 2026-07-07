@@ -25,7 +25,8 @@ import {
   Trash2,
   PackageCheck,
   Ban,
-  Send
+  Send,
+  MapPin
 } from "lucide-react";
 import { CreatePurchaseOrderModal } from "./modals/CreatePurchaseOrderModal";
 import { PurchaseOrderDetailModal } from "./modals/PurchaseOrderDetailModal";
@@ -351,6 +352,12 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-300">{po.vendorName || "N/A"}</div>
+                      {po.locationName && (
+                        <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3 h-3" />
+                          {po.locationName}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(po.status)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">

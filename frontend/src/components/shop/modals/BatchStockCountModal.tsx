@@ -4,6 +4,7 @@ import { X, Camera, Loader2, CheckCircle, Package, Save, Trash2, AlertCircle, Ba
 import { Html5Qrcode } from 'html5-qrcode';
 import toast from 'react-hot-toast';
 import { inventoryApi } from '@/services/api/inventory';
+import { useLocationStore } from '@/stores/locationStore';
 import type { InventoryItem } from '@/types/inventory';
 
 interface ScannedItem {
@@ -25,6 +26,7 @@ export const BatchStockCountModal: React.FC<BatchStockCountModalProps> = ({ onCl
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [cameraPermission, setCameraPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const scannerInitialized = useRef(false);
@@ -204,10 +206,11 @@ export const BatchStockCountModal: React.FC<BatchStockCountModalProps> = ({ onCl
       // Process adjustments
       for (const { item, scannedCount, difference } of adjustments) {
         await inventoryApi.adjustStock(item.id, {
-          type: 'recount',
+          adjustmentType: 'recount',
           quantityChange: difference,
           reason: 'Physical inventory count via barcode scanning',
           notes: `Scanned: ${scannedCount} units, Previous: ${item.stockQuantity} units, Difference: ${difference > 0 ? '+' : ''}${difference}`,
+          locationId: activeLocationId || undefined,
         });
       }
 
