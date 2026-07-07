@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 2, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00;
+    --brand-dark: #1a1a2e;
+    --ink: #1f2433;
+    --muted: #5b6478;
+    --line: #e6e9f0;
+    --bg: #f6f7fb;
+    --card: #ffffff;
+    --green: #16a34a;
+    --green-bg: #e9f8ef;
+    --violet: #7c3aed;
+    --violet-bg: #f3effe;
+    --code-bg: #0f172a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+
+  header.hero {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%);
+    color: #fff;
+    padding: 56px 0 48px;
+    border-bottom: 4px solid var(--brand);
+  }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge {
+    display: inline-block;
+    background: var(--brand);
+    color: #1a1a2e;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .04em;
+    padding: 6px 14px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill {
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 8px;
+    padding: 7px 13px;
+    font-size: 13.5px;
+    color: #e8eaf4;
+  }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-new { background: var(--violet-bg); color: var(--violet); }
+  .tag-fix { background: #fdecec; color: #c0392b; }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  td code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: #7c3aed; }
+
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Admin Dashboard — Finishing the Audit Backlog</h1>
+    <p class="sub">Every admin tab is now fully functional: accurate numbers, complete management actions, no dead ends.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 2, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Delivered &amp; Pushed to main</span></span>
+      <span class="meta-pill"><strong>Commits:</strong>&nbsp; 6 shipped</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      Building on yesterday's full audit of the admin dashboard, today we closed out the remaining
+      functional gaps. Admins can now page through the full dispute history, the Subscriptions dashboard
+      shows correct platform-wide numbers, promo codes are fully manageable (create/activate/deactivate/edit/delete),
+      a broken dead-end tab was removed, and the last file with lingering type issues was cleaned up.
+      Every change was type-checked and shipped in small, reviewable commits.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Disputes — Pagination <span class="tag tag-fix">FIX</span></h2>
+    <p>
+      The No-Show Disputes tab fetched a fixed <strong>50 records with no pager</strong>, so once there were
+      more than 50 disputes the older ones were unreachable.
+    </p>
+    <ul>
+      <li>Added pagination (20 per page) with Prev/Next controls and a “Page X of Y · N total” indicator.</li>
+      <li>The page count is derived from the per-status totals the backend already returns, and the page
+          resets when you switch filter tabs (Pending / Approved / Rejected / All).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Subscriptions — Correct Headline Numbers <span class="tag tag-fix">FIX</span></h2>
+    <p>
+      The headline stats — <strong>MRR, Total Revenue, Overdue count</strong>, and status counts — were
+      calculated from the <strong>current page of results only</strong> (max 50). With more than 50
+      subscriptions, those top-line numbers were simply wrong.
+    </p>
+    <ul>
+      <li>They now come from the <strong>real platform-wide aggregate endpoint</strong>, which computes the
+          totals across <em>all</em> subscriptions in the database.</li>
+      <li>Added a proper <strong>overdue count</strong> to that aggregate (active subs past their next payment date).</li>
+      <li><strong>Surfaced Billing Method &amp; Billing Reference</strong> in the details modal — already fetched
+          from the backend but never displayed, so admins couldn't see how a shop pays.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Promo Codes — Full Management <span class="tag tag-new">NEW</span></h2>
+    <p>
+      The Promo Codes tab was <strong>view-only</strong>. Admins could see and search codes but couldn't
+      manage them. It is now a complete management surface:
+    </p>
+    <ul>
+      <li><strong>Activate / Deactivate</strong> toggle on every code.</li>
+      <li><strong>Edit</strong> — a modal to change the name, bonus type/value, start &amp; end dates, and
+          active state (the code and owning shop stay immutable).</li>
+      <li><strong>Delete</strong> — with a confirmation dialog that clearly warns it also removes the code's
+          usage history (and shows the use count), and suggests deactivating instead to keep the record.</li>
+      <li><strong>Top Performing Codes</strong> — a new ranked section showing the most-used codes with their
+          uses and RCN issued (data the analytics endpoint already returned but was previously discarded).</li>
+    </ul>
+    <div class="callout violet">
+      <strong>No accidental data loss:</strong> the one destructive action (delete) is guarded by a clear
+      confirmation and a non-destructive alternative (deactivate).
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> Removed a Broken, Dead-End Tab</h2>
+    <p>
+      While reviewing the “Enhanced Metrics” tab, we found it was <strong>dead code</strong>: it wasn't rendered
+      anywhere and called an API method that doesn't exist, so it could never have worked. Rather than polish a
+      broken, unused file we <strong>removed it entirely (~480 lines)</strong>. Live platform metrics are already
+      fully covered by the <strong>Analytics</strong> and <strong>Advanced Treasury</strong> tabs.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Codebase Health — Type-Cleanup</h2>
+    <p>
+      Cleaned up the Shop management screen, which carried a cluster of long-standing type issues. The most
+      important was a mismatched value in the confirmation-dialog logic that could have caused the
+      <strong>wrong confirmation message to appear</strong>. The file now type-checks completely clean
+      (<strong>17 issues → 0</strong>), with no change to how it behaves for users — just a more reliable,
+      maintainable foundation.
+    </p>
+  </section>
+
+  <section>
+    <h2>Shipped to production</h2>
+    <table>
+      <thead>
+        <tr><th>Commit</th><th>What</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>8c083159</code></td><td>Disputes pagination</td></tr>
+        <tr><td><code>f8319564</code></td><td>Subscriptions platform-wide stats + billing method</td></tr>
+        <tr><td><code>64e0d52c</code></td><td>Promo code management (activate/deactivate + delete)</td></tr>
+        <tr><td><code>a184f412</code></td><td>Remove dead Enhanced Metrics tab</td></tr>
+        <tr><td><code>c3e25610</code></td><td>Type-clean the Shop management screen</td></tr>
+        <tr><td><code>e09ba10e</code></td><td>Promo code edit form + Top Codes section</td></tr>
+      </tbody>
+    </table>
+    <div class="callout green" style="margin-top:18px;">
+      <strong>Verification:</strong> backend type-checking clean (0 errors); the frontend gained 0 new type
+      errors and the cleanup work <em>reduced</em> the pre-existing count; every change was committed, rebased
+      onto the latest main, and pushed independently.
+    </div>
+  </section>
+
+  <section>
+    <h2>Where Things Stand</h2>
+    <p>
+      After yesterday's audit and today's fixes, <strong>every functional gap the audit found is now closed</strong>
+      — every admin tab is fully functional with accurate numbers, complete actions, and no dead ends.
+    </p>
+    <div class="callout violet">
+      <strong>The one remaining unlock:</strong> adding the two AI API keys to the production environment turns
+      the entire AI suite (Smart Command Bar, Bug Inspection, Fraud Detection, Support Triage, Content
+      Moderation, Platform Copilot) live for everyone — a single configuration step, documented in the ops runbook.
+    </div>
+  </section>
+
+  <footer>
+    RepairCoin · Engineering Update · July 2, 2026
+  </footer>
+
+</div>
+</body>
+</html>

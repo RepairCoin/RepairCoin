@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · June 29, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00;
+    --brand-dark: #1a1a2e;
+    --ink: #1f2433;
+    --muted: #5b6478;
+    --line: #e6e9f0;
+    --bg: #f6f7fb;
+    --card: #ffffff;
+    --green: #16a34a;
+    --green-bg: #e9f8ef;
+    --blue: #2563eb;
+    --red: #dc2626;
+    --code-bg: #0f172a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 20px 80px; }
+
+  /* Header */
+  header.hero {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%);
+    color: #fff;
+    padding: 56px 0 48px;
+    border-bottom: 4px solid var(--brand);
+  }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge {
+    display: inline-block;
+    background: var(--brand);
+    color: #1a1a2e;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .04em;
+    padding: 6px 14px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+  header.hero h1 { font-size: 34px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill {
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 8px;
+    padding: 7px 13px;
+    font-size: 13.5px;
+    color: #e8eaf4;
+  }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+
+  /* Sections */
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px 30px; margin-top: 26px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 21px; margin: 0 0 6px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  p { margin: 12px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+
+  .step { padding: 16px 0; border-top: 1px solid var(--line); }
+  .step:first-of-type { border-top: none; }
+  .step h3 { margin: 0 0 6px; font-size: 16px; }
+  .step h3 .tick { color: var(--green); margin-right: 6px; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+
+  /* Code */
+  pre {
+    background: var(--code-bg);
+    color: #f1f5f9;
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 13px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    margin: 14px 0;
+  }
+  pre.err { color: #fca5a5; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  th { background: #f9fafc; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+
+  .callout { background: var(--green-bg); border: 1px solid #bfe9cd; border-radius: 10px; padding: 16px 18px; margin: 18px 0; }
+  .callout strong { color: #14753b; }
+
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Admin Records Cleanup &amp; Database Hardening</h1>
+    <p class="sub">Resolving the root cause of the Sessions crash — and guaranteeing it can't return.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; June 29, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Delivered &amp; Verified</span></span>
+      <span class="meta-pill"><strong>Environment:</strong>&nbsp; Staging (prod auto-rollout on deploy)</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      Today we resolved the underlying cause of a recurring admin-dashboard crash by cleaning up
+      duplicate administrator records in the database, and shipped a <strong>permanent safeguard</strong>
+      so the issue can never recur. All work was performed safely — with a read-only review first —
+      and has been verified end-to-end.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Diagnosed duplicate admin records</h2>
+    <p>
+      The <code class="inline">admins</code> table contained <strong>duplicate rows for the same team members</strong> —
+      the same wallet address had been inserted multiple times over the past months (Jeff, Khalid, and deo each
+      had several entries). This was the underlying cause of the <strong>Sessions page "duplicate key" crash</strong>
+      and could also skew admin lookups and counts.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Reviewed before touching anything</h2>
+    <ul>
+      <li>Ran a <strong>read-only diff first</strong> to confirm exactly which rows would be affected —
+          <strong>12 duplicate rows across 3 wallets</strong>.</li>
+      <li>Verified there were <strong>no foreign-key references</strong> pointing at those rows, so removal
+          was safe with zero risk of orphaned data.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Cleaned up the duplicates</h2>
+    <ul>
+      <li>Removed <strong>9 duplicate rows</strong>, keeping the <strong>oldest, real-name record</strong> for each wallet.</li>
+      <li>Correctly <strong>preserved</strong> the separate, legitimate accounts that only looked similar
+          (a second "Khalid" on a different wallet, and two distinct "Super Administrator" accounts).</li>
+      <li>Confirmed afterward: <strong>0 duplicate wallets remain.</strong></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> Shipped a permanent fix — Migration 189</h2>
+    <p>Created and validated a database migration that does two things, in order:</p>
+    <ul>
+      <li><strong>De-duplicates</strong> admin records (keeps the oldest row per wallet), and</li>
+      <li>Adds a <strong>case-insensitive unique index</strong> on the wallet address, so
+          <strong>duplicate admins can never be created again.</strong></li>
+    </ul>
+    <div class="callout">
+      <strong>Self-healing &amp; idempotent.</strong> The migration runs automatically on the next deploy —
+      meaning <strong>production will be cleaned up and protected with no manual database work required.</strong>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Verified the safeguard</h2>
+    <p>We tested it by attempting to insert a duplicate admin wallet — the database now correctly rejects it:</p>
+    <pre class="err">ERROR:  duplicate key value violates unique constraint "uq_admins_wallet_lower"</pre>
+  </section>
+
+  <section>
+    <h2>Result</h2>
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Duplicate admin rows removed (staging)</td><td><span class="ok">✓ 9 removed · 0 remaining</span></td></tr>
+        <tr><td>Sessions page crash — root cause</td><td><span class="ok">✓ Resolved at the data layer</span></td></tr>
+        <tr><td>Permanent prevention (unique index)</td><td><span class="ok">✓ Verified working</span></td></tr>
+        <tr><td>Production rollout</td><td><span class="ok">✓ Automatic on next deploy</span></td></tr>
+        <tr><td>Data safety (read-only review + FK check)</td><td><span class="ok">✓ Confirmed before any deletion</span></td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:18px;">
+      The Sessions page crash is now fixed at <strong>all three levels</strong> — frontend, backend query,
+      and the underlying data — and the platform is protected against this class of issue going forward.
+    </p>
+  </section>
+
+  <footer>
+    RepairCoin · Engineering Update · June 29, 2026
+  </footer>
+
+</div>
+</body>
+</html>

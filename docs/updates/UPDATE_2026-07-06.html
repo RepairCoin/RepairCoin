@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 6, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-new { background: var(--violet-bg); color: var(--violet); }
+  .tag-clean { background: #eef6ff; color: #1d4ed8; }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: #7c3aed; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Surfacing Hidden Admin Power — 4 New Tools</h1>
+    <p class="sub">A gap analysis found major admin features built in the backend but never exposed. We shipped four of them.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 6, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Delivered &amp; Pushed to main</span></span>
+      <span class="meta-pill"><strong>Commits:</strong>&nbsp; 5 shipped</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      We ran a structured gap analysis of the admin dashboard and discovered a large amount of functionality that
+      existed in the backend but was never surfaced to admins. Today we turned four of those into real, shipped
+      admin tools — an <strong>Audit Log</strong>, a <strong>Revenue Analytics</strong> dashboard, a
+      <strong>Webhook Monitor</strong>, and an <strong>RCG Management</strong> tab — and cleaned up ~1,650 lines of
+      dead code along the way. Every feature reuses existing backend endpoints, so risk was low and delivery fast
+      (3 of the 4 needed zero backend changes).
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Audit Log <span class="tag tag-new">NEW</span></h2>
+    <p>Every admin action — suspensions, token mints, RCN sales, role changes, admin creation/deletion, contract pauses, emergency stops — was already being recorded in the database, but there was no way to view it. There's now a full Audit Log tab:</p>
+    <ul>
+      <li>Table of <strong>When · Admin · Action · Target · Details</strong>, newest first.</li>
+      <li><strong>Colour-coded action badges</strong> by risk (red for suspend/delete/emergency, green for activate/approve, yellow for mints/sales, violet for admin/role changes).</li>
+      <li>Filters by admin wallet and target type, with pagination.</li>
+    </ul>
+    <div class="callout violet"><strong>Why it matters:</strong> real accountability now that there are multiple admins and a create-admin flow — every privileged action is visible and searchable.</div>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Revenue Analytics <span class="tag tag-new">NEW</span></h2>
+    <p>A complete revenue reporting suite existed in the backend but had no interface. The new Revenue tab shows:</p>
+    <ul>
+      <li><strong>This-week &amp; custom-range revenue</strong> with the platform's 80/10/10 split (Operations / Stakers / DAO).</li>
+      <li><strong>Revenue by shop tier</strong> (last 30 days) — including how much revenue is given away as RCG tier discounts (actual vs. standard pricing).</li>
+      <li>A <strong>staker-revenue projection calculator</strong> — enter monthly volume + tier to project monthly/annual staker revenue and APR.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Webhook Monitor <span class="tag tag-new">NEW</span></h2>
+    <p>FixFlow &amp; Stripe webhook failures were effectively invisible — a failed reward mint or missed subscription event would just be lost. The new Webhook Monitor makes them visible and recoverable:</p>
+    <ul>
+      <li><strong>Health banner</strong> (healthy / degraded) with failed-24h and pending counts.</li>
+      <li><strong>Log table</strong> — event, source, status (colour-coded + HTTP code), retry count, and the actual error message.</li>
+      <li>Filters by status and source, plus <strong>one-click Retry</strong> to reprocess a failed webhook.</li>
+    </ul>
+    <div class="callout violet"><strong>Note:</strong> these endpoints were added behind proper admin authentication, and the console shows only real data (the backend's placeholder “stats” were deliberately not used).</div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> RCG Management <span class="tag tag-new">NEW</span></h2>
+    <p>Governance-token oversight had no UI. The new RCG tab surfaces supply (total / circulating / held-by-shops), shop tier distribution, top RCG holders, and an OTC sale recorder that validates the shop and prices the Standard/Premium/Elite packages. We skipped two related endpoints (OTC request tracking, commitment enrolments) because they are backend stubs with no data yet.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Codebase Cleanup <span class="tag tag-clean">CLEANUP</span></h2>
+    <p>The gap analysis also found orphaned UI — components built but never rendered. We removed six dead/superseded components (~1,650 lines): three old shop tabs replaced by the unified Shop Management screen, a superseded activity section, an empty stub tab, and a dead parallel chart library. This also cleared 8 lingering type errors.</p>
+  </section>
+
+  <section>
+    <h2>Shipped to production</h2>
+    <table>
+      <thead><tr><th>Commit</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>ab6ba149</code></td><td>Audit Log viewer</td></tr>
+        <tr><td><code>d999a555</code></td><td>Revenue Analytics dashboard</td></tr>
+        <tr><td><code>0bc0d938</code></td><td>Webhook Monitor console</td></tr>
+        <tr><td><code>b4386356</code></td><td>RCG Management tab</td></tr>
+        <tr><td><code>bfd9a720</code></td><td>Remove 6 orphaned admin components</td></tr>
+      </tbody>
+    </table>
+    <div class="callout green" style="margin-top:18px;"><strong>Verification:</strong> backend type-checking clean (0 errors); the frontend gained 0 new type errors across all four features, and the cleanup reduced the pre-existing count (224 → 216). Every change was committed, rebased onto the latest main, and pushed independently. Three of the four features required no backend changes at all.</div>
+  </section>
+
+  <section>
+    <h2>Where Things Stand</h2>
+    <p>Four significant admin capabilities that were previously invisible are now live and usable. The admin surface is materially more powerful — full accountability, revenue visibility, webhook recoverability, and governance-token oversight — with a cleaner codebase behind it.</p>
+    <div class="callout violet"><strong>Remaining opportunities:</strong> a notification/announcement broadcast composer, an affiliate-groups admin view, and a referral-analytics dashboard. Plus the standing unlock — enabling the AI API keys in production to make the full AI suite live.</div>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 6, 2026</footer>
+</div>
+</body>
+</html>
