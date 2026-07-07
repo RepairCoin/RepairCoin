@@ -13,6 +13,9 @@ import { resendEmailService } from '../../../services/ResendEmailService';
 import { shopRepository } from '../../../repositories';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { LeadRepository } from '../repositories/LeadRepository';
+import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
+import { messengerService } from './MessengerService';
+import { decryptToken } from '../../../utils/tokenCrypto';
 import { isInboundEmailEnabled, replyAddressFor } from './inboundEmailConfig';
 
 export interface LeadContact {
@@ -35,7 +38,9 @@ function bodyToHtml(text: string): string {
 export class LeadChannelSender {
   constructor(
     private readonly campaigns = new CampaignRepository(),
-    private readonly leads = new LeadRepository()
+    private readonly leads = new LeadRepository(),
+    private readonly metaConnections = new MetaConnectionRepository(),
+    private readonly messenger = messengerService
   ) {}
 
   /** PURE — best channel for a lead from its contact fields. Messenger/WhatsApp (the chat moat)
@@ -60,13 +65,28 @@ export class LeadChannelSender {
     if (channel === 'manual' || !this.isTransportEnabled()) {
       return 'recorded';
     }
-    // Email is a wired provider (Resend). SMS/Messenger/WhatsApp still need a provider, so they
+    // Email (Resend) and Messenger (Send API) are wired providers. SMS/WhatsApp still need one, so they
     // queue (visibly pending) rather than silently "delivered".
     if (channel === 'email') {
       return this.deliverEmail(to, body);
     }
+    if (channel === 'messenger') {
+      return this.deliverMessenger(to, body);
+    }
     logger.warn(`LeadChannelSender: transport enabled but ${channel} provider not wired — queued`);
     return 'queued';
+  }
+
+  /** Send to a lead's Messenger PSID via the shop's connected Page (Send API). Gated by
+   *  ADS_MESSENGER_ENABLED; queues (records) when off, no PSID, or the shop has no connected Page. */
+  private async deliverMessenger(to: LeadContact, body: string): Promise<DeliveryStatus> {
+    if (!this.messenger.enabled()) { logger.warn('Messenger transport off (ADS_MESSENGER_ENABLED) — queued'); return 'queued'; }
+    if (!to.messengerId) return 'queued';
+    const campaign = to.campaignId ? await this.campaigns.findById(to.campaignId) : null;
+    if (!campaign) return 'queued';
+    const conn = await this.metaConnections.getConnection(campaign.shopId);
+    if (!conn?.pageId || !conn.pageTokenEnc) { logger.warn('Messenger: shop has no connected Page — queued'); return 'queued'; }
+    return this.messenger.send(conn.pageId, decryptToken(conn.pageTokenEnc), to.messengerId, body);
   }
 
   /** Send a conversation reply to the lead by email via Resend. Sent under the shop's name from the

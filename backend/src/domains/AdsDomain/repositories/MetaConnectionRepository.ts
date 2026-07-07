@@ -96,6 +96,12 @@ export class MetaConnectionRepository extends BaseRepository {
     };
   }
 
+  /** Messenger (P1): resolve the shop that owns a connected Page — a Messenger webhook targets a page. */
+  async getShopIdByPageId(pageId: string): Promise<string | null> {
+    const res = await this.pool.query(`SELECT shop_id FROM shops WHERE meta_page_id = $1 LIMIT 1`, [pageId]);
+    return res.rows[0]?.shop_id ?? null;
+  }
+
   /** Clear all Meta connection state + drop the gate flag (disconnect / deauthorize). */
   async clearConnection(shopId: string): Promise<void> {
     await this.pool.query(

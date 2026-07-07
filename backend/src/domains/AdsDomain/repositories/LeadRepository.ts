@@ -50,6 +50,7 @@ export interface CreateLeadInput {
   notes?: string | null;
   metaLeadId?: string | null;
   gclid?: string | null;
+  messengerId?: string | null;
 }
 
 export interface ListLeadsFilter {
@@ -75,8 +76,8 @@ export class LeadRepository extends BaseRepository {
   async create(input: CreateLeadInput): Promise<AdLead> {
     const res = await this.pool.query(
       `INSERT INTO ad_leads
-         (campaign_id, creative_id, name, phone, email, attribution_method, consent_to_contact, notes, meta_lead_id, gclid)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+         (campaign_id, creative_id, name, phone, email, attribution_method, consent_to_contact, notes, meta_lead_id, gclid, messenger_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [
         input.campaignId,
         input.creativeId ?? null,
@@ -88,6 +89,7 @@ export class LeadRepository extends BaseRepository {
         input.notes ?? null,
         input.metaLeadId ?? null,
         input.gclid ?? null,
+        input.messengerId ?? null,
       ]
     );
     return this.mapRow(res.rows[0]);
@@ -133,6 +135,12 @@ export class LeadRepository extends BaseRepository {
   /** Inbound email: resolve a lead from its reply token (the inbound to-address local-part). */
   async findByReplyToken(token: string): Promise<AdLead | null> {
     const res = await this.pool.query(`SELECT * FROM ad_leads WHERE reply_token = $1`, [token]);
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
+  /** Messenger: resolve a lead by its Page-Scoped ID (PSID). */
+  async findByMessengerId(psid: string): Promise<AdLead | null> {
+    const res = await this.pool.query(`SELECT * FROM ad_leads WHERE messenger_id = $1 LIMIT 1`, [psid]);
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 

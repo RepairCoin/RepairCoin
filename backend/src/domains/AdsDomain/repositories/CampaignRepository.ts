@@ -179,6 +179,16 @@ export class CampaignRepository extends BaseRepository {
     return this.mapRow(res.rows[0]);
   }
 
+  /** Messenger (P1): fallback campaign to attach a new Messenger lead to when the referral ad can't be
+   *  mapped — the shop's most-recent non-archived campaign. */
+  async findLatestForShop(shopId: string): Promise<AdCampaign | null> {
+    const res = await this.pool.query(
+      `SELECT * FROM ad_campaigns WHERE shop_id = $1 AND status <> 'archived' ORDER BY created_at DESC LIMIT 1`,
+      [shopId]
+    );
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
   async findById(id: string): Promise<AdCampaign | null> {
     const res = await this.pool.query(
       `SELECT c.*, sh.meta_currency AS currency

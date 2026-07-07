@@ -12,11 +12,36 @@
 
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
-import { verifyMetaSignature, parseLeadEvents } from '../services/MetaWebhookService';
+import { verifyMetaSignature, parseLeadEvents, parseMessagingEvents, type MetaMessagingEvent } from '../services/MetaWebhookService';
 import { leadAttributionService } from '../services/LeadAttributionService';
+import { leadAutoAnswerService } from '../services/LeadAutoAnswerService';
+import { messengerService } from '../services/MessengerService';
 import { CampaignRepository } from '../repositories/CampaignRepository';
+import { LeadRepository } from '../repositories/LeadRepository';
+import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
 
 const campaigns = new CampaignRepository();
+const leads = new LeadRepository();
+const metaConnections = new MetaConnectionRepository();
+
+// Messenger inbound (P1): resolve the PSID to a lead (create one from a click-to-Messenger click when
+// new) and route the text into the AI conversation loop — the AI answers, take-over/escalation apply,
+// exactly like email. See docs/tasks/strategy/ads-system/ads-messenger-scope.md.
+async function handleMessengerInbound(ev: MetaMessagingEvent): Promise<void> {
+  let lead = await leads.findByMessengerId(ev.senderPsid);
+  if (!lead) {
+    const shopId = await metaConnections.getShopIdByPageId(ev.pageId);
+    if (!shopId) { logger.info(`Messenger: no shop connected to page ${ev.pageId} — skipped`); return; }
+    const campaign = await campaigns.findLatestForShop(shopId);
+    if (!campaign) { logger.info(`Messenger: shop ${shopId} has no campaign to attach the lead to — skipped`); return; }
+    lead = await leads.create({
+      campaignId: campaign.id, messengerId: ev.senderPsid, attributionMethod: 'meta_webhook',
+      consentToContact: true, notes: 'Messenger',
+    });
+    logger.info(`Messenger: created lead ${lead.id} from PSID on page ${ev.pageId}`);
+  }
+  await leadAutoAnswerService.handleInbound(lead.id, ev.text, 'messenger', ev.mid ?? null);
+}
 
 // GET /webhooks/meta/leads — subscription verification.
 export function verifyMetaWebhook(req: Request, res: Response): void {
@@ -75,6 +100,14 @@ export async function receiveMetaWebhook(req: Request, res: Response): Promise<v
       });
     } catch (err) {
       logger.error(`Meta webhook: failed to process leadgen ${ev.leadgenId}`, err);
+    }
+  }
+
+  // Messenger inbound (same page webhook) — route messages into the AI loop. Gated by ADS_MESSENGER_ENABLED.
+  if (messengerService.enabled()) {
+    for (const ev of parseMessagingEvents(payload)) {
+      try { await handleMessengerInbound(ev); }
+      catch (err) { logger.error(`Meta webhook: messenger inbound failed (psid ${ev.senderPsid})`, err); }
     }
   }
 }
