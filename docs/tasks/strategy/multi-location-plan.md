@@ -254,15 +254,72 @@ controller endpoints gate it behind `resolveLocationFilter`/`hasPaidMultiLocatio
 
 ## Slice 4 — Per-location inventory (Business $599 only)
 
-The largest change: inventory is keyed by `shop_id` today and must be scoped to `location_id` so
-each branch tracks its own stock. Deferred out of Slice 3 to ship independently.
+Each branch tracks its own stock. Today all stock lives in `inventory_items.stock_quantity` /
+`reserved_quantity`, keyed by `shop_id` (migration 109); `service_inventory_items` is a shop-level
+service→item bill-of-materials.
 
-- Scope stock levels and purchase orders to `location_id` (migration adds `location_id` to
-  inventory tables; backfill existing stock to the shop's primary location).
-- Booking/checkout reads and decrements the selected branch's stock; low/out-of-stock flags per
-  branch.
-- Inventory UI gains a branch selector (reusing the location switcher context).
-- Same paid-entitlement gate; not entitled → primary-location stock only.
+### Decisions
+1. **Data model = item master + per-location stock (Option B).** `inventory_items` stays the
+   shop-level catalog (name, sku, price, category, vendor, default threshold); a new
+   `inventory_item_stock` table holds the per-branch quantities. Rejected Option A (`location_id`
+   on `inventory_items`) because the same SKU would fork into duplicate item rows and the
+   `service_inventory_items` BOM (one link → one item row) can't resolve "the same part at branch B"
+   for a shop-level service.
+2. **`inventory_items.stock_quantity` / `reserved_quantity` become a cached shop-total**, maintained
+   on every per-location stock write. This keeps all existing shop-wide reads unchanged — analytics,
+   AI insights, low-stock alerts, PO suggestions, the `inventory_items_with_availability` view, and
+   the status trigger all keep reading the item total and stay correct as "shop total."
+3. **Booking→stock deduction is deferred to Phase 4b** (a follow-up). It's currently **dead code**
+   (`serviceIntegrationController` listens for `service:completed`, but completion fires
+   `service.order_completed`), so nothing decrements stock today; wiring it up + making it
+   per-branch is separable. `reserved_quantity` is likewise never written today.
+4. Same paid-entitlement gate as Slices 2–3 (`hasPaidMultiLocation` / `multi_location_active`) —
+   not entitled → primary-location stock only; the per-location table is transparent.
+
+### Phase 4a (this slice) — per-branch stock management
+
+**Data model — migration (next free number)**
+- `inventory_item_stock (id uuid pk, item_id uuid FK→inventory_items ON DELETE CASCADE,
+  location_id uuid FK→shop_locations ON DELETE CASCADE, stock_quantity int NOT NULL DEFAULT 0,
+  reserved_quantity int NOT NULL DEFAULT 0, low_stock_threshold int NULL, created_at, updated_at)`.
+  - `UNIQUE(item_id, location_id)`; CHECKs mirror `inventory_items` (qty ≥ 0, reserved ≤ stock);
+    `low_stock_threshold NULL` = inherit the item's default.
+- **Backfill:** one `inventory_item_stock` row per existing item at the shop's **primary**
+  `shop_locations` row, carrying the item's current `stock_quantity` / `reserved_quantity`.
+- `inventory_items.stock_quantity` / `reserved_quantity` keep their meaning as the **sum across
+  locations** (equal to the single primary row post-backfill).
+
+**Backend**
+- `InventoryRepository`: new per-location stock helpers (get/list stock by `location_id`,
+  `adjustStock(itemId, shopId, locationId, …)` writing the branch row **and** re-summing the item
+  total in one transaction, `SELECT … FOR UPDATE`). Existing `adjustStock` becomes location-aware
+  (defaults to primary).
+- Read paths gain an optional `locationId`: `getItems`, `getItemById`, stats, analytics,
+  low-stock, PO-suggestion reads. `locationId` present + entitled → per-branch quantities (join
+  `inventory_item_stock`); absent → today's shop-total. A shared resolver mirrors Slice 3's
+  `resolveLocationFilter` (entitlement-gated).
+- **PO receiving** (`PurchaseOrderRepository.receiveItems`) targets a location: PO gains a
+  `location_id` (default/backfill = primary); receiving adds to that branch's stock row + re-sums
+  the item total.
+- Per-location status/low-stock computed from the branch row (fallback to item default threshold).
+
+**Frontend**
+- `InventoryTab` wires the existing `useLocationStore` `activeLocationId` + `<LocationSwitcher/>`
+  (already used by Bookings/Analytics); passes `locationId` through `inventoryApi` (list, stats,
+  adjust, receive). Stock/low-stock columns reflect the active branch; "All locations" = totals.
+- Stock-adjust and PO-receive modals act on the active branch.
+
+**Out of scope for 4a (→ 4b):** booking/checkout auto-decrement (fix the dead
+`service.order_completed` wiring, thread the order's `location_id`, decrement the branch row),
+and any reserve-on-booking.
+
+### Phase 4b (follow-up) — booking consumes the branch's stock
+- Fix `serviceIntegrationController` to subscribe to `service.order_completed`; add `location_id`
+  to that event payload (from `service_orders.location_id`).
+- `deductStockForService` resolves the order's branch and decrements `inventory_item_stock` for
+  `(item_id, location_id)` (fallback primary / not-entitled), re-summing the item total; writes the
+  `inventory_adjustments` ledger row as today.
+- Booking/checkout availability reads the branch's stock for low/out-of-stock flags.
 
 ---
 

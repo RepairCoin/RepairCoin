@@ -1,6 +1,7 @@
 // backend/src/domains/InventoryDomain/controllers/adjustmentController.ts
 import { Request, Response } from 'express';
 import { InventoryRepository } from '../../../repositories/InventoryRepository';
+import { resolveLocationFilter } from '../../../utils/multiLocationEntitlement';
 import { logger } from '../../../utils/logger';
 
 const inventoryRepo = new InventoryRepository();
@@ -17,7 +18,7 @@ export const adjustStock = async (req: Request, res: Response): Promise<void> =>
     }
 
     const { itemId } = req.params;
-    const { adjustmentType, quantityChange, reason, notes, referenceType, referenceId } = req.body;
+    const { adjustmentType, quantityChange, reason, notes, referenceType, referenceId, locationId } = req.body;
 
     // Validate required fields
     if (!adjustmentType) {
@@ -35,9 +36,11 @@ export const adjustStock = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    const resolvedLocationId = await resolveLocationFilter(shopId, locationId);
     const adjustment = await inventoryRepo.adjustStock({
       itemId,
       shopId,
+      locationId: resolvedLocationId || undefined,
       adjustmentType,
       quantityChange,
       reason,

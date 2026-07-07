@@ -4,7 +4,7 @@ import { useState } from "react";
 import { inventoryApi } from "@/services/api/inventory";
 import type { PurchaseOrder, ReceiveItemsData } from "@/types/inventory";
 import { toast } from "react-hot-toast";
-import { X, Package, CheckCircle, AlertCircle } from "lucide-react";
+import { X, Package, CheckCircle, AlertCircle, MapPin } from "lucide-react";
 
 interface ReceiveItemsModalProps {
   shopId: string;
@@ -99,6 +99,12 @@ export function ReceiveItemsModal({
           <div>
             <h2 className="text-xl font-bold text-gray-900">Receive Items</h2>
             <p className="text-sm text-gray-600 mt-1">PO: {purchaseOrder.poNumber}</p>
+            {purchaseOrder.locationName && (
+              <p className="text-sm text-gray-600 mt-1 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-gray-500" />
+                Receiving into <span className="font-medium text-gray-900">{purchaseOrder.locationName}</span>
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}

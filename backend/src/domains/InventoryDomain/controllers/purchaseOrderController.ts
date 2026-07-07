@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { PurchaseOrderRepository } from '../../../repositories/PurchaseOrderRepository';
+import { resolvePurchaseOrderLocationId } from '../../../utils/multiLocationEntitlement';
 
 const poRepository = new PurchaseOrderRepository();
 
@@ -11,7 +12,7 @@ const poRepository = new PurchaseOrderRepository();
 export async function createPurchaseOrder(req: Request, res: Response): Promise<void> {
   try {
     const { shopId } = req.params;
-    const { vendorId, vendorName, orderDate, expectedDeliveryDate, notes, items } = req.body;
+    const { vendorId, vendorName, orderDate, expectedDeliveryDate, notes, locationId, items } = req.body;
 
     // Validation
     if (!vendorName) {
@@ -57,6 +58,9 @@ export async function createPurchaseOrder(req: Request, res: Response): Promise<
       }
     }
 
+    // Entitlement-gate + validate the requested branch; null falls back to primary at receive time.
+    const resolvedLocationId = await resolvePurchaseOrderLocationId(shopId, locationId);
+
     const po = await poRepository.createPurchaseOrder({
       shopId,
       vendorId: vendorId || null,
@@ -64,6 +68,7 @@ export async function createPurchaseOrder(req: Request, res: Response): Promise<
       orderDate: orderDate ? new Date(orderDate) : undefined,
       expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
       notes: notes || null,
+      locationId: resolvedLocationId,
       createdBy: req.user?.address || 'unknown',
       items
     });
@@ -149,7 +154,7 @@ export async function getPurchaseOrder(req: Request, res: Response): Promise<voi
  */
 export async function updatePurchaseOrder(req: Request, res: Response): Promise<void> {
   try {
-    const { poId } = req.params;
+    const { shopId, poId } = req.params;
     const updates = req.body;
 
     // Validate status if provided
@@ -162,6 +167,22 @@ export async function updatePurchaseOrder(req: Request, res: Response): Promise<
         });
         return;
       }
+    }
+
+    if ('locationId' in updates) {
+      const existing = await poRepository.getPurchaseOrderById(poId);
+      if (existing.shopId !== shopId) {
+        res.status(404).json({ success: false, message: 'Purchase order not found' });
+        return;
+      }
+      if (!['draft', 'sent', 'confirmed'].includes(existing.status)) {
+        res.status(409).json({
+          success: false,
+          message: 'The receiving branch cannot be changed once items have been received or the order is cancelled'
+        });
+        return;
+      }
+      updates.locationId = await resolvePurchaseOrderLocationId(shopId, updates.locationId);
     }
 
     const po = await poRepository.updatePurchaseOrder(poId, updates);

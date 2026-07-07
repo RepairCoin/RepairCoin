@@ -63,6 +63,33 @@ export async function setMultiLocationActive(shopId: string): Promise<boolean> {
 }
 
 /**
+ * Resolve a requested `?locationId=` read filter: honored only for shops with the paid entitlement
+ * (so dormant/trial branches can't scope reads), null otherwise (= all locations / shop-total).
+ */
+export async function resolveLocationFilter(
+  shopId: string,
+  requestedLocationId?: string | null
+): Promise<string | null> {
+  if (!requestedLocationId) return null;
+  return (await hasPaidMultiLocation(shopId)) ? requestedLocationId : null;
+}
+
+/**
+ * Resolve the branch a purchase order should be received into. Honored only for entitled shops when
+ * the location belongs to the shop and is active; otherwise null so receive-time falls back to the
+ * shop's primary (see migration 205: `purchase_orders.location_id` NULL = primary at receive time).
+ */
+export async function resolvePurchaseOrderLocationId(
+  shopId: string,
+  requestedLocationId?: string | null
+): Promise<string | null> {
+  if (!requestedLocationId) return null;
+  if (!(await hasPaidMultiLocation(shopId))) return null;
+  const loc = await shopLocationRepository.getById(requestedLocationId);
+  return loc && loc.shopId === shopId && loc.active ? loc.id : null;
+}
+
+/**
  * Branch label for a booking's calendar event. Only returns a value for a non-primary location, so
  * single-location and primary-branch bookings don't get a redundant address line on the event.
  */
