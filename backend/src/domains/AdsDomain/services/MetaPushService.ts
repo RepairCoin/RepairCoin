@@ -160,6 +160,8 @@ export class MetaPushService {
         // Pixel-Lead website-conversion optimization → promoted_object names the pixel + LEAD.
         conversionPixelId: spec.conversionOptimized ? spec.pixelId ?? undefined : undefined,
         customEventType: spec.conversionOptimized ? 'LEAD' : undefined,
+        // Click-to-Messenger → MESSENGER destination + promoted page.
+        messagingDestination: spec.messagingDestination,
       });
       // For native-lead-form objectives, attach a Meta instant form (best-effort → link
       // fallback). SKIP it for the pixel-conversion flavor (conversionOptimized) — that path
@@ -183,6 +185,8 @@ export class MetaPushService {
         linkUrl,
         leadFormId: metaLeadFormId,
         enhancements: campaign.allowMetaEnhancements,
+        // Click-to-Messenger → MESSAGE_PAGE CTA (opens Messenger), no landing link.
+        messaging: spec.messagingDestination,
       });
       metaAdId = await metaService.createAd(conn.adAccountId, token, {
         name: `${campaign.name} — ad`, adsetId: metaAdSetId, creativeId: metaCreativeId,
