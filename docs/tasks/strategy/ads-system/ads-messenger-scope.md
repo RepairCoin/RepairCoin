@@ -41,12 +41,51 @@ greets + answers, the shop takes over when needed. This is the highest-value cha
 4. **Dedupe** on the message `mid` (reuse the `external_id` idempotency on `ad_lead_messages`).
 5. Behind `ADS_MESSENGER_ENABLED`.
 
-## Phase 2 — acquisition (the ad side)
-- **Messages objective** — a click-to-Messenger campaign flavor in the builder/`MetaPushService`
-  (`OUTCOME_ENGAGEMENT` + `messenger` destination / `CTWA`-style), so new ads open Messenger instead of the landing page.
-- **Welcome / ice-breakers** — the Page's greeting + the AI's first message when a thread opens.
-- **Auto-initiation over Messenger** — extend `LeadInitiationService` to fire on a new Messenger lead (first AI message),
-  not just email.
+## Phase 2 — acquisition: the click-to-Messenger (CTM) ad objective
+
+Goal: a shop can run a **"Messages"** campaign whose ads open a **Messenger thread with the shop's Page** (instead of the
+landing page), so the click lands the person straight into the AI conversation (Phase 1 handles the rest). Everything is
+already scaffolded — the objective picker even shows `OUTCOME_ENGAGEMENT: "Messages (Messenger)"` in `DraftComposer` — so
+this is wiring, not greenfield.
+
+### What Meta requires for a CTM ad (vs. our current link/lead flow)
+- **Campaign objective:** `OUTCOME_ENGAGEMENT` (the "Messages" objective).
+- **Ad set:** `optimization_goal: 'CONVERSATIONS'`, `destination_type: 'MESSENGER'`, `promoted_object: { page_id }`.
+- **Ad creative:** an `object_story_spec` with a `MESSAGE_PAGE`-style CTA (`call_to_action` type `MESSAGE_PAGE`), linking to
+  the Page's Messenger — **no landing URL**. (Contrast: today's creative uses a website link / lead form.)
+
+### Code changes (grounded in the current build path)
+1. **`metaTargeting.ts`**
+   - Add `OUTCOME_ENGAGEMENT` to the `MetaObjective` union + `validateObjective` (so the picker value is accepted).
+   - `objectiveForGoal`: map a new brief goal `'messages'` → `OUTCOME_ENGAGEMENT`.
+   - `optimizationForObjective('OUTCOME_ENGAGEMENT')` → `{ optimizationGoal: 'CONVERSATIONS', billingEvent: 'IMPRESSIONS' }`.
+   - Extend `CampaignSpec` with a `messagingDestination?: boolean` (or derive from objective) so downstream knows this is CTM.
+2. **`MetaService.createAdSet`** — when the objective is `OUTCOME_ENGAGEMENT`: set `destination_type = 'MESSENGER'` and
+   `promoted_object = { page_id }` (we already have `promotedPageId`). Skip the pixel/lead-form branches.
+3. **`MetaService.createAdCreative`** — a Messenger variant: build `object_story_spec.link_data` with
+   `call_to_action: { type: 'MESSAGE_PAGE', value: { app_destination: 'MESSENGER' } }` and the page, **no `link` landing
+   URL**. (New `opts.messaging` flag selects this shape.)
+4. **`MetaPushService`** — when `spec.objective === 'OUTCOME_ENGAGEMENT'`: skip the landing-URL/lead-form logic, pass the
+   messaging flags to `createAdSet`/`createAdCreative`. The creative copy (headline/primary text) still comes from
+   `AdCreativeService`.
+5. **Frontend** — enable the "Messages (Messenger)" option in the objective picker (it's already labeled); in review/preview,
+   state "this ad opens Messenger — no landing page," and hide the landing-page bits for this objective.
+
+### Welcome experience
+- **Ice-breakers / greeting** — optionally set the Page's Messenger greeting + persistent menu via the Messenger Profile
+  API so the thread has a warm first frame before the customer types. (Nice-to-have; the AI answers on first inbound anyway.)
+- **Auto-initiation is NOT needed for CTM** — the customer messages first (they clicked → opened Messenger → typed), so
+  Phase 1's inbound path already greets them. (`LeadInitiationService` stays email/first-outreach-only.)
+
+### Testing & gates
+- Unit-test the spec/adset/creative shape (dry-run body assertions, like the existing Meta push tests) — buildable now.
+- **Live** needs: `pages_messaging` App Review, a connected Page, `ADS_MESSENGER_ENABLED`, and Meta approving CTM delivery
+  on the account. Push creates the objects **PAUSED** (existing prepare→push→go-live flow), so it's safe to build + eyeball
+  the created objects in Ads Manager before review completes.
+
+### Effort
+~1–1.5 dev-days for the objective/adset/creative wiring + FE picker + unit tests. The Messenger Profile greeting is a small
+add-on. All behind the existing review-gate + `ADS_MESSENGER_ENABLED`.
 
 ## Phase 3 — polish
 - 24h-window handling (message tags / OTN for follow-ups), delivery/read receipts into the Activity timeline,
