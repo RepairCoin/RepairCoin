@@ -513,6 +513,47 @@ router.post('/notifications/broadcast', asyncHandler(async (req, res) => {
   res.json({ success: true, data: { recipients: unique.length, delivered } });
 }));
 
+// Referral program analytics (platform-wide)
+router.get('/referrals/analytics', asyncHandler(async (req, res) => {
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const { ReferralRepository } = await import('../../../repositories/ReferralRepository');
+  const pool = getSharedPool();
+
+  const summaryRes = await pool.query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE completed_at IS NOT NULL)::int AS completed,
+      COUNT(*) FILTER (WHERE completed_at IS NULL AND (expires_at IS NULL OR expires_at > NOW()))::int AS pending,
+      COUNT(*) FILTER (WHERE completed_at IS NULL AND expires_at IS NOT NULL AND expires_at <= NOW())::int AS expired,
+      COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN COALESCE(reward_amount,0) + COALESCE(referee_bonus,0) ELSE 0 END), 0)::float AS rcn_paid,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int AS last7,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS last30
+    FROM referrals
+  `);
+  const s = summaryRes.rows[0];
+  const conversionRate = s.total > 0 ? (s.completed / s.total) * 100 : 0;
+
+  const repo = new ReferralRepository();
+  const leaderboard = await repo.getReferralStats(20);
+
+  res.json({
+    success: true,
+    data: {
+      summary: {
+        total: s.total,
+        completed: s.completed,
+        pending: s.pending,
+        expired: s.expired,
+        rcnPaid: s.rcn_paid,
+        conversionRate,
+        last7Days: s.last7,
+        last30Days: s.last30,
+      },
+      leaderboard,
+    },
+  });
+}));
+
 // System maintenance
 router.post('/maintenance/cleanup-webhooks', 
   asyncHandler(adminController.cleanupWebhooks.bind(adminController))
