@@ -2,30 +2,27 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useAuthStore } from '@/stores/authStore';
 import { serviceAnalyticsApi, PlatformAnalyticsSummary, MarketplaceHealthScore } from '@/services/api/serviceAnalytics';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, TrendingUp, DollarSign, Package, Store, Users, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function ServiceMarketplaceAnalyticsSection() {
-  const { token } = useAuthStore();
   const [analytics, setAnalytics] = useState<PlatformAnalyticsSummary | null>(null);
   const [healthScore, setHealthScore] = useState<MarketplaceHealthScore | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadAnalytics();
-  }, [token]);
+  }, []);
 
   const loadAnalytics = async () => {
-    if (!token) return;
-
     try {
       setLoading(true);
+      // apiClient sends the auth cookie automatically.
       const [data, health] = await Promise.all([
-        serviceAnalyticsApi.getPlatformAnalytics(token, { topShopsLimit: 5, trendDays: 30 }),
-        serviceAnalyticsApi.getMarketplaceHealthScore(token)
+        serviceAnalyticsApi.getPlatformAnalytics({ topShopsLimit: 5, trendDays: 30 }),
+        serviceAnalyticsApi.getMarketplaceHealthScore()
       ]);
       setAnalytics(data);
       setHealthScore(health);

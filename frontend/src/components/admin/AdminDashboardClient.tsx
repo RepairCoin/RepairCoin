@@ -31,6 +31,8 @@ import { RevenueAnalyticsTab } from "@/components/admin/tabs/RevenueAnalyticsTab
 import { WebhookMonitorTab } from "@/components/admin/tabs/WebhookMonitorTab";
 import { RcgManagementTab } from "@/components/admin/tabs/RcgManagementTab";
 import { AnnouncementsTab } from "@/components/admin/tabs/AnnouncementsTab";
+import { ReferralAnalyticsTab } from "@/components/admin/tabs/ReferralAnalyticsTab";
+import ServiceMarketplaceAnalyticsSection from "@/components/admin/ServiceMarketplaceAnalyticsSection";
 import { AdminAISettingsTab } from "@/components/admin/tabs/AdminAISettingsTab";
 import { SmartCommandBar } from "@/components/admin/SmartCommandBar";
 import DashboardLayout from "@/components/ui/DashboardLayout";
@@ -491,6 +493,20 @@ export default function AdminDashboardClient() {
           {activeTab === "announcements" && hasAdminAccess && (
             <LazyTabWrapper isActive={activeTab === "announcements"}>
               <AnnouncementsTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Referral Analytics Tab */}
+          {activeTab === "referrals" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "referrals"}>
+              <ReferralAnalyticsTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Service Marketplace Analytics Tab */}
+          {activeTab === "marketplace" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "marketplace"}>
+              <ServiceMarketplaceAnalyticsSection />
             </LazyTabWrapper>
           )}
 
