@@ -20,6 +20,7 @@ import {
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { VALID_CATEGORIES } from '../constants';
+import { serviceImportMappingService } from '../../customer/services/CustomerImportMappingService';
 import { Pool, PoolClient } from 'pg';
 import { getSharedPool } from '../../../utils/database-pool';
 import { v4 as uuidv4 } from 'uuid';
@@ -413,22 +414,36 @@ export class ImportExportService {
     const validServices: ParsedService[] = [];
     const validCats = VALID_CATEGORIES as readonly string[];
 
+    // AI-map the distinct UNRECOGNIZED categories → the fixed marketplace buckets (one Haiku call,
+    // spend-capped, non-fatal). e.g. Square "game_console_repairs" → "repairs", "accessories" →
+    // "other_local_services". Unmapped/over-budget rows fall back to the catch-all below.
+    const unknownCats = Array.from(new Set(
+      services.map((s) => (s.category || '').toLowerCase().trim()).filter((c) => c && !validCats.includes(c))
+    ));
+    let catMap: Record<string, string> = {};
+    if (unknownCats.length) {
+      try {
+        catMap = (await serviceImportMappingService.mapCategories(unknownCats, Array.from(validCats), shopId)).mapping;
+      } catch { catMap = {}; }
+    }
+
     // Track duplicate service names (skip later repeats so a re-import stays clean).
     const serviceNames = new Set<string>();
 
     for (const service of services) {
       const sanitized = sanitizeServiceData(service);
 
-      // Migration-friendly: an external catalog's free-text category rarely matches our fixed set —
-      // default the unrecognized/empty ones to 'other_local_services' (with a warning) instead of
-      // failing the row. Lets a Square/other catalog import without hand-fixing every category.
+      // Unrecognized/empty category → AI-mapped broad bucket if we have one, else the catch-all. Never
+      // fails the row (an external catalog's free-text categories rarely match our fixed set verbatim).
       if (!sanitized.category || !validCats.includes(sanitized.category)) {
+        const mapped = catMap[(sanitized.category || '').toLowerCase().trim()];
+        const target = mapped || 'other_local_services';
         warnings.push({
           row: service.rowIndex, column: 'Category', value: sanitized.category,
-          message: 'Unrecognized category — defaulted to "other_local_services"',
-          severity: 'warning', code: 'CATEGORY_DEFAULTED'
+          message: mapped ? `Category mapped to "${target}"` : 'Unrecognized category — defaulted to "other_local_services"',
+          severity: 'warning', code: mapped ? 'CATEGORY_MAPPED' : 'CATEGORY_DEFAULTED'
         });
-        sanitized.category = 'other_local_services';
+        sanitized.category = target;
       }
 
       const validation = validateServiceRow(sanitized, shopId, Array.from(VALID_CATEGORIES));
