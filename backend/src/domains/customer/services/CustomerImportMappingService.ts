@@ -31,14 +31,17 @@ const FIELD_GUIDES: Record<ImportSchema, string> = {
 - visitCount: number of visits / transactions
 - referralCode, referredBy, active, lifetimeEarnings: only if clearly present`,
   services: `
-- serviceName: the service/item name (e.g. "Item Name", "Service")
+- serviceName: the service/item name (e.g. "Item Name", "Service", "Customer-facing Name")
 - description: description / details
-- priceUsd: price (a currency amount)
+- priceUsd: price (a currency amount; the value may be the literal "variable")
 - durationMinutes: duration in minutes, if present
-- category: service/item category (free text — it will be normalized; unknown values become "other")
+- category: service/item category (free text — e.g. "Categories", "Reporting Category"; normalized, unknown → "other")
 - imageUrl: an image/photo URL, if present
 - tags: comma-separated tags/keywords
-- active: whether the service is active/enabled / available online`,
+- active: whether the item is active/enabled/available. For a Square export prefer "Square Online Item Visibility"
+  (visible=active) over "Archived"/"Sellable".
+- externalRef: the origin system's unique item id — for a Square catalog this is the "Token" column (NOT the SKU unless
+  no Token). Map it so re-imports update instead of duplicating.`,
 };
 
 const SCHEMA_NOUN: Record<ImportSchema, string> = { customers: 'customer-list', services: 'service/catalog' };
