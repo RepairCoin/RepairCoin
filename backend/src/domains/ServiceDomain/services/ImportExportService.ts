@@ -439,17 +439,18 @@ export class ImportExportService {
         continue;
       }
 
-      // Within-file duplicate service name → skip the later one.
-      const nameKey = sanitized.serviceName.toLowerCase();
-      if (serviceNames.has(nameKey)) {
+      // Within-file duplicate → skip the later one. Key by external_ref when present (distinct catalog
+      // items can legitimately share a name, e.g. "Phone Case"); else fall back to the name.
+      const dupKey = sanitized.externalRef ? `ref:${sanitized.externalRef}` : `name:${sanitized.serviceName.toLowerCase()}`;
+      if (serviceNames.has(dupKey)) {
         errors.push({
-          row: service.rowIndex, column: 'Service Name', value: sanitized.serviceName,
-          message: 'Duplicate service name earlier in the file — skipped',
-          severity: 'error', code: 'DUPLICATE_SERVICE_NAME'
+          row: service.rowIndex, column: sanitized.externalRef ? 'Token' : 'Service Name', value: sanitized.externalRef || sanitized.serviceName,
+          message: 'Duplicate item earlier in the file — skipped',
+          severity: 'error', code: 'DUPLICATE_SERVICE'
         });
         continue;
       }
-      serviceNames.add(nameKey);
+      serviceNames.add(dupKey);
       validServices.push(sanitized);
     }
 
@@ -494,8 +495,11 @@ export class ImportExportService {
       for (const service of services) {
         const sanitized = sanitizeServiceData(service);
 
-        // Check if service exists (by name)
-        const existing = await this.findExistingService(client, shopId, sanitized.serviceName);
+        // Match an existing service: prefer the origin id (external_ref) — stable across renames, so a
+        // re-imported catalog updates instead of duplicating — and fall back to the name.
+        const existing = sanitized.externalRef
+          ? await this.findByExternalRef(client, shopId, sanitized.externalRef)
+          : await this.findExistingService(client, shopId, sanitized.serviceName);
 
         if (existing) {
           if (options.mode === 'merge') {
@@ -544,6 +548,15 @@ export class ImportExportService {
     return result.rows.length > 0 ? result.rows[0] : null;
   }
 
+  /** Find an existing imported service by its origin id (external_ref) — stable re-import identity. */
+  private async findByExternalRef(client: PoolClient, shopId: string, externalRef: string): Promise<any> {
+    const result = await client.query(
+      'SELECT service_id FROM shop_services WHERE shop_id = $1 AND external_ref = $2 LIMIT 1',
+      [shopId, externalRef]
+    );
+    return result.rows.length > 0 ? result.rows[0] : null;
+  }
+
   /**
    * Insert new service
    */
@@ -555,8 +568,8 @@ export class ImportExportService {
     await client.query(
       `INSERT INTO shop_services (
         shop_id, service_name, description, price_usd, duration_minutes,
-        category, image_url, tags, active, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())`,
+        category, image_url, tags, active, import_source, external_ref, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
       [
         shopId,
         service.serviceName,
@@ -566,7 +579,9 @@ export class ImportExportService {
         service.category,
         service.imageUrl || null,
         service.tags || [],
-        service.active
+        service.active,
+        service.externalRef ? 'import' : null, // provenance marker for imported rows
+        service.externalRef || null
       ]
     );
   }
@@ -588,8 +603,9 @@ export class ImportExportService {
         image_url = $5,
         tags = $6,
         active = $7,
+        external_ref = COALESCE($8, external_ref),
         updated_at = NOW()
-      WHERE service_id = $8`,
+      WHERE service_id = $9`,
       [
         service.description || null,
         service.priceUsd,
@@ -598,6 +614,7 @@ export class ImportExportService {
         service.imageUrl || null,
         service.tags || [],
         service.active,
+        service.externalRef || null,
         serviceId
       ]
     );
