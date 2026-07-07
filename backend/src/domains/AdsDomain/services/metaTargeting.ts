@@ -6,7 +6,7 @@
 // measurable ROI. Geo comes from the shop's lat/lng + the request radius. (Interest targeting
 // needs real Meta interest IDs via the Targeting Search API — a later refinement, not v1.)
 
-export type MetaObjective = 'OUTCOME_LEADS' | 'OUTCOME_AWARENESS' | 'OUTCOME_TRAFFIC';
+export type MetaObjective = 'OUTCOME_LEADS' | 'OUTCOME_AWARENESS' | 'OUTCOME_TRAFFIC' | 'OUTCOME_ENGAGEMENT';
 
 export interface CampaignSpecInput {
   goal: string | null;            // request.goal
@@ -31,10 +31,17 @@ export function asMetaObjective(value: string | null | undefined): MetaObjective
     case 'OUTCOME_TRAFFIC':
     case 'OUTCOME_AWARENESS':
     case 'OUTCOME_LEADS':
+    case 'OUTCOME_ENGAGEMENT':
       return value;
     default:
       return null;
   }
+}
+
+/** True for the click-to-Messenger objective — the ad opens a Messenger thread with the shop's Page
+ *  (no landing page), so the ad set + creative are built differently (Messenger destination + MESSAGE CTA). */
+export function isMessagingObjective(objective: MetaObjective): boolean {
+  return objective === 'OUTCOME_ENGAGEMENT';
 }
 
 export interface MetaCampaignSpec {
@@ -48,6 +55,9 @@ export interface MetaCampaignSpec {
   conversionOptimized?: boolean;
   /** Pixel id to optimize toward (only set when conversionOptimized). */
   pixelId?: string | null;
+  /** Click-to-Messenger (OUTCOME_ENGAGEMENT): the ad set targets the MESSENGER destination and the
+   *  creative uses a MESSAGE_PAGE CTA (no landing URL / lead form). */
+  messagingDestination?: boolean;
 }
 
 const DEFAULT_RADIUS_MILES = 10;
@@ -62,6 +72,7 @@ const MILES_TO_KM = 1.609344;
 export function objectiveForGoal(goal: string | null | undefined): MetaObjective {
   switch ((goal || '').toLowerCase()) {
     case 'awareness': return 'OUTCOME_AWARENESS';
+    case 'messages': return 'OUTCOME_ENGAGEMENT'; // click-to-Messenger
     case 'more_bookings':
     case 'leads':
     case 'traffic':
@@ -74,6 +85,7 @@ export function optimizationForObjective(objective: MetaObjective): { optimizati
   switch (objective) {
     case 'OUTCOME_AWARENESS': return { optimizationGoal: 'REACH', billingEvent: 'IMPRESSIONS' };
     case 'OUTCOME_TRAFFIC': return { optimizationGoal: 'LINK_CLICKS', billingEvent: 'IMPRESSIONS' };
+    case 'OUTCOME_ENGAGEMENT': return { optimizationGoal: 'CONVERSATIONS', billingEvent: 'IMPRESSIONS' }; // click-to-Messenger
     case 'OUTCOME_LEADS':
     default: return { optimizationGoal: 'LEAD_GENERATION', billingEvent: 'IMPRESSIONS' };
   }
@@ -133,5 +145,6 @@ export function buildCampaignSpec(input: CampaignSpecInput): MetaCampaignSpec {
     optimizationGoal,
     billingEvent,
     targeting: buildTargeting(input),
+    messagingDestination: isMessagingObjective(objective),
   };
 }

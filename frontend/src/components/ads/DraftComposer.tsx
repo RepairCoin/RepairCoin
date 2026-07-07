@@ -376,10 +376,12 @@ export const DraftComposer: React.FC<{ campaign: AdCampaign; onChanged?: () => v
               <label className="block text-xs text-gray-500 mb-1">Objective {onMeta && <span className="text-gray-600">(locked after push)</span>}</label>
               <select className={inputCls} value={objective} disabled={onMeta} onChange={(e) => setObjective(e.target.value)}>
                 <option value="OUTCOME_TRAFFIC">Website clicks — send to a landing page</option>
-                <option value="OUTCOME_ENGAGEMENT" disabled>Messages (Messenger) — coming soon · needs Meta App Review</option>
+                <option value="OUTCOME_ENGAGEMENT">Messages (Messenger) — open a chat with the shop&apos;s Page</option>
               </select>
               <p className="text-[11px] text-gray-500 mt-1">
-                Optimizes for clicks to the shop&apos;s landing page, where the lead form captures the customer.
+                {objective === "OUTCOME_ENGAGEMENT"
+                  ? "The ad opens a Messenger chat with the shop’s Page (no landing page) — the AI greets + answers. Needs Meta App Review (pages_messaging) to reach non-test users."
+                  : "Optimizes for clicks to the shop’s landing page, where the lead form captures the customer."}
               </p>
             </div>
             <label className="flex items-start gap-2 cursor-pointer">
