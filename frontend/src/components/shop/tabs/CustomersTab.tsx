@@ -18,7 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Upload,
 } from "lucide-react";
+import CustomerImportModal from "@/components/admin/modals/CustomerImportModal";
 import {
   Select,
   SelectContent,
@@ -127,6 +129,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
 
   // View mode state
   const [viewMode, setViewMode] = useState<"my-customers" | "search-all">("my-customers");
+  const [showImport, setShowImport] = useState(false);
 
   // My Customers state
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -463,7 +466,8 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
 
   return (
     <div className="space-y-6">
-      {/* View Mode Toggle */}
+      {/* View Mode Toggle + Import */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
       <div className="bg-[#101010] rounded-[20px] p-2 flex sm:inline-flex gap-2">
         <button
           onClick={() => setViewMode("my-customers")}
@@ -494,6 +498,21 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
           </div>
         </button>
       </div>
+        {/* Import your customer list (CSV / Excel) into your shop */}
+        <button
+          onClick={() => setShowImport(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[14px] bg-[#101010] border border-gray-700 text-white text-sm font-semibold hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors"
+        >
+          <Upload className="w-4 h-4" /> Import
+        </button>
+      </div>
+
+      <CustomerImportModal
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+        onImportComplete={() => { setShowImport(false); loadCustomers(); }}
+        role="shop"
+      />
 
       {/* My Customers View */}
       {viewMode === "my-customers" && (
