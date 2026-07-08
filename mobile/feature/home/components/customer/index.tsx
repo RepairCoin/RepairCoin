@@ -285,7 +285,7 @@ export default function CustomerWalletTab() {
             favoritedIds={favoritedIds}
           />
         )}
-        {displayedServices && displayedServices.length > 0 && (
+        {/* {displayedServices && displayedServices.length > 0 && (
           <AiRecommendedSection
             data={displayedServices}
             isLoading={servicesLoading}
@@ -293,7 +293,7 @@ export default function CustomerWalletTab() {
             onSeeAll={handleViewAllServices}
             favoritedIds={favoritedIds}
           />
-        )}
+        )} */}
         <CategoryGrid />
         <NearbyShopsSection />
         <UpcomingBookingsList />
