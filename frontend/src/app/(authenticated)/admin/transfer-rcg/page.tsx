@@ -15,7 +15,9 @@ const TO_ADDRESS = "0xb3afc20c0f66e9ec902bd7df2313b57ae8fb1d81";
 const RCG_CONTRACT = "0xdaFCC0552d976339cA28EF2e84ca1c6561379c9D";
 
 const client = createThirdwebClient({
-  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
+  clientId:
+    process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
+    "1969ac335e07ba13ad0f8d1a1de4f6ab",
 });
 
 export default function TransferRCGPage() {
