@@ -23,6 +23,7 @@ import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { AppointmentService } from '../../ServiceDomain/services/AppointmentService';
 import { AppointmentRepository, TimeSlot } from '../../../repositories/AppointmentRepository';
 import { getCurrentTimeInTimezone } from '../../../utils/timezoneUtils';
+import { LeadBookingService } from './LeadBookingService';
 import { LeadChannelSender } from './LeadChannelSender';
 
 const MODEL: ClaudeModel = 'claude-haiku-4-5-20251001';
@@ -37,6 +38,15 @@ const MAX_CATALOG_SERVICES = 30;
 const availabilityGroundingEnabled = (): boolean => process.env.ADS_AI_AVAILABILITY_GROUNDING === 'true';
 /** Cheap pre-filter so we only pay the extraction call on plausibly-scheduling messages. */
 const SCHEDULING_RE = /\b(availab|schedul|book|appointment|slot|reserv|when|what time|open on|opening hours|this week|next week|today|tomorrow|tonight|morning|afternoon|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
+
+/** Phase 4 — AI creates the booking on explicit confirmation (write-path). Default OFF. */
+const bookingEnabled = (): boolean => process.env.ADS_AI_BOOKING_ENABLED === 'true';
+/** The lead is affirming / asking to book. */
+const BOOK_INTENT_RE = /\b(book|reserve|schedule me|sign me up|confirm|i'?ll take|take it|lock it in|works for me|that works|sounds good|let'?s do|yes|yeah|yep|sure|ok|okay|sige|go ahead)\b/i;
+/** A clock time in the message (e.g. "9am", "10:30"). */
+const CLOCK_RE = /\b\d{1,2}(:\d{2})?\s?(am|pm)\b|\b\d{1,2}:\d{2}\b/i;
+/** A prior assistant turn already handed over a pay link → don't re-book. */
+const ALREADY_BOOKED_RE = /checkout\.stripe\.com|pending payment|reserved for 24|payment link/i;
 
 const systemPromptFor = (shopName: string, industry: string, voice: string, campaign: string): string =>
   `You are the customer-service assistant for ${shopName}, a ${industry}. A lead responded ` +
@@ -68,8 +78,90 @@ export class LeadAutoAnswerService {
     private readonly creatives = new CreativeRepository(),
     private readonly appointments = new AppointmentService(),
     private readonly appointmentRepo = new AppointmentRepository(),
-    private readonly channel = new LeadChannelSender()
+    private readonly channel = new LeadChannelSender(),
+    private readonly booking = new LeadBookingService()
   ) {}
+
+  /** Phase 4 — booking on explicit confirmation (WRITE). When the customer agrees to a specific slot the AI
+   *  offered and has given name+email, create the pending booking + Stripe pay link and hand the link back so
+   *  the reply delivers it (also emailed). Missing contact → ask for it. Never books twice (thread guard),
+   *  never without an explicit confirm. Returns a guidance block (+ extraction cost). Fails safe to null. */
+  private async bookingBlock(shopId: string, leadId: string, thread: LeadMessage[]): Promise<{ text: string | null; costUsd: number }> {
+    if (!bookingEnabled() || !thread.length) return { text: null, costUsd: 0 };
+    const last = thread[thread.length - 1];
+    if (!last || last.author !== 'lead') return { text: null, costUsd: 0 };
+    // Already handed over a pay link in this thread → don't re-book on follow-up messages.
+    if (thread.some((m) => m.author !== 'lead' && ALREADY_BOOKED_RE.test(m.body || ''))) return { text: null, costUsd: 0 };
+    // Gate: the AI must have offered real times, and the customer must be affirming / naming a time.
+    const offered = thread.some((m) => m.author !== 'lead' && /\d{1,2}:\d{2}/.test(m.body || ''));
+    const explicitBook = /\b(book|reserve|schedule)\b/i.test(last.body);
+    if (!(explicitBook || ((BOOK_INTENT_RE.test(last.body) || CLOCK_RE.test(last.body)) && offered))) return { text: null, costUsd: 0 };
+
+    let costUsd = 0;
+    try {
+      const cat = await this.services.getServicesByShop(shopId, { activeOnly: true, limit: MAX_CATALOG_SERVICES });
+      const items = cat.items || [];
+      if (!items.length) return { text: null, costUsd };
+      const config = await this.appointmentRepo.getTimeSlotConfig(shopId, null).catch(() => null);
+      const tz = config?.timezone || 'America/New_York';
+      const today = getCurrentTimeInTimezone(tz).dateString;
+      const transcript = thread.slice(-8).map((m) => `${m.author === 'lead' ? 'Customer' : 'Assistant'}: ${m.body}`).join('\n');
+
+      const extract = await this.anthropic.complete({
+        systemPrompt: [{
+          text:
+            `Today is ${today}; shop timezone ${tz}. Date reference: ${LeadAutoAnswerService.dateReference(today)}. ` +
+            `Services: ${JSON.stringify(items.map((s) => s.serviceName))}. Recent conversation:\n${transcript}\n` +
+            `The customer's latest message may confirm booking a specific time the assistant offered. Extract JSON ONLY: ` +
+            `{"confirming": boolean, "service": <EXACT service name from the list|null>, "date": "YYYY-MM-DD"|null, ` +
+            `"time": "HH:MM"|null, "name": string|null, "email": string|null}. confirming=true ONLY if the latest ` +
+            `customer message agrees to book a SPECIFIC time. name/email = the customer's contact IF given anywhere ` +
+            `in the conversation, else null. Output ONLY the JSON.`,
+          cache: false,
+        }],
+        messages: [{ role: 'user', content: last.body }],
+        model: MODEL,
+        maxTokens: 160,
+      });
+      costUsd = extract.costUsd || 0;
+      const match = extract.text.match(/\{[\s\S]*\}/);
+      if (!match) return { text: null, costUsd };
+      const p = JSON.parse(match[0]) as { confirming?: boolean; service?: string | null; date?: string | null; time?: string | null; name?: string | null; email?: string | null };
+      if (!p.confirming) return { text: null, costUsd };
+
+      const wanted = (p.service || '').toLowerCase().trim();
+      const svc = items.find((s) => s.serviceName.toLowerCase() === wanted) || (items.length === 1 ? items[0] : undefined);
+      const validDate = p.date && /^\d{4}-\d{2}-\d{2}$/.test(p.date);
+      const validTime = p.time && /^\d{1,2}:\d{2}$/.test(p.time);
+      if (!svc || !validDate || !validTime) {
+        return { text: `The customer seems ready to book, but the exact service/date/time isn't clear yet. Ask them to confirm which service and which of the times you offered. Do NOT say anything is booked.`, costUsd };
+      }
+      if (!p.email) {
+        return { text: `The customer wants to book ${svc.serviceName} on ${LeadAutoAnswerService.humanDate(p.date!)} at ${p.time}. To lock it in, ask for their full name and email so you can send the confirmation and a secure payment link. Do NOT say it's booked yet.`, costUsd };
+      }
+
+      try {
+        const result = await this.booking.createLeadBooking({
+          leadId, shopId, serviceId: svc.serviceId, bookingDate: p.date!, bookingTimeSlot: p.time!,
+          customerName: p.name || 'Messenger Lead', customerEmail: p.email,
+        });
+        const when = `${LeadAutoAnswerService.humanDate(result.bookingDate)} at ${result.bookingTimeSlot}`;
+        if (result.paymentUrl) {
+          return { text: `BOOKING CREATED (held, pending payment): ${result.serviceName} on ${when} for $${result.price}. Give the customer this EXACT secure payment link to confirm — it's also emailed to them and expires in 24 hours: ${result.paymentUrl} . Tell them the slot is reserved for 24h pending payment.`, costUsd };
+        }
+        return { text: `BOOKING CREATED (held, pending payment): ${result.serviceName} on ${when} for $${result.price}. Tell the customer their slot is reserved and the team will follow up shortly with payment details.`, costUsd };
+      } catch (e: any) {
+        if (e?.status === 409) {
+          return { text: `That time was JUST taken by someone else. Apologize briefly and offer to check other available times for ${svc.serviceName}. Do NOT say it's booked.`, costUsd };
+        }
+        logger.error(`LeadAutoAnswerService: booking failed for lead ${leadId}: ${e?.message || e}`);
+        return { text: `There was a problem finalizing the booking just now. Tell the customer you're getting the team to confirm their ${svc.serviceName} slot and will follow up shortly. Do NOT claim it's booked or paid.`, costUsd };
+      }
+    } catch (e) {
+      logger.warn(`LeadAutoAnswerService: booking grounding failed for shop ${shopId}: ${(e as Error)?.message || e}`);
+      return { text: null, costUsd };
+    }
+  }
 
   private static humanDate(iso: string): string {
     const [y, m, d] = iso.split('-').map(Number);
@@ -315,6 +407,9 @@ export class LeadAutoAnswerService {
     // Phase 3: real availability for "when can I come in?" (read-only). Not cached — date/query-specific.
     const availability = await this.availabilityBlock(shopId, last?.body || '');
     if (availability.text) systemBlocks.push({ text: availability.text, cache: false });
+    // Phase 4: on explicit confirmation, create the booking + pay link (write). Not cached.
+    const booking = await this.bookingBlock(shopId, lead.id, thread);
+    if (booking.text) systemBlocks.push({ text: booking.text, cache: false });
     const memBlock = await getAiMemoryService().recallBlock(shopId, last?.body);
     if (memBlock) systemBlocks.push({ text: memBlock, cache: false });
     try {
@@ -335,8 +430,8 @@ export class LeadAutoAnswerService {
         body: reply, aiCostCents: resp.costUsd * 100, deliveryStatus,
       });
 
-      // Reply cost + the Phase 3 availability-extraction call (when it ran) both count against budget.
-      await this.spendCap.recordSpend(shopId, resp.costUsd + availability.costUsd);
+      // Reply cost + the Phase 3/4 extraction calls (when they ran) all count against budget.
+      await this.spendCap.recordSpend(shopId, resp.costUsd + availability.costUsd + booking.costUsd);
       try {
         await this.aiCosts.record({
           campaignId: lead.campaignId, leadId: lead.id,
