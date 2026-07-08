@@ -19,6 +19,11 @@ process.env.DO_SPACES_KEY = process.env.DO_SPACES_KEY || 'test-spaces-key';
 process.env.DO_SPACES_SECRET = process.env.DO_SPACES_SECRET || 'test-spaces-secret';
 process.env.DO_SPACES_ENDPOINT = process.env.DO_SPACES_ENDPOINT || 'https://nyc3.digitaloceanspaces.com';
 process.env.DO_SPACES_REGION = process.env.DO_SPACES_REGION || 'nyc3';
+// AnthropicClient throws on construction without a key; some services build one at import time.
+process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || 'test-anthropic-key';
+// Repositories fire a background DB health-check ping in their constructor. Skip it so the
+// unit run isn't polluted with ECONNREFUSED noise; real queries in DB/integration suites still run.
+process.env.SKIP_DB_CONNECTION_TESTS = process.env.SKIP_DB_CONNECTION_TESTS || 'true';
 
 // Mock console methods to reduce noise in tests
 global.console = {
