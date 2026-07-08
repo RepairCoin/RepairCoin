@@ -49,6 +49,11 @@ interface ServiceCardProps {
   location?: string;
   /** Shop/vendor name shown under the title (V2 white card). */
   shopName?: string;
+  /**
+   * Transparent V2 style (Figma "trending" card): no white surface/shadow,
+   * rounded image, and light text for use on a dark background.
+   */
+  transparent?: boolean;
 }
 
 function ServiceCard({
@@ -80,6 +85,7 @@ function ServiceCard({
   bookingCount,
   location,
   shopName,
+  transparent = false,
 }: ServiceCardProps) {
   const category = getCategoryLabel(rawCategory);
   const { toggleFavorite } = useToggleFavoriteMutation();
@@ -93,7 +99,7 @@ function ServiceCard({
       : null);
   const ratingCountLabel =
     bookingCount != null
-      ? `(${bookingCount} booked)`
+      ? `(${bookingCount} bookings)`
       : reviewCount != null
       ? `(${reviewCount} ${reviewCount === 1 ? "review" : "reviews"})`
       : "";
@@ -224,16 +230,30 @@ function ServiceCard({
   const stars = [1, 2, 3, 4, 5];
   const subLabel = shopName ?? category;
 
+  // Theme-aware text colors: transparent variant sits on the dark home bg.
+  const titleColor = transparent ? "text-white" : "text-gray-900";
+  const subColor = transparent ? "text-gray-400" : "text-gray-500";
+  const priceColor = transparent ? "text-white" : "text-gray-900";
+  const ratingTextColor = transparent ? "text-gray-300" : "text-gray-500";
+
   return (
     <View
-      className="bg-white rounded-2xl overflow-hidden flex-1"
-      style={{
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 6,
-        elevation: 3,
-      }}
+      className={
+        transparent
+          ? "rounded-2xl flex-1"
+          : "bg-white rounded-2xl overflow-hidden flex-1"
+      }
+      style={
+        transparent
+          ? undefined
+          : {
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.12,
+              shadowRadius: 6,
+              elevation: 3,
+            }
+      }
     >
       <TouchableOpacity
         onPress={onPress}
@@ -241,7 +261,13 @@ function ServiceCard({
         className="flex-1"
       >
         {imageUrl !== undefined && (
-          <View className="relative bg-white">
+          <View
+            className={
+              transparent
+                ? "relative rounded-2xl overflow-hidden border border-white/10"
+                : "relative bg-white"
+            }
+          >
             {imageSource ? (
               <Image
                 source={imageSource}
@@ -310,82 +336,102 @@ function ServiceCard({
           </View>
         )}
 
-        <View className="p-3">
+        <View className="flex-1 p-3">
+          {/* Title */}
           <Text
-            className="text-gray-900 text-[15px] font-bold leading-5"
+            className={`${titleColor} text-[15px] font-bold leading-5`}
             numberOfLines={2}
+            ellipsizeMode="tail"
           >
             {title}
           </Text>
 
+          {/* Shop / category — pin icon matches the Figma trending card */}
           {subLabel ? (
-            <Text className="text-gray-500 text-xs mt-1" numberOfLines={1}>
-              {subLabel}
-            </Text>
-          ) : null}
-
-          {/* Price */}
-          <View className="flex-row items-center flex-wrap mt-1.5">
-            <Text className="text-gray-900 font-bold text-lg">$ {price}</Text>
-            {hasDiscount && (
-              <>
-                <Text className="text-gray-400 text-sm line-through ml-2">
-                  $ {originalPrice}
-                </Text>
-                {resolvedDiscountLabel && (
-                  <View className="ml-2">
-                    <Badge tone="discount" label={resolvedDiscountLabel} />
-                  </View>
-                )}
-              </>
-            )}
-          </View>
-
-          {/* Rating */}
-          {ratingValue > 0 && (
             <View className="flex-row items-center mt-1.5">
-              {stars.map((s) => (
+              {transparent && (
                 <Ionicons
-                  key={s}
-                  name={s <= Math.round(ratingValue) ? "star" : "star-outline"}
+                  name="location-outline"
                   size={13}
-                  color="#FFCC00"
-                  style={{ marginRight: 1 }}
+                  color="#9CA3AF"
+                  style={{ marginRight: 3 }}
                 />
-              ))}
-              {ratingCountLabel ? (
-                <Text className="text-gray-500 text-xs ml-1.5">
-                  {ratingCountLabel}
-                </Text>
-              ) : null}
-            </View>
-          )}
-
-          {/* Rank / group / trending badges */}
-          {(rankBadge || showGroupReward || showTrendingBadge) && (
-            <View className="flex-row flex-wrap items-center gap-1.5 mt-2">
-              {showTrendingBadge && !rankBadge && (
-                <Badge tone="trending" label="Trending" />
               )}
-              {rankBadge && <Badge tone="rank" label={rankBadge} />}
-              {showGroupReward && (
-                <Badge tone="group" label="Bonus Group Reward" />
-              )}
-            </View>
-          )}
-
-          {/* Location */}
-          {location && (
-            <View className="flex-row items-center mt-2">
-              <Ionicons name="location-outline" size={12} color="#9CA3AF" />
-              <Text
-                className="text-gray-500 text-xs ml-1 flex-1"
-                numberOfLines={1}
-              >
-                {location}
+              <Text className={`${subColor} text-xs flex-1`} numberOfLines={1}>
+                {subLabel}
               </Text>
             </View>
-          )}
+          ) : null}
+
+          {/* Bottom cluster — rating, price, badges pinned to the bottom */}
+          <View className="mt-auto">
+            {/* Rating */}
+            {ratingValue > 0 && (
+              <View className="flex-row items-center pt-1.5">
+                {stars.map((s) => (
+                  <Ionicons
+                    key={s}
+                    name={
+                      s <= Math.round(ratingValue) ? "star" : "star-outline"
+                    }
+                    size={13}
+                    color="#FFCC00"
+                    style={{ marginRight: 1 }}
+                  />
+                ))}
+                {ratingCountLabel ? (
+                  <Text className={`${ratingTextColor} text-xs ml-1.5`}>
+                    {ratingCountLabel}
+                  </Text>
+                ) : null}
+              </View>
+            )}
+
+            {/* Price */}
+            <View className="flex-row items-center flex-wrap pt-1.5">
+              <Text className={`${priceColor} font-bold text-lg`}>
+                $ {price}
+              </Text>
+              {hasDiscount && (
+                <>
+                  <Text className="text-gray-400 text-sm line-through ml-2">
+                    $ {originalPrice}
+                  </Text>
+                  {resolvedDiscountLabel && (
+                    <View className="ml-2">
+                      <Badge tone="discount" label={resolvedDiscountLabel} />
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+
+            {/* Rank / group / trending badges */}
+            {(rankBadge || showGroupReward || showTrendingBadge) && (
+              <View className="flex-row flex-wrap items-center gap-1.5 mt-2">
+                {showTrendingBadge && !rankBadge && (
+                  <Badge tone="trending" label="Trending" />
+                )}
+                {rankBadge && <Badge tone="rank" label={rankBadge} />}
+                {showGroupReward && (
+                  <Badge tone="group" label="Bonus Group Reward" />
+                )}
+              </View>
+            )}
+
+            {/* Location */}
+            {location && (
+              <View className="flex-row items-center mt-2">
+                <Ionicons name="location-outline" size={12} color="#9CA3AF" />
+                <Text
+                  className={`${subColor} text-xs ml-1 flex-1`}
+                  numberOfLines={1}
+                >
+                  {location}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </TouchableOpacity>
     </View>

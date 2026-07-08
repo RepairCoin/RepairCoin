@@ -5,23 +5,8 @@ import { router } from "expo-router";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import {
   SERVICE_CATEGORIES,
-  ServiceCategory,
+  CATEGORY_ICONS,
 } from "@/shared/constants/service-categories";
-
-const CATEGORY_ICONS: Record<ServiceCategory, keyof typeof Ionicons.glyphMap> = {
-  repairs: "construct",
-  beauty_personal_care: "sparkles",
-  health_wellness: "heart",
-  fitness_gyms: "barbell",
-  automotive_services: "car-sport",
-  home_cleaning_services: "home",
-  pets_animal_care: "paw",
-  professional_services: "briefcase",
-  education_classes: "school",
-  tech_it_services: "hardware-chip",
-  food_beverage: "restaurant",
-  other_local_services: "grid",
-};
 
 interface CategoryGridProps {
   /** Number of categories to show before "See All" (default 8). */

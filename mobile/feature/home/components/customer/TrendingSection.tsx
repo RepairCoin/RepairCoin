@@ -51,8 +51,12 @@ export default function TrendingSection({
             snapToAlignment="start"
           >
             {trendingData.map((item: ServiceData) => (
-              <View key={item.serviceId} style={{ width: 280, marginRight: 6 }}>
+              <View
+                key={item.serviceId}
+                style={{ width: 200, marginRight: 20 }}
+              >
                 <ServiceCard
+                  transparent
                   imageUrl={item.imageUrl}
                   category={item.category}
                   shopName={item.shopName}
@@ -64,7 +68,6 @@ export default function TrendingSection({
                   bookingCount={item.reviewCount}
                   duration={item.durationMinutes}
                   onPress={() => handleServicePress(item)}
-                  showTrendingBadge
                   showFavoriteButton
                   serviceId={item.serviceId}
                   isFavorited={favoritedIds.has(item.serviceId)}
