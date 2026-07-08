@@ -17,6 +17,10 @@ export interface AdLead {
   name: string | null;
   phone: string | null;
   email: string | null;
+  /** 2-way chat identifiers. Populated for CTM/Messenger + WhatsApp leads; drive channel routing
+   *  in LeadChannelSender.pickChannel (without these, a chat lead falls back to 'manual' and never sends). */
+  messengerId: string | null;
+  whatsappId: string | null;
   leadStatus: LeadStatus;
   attributionMethod: AttributionMethod;
   consentToContact: boolean;
@@ -360,6 +364,8 @@ export class LeadRepository extends BaseRepository {
       name: r.name,
       phone: r.phone,
       email: r.email,
+      messengerId: r.messenger_id ?? null,
+      whatsappId: r.whatsapp_id ?? null,
       leadStatus: r.lead_status,
       attributionMethod: r.attribution_method,
       consentToContact: r.consent_to_contact,
