@@ -39,8 +39,15 @@ describe('tokenCrypto', () => {
     expect(tokenCryptoConfigured()).toBe(true);
   });
 
-  it('throws on garbage ciphertext', () => {
-    expect(() => decryptToken('not-real-ciphertext')).toThrow();
+  it('never round-trips a corrupted ciphertext (throws or yields non-original)', () => {
+    // No MAC on the at-rest format, so a corrupted ciphertext isn't guaranteed to throw
+    // (some crypto-js/runtime combos decrypt garbage to a non-empty string). The real
+    // guarantee is fail-closed: it must NOT return the original plaintext.
+    const cipher = encryptToken('EAAGm0PX4ZCpsBO_long_lived_token_value');
+    const corrupted = cipher.slice(0, 12) + (cipher[12] === 'A' ? 'B' : 'A') + cipher.slice(13);
+    let out: string | null = null;
+    try { out = decryptToken(corrupted); } catch { out = null; }
+    expect(out).not.toBe('EAAGm0PX4ZCpsBO_long_lived_token_value');
   });
 });
 
