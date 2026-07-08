@@ -1110,6 +1110,7 @@ router.post('/admin', authLimiter, async (req, res) => {
 
     if (!address) {
       return res.status(400).json({
+        success: false,
         error: 'Wallet address is required'
       });
     }
@@ -1161,6 +1162,7 @@ router.post('/admin', authLimiter, async (req, res) => {
     // Check if user is authorized
     if (!adminData && !isSuperAdminFromEnv) {
       return res.status(403).json({
+        success: false,
         error: 'Address not authorized as admin'
       });
     }

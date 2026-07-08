@@ -60,10 +60,8 @@ describe('Attachment Upload Controller - Step 2', () => {
       expect(methodBody).toContain('No files provided');
     });
 
-    it('casts req.files as Express.Multer.File[]', () => {
-      expect(controllerSource).toContain(
-        'req.files as Express.Multer.File[]'
-      );
+    it('casts req.files to a typed file array', () => {
+      expect(controllerSource).toContain('const files = req.files as');
     });
 
     it('calls imageStorageService.uploadFile for each file', () => {
@@ -166,14 +164,14 @@ describe('Attachment Upload Controller - Step 2', () => {
       expect(methodBody).toContain("'application/pdf'");
     });
 
-    it('validates file size (5MB)', () => {
+    it('validates file size (10MB)', () => {
       const methodStart = storageSource.indexOf('async uploadFile(');
       const methodEnd = storageSource.indexOf(
         'async uploadShopLogo',
         methodStart
       );
       const methodBody = storageSource.substring(methodStart, methodEnd);
-      expect(methodBody).toMatch(/5\s*\*\s*1024\s*\*\s*1024/);
+      expect(methodBody).toMatch(/10\s*\*\s*1024\s*\*\s*1024/);
     });
 
     it('uses file.mimetype as ContentType (not extension lookup)', () => {
@@ -259,7 +257,7 @@ describe('Attachment Upload Controller - Step 2', () => {
     });
 
     it('still imports MessageService', () => {
-      expect(controllerSource).toContain("import { MessageService }");
+      expect(controllerSource).toContain("import { MessageService, messageService }");
     });
 
     it('still imports QuickReplyRepository', () => {

@@ -19,6 +19,8 @@ const ROUTES_PATH = path.resolve(__dirname, '../../../backend/src/domains/messag
 const API_CLIENT_PATH = path.resolve(__dirname, '../../../frontend/src/services/api/messaging.ts');
 const THREAD_PATH = path.resolve(__dirname, '../../../frontend/src/components/messaging/ConversationThread.tsx');
 const CONTAINER_PATH = path.resolve(__dirname, '../../../frontend/src/components/messaging/MessagesContainer.tsx');
+const LAYOUT_PATH = path.resolve(__dirname, '../../../frontend/src/components/messaging/MessagesLayout.tsx');
+const USE_CONVERSATIONS_PATH = path.resolve(__dirname, '../../../frontend/src/hooks/messaging/useConversations.ts');
 
 describe('Resolve / Reopen Conversations', () => {
   let repoSource: string;
@@ -28,6 +30,8 @@ describe('Resolve / Reopen Conversations', () => {
   let apiClientSource: string;
   let threadSource: string;
   let containerSource: string;
+  let layoutSource: string;
+  let useConversationsSource: string;
 
   beforeAll(() => {
     repoSource = fs.readFileSync(REPO_PATH, 'utf-8');
@@ -37,6 +41,8 @@ describe('Resolve / Reopen Conversations', () => {
     apiClientSource = fs.readFileSync(API_CLIENT_PATH, 'utf-8');
     threadSource = fs.readFileSync(THREAD_PATH, 'utf-8');
     containerSource = fs.readFileSync(CONTAINER_PATH, 'utf-8');
+    layoutSource = fs.readFileSync(LAYOUT_PATH, 'utf-8');
+    useConversationsSource = fs.readFileSync(USE_CONVERSATIONS_PATH, 'utf-8');
   });
 
   describe('Backend - MessageRepository', () => {
@@ -300,11 +306,13 @@ describe('Resolve / Reopen Conversations', () => {
     });
 
     it('accepts filterDateRange prop', () => {
-      expect(containerSource).toContain("filterDateRange?: 'all' | '7d' | '30d' | '90d'");
+      expect(containerSource).toContain('filterDateRange?: "all" | "7d" | "30d" | "90d"');
     });
 
     it('defines handleArchiveConversation handler', () => {
-      expect(containerSource).toContain('const handleArchiveConversation = async (archived: boolean)');
+      // Refactored to a useCallback wrapping an async (archived) handler.
+      expect(containerSource).toContain('const handleArchiveConversation = useCallback(');
+      expect(containerSource).toContain('async (archived: boolean): Promise<void> =>');
     });
 
     it('handler calls messagingApi.archiveConversation', () => {
@@ -312,21 +320,31 @@ describe('Resolve / Reopen Conversations', () => {
     });
 
     it('handler updates local conversation state', () => {
-      expect(containerSource).toContain("status: archived ? 'resolved' as const : 'active' as const");
+      expect(containerSource).toContain('status: archived ? "resolved" : "active"');
     });
 
-    it('passes conversationStatus to ConversationThread (desktop)', () => {
-      expect(containerSource).toContain('conversationStatus={selectedConversation.status}');
+    it('passes conversationStatus to ConversationThread (via MessagesLayout)', () => {
+      // Container delegates rendering to MessagesLayout, which forwards the
+      // conversation status down to ConversationThread.
+      expect(layoutSource).toContain('conversationStatus={selectedConversation.status}');
     });
 
-    it('passes onArchiveConversation to ConversationThread (desktop)', () => {
-      expect(containerSource).toContain('onArchiveConversation={handleArchiveConversation}');
+    it('passes onArchiveConversation from container into MessagesLayout', () => {
+      expect(containerSource).toContain('onArchiveConversation: handleArchiveConversation');
     });
 
-    it('passes props to mobile ConversationThread too', () => {
-      // Both desktop and mobile instances should have these props
-      const instances = containerSource.split('onArchiveConversation={handleArchiveConversation}');
-      expect(instances.length).toBeGreaterThanOrEqual(3); // 2 occurrences = 3 splits
+    it('MessagesLayout forwards onArchiveConversation to ConversationThread', () => {
+      // Single ConversationThread element (the `thread` variable) is reused for
+      // both desktop and mobile panes, and it receives onArchiveConversation.
+      expect(layoutSource).toContain('{ onArchiveConversation }');
+    });
+
+    it('same ConversationThread element serves both desktop and mobile panes', () => {
+      // MessagesLayout builds one `thread` element and renders it in the
+      // side-by-side (desktop) pane and the single-pane (mobile) pane.
+      expect(layoutSource).toContain('const thread = selectedConversation ? (');
+      expect(layoutSource).toContain('if (thread) return thread;');
+      expect(layoutSource).toContain('showMobileThread && thread ? thread : inbox');
     });
   });
 
@@ -378,15 +396,19 @@ describe('Resolve / Reopen Conversations', () => {
     });
 
     it('MessagesContainer still has handleSendMessage', () => {
-      expect(containerSource).toContain('const handleSendMessage = async');
+      // Refactored to a useCallback wrapping the async send handler.
+      expect(containerSource).toContain('const handleSendMessage = useCallback(');
+      expect(containerSource).toContain('async (content: string, attachments?: File[]): Promise<void> =>');
     });
 
     it('MessagesContainer still passes userType to MessageInbox', () => {
       expect(containerSource).toContain('userType={userType}');
     });
 
-    it('MessagesContainer still has conversation polling', () => {
-      expect(containerSource).toContain('setInterval');
+    it('conversation polling still runs (moved into useConversations hook)', () => {
+      // Periodic inbox refresh was extracted from MessagesContainer into the
+      // useConversations hook; it polls every 30s while the tab is visible.
+      expect(useConversationsSource).toContain('window.setInterval(() => fetchConversations(false), 30000)');
     });
 
     it('API client still exports sendMessage', () => {

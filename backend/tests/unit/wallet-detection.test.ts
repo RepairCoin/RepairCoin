@@ -55,7 +55,7 @@ describe('Wallet Detection System Tests', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Invalid Ethereum address');
+      expect(response.body.error).toContain('must be a valid Ethereum address');
     });
 
     it('should handle short addresses', async () => {
@@ -178,9 +178,13 @@ describe('Wallet Detection System Tests', () => {
     });
 
     it('should handle malformed requests gracefully', async () => {
+      // GET /api/customers/ (empty address) resolves to the "list customers"
+      // collection route, which is auth-gated (admin/shop). An unauthenticated
+      // request is gracefully rejected with 401 + success:false rather than
+      // leaking data or 500-ing.
       const response = await request(app)
         .get('/api/customers/')
-        .expect(404);
+        .expect(401);
 
       expect(response.body.success).toBe(false);
     });

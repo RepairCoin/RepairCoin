@@ -11,12 +11,25 @@ jest.mock('../../src/utils/logger', () => ({
     debug: jest.fn()
   }
 }));
+// validateMintRequest() delegates balance calculation to VerificationService.getBalance()
+jest.mock('../../src/domains/token/services/VerificationService');
 
 import { CustomerBalanceService } from '../../src/domains/customer/services/CustomerBalanceService';
 import { customerRepository } from '../../src/repositories';
+import { VerificationService } from '../../src/domains/token/services/VerificationService';
 
 // Get the mocked repository
 const mockedRepo = customerRepository as jest.Mocked<typeof customerRepository>;
+// Helper to control the balance VerificationService reports to validateMintRequest
+const mockVerificationBalance = (availableBalance: number) => {
+  (VerificationService.prototype.getBalance as jest.Mock).mockResolvedValue({
+    availableBalance,
+    lifetimeEarned: 0,
+    totalRedeemed: 0,
+    pendingMintBalance: 0,
+    earningHistory: { fromRepairs: 0, fromReferrals: 0, fromBonuses: 0, fromTierBonuses: 0 }
+  });
+};
 
 /**
  * Customer Balance Service Unit Tests
@@ -406,6 +419,7 @@ describe('CustomerBalanceService Unit Tests', () => {
   describe('validateMintRequest()', () => {
     it('should return valid for amount within balance', async () => {
       setupDefaultMocks();
+      mockVerificationBalance(50);
 
       const result = await balanceService.validateMintRequest(customerAddress, 30);
 
@@ -427,20 +441,21 @@ describe('CustomerBalanceService Unit Tests', () => {
       expect(result.reason).toContain('greater than zero');
     });
 
-    it('should return invalid for non-existent customer', async () => {
-      mockedRepo.getCustomerBalance.mockResolvedValue(null);
+    it('should return invalid for customer with no available balance', async () => {
+      // VerificationService.getBalance() returns availableBalance 0 for an
+      // unknown/empty customer (it swallows "not found" and reports safe defaults),
+      // so validateMintRequest surfaces an insufficient-balance rejection.
+      mockVerificationBalance(0);
 
       const result = await balanceService.validateMintRequest(customerAddress, 30);
 
       expect(result.valid).toBe(false);
-      expect(result.reason).toContain('not found');
+      expect(result.reason).toContain('Insufficient');
+      expect(result.maxAllowed).toBe(0);
     });
 
     it('should return invalid when amount exceeds balance', async () => {
-      mockedRepo.getCustomerBalance.mockResolvedValue({
-        ...mockBalanceInfo,
-        databaseBalance: 20
-      });
+      mockVerificationBalance(20);
 
       const result = await balanceService.validateMintRequest(customerAddress, 50);
 
@@ -451,6 +466,7 @@ describe('CustomerBalanceService Unit Tests', () => {
 
     it('should return valid for exact balance amount', async () => {
       setupDefaultMocks();
+      mockVerificationBalance(50);
 
       const result = await balanceService.validateMintRequest(customerAddress, 50);
 
@@ -458,7 +474,8 @@ describe('CustomerBalanceService Unit Tests', () => {
     });
 
     it('should handle validation errors gracefully', async () => {
-      mockedRepo.getCustomerBalance.mockRejectedValue(new Error('Database error'));
+      (VerificationService.prototype.getBalance as jest.Mock)
+        .mockRejectedValue(new Error('Database error'));
 
       const result = await balanceService.validateMintRequest(customerAddress, 30);
 
@@ -467,10 +484,7 @@ describe('CustomerBalanceService Unit Tests', () => {
     });
 
     it('should provide maxAllowed when insufficient balance', async () => {
-      mockedRepo.getCustomerBalance.mockResolvedValue({
-        ...mockBalanceInfo,
-        databaseBalance: 25
-      });
+      mockVerificationBalance(25);
 
       const result = await balanceService.validateMintRequest(customerAddress, 100);
 

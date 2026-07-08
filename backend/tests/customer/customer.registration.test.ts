@@ -356,6 +356,13 @@ describe('Customer Registration Tests', () => {
   // ==========================================
   describe('POST /api/customers/register - Referral Codes', () => {
     it('should process valid referral code during registration', async () => {
+      const referrerAddress = '0x9999999999999999999999999999999999999999';
+      // registerCustomer resolves the referrer from the code before processing,
+      // and passes the referrer address as the third argument to processReferral.
+      // Use ...Once so only the referrer lookup returns a match — the subsequent
+      // generateUniqueReferralCode() lookup must fall back to "no match" (undefined).
+      jest.spyOn(CustomerRepository.prototype, 'getCustomerByReferralCode')
+        .mockResolvedValueOnce({ address: referrerAddress, referralCode: 'REF123ABC' } as any);
       jest.spyOn(ReferralService.prototype, 'processReferral')
         .mockResolvedValue({
           success: true,
@@ -374,11 +381,16 @@ describe('Customer Registration Tests', () => {
       expect(ReferralService.prototype.processReferral).toHaveBeenCalledWith(
         'REF123ABC',
         customerWalletAddress.toLowerCase(),
+        referrerAddress,
         expect.any(Object)
       );
     });
 
     it('should still register customer if referral code is invalid', async () => {
+      // Referrer resolves, but processReferral reports failure — registration
+      // must still succeed (referral processing failures are non-blocking).
+      jest.spyOn(CustomerRepository.prototype, 'getCustomerByReferralCode')
+        .mockResolvedValueOnce({ address: '0x9999999999999999999999999999999999999999' } as any);
       jest.spyOn(ReferralService.prototype, 'processReferral')
         .mockResolvedValue({
           success: false,
@@ -398,6 +410,8 @@ describe('Customer Registration Tests', () => {
     });
 
     it('should still register customer if referral processing throws error', async () => {
+      jest.spyOn(CustomerRepository.prototype, 'getCustomerByReferralCode')
+        .mockResolvedValueOnce({ address: '0x9999999999999999999999999999999999999999' } as any);
       jest.spyOn(ReferralService.prototype, 'processReferral')
         .mockRejectedValue(new Error('Referral service error'));
 

@@ -1144,6 +1144,14 @@ describe('Customer Marketplace Tests', () => {
       });
 
       it('should handle non-existent shop ID', async () => {
+        // A non-existent shop yields an empty, well-formed page (not an error).
+        jest
+          .spyOn(ServiceRepository.prototype, 'getServicesByShop')
+          .mockResolvedValue({
+            items: [],
+            pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+          } as any);
+
         const response = await request(app).get(
           '/api/services/shop/non-existent-shop-id'
         );
@@ -1153,6 +1161,11 @@ describe('Customer Marketplace Tests', () => {
       });
 
       it('should handle non-existent group ID', async () => {
+        // getServicesByGroup returns a plain array; a missing group yields [].
+        jest
+          .spyOn(ServiceRepository.prototype, 'getServicesByGroup')
+          .mockResolvedValue([] as any);
+
         const response = await request(app).get(
           '/api/services/groups/non-existent-group/services'
         );
@@ -1164,6 +1177,13 @@ describe('Customer Marketplace Tests', () => {
 
     describe('Rate Limiting', () => {
       it('should handle rapid successive requests', async () => {
+        jest
+          .spyOn(ServiceRepository.prototype, 'getAllActiveServices')
+          .mockResolvedValue({
+            items: [],
+            pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+          } as any);
+
         const requests = Array(10)
           .fill(null)
           .map(() => request(app).get('/api/services'));
@@ -1183,6 +1203,13 @@ describe('Customer Marketplace Tests', () => {
   // ===========================================
   describe('RCN Earning Display', () => {
     it('should include RCN earning potential in service data', async () => {
+      jest
+        .spyOn(ServiceRepository.prototype, 'getAllActiveServices')
+        .mockResolvedValue({
+          items: [],
+          pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+        } as any);
+
       // Services should include data needed to calculate RCN earnings
       const response = await request(app).get('/api/services');
 
@@ -1192,6 +1219,13 @@ describe('Customer Marketplace Tests', () => {
     });
 
     it('should include group bonus tokens in service data', async () => {
+      jest
+        .spyOn(ServiceRepository.prototype, 'getAllActiveServices')
+        .mockResolvedValue({
+          items: [],
+          pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+        } as any);
+
       // Services with group links should include group reward info
       const response = await request(app).get('/api/services');
 
