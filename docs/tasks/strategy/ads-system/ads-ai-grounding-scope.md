@@ -1,7 +1,32 @@
-# Ads — Lead AI grounding: ad creative + service catalog
+# Ads — Lead AI grounding: catalog, creative, availability
 
-Make the lead-conversation AI answer **definitively about what the shop actually sells and what the ad promised**,
-instead of deferring ("let me get our team to confirm") for anything beyond generic brand chit-chat.
+Make the lead-conversation AI answer **definitively about what the shop sells, what the ad promised, and when the
+customer can come in** — instead of deferring ("let me get our team to confirm") — so more ad clicks become bookings.
+
+**Status:** Phase 1 (service catalog) + Phase 2 (ad creative) **SHIPPED + live-verified in production 2026-07-08**
+(commit `b1204b71c`, merged in `ed07935`). Phase 3 (availability grounding) **BUILT + committed `13294f5fa`, live-verified
+against peanut** (flag `ADS_AI_AVAILABILITY_GROUNDING` default OFF — needs deploy + flag-on to go live).
+
+## Goal — why this exists (the path to bookings)
+The AI auto-reply is not a chatbot for its own sake. Its single purpose: **turn ad spend into confirmed, paid bookings,
+automatically** — recover the leads that leak today because the owner is busy and replies come hours later (or never).
+The metric that matters is **cost per booking / ROI** (ad spend + AI cost → booking revenue), not "replies sent."
+
+**The funnel, and what plugs each leak:**
+- **Click → conversation** — click-to-Messenger opens the thread instantly, no email/phone friction. ✅ (Messenger P1+P2)
+- **Speed-to-lead** — instant AI reply; the biggest conversion lever (leads decay in minutes). ✅ (auto-answer + delivery fix)
+- **"Do you offer this? how much?"** — the #1 drop reason → catalog + creative grounding answers decisively. ✅ (Phases 1–2)
+- **"When can I come in?"** — the next friction; a concrete slot is a strong CTA → **availability grounding. 🔜 Phase 3 (this doc).**
+- **Hot lead → human close** — escalation flags ready-to-book leads so the owner pounces. ✅
+- **Complex / high-value** — take-over lets the human step in. ✅
+
+**The honest gap:** the AI still stops *just short* of the goal — it answers and nudges but doesn't **create** the booking,
+so interest can leak back out at the handoff. Reaching the goal takes three things, in order: **(1)** close the last mile
+(Phase 3 makes a lead *book-ready* with a real slot + a one-tap link / auto-escalation; **Phase 4** = the AI books directly —
+higher value, higher risk, deferred), **(2)** **turn on conversion attribution** (`ADS_CONVERSION_ATTRIBUTION`) so leads→paid
+orders→ROI stop being structurally zero and we can *see* it working, **(3)** feed conversions back to Meta (pixel "Lead"
+optimization, already built) so the funnel gets better leads over time. **Phase 3 plugs the "when" leak and sets up the
+book-ready moment.**
 
 ## Why (the gap, observed live)
 `LeadAutoAnswerService.generateReply` currently grounds the model on only four things:
@@ -28,7 +53,7 @@ because they all funnel through the one `generateReply`. Single change, full cov
   (they ride the prompt cache, so the extra tokens are near-free after the first call).
 - **Spend cap + cost ledger** — unchanged; the added input tokens flow through the existing `SpendCapEnforcer` + `AiCostRepository`.
 
-## The change (one method: `LeadAutoAnswerService.generateReply`)
+## Phases 1–2 — the change (one method: `LeadAutoAnswerService.generateReply`) — SHIPPED
 Add two system blocks between the base prompt and the AI-memory block:
 
 1. **Service-catalog block** (`cache:true`)
@@ -47,9 +72,9 @@ Add two system blocks between the base prompt and the AI-memory block:
 
 Everything else in `generateReply` is untouched (thread mapping, empty-reply guard, deliver, cost record).
 
-## Guardrails
-- **Availability stays deferred.** The catalog answers *what/how much*, NOT *when*. Scheduling remains "the team will
-  confirm the time" — real slot lookup is the separate appointment integration (out of scope here). Keep that rule in the prompt.
+## Guardrails (Phases 1–2)
+- **Availability stays deferred (Phases 1–2).** The catalog answers *what/how much*, NOT *when*. Scheduling remains "the team
+  will confirm the time" — real slot lookup is **Phase 3 below.** Keep that rule in the prompt until Phase 3 ships.
 - **Token budget.** Cap catalog at ~30 services + truncate descriptions so the block stays bounded; `maxTokens` stays 400.
   Both new blocks are `cache:true` so repeat turns in a thread don't re-pay for them.
 - **No new external calls** — pure DB reads on the same pool.
@@ -73,7 +98,62 @@ Everything else in `generateReply` is untouched (thread mapping, empty-reply gua
 ## Effort
 ~0.5 day: the two blocks + resolver + flag + unit test. No migration, no new deps, no API surface change.
 
-## Out of scope (future)
-- Real appointment/slot answers ("do you have Sunday?") — needs the appointment system wired into the AI (bigger).
-- Group-token / bonus-reward awareness in replies.
-- Per-service FAQ retrieval (there's an existing service-FAQ corpus; could be a richer grounding source later).
+## Phase 3 — availability grounding (answer "when," make the lead book-ready) — BUILT
+
+*Built as scoped below (commit `13294f5fa`). One addition learned live: the extraction is given an explicit
+date→weekday reference table for the next 14 days, because the LLM mis-resolved a bare "Friday" by a day; and it
+maps the customer's words to an EXACT catalog service name (code substring-matching missed "baking"→"Newly Baker").
+Live-verified on peanut: "Friday morning for baking training?"→"Newly Baker, Friday July 10, 9/10/11am"; off-day→"fully
+booked, try another day"; off-catalog→declines. Flag default OFF; deploy + flag-on to go live.*
+
+**Funnel leak it plugs:** the "*When can I come in?*" drop-off. Today the AI defers scheduling ("the team will confirm").
+Answering with a **real, concrete slot** turns a warm lead into a book-ready moment — the strongest CTA in the whole thread.
+**Read-only** — the AI *reports* availability; it does not book (booking = Phase 4, the risky write-path).
+
+**What already exists (reuse):** `AppointmentService.getAvailableTimeSlots(shopId, serviceId, date)` → `TimeSlot[]` —
+the same engine that powers the customer booking UI. It's **timezone-aware** (`shop_time_slot_config.timezone`), respects
+operating hours / breaks / holiday overrides, and accounts for existing bookings. We just call it and ground on the result.
+
+**Design — gated pre-fetch + LLM date/service extraction + deterministic slot lookup + inject** (chosen over native
+tool-use — see Decision below). Per inbound message:
+1. **Cheap intent gate** (keywords/regex: day names, "available", "schedule", "when", "book", times/dates) — most messages
+   skip this path entirely, so no added cost on normal turns.
+2. If it looks like a scheduling question → **one structured extraction call** (Haiku, JSON):
+   `{ wantsAvailability, serviceHint, date (ISO, resolved against injected today + shop TZ), timeOfDay }`.
+3. **Code calls `getAvailableTimeSlots(shopId, serviceId, date)`** — deterministic, auditable; the model never invents slots.
+4. **Inject the real open slots** as a grounding block (same pattern as the catalog) → the reply states them, e.g.
+   *"This Friday, July 11 we have 9:00, 10:30 and 11:15 open for Newly Baker — want me to get you set up?"*
+5. **Book-ready handoff** — pair the slot with a one-tap booking link (`/l/{campaignId}` or the shop booking page) and/or
+   auto-escalate the now-qualified lead (existing escalation) so the owner confirms in seconds.
+
+**Guardrails**
+- **Read-only** — reports slots, never writes a booking (that's Phase 4, behind a human/confirmation step).
+- **Echo the resolved date** ("For Friday, July 11…") so a date misparse is self-correcting.
+- **"Subject to confirmation" framing** — never a hard promise; a slot can be taken between quote and booking (staleness).
+- **Fallbacks** — no `shop_time_slot_config`, ambiguous service, or unparseable date → fall back to today's "team will
+  confirm" defer. Can never do worse than current behavior.
+- **Service resolution** — `getAvailableTimeSlots` needs a `serviceId`; infer from the thread/creative, else the AI asks
+  which service first.
+- **Flag** — `ADS_AI_AVAILABILITY_GROUNDING`, default **off** until validated live.
+
+**Decision — why gated pre-fetch, not native tool-use.** Determinism (a scheduling question *always* triggers a real
+lookup; the model can't forget or fabricate slots), testability (fixture-test extract→fetch→inject), and it keeps
+`generateReply` close to its current shape (extract call + reply call, no agentic loop / max-iteration guards). The LLM is
+used only where it's strong (messy date language); the risky part (which slots exist) stays in code. **Native tool-use is
+the natural Phase 4+ evolution** if scheduling dialogs get richer (multi-slot negotiation, rescheduling, "anything after 3pm").
+
+**Testing** — unit: fake `AppointmentService` returning known slots; assert the intent gate fires, extraction shape, the
+injected block lists exactly those slots, and the no-config/ambiguous paths fall back to defer. Live (peanut/Nanays): ask
+"is Friday morning available?" → AI names real open slots + the resolved date; a no-config shop → defers.
+
+**Effort** — ~1.5–2 days (intent gate + extraction + slot fetch + inject block + book-ready link + flag + tests). The
+availability engine is reused for free; no migration.
+
+## Follow-through (beyond this doc — the rest of the path to bookings)
+- **Phase 4 — direct AI booking:** the AI creates the appointment (optionally a deposit), behind a confirmation step. The
+  real finish line, but the risky write-path (double-booking, payment, no-shows) — separate scope, decide after Phase 3
+  shows where the handoff still leaks.
+- **Turn on conversion attribution** (`ADS_CONVERSION_ATTRIBUTION`) so leads→paid orders→ROI/Bookings are measurable — you
+  can't optimize the funnel you can't see.
+- **Per-service FAQ retrieval** (existing service-FAQ corpus) as a richer grounding source.
+- **Group-token / bonus-reward awareness** in replies.

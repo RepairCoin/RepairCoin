@@ -44,10 +44,13 @@ function buildService(overrides: { services?: any; creatives?: any } = {}) {
     listByCampaign: async () => [{ headline: '20% off Baking Classes', body: 'Learn to bake with us', reviewStatus: 'approved' }],
   };
   const channel = { deliver: async () => 'sent' };
+  const appointments = { getAvailableTimeSlots: async () => [] };
+  const appointmentRepo = { getTimeSlotConfig: async () => ({ timezone: 'America/New_York' }) };
 
   const svc = new LeadAutoAnswerService(
     anthropic as any, spendCap as any, brandKit as any, leads as any, campaigns as any,
-    aiCosts as any, messages as any, services as any, creatives as any, channel as any
+    aiCosts as any, messages as any, services as any, creatives as any,
+    appointments as any, appointmentRepo as any, channel as any
   );
   return { svc, text: () => captured.map((b) => b.text).join('\n') };
 }

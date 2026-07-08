@@ -20,6 +20,9 @@ import { CreativeRepository } from '../repositories/CreativeRepository';
 import { AiCostRepository } from '../repositories/AiCostRepository';
 import { LeadMessageRepository, LeadMessage, MsgChannel } from '../repositories/LeadMessageRepository';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
+import { AppointmentService } from '../../ServiceDomain/services/AppointmentService';
+import { AppointmentRepository, TimeSlot } from '../../../repositories/AppointmentRepository';
+import { getCurrentTimeInTimezone } from '../../../utils/timezoneUtils';
 import { LeadChannelSender } from './LeadChannelSender';
 
 const MODEL: ClaudeModel = 'claude-haiku-4-5-20251001';
@@ -28,6 +31,12 @@ const MODEL: ClaudeModel = 'claude-haiku-4-5-20251001';
  *  set ADS_AI_CATALOG_GROUNDING=false to fall back to name/voice-only grounding). */
 const catalogGroundingEnabled = (): boolean => process.env.ADS_AI_CATALOG_GROUNDING !== 'false';
 const MAX_CATALOG_SERVICES = 30;
+
+/** Phase 3 — read-only availability grounding: answer "when can I come in?" from real slots.
+ *  Default OFF (opt-in per env) until validated live. */
+const availabilityGroundingEnabled = (): boolean => process.env.ADS_AI_AVAILABILITY_GROUNDING === 'true';
+/** Cheap pre-filter so we only pay the extraction call on plausibly-scheduling messages. */
+const SCHEDULING_RE = /\b(availab|schedul|book|appointment|slot|reserv|when|what time|open on|opening hours|this week|next week|today|tomorrow|tonight|morning|afternoon|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
 
 const systemPromptFor = (shopName: string, industry: string, voice: string, campaign: string): string =>
   `You are the customer-service assistant for ${shopName}, a ${industry}. A lead responded ` +
@@ -57,8 +66,118 @@ export class LeadAutoAnswerService {
     private readonly messages = new LeadMessageRepository(),
     private readonly services = new ServiceRepository(),
     private readonly creatives = new CreativeRepository(),
+    private readonly appointments = new AppointmentService(),
+    private readonly appointmentRepo = new AppointmentRepository(),
     private readonly channel = new LeadChannelSender()
   ) {}
+
+  private static humanDate(iso: string): string {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC',
+    });
+  }
+
+  /** Explicit date→weekday table for the next N days, so the extraction resolves "Friday"/"next Monday"
+   *  by lookup instead of (unreliable) LLM date arithmetic. */
+  private static dateReference(todayIso: string, days = 14): string {
+    const [y, m, d] = todayIso.split('-').map(Number);
+    const out: string[] = [];
+    for (let i = 0; i < days; i++) {
+      const dt = new Date(Date.UTC(y, m - 1, d + i, 12));
+      const iso = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+      out.push(`${iso}=${dt.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })}`);
+    }
+    return out.join(', ');
+  }
+
+  private static filterByTimeOfDay(slots: TimeSlot[], tod: string | null): TimeSlot[] {
+    if (!tod) return slots;
+    return slots.filter((s) => {
+      const h = Number(s.time.split(':')[0]);
+      if (tod === 'morning') return h < 12;
+      if (tod === 'afternoon') return h >= 12 && h < 17;
+      if (tod === 'evening') return h >= 17;
+      return true;
+    });
+  }
+
+  /** Phase 3 — READ-ONLY availability grounding. On a scheduling question, use a cheap extraction call
+   *  to resolve service + date (in the shop's timezone), fetch the shop's REAL open slots, and return a
+   *  grounding block so the AI can answer "when" with actual times — but never books (that's a later phase).
+   *  Returns the block text (or null) + the extraction call's cost (folded into spend). Fails safe to null. */
+  private async availabilityBlock(shopId: string, userMsg: string): Promise<{ text: string | null; costUsd: number }> {
+    if (!availabilityGroundingEnabled() || !userMsg || !SCHEDULING_RE.test(userMsg)) return { text: null, costUsd: 0 };
+    let costUsd = 0;
+    try {
+      // Fetch the catalog first so the extraction can map the customer's words to an EXACT service name
+      // (e.g. "baking training" → "Newly Baker") — code substring-matching misses that.
+      const cat = await this.services.getServicesByShop(shopId, { activeOnly: true, limit: MAX_CATALOG_SERVICES });
+      const items = cat.items || [];
+      if (!items.length) return { text: null, costUsd };
+      const names = items.map((s) => s.serviceName);
+
+      const config = await this.appointmentRepo.getTimeSlotConfig(shopId, null).catch(() => null);
+      const tz = config?.timezone || 'America/New_York';
+      const today = getCurrentTimeInTimezone(tz).dateString; // YYYY-MM-DD in the shop's tz
+
+      const extract = await this.anthropic.complete({
+        systemPrompt: [{
+          text:
+            `Today is ${today} (${LeadAutoAnswerService.humanDate(today)}); shop timezone ${tz}. ` +
+            `Date reference (use this to resolve day names EXACTLY — do not compute dates yourself): ` +
+            `${LeadAutoAnswerService.dateReference(today)}. This shop's services: ${JSON.stringify(names)}. ` +
+            `From the customer's latest message, extract booking intent as JSON ONLY: {"wantsAvailability": boolean, ` +
+            `"service": <the EXACT service name from the list that best matches what they're asking about, or null>, ` +
+            `"date": "YYYY-MM-DD"|null, "timeOfDay": "morning"|"afternoon"|"evening"|null}. For a bare weekday like ` +
+            `"Friday", pick the NEXT matching date from the reference. wantsAvailability is true only if they ask about ` +
+            `scheduling/availability/when. Output ONLY the JSON, no prose.`,
+          cache: false,
+        }],
+        messages: [{ role: 'user', content: userMsg }],
+        model: MODEL,
+        maxTokens: 120,
+      });
+      costUsd = extract.costUsd || 0;
+      const match = extract.text.match(/\{[\s\S]*\}/);
+      if (!match) return { text: null, costUsd };
+      const parsed = JSON.parse(match[0]) as { wantsAvailability?: boolean; service?: string | null; date?: string | null; timeOfDay?: string | null };
+      if (!parsed.wantsAvailability || !parsed.date || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.date)) return { text: null, costUsd };
+
+      // Resolve the serviceId — exact name from the extraction, then a loose fallback, then single-service.
+      const wanted = (parsed.service || '').toLowerCase().trim();
+      let svc = wanted ? items.find((s) => s.serviceName.toLowerCase() === wanted) : undefined;
+      if (!svc && wanted) svc = items.find((s) => s.serviceName.toLowerCase().includes(wanted) || wanted.includes(s.serviceName.toLowerCase()));
+      if (!svc && items.length === 1) svc = items[0];
+      if (!svc) {
+        return {
+          text: `The customer is asking about availability but hasn't made clear WHICH service. Before quoting any times, ask them which service they'd like to book. Do NOT invent available times.`,
+          costUsd,
+        };
+      }
+
+      const open = (await this.appointments.getAvailableTimeSlots(shopId, svc.serviceId, parsed.date)).filter((s) => s.available);
+      const slots = LeadAutoAnswerService.filterByTimeOfDay(open, parsed.timeOfDay ?? null);
+      const label = LeadAutoAnswerService.humanDate(parsed.date);
+      const todLabel = parsed.timeOfDay ? ` (${parsed.timeOfDay})` : '';
+      if (!slots.length) {
+        return {
+          text: `REAL AVAILABILITY CHECK — ${svc.serviceName} on ${label}${todLabel}: NO open slots. Tell the customer that time is fully booked and offer to check another day. Do NOT invent times.`,
+          costUsd,
+        };
+      }
+      return {
+        text:
+          `REAL AVAILABILITY — ${svc.serviceName} on ${label} (shop timezone ${tz}): ${slots.map((s) => s.time).join(', ')}. ` +
+          `State these EXACT open times. If the customer picks one, tell them you'll get them booked and the team will ` +
+          `confirm — do NOT claim the booking is already made, and note the time is subject to confirmation. Do NOT invent any other times.`,
+        costUsd,
+      };
+    } catch (e) {
+      logger.warn(`LeadAutoAnswerService: availability grounding failed for shop ${shopId}: ${(e as Error)?.message || e}`);
+      return { text: null, costUsd };
+    }
+  }
 
   /** System block listing the shop's live, active services so the AI answers "do you offer X?"
    *  decisively (and declines what isn't offered) instead of always deferring to the team.
@@ -193,6 +312,9 @@ export class LeadAutoAnswerService {
     ]);
     if (catalog) systemBlocks.push({ text: catalog, cache: true });
     if (creativeCtx) systemBlocks.push({ text: creativeCtx, cache: true });
+    // Phase 3: real availability for "when can I come in?" (read-only). Not cached — date/query-specific.
+    const availability = await this.availabilityBlock(shopId, last?.body || '');
+    if (availability.text) systemBlocks.push({ text: availability.text, cache: false });
     const memBlock = await getAiMemoryService().recallBlock(shopId, last?.body);
     if (memBlock) systemBlocks.push({ text: memBlock, cache: false });
     try {
@@ -213,7 +335,8 @@ export class LeadAutoAnswerService {
         body: reply, aiCostCents: resp.costUsd * 100, deliveryStatus,
       });
 
-      await this.spendCap.recordSpend(shopId, resp.costUsd);
+      // Reply cost + the Phase 3 availability-extraction call (when it ran) both count against budget.
+      await this.spendCap.recordSpend(shopId, resp.costUsd + availability.costUsd);
       try {
         await this.aiCosts.record({
           campaignId: lead.campaignId, leadId: lead.id,
