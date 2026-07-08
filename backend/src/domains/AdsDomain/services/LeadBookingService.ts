@@ -87,15 +87,25 @@ export class LeadBookingService {
     const withinHours = await this.appointments.isWithinOperatingHours(shopId, bookingDate, bookingTimeSlot).catch(() => true);
     if (!withinHours) throw Object.assign(new Error('That time is outside opening hours'), { status: 400 });
 
-    // Upsert the synthetic guest customer (contact record only — no wallet/RCN).
-    const address = guestAddress(leadId);
-    await this.pool.query(
-      `INSERT INTO customers (address, wallet_address, email, name, phone, created_at)
-         VALUES ($1, $1, $2, $3, $4, NOW())
-       ON CONFLICT (address) DO UPDATE SET email = COALESCE(EXCLUDED.email, customers.email),
-         name = COALESCE(EXCLUDED.name, customers.name), phone = COALESCE(EXCLUDED.phone, customers.phone)`,
-      [address, customerEmail || null, customerName || 'Messenger Lead', input.customerPhone || null]
-    );
+    // Resolve the customer. `customers.email` is UNIQUE (unique_customers_email on lower(email) + a trigger),
+    // so we must NOT blindly insert. If the email already belongs to a customer, book under THEIR account
+    // (booking shows in their history + attribution, no duplicate, no unique violation). Otherwise create a
+    // synthetic guest contact for the lead (contact record only — no wallet/RCN).
+    let address: string;
+    const existing = await this.pool.query(
+      `SELECT address FROM customers WHERE lower(email) = lower($1) LIMIT 1`, [customerEmail]);
+    if (existing.rows.length) {
+      address = existing.rows[0].address;
+    } else {
+      address = guestAddress(leadId);
+      await this.pool.query(
+        `INSERT INTO customers (address, wallet_address, email, name, phone, created_at)
+           VALUES ($1, $1, $2, $3, $4, NOW())
+         ON CONFLICT (address) DO UPDATE SET email = EXCLUDED.email,
+           name = COALESCE(customers.name, EXCLUDED.name), phone = COALESCE(customers.phone, EXCLUDED.phone)`,
+        [address, customerEmail, customerName || 'Messenger Lead', input.customerPhone || null]
+      );
+    }
 
     // Create the pending booking, linked to the ad lead (deterministic ROI attribution).
     const orderRes = await this.pool.query(
