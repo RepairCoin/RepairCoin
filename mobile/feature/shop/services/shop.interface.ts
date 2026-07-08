@@ -85,6 +85,42 @@ export interface ShopResponseData {
   shops: ShopData[];
 }
 
+/**
+ * Shop shape returned by `GET /shops/map` — includes service-derived
+ * categories, ratings, and (when coords are supplied) distance.
+ */
+export interface MapShop {
+  shopId: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  location: {
+    lat: number;
+    lng: number;
+    city: string | null;
+    state: string | null;
+  };
+  verified: boolean;
+  logoUrl: string | null;
+  category: string | null;
+  /** Distinct categories aggregated from the shop's active services. */
+  serviceCategories: string[];
+  serviceCount: number;
+  avgRating: number;
+  totalReviews: number;
+  distanceMiles: number | null;
+}
+
+export interface MapShopsResponse extends BaseResponse<MapShop[]> {}
+
+export interface MapShopsQuery {
+  lat?: number;
+  lng?: number;
+  radius?: number;
+  limit?: number;
+}
+
 export interface ShopCustomerData {
   currentPage: number;
   customers: CustomerData[];
