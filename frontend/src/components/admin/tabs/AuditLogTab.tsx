@@ -29,12 +29,14 @@ const ACTION_COLORS: { match: RegExp; className: string }[] = [
   { match: /(admin|role|permission)/, className: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
 ];
 
-function actionColor(action: string): string {
-  const hit = ACTION_COLORS.find((c) => c.match.test(action.toLowerCase()));
+function actionColor(action: string | null | undefined): string {
+  const a = (action ?? "").toLowerCase();
+  const hit = ACTION_COLORS.find((c) => c.match.test(a));
   return hit?.className ?? "bg-white/10 text-gray-300 border-white/10";
 }
 
-function prettify(value: string): string {
+function prettify(value: string | null | undefined): string {
+  if (!value) return "—";
   return value
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
