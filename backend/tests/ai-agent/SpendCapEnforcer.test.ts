@@ -17,12 +17,18 @@ function mockPool(rows: any[] = []) {
 }
 
 describe("SpendCapEnforcer.canSpend", () => {
-  it("returns no_shop_settings when shop has no row", async () => {
+  it("allows against the default budget when shop has no row (lazy-provisions)", async () => {
+    // A brand-new shop with no ai_shop_settings row is no longer hard-blocked:
+    // canSpend lazily provisions a default row and allows the call against the
+    // DEFAULT $20 budget (blocking here broke first-run AI / Branding Studio).
     const enforcer = new SpendCapEnforcer(mockPool([]));
     const result = await enforcer.canSpend("missing_shop");
-    expect(result.allowed).toBe(false);
-    expect(result.blockReason).toBe("no_shop_settings");
+    expect(result.allowed).toBe(true);
     expect(result.useCheaperModel).toBe(false);
+    expect(result.blockReason).toBeUndefined();
+    expect(result.currentSpendUsd).toBe(0);
+    expect(result.monthlyBudgetUsd).toBe(20);
+    expect(result.percentUsed).toBe(0);
   });
 
   it("allows + uses Sonnet when spend < 70% of budget", async () => {

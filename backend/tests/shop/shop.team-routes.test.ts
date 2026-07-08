@@ -19,6 +19,16 @@ jest.mock('../../src/services/ResendEmailService');
 jest.mock('../../src/services/EmailService');
 jest.mock('thirdweb');
 
+// Team management is a Business-tier feature: every mutating team route sits behind
+// requireTier('teamManagement'), which resolves the shop's tier by querying live
+// subscription tables (not the mocked repositories). Stub the tier resolver so the
+// test shop is treated as Business tier — these tests exercise team-management logic,
+// not tier gating.
+jest.mock('../../src/utils/shopTier', () => ({
+  ...(jest.requireActual('../../src/utils/shopTier') as object),
+  getShopTier: async () => 'business',
+}));
+
 describe('Shop Team Management routes', () => {
   let app: any;
   let ownerToken: string;

@@ -53,8 +53,15 @@ global.testUtils = {
   sleep: (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 };
 
+// Snapshot the per-file baseline env so a suite's beforeAll mutations
+// (JWT_SECRET, ADMIN_ADDRESSES, etc.) can't leak into the next test file.
+const envSnapshot = { ...process.env };
+
 // Clean up after all tests
 afterAll(async () => {
-  // Close any open handles
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Restore process.env to the per-file baseline so suites don't pollute each other.
+  for (const key of Object.keys(process.env)) {
+    if (!(key in envSnapshot)) delete process.env[key];
+  }
+  Object.assign(process.env, envSnapshot);
 });

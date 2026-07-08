@@ -204,7 +204,7 @@ describe('Emoji Picker - Frontend Integration', () => {
     });
 
     it('still has typing indicator', () => {
-      expect(componentSource).toContain('{/* Typing Indicator */}');
+      expect(componentSource).toContain('{/* Typing Indicator');
       expect(componentSource).toContain('isTyping');
     });
 

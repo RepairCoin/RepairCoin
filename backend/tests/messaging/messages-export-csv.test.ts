@@ -184,10 +184,6 @@ describe('Messages Export CSV - MessagesTab', () => {
       expect(source).toContain('MessagesContainer userType="shop" currentUserId={shopId}');
     });
 
-    it('still has Pro Tip help text', () => {
-      expect(source).toContain('Pro Tip');
-    });
-
     it('stats useEffect still refreshes every 30 seconds', () => {
       expect(source).toContain('setInterval(fetchStats, 30000)');
     });

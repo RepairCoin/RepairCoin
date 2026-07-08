@@ -16,6 +16,18 @@ jest.mock('../../src/repositories/AdminRepository');
 jest.mock('../../src/repositories/TreasuryRepository');
 jest.mock('thirdweb');
 
+// issue-reward and redeem now sit behind requireActiveSubscription(), which resolves a
+// shop's subscription status through a service that queries the live database directly
+// and bypasses the mocked repositories. Stub the enforcement singleton so the mock shop
+// (an active, verified, subscribed shop) is treated as subscription-valid — these tests
+// exercise reward/redemption business logic, not subscription enforcement.
+jest.mock('../../src/services/SubscriptionEnforcementService', () => ({
+  ...(jest.requireActual('../../src/services/SubscriptionEnforcementService') as object),
+  getSubscriptionEnforcementService: () => ({
+    enforceForShop: async () => ({ isValid: true, message: 'Subscription is current' }),
+  }),
+}));
+
 describe('Shop Operations Tests', () => {
   let app: any;
   let shopToken: string;
@@ -89,6 +101,18 @@ describe('Shop Operations Tests', () => {
         .mockResolvedValue(mockShop as any);
       jest.spyOn(ShopRepository.prototype, 'updateShop')
         .mockResolvedValue(undefined);
+      // Reward issuance now happens in a single atomic repository call (balance
+      // deduction + customer credit + transaction record in one DB transaction),
+      // replacing the old updateShop/updateCustomerAfterEarning/recordTransaction path.
+      jest.spyOn(ShopRepository.prototype, 'issueRewardAtomic')
+        .mockResolvedValue({
+          success: true,
+          shopPreviousBalance: 5000,
+          shopNewBalance: 4980,
+          customerPreviousBalance: 100,
+          customerNewBalance: 112,
+          transactionId: 'tx_test_123'
+        } as any);
     });
 
     it('should issue reward for small repair ($50-$99) to SILVER tier customer', async () => {
@@ -243,6 +267,10 @@ describe('Shop Operations Tests', () => {
         .mockResolvedValue(lowBalanceShop as any);
       jest.spyOn(CustomerRepository.prototype, 'getCustomer')
         .mockResolvedValue(mockCustomer as any);
+      // The atomic issuance enforces the balance check inside the DB transaction and
+      // throws when the shop cannot cover the reward.
+      jest.spyOn(ShopRepository.prototype, 'issueRewardAtomic')
+        .mockRejectedValue(new Error('Insufficient balance: required 17, available 5'));
 
       const response = await request(app)
         .post(`/api/shops/${shopId}/issue-reward`)
@@ -1243,6 +1271,17 @@ describe('Shop Operations Tests', () => {
         .mockResolvedValue(undefined);
       jest.spyOn(ShopRepository.prototype, 'updateShop')
         .mockResolvedValue(undefined);
+      // Transaction recording is now decoupled from the atomic issuance path, so a
+      // failing standalone recordTransaction mock does not break reward issuance.
+      jest.spyOn(ShopRepository.prototype, 'issueRewardAtomic')
+        .mockResolvedValue({
+          success: true,
+          shopPreviousBalance: 5000,
+          shopNewBalance: 4983,
+          customerPreviousBalance: 250,
+          customerNewBalance: 267,
+          transactionId: 'tx_test_err'
+        } as any);
       jest.spyOn(TransactionRepository.prototype, 'recordTransaction')
         .mockRejectedValue(new Error('Transaction logging failed'));
 

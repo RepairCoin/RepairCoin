@@ -197,7 +197,9 @@ describe("Customer Features - Comprehensive Test Suite", () => {
             CustomerRepository.prototype,
             "getCustomerByReferralCode" as any
           )
-          .mockResolvedValue(mockReferrer as any);
+          // Only the referrer lookup should resolve to a customer; the later
+          // generateUniqueReferralCode() lookup must return no match (undefined).
+          .mockResolvedValueOnce(mockReferrer as any);
         jest
           .spyOn(ReferralRepository.prototype, "createReferral" as any)
           .mockResolvedValue({ id: "ref123" } as any);
