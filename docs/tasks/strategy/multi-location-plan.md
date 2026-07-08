@@ -1,7 +1,7 @@
 # Multi-Location Management — Implementation Plan
 
-**Status:** Slices 1 & 2 shipped (PR #516) · Slice 3 shipped (per-location operations) · Slices 4
-(inventory) & 5 (staff) planned
+**Status:** Slices 1 & 2 shipped (PR #516) · Slice 3 shipped (per-location operations) · Slice 4
+shipped (per-location inventory) · Slice 5 (staff) planned
 **Tier:** Business ($599) — gated feature `multiLocation`
 **Author:** Nico Regalado
 
@@ -269,10 +269,12 @@ service→item bill-of-materials.
    on every per-location stock write. This keeps all existing shop-wide reads unchanged — analytics,
    AI insights, low-stock alerts, PO suggestions, the `inventory_items_with_availability` view, and
    the status trigger all keep reading the item total and stay correct as "shop total."
-3. **Booking→stock deduction is deferred to Phase 4b** (a follow-up). It's currently **dead code**
-   (`serviceIntegrationController` listens for `service:completed`, but completion fires
-   `service.order_completed`), so nothing decrements stock today; wiring it up + making it
-   per-branch is separable. `reserved_quantity` is likewise never written today.
+3. **Booking→stock deduction is NOT part of this plan.** It's a general inventory concern (not
+   location-specific), and is dead today regardless of multi-location: `serviceIntegrationController`
+   listens for `service:completed`, but completion fires `service.order_completed`, so nothing
+   decrements stock — and the service→item BOM UI (`ServiceInventoryPickerModal`) is orphaned (never
+   opened from the service editor). Making inventory consume bookings is a standalone inventory
+   feature, tracked separately. `reserved_quantity` is likewise never written today.
 4. Same paid-entitlement gate as Slices 2–3 (`hasPaidMultiLocation` / `multi_location_active`) —
    not entitled → primary-location stock only; the per-location table is transparent.
 
@@ -309,17 +311,9 @@ service→item bill-of-materials.
   adjust, receive). Stock/low-stock columns reflect the active branch; "All locations" = totals.
 - Stock-adjust and PO-receive modals act on the active branch.
 
-**Out of scope for 4a (→ 4b):** booking/checkout auto-decrement (fix the dead
-`service.order_completed` wiring, thread the order's `location_id`, decrement the branch row),
-and any reserve-on-booking.
-
-### Phase 4b (follow-up) — booking consumes the branch's stock
-- Fix `serviceIntegrationController` to subscribe to `service.order_completed`; add `location_id`
-  to that event payload (from `service_orders.location_id`).
-- `deductStockForService` resolves the order's branch and decrements `inventory_item_stock` for
-  `(item_id, location_id)` (fallback primary / not-entitled), re-summing the item total; writes the
-  `inventory_adjustments` ledger row as today.
-- Booking/checkout availability reads the branch's stock for low/out-of-stock flags.
+**Out of scope (not part of multi-location):** booking/checkout auto-decrement and
+reserve-on-booking. Auto-decrement is a general inventory feature — dead today (see Decision 3)
+and unrelated to locations — so it's tracked separately, not as a multi-location slice.
 
 ---
 
