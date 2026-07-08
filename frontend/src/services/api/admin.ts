@@ -1051,6 +1051,16 @@ export const adminApi = {
   }) => {
     return apiClient.post('/admin/notifications/broadcast', data);
   },
+
+  // Referral analytics
+  getReferralAnalytics: async () => {
+    return apiClient.get('/admin/referrals/analytics');
+  },
+
+  // Affiliate shop groups oversight
+  getAffiliateGroups: async () => {
+    return apiClient.get('/admin/affiliate-groups');
+  },
 } as const;
 
 // Platform Settings Types

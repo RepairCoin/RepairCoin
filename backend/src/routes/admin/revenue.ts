@@ -157,19 +157,25 @@ router.get('/by-tier', async (req: Request, res: Response) => {
       elite: { purchases: 0, rcnSold: 0, revenue: 0, avgDiscount: '40%' }
     };
 
+    // pg returns numeric columns as strings — coerce before any arithmetic,
+    // and bucket any non-premium/elite tier (none/null/standard) into standard.
     purchases.forEach(purchase => {
-      const tier = purchase.shop_tier || 'standard';
-      if (tierBreakdown[tier as keyof typeof tierBreakdown]) {
-        tierBreakdown[tier as keyof typeof tierBreakdown].purchases++;
-        tierBreakdown[tier as keyof typeof tierBreakdown].rcnSold += purchase.amount;
-        tierBreakdown[tier as keyof typeof tierBreakdown].revenue += purchase.total_cost;
-      }
+      const rawTier = purchase.shop_tier;
+      const tier = (rawTier === 'premium' || rawTier === 'elite') ? rawTier : 'standard';
+      const amount = Number(purchase.amount) || 0;
+      const cost = Number(purchase.total_cost) || 0;
+      tierBreakdown[tier as keyof typeof tierBreakdown].purchases++;
+      tierBreakdown[tier as keyof typeof tierBreakdown].rcnSold += amount;
+      tierBreakdown[tier as keyof typeof tierBreakdown].revenue += cost;
     });
 
-    // Calculate what revenue would have been at standard pricing
-    const standardPriceRevenue = purchases.reduce((sum, p) => sum + (p.amount * 0.10), 0);
-    const actualRevenue = purchases.reduce((sum, p) => sum + p.total_cost, 0);
-    const overallDiscount = ((standardPriceRevenue - actualRevenue) / standardPriceRevenue * 100).toFixed(2);
+    const totalRCNSold = purchases.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    // Standard pricing = 1 RCN at $0.10 (no tier discount).
+    const standardPriceRevenue = purchases.reduce((sum, p) => sum + (Number(p.amount) || 0) * 0.10, 0);
+    const actualRevenue = purchases.reduce((sum, p) => sum + (Number(p.total_cost) || 0), 0);
+    const overallDiscount = standardPriceRevenue > 0
+      ? ((standardPriceRevenue - actualRevenue) / standardPriceRevenue * 100)
+      : 0;
 
     res.json({
       success: true,
@@ -178,10 +184,10 @@ router.get('/by-tier', async (req: Request, res: Response) => {
         tierBreakdown,
         summary: {
           totalPurchases: purchases.length,
-          totalRCNSold: purchases.reduce((sum, p) => sum + p.amount, 0),
+          totalRCNSold,
           totalRevenue: actualRevenue,
           revenueAtStandardPricing: standardPriceRevenue,
-          overallDiscountGiven: `${overallDiscount}%`,
+          overallDiscountGiven: `${overallDiscount.toFixed(2)}%`,
           revenueLostToDiscounts: standardPriceRevenue - actualRevenue
         }
       }

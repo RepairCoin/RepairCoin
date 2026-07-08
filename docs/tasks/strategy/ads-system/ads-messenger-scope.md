@@ -43,6 +43,13 @@ greets + answers, the shop takes over when needed. This is the highest-value cha
 
 ## Phase 2 — acquisition: the click-to-Messenger (CTM) ad objective
 
+**Status: BUILT** (unit-tested; live delivery App-Review-gated). `metaTargeting` adds `OUTCOME_ENGAGEMENT`
+(→ `CONVERSATIONS` optimization + a `messagingDestination` flag; goal `'messages'` maps to it); `MetaService.createAdSet`
+sets `destination_type: MESSENGER` + promoted page; `createAdCreative` uses a `MESSAGE_PAGE` CTA with **no** landing link;
+`MetaPushService` threads both flags; the DraftComposer objective picker's "Messages (Messenger)" option is enabled with an
+objective-aware hint. Test `AdsMessengerObjective` (6) asserts the spec + the ad-set/creative bodies. Push still creates
+**PAUSED** objects (reviewable in Ads Manager before App Review clears).
+
 Goal: a shop can run a **"Messages"** campaign whose ads open a **Messenger thread with the shop's Page** (instead of the
 landing page), so the click lands the person straight into the AI conversation (Phase 1 handles the rest). Everything is
 already scaffolded — the objective picker even shows `OUTCOME_ENGAGEMENT: "Messages (Messenger)"` in `DraftComposer` — so

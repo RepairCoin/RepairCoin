@@ -15,6 +15,8 @@ const MAPPABLE_FIELDS: { field: string; label: string }[] = [
   { field: 'durationMinutes', label: 'Duration (min)' },
   { field: 'imageUrl', label: 'Image URL' },
   { field: 'tags', label: 'Tags' },
+  { field: 'active', label: 'Active / visibility' },
+  { field: 'externalRef', label: 'External ID (e.g. Square Token)' },
 ];
 
 interface ServiceImportModalProps {

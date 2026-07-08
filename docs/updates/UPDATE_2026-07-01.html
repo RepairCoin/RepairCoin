@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 1, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-new { background: var(--violet-bg); color: var(--violet); }
+  .tag-fix { background: #fdecec; color: #c0392b; }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: #7c3aed; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Smarter ⌘K, a Full Tab Audit &amp; the Fixes It Found</h1>
+    <p class="sub">An intent-aware command bar, a complete review of every admin tab, and same-day fixes for everything it surfaced.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 1, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Delivered &amp; Pushed to main</span></span>
+      <span class="meta-pill"><strong>Commits:</strong>&nbsp; 7 shipped</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">A heavy, high-impact day focused on the admin experience. We made the ⌘K Command Bar genuinely intelligent (it now understands intent and answers with live data), ran a complete audit of all 21 admin tabs, and then fixed everything the audit surfaced — including three fully broken features, several actions that silently did nothing, and misleading numbers on the main dashboard. Every change was type-checked, verified, and shipped in small, reviewable commits.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> The Smart Command Bar (⌘K) Got Much Smarter <span class="tag tag-new">NEW</span></h2>
+    <p>Earlier we shipped a ⌘K command palette for quick navigation. Today we upgraded its “Ask AI” from a plain text box into an intent-aware assistant.</p>
+    <ul>
+      <li><strong>Understands what you mean, not just what you type.</strong> A new backend brain first classifies your query as either “take me somewhere” or “answer a question”:
+        <ul>
+          <li><em>“approve a shop”</em> → jumps straight to <strong>Pending Shops</strong></li>
+          <li><em>“check for fraud”</em> → jumps to <strong>Fraud Detection</strong></li>
+          <li><em>“how many shops are pending?”</em> → answers with <strong>real, live platform data</strong></li>
+        </ul>
+      </li>
+      <li><strong>Suggests next steps</strong> — every answer comes with clickable section chips.</li>
+      <li><strong>Fails gracefully</strong> — if AI isn't configured, instant keyword navigation still works.</li>
+      <li><strong>Cross-platform</strong> — the label is now platform-aware (<code class="inline">Ctrl K</code> on Windows/Linux, <code class="inline">⌘K</code> on Mac).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> A Complete Audit of All 21 Admin Tabs</h2>
+    <p>We systematically reviewed every admin tab (~22,000 lines of code) using four parallel reviewers, checking each for mock/placeholder data, dead buttons, actions with no backend wiring, missing features, and silent failures. The large majority of tabs were complete and fully wired; the audit then pinpointed a focused set of real problems, which we fixed the same day.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Critical Blockers Fixed <span class="tag tag-fix">FIX</span></h2>
+    <p>The audit uncovered three genuinely broken things (confirmed by the type-checker, but hidden in production because the build suppresses type errors):</p>
+    <ul>
+      <li><strong>Create Admin was completely broken.</strong> It referenced an undefined variable and would throw the moment you clicked “Create Admin.” Rewired to the correct authenticated call.</li>
+      <li><strong>Shops → Unsuspend Requests crashed on load.</strong> The same class of bug (a leftover from an older auth approach). Fixed to use the current cookie-based authentication.</li>
+      <li><strong>Dead legacy Treasury tab removed</strong> — an old, unused component full of broken references and “coming soon” placeholders (~1,000 lines).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> Content Moderation — Flagged Reviews Are Now Actionable <span class="tag tag-fix">FIX</span></h2>
+    <p>Previously the tab could flag inappropriate reviews but gave admins no way to act on them (the only button worked for service listings, not reviews). Admins can now <strong>permanently remove a flagged review</strong>, protected by an inline two-step confirmation. This closed the single biggest functionality gap the audit found.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Dashboard Overview — Honest Numbers <span class="tag tag-fix">FIX</span></h2>
+    <ul>
+      <li><strong>“Total Revenue” was faked</strong> — calculated as <em>tokens issued × $0.10</em>. It now shows the real revenue figure (actual shop RCN purchases).</li>
+      <li><strong>The “Redemptions” transaction filter was a dead end</strong> — it always returned empty. Removed so every filter returns real results.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span> Actions That Silently Did Nothing <span class="tag tag-fix">FIX</span></h2>
+    <ul>
+      <li><strong>Unsuspend “Reject” was a no-op.</strong> In both the Customer and Shop detail modals, “Reject” showed a success message but never rejected anything. Both now call the real endpoint.</li>
+      <li><strong>Silent load failures.</strong> Bug Reports and Disputes only logged fetch errors to the console — so a failed load looked identical to an empty list. Both now show a clear error message.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Shipped to production</h2>
+    <table>
+      <thead><tr><th>Commit</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>42a77446</code></td><td>Smart Command Bar — intent routing + data answers + suggestions</td></tr>
+        <tr><td><code>ec9d1083</code></td><td>Cross-platform shortcut label (Ctrl K / ⌘K)</td></tr>
+        <tr><td><code>9877005b</code></td><td>Blocker fixes: Create Admin, Shops unsuspend, dead TreasuryTab</td></tr>
+        <tr><td><code>ddbee1d8</code></td><td>Content Moderation — actionable flagged reviews</td></tr>
+        <tr><td><code>b76530c6</code></td><td>Overview — real revenue + drop dead Redemptions filter</td></tr>
+        <tr><td><code>9b2f21c6</code></td><td>Unsuspend Reject calls the real API (customer + shop)</td></tr>
+        <tr><td><code>c23ed0d6</code></td><td>Toast on load failures (Bug Reports &amp; Disputes)</td></tr>
+      </tbody>
+    </table>
+    <div class="callout green" style="margin-top:18px;"><strong>Verification:</strong> backend type-checking clean (0 errors); the frontend gained 0 new type errors across all of the day's work — and removing the dead code reduced the pre-existing count.</div>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>The admin dashboard went from having a handful of dead-end buttons and a couple of crash-on-load pages to being fully wired, honest about its data, and faster to operate — with a smarter ⌘K that navigates and answers in seconds.</p>
+    <div class="callout violet"><strong>One step to go live:</strong> all AI features are deployed but run in a safe fallback mode until the two AI API keys are set in the production environment — a single configuration step documented in the ops runbook.</div>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 1, 2026</footer>
+</div>
+</body>
+</html>

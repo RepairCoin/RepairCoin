@@ -20,6 +20,7 @@ import {
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { VALID_CATEGORIES } from '../constants';
+import { serviceImportMappingService } from '../../customer/services/CustomerImportMappingService';
 import { Pool, PoolClient } from 'pg';
 import { getSharedPool } from '../../../utils/database-pool';
 import { v4 as uuidv4 } from 'uuid';
@@ -413,22 +414,36 @@ export class ImportExportService {
     const validServices: ParsedService[] = [];
     const validCats = VALID_CATEGORIES as readonly string[];
 
+    // AI-map the distinct UNRECOGNIZED categories → the fixed marketplace buckets (one Haiku call,
+    // spend-capped, non-fatal). e.g. Square "game_console_repairs" → "repairs", "accessories" →
+    // "other_local_services". Unmapped/over-budget rows fall back to the catch-all below.
+    const unknownCats = Array.from(new Set(
+      services.map((s) => (s.category || '').toLowerCase().trim()).filter((c) => c && !validCats.includes(c))
+    ));
+    let catMap: Record<string, string> = {};
+    if (unknownCats.length) {
+      try {
+        catMap = (await serviceImportMappingService.mapCategories(unknownCats, Array.from(validCats), shopId)).mapping;
+      } catch { catMap = {}; }
+    }
+
     // Track duplicate service names (skip later repeats so a re-import stays clean).
     const serviceNames = new Set<string>();
 
     for (const service of services) {
       const sanitized = sanitizeServiceData(service);
 
-      // Migration-friendly: an external catalog's free-text category rarely matches our fixed set —
-      // default the unrecognized/empty ones to 'other_local_services' (with a warning) instead of
-      // failing the row. Lets a Square/other catalog import without hand-fixing every category.
+      // Unrecognized/empty category → AI-mapped broad bucket if we have one, else the catch-all. Never
+      // fails the row (an external catalog's free-text categories rarely match our fixed set verbatim).
       if (!sanitized.category || !validCats.includes(sanitized.category)) {
+        const mapped = catMap[(sanitized.category || '').toLowerCase().trim()];
+        const target = mapped || 'other_local_services';
         warnings.push({
           row: service.rowIndex, column: 'Category', value: sanitized.category,
-          message: 'Unrecognized category — defaulted to "other_local_services"',
-          severity: 'warning', code: 'CATEGORY_DEFAULTED'
+          message: mapped ? `Category mapped to "${target}"` : 'Unrecognized category — defaulted to "other_local_services"',
+          severity: 'warning', code: mapped ? 'CATEGORY_MAPPED' : 'CATEGORY_DEFAULTED'
         });
-        sanitized.category = 'other_local_services';
+        sanitized.category = target;
       }
 
       const validation = validateServiceRow(sanitized, shopId, Array.from(VALID_CATEGORIES));
@@ -439,17 +454,18 @@ export class ImportExportService {
         continue;
       }
 
-      // Within-file duplicate service name → skip the later one.
-      const nameKey = sanitized.serviceName.toLowerCase();
-      if (serviceNames.has(nameKey)) {
+      // Within-file duplicate → skip the later one. Key by external_ref when present (distinct catalog
+      // items can legitimately share a name, e.g. "Phone Case"); else fall back to the name.
+      const dupKey = sanitized.externalRef ? `ref:${sanitized.externalRef}` : `name:${sanitized.serviceName.toLowerCase()}`;
+      if (serviceNames.has(dupKey)) {
         errors.push({
-          row: service.rowIndex, column: 'Service Name', value: sanitized.serviceName,
-          message: 'Duplicate service name earlier in the file — skipped',
-          severity: 'error', code: 'DUPLICATE_SERVICE_NAME'
+          row: service.rowIndex, column: sanitized.externalRef ? 'Token' : 'Service Name', value: sanitized.externalRef || sanitized.serviceName,
+          message: 'Duplicate item earlier in the file — skipped',
+          severity: 'error', code: 'DUPLICATE_SERVICE'
         });
         continue;
       }
-      serviceNames.add(nameKey);
+      serviceNames.add(dupKey);
       validServices.push(sanitized);
     }
 
@@ -494,8 +510,11 @@ export class ImportExportService {
       for (const service of services) {
         const sanitized = sanitizeServiceData(service);
 
-        // Check if service exists (by name)
-        const existing = await this.findExistingService(client, shopId, sanitized.serviceName);
+        // Match an existing service: prefer the origin id (external_ref) — stable across renames, so a
+        // re-imported catalog updates instead of duplicating — and fall back to the name.
+        const existing = sanitized.externalRef
+          ? await this.findByExternalRef(client, shopId, sanitized.externalRef)
+          : await this.findExistingService(client, shopId, sanitized.serviceName);
 
         if (existing) {
           if (options.mode === 'merge') {
@@ -544,6 +563,15 @@ export class ImportExportService {
     return result.rows.length > 0 ? result.rows[0] : null;
   }
 
+  /** Find an existing imported service by its origin id (external_ref) — stable re-import identity. */
+  private async findByExternalRef(client: PoolClient, shopId: string, externalRef: string): Promise<any> {
+    const result = await client.query(
+      'SELECT service_id FROM shop_services WHERE shop_id = $1 AND external_ref = $2 LIMIT 1',
+      [shopId, externalRef]
+    );
+    return result.rows.length > 0 ? result.rows[0] : null;
+  }
+
   /**
    * Insert new service
    */
@@ -555,8 +583,8 @@ export class ImportExportService {
     await client.query(
       `INSERT INTO shop_services (
         shop_id, service_name, description, price_usd, duration_minutes,
-        category, image_url, tags, active, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())`,
+        category, image_url, tags, active, import_source, external_ref, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
       [
         shopId,
         service.serviceName,
@@ -566,7 +594,9 @@ export class ImportExportService {
         service.category,
         service.imageUrl || null,
         service.tags || [],
-        service.active
+        service.active,
+        service.externalRef ? 'import' : null, // provenance marker for imported rows
+        service.externalRef || null
       ]
     );
   }
@@ -588,8 +618,9 @@ export class ImportExportService {
         image_url = $5,
         tags = $6,
         active = $7,
+        external_ref = COALESCE($8, external_ref),
         updated_at = NOW()
-      WHERE service_id = $8`,
+      WHERE service_id = $9`,
       [
         service.description || null,
         service.priceUsd,
@@ -598,6 +629,7 @@ export class ImportExportService {
         service.imageUrl || null,
         service.tags || [],
         service.active,
+        service.externalRef || null,
         serviceId
       ]
     );

@@ -513,6 +513,132 @@ router.post('/notifications/broadcast', asyncHandler(async (req, res) => {
   res.json({ success: true, data: { recipients: unique.length, delivered } });
 }));
 
+// Affiliate shop groups — platform oversight (coalitions + custom-token liability)
+router.get('/affiliate-groups', asyncHandler(async (req, res) => {
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const pool = getSharedPool();
+
+  const groupsRes = await pool.query(`
+    SELECT
+      g.group_id,
+      g.group_name,
+      g.group_type,
+      g.active,
+      g.custom_token_name,
+      g.custom_token_symbol,
+      COALESCE(g.token_value_usd, 0)::float AS token_value_usd,
+      g.created_by_shop_id,
+      g.created_at,
+      (SELECT COUNT(*) FROM affiliate_shop_group_members m WHERE m.group_id = g.group_id AND m.status = 'active')::int AS member_count,
+      (SELECT COUNT(*) FROM affiliate_shop_group_members m WHERE m.group_id = g.group_id AND m.status = 'pending')::int AS pending_members,
+      COALESCE((SELECT SUM(balance) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id), 0)::float AS outstanding_balance,
+      COALESCE((SELECT SUM(lifetime_earned) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id), 0)::float AS lifetime_earned,
+      COALESCE((SELECT SUM(lifetime_redeemed) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id), 0)::float AS lifetime_redeemed,
+      (SELECT COUNT(DISTINCT customer_address) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id)::int AS holder_count,
+      COALESCE((SELECT SUM(allocated_rcn) FROM shop_group_rcn_allocations a WHERE a.group_id = g.group_id), 0)::float AS rcn_allocated,
+      COALESCE((SELECT SUM(available_rcn) FROM shop_group_rcn_allocations a WHERE a.group_id = g.group_id), 0)::float AS rcn_available
+    FROM affiliate_shop_groups g
+    ORDER BY g.created_at DESC
+  `);
+
+  const groups = groupsRes.rows.map((g: Record<string, unknown>) => {
+    const outstanding = Number(g.outstanding_balance) || 0;
+    const tokenValue = Number(g.token_value_usd) || 0;
+    return {
+      groupId: g.group_id as string,
+      groupName: g.group_name as string,
+      groupType: g.group_type as string,
+      active: Boolean(g.active),
+      customTokenName: g.custom_token_name as string | null,
+      customTokenSymbol: g.custom_token_symbol as string | null,
+      tokenValueUsd: tokenValue,
+      createdByShopId: g.created_by_shop_id as string | null,
+      createdAt: g.created_at as string,
+      memberCount: Number(g.member_count) || 0,
+      pendingMembers: Number(g.pending_members) || 0,
+      outstandingBalance: outstanding,
+      lifetimeEarned: Number(g.lifetime_earned) || 0,
+      lifetimeRedeemed: Number(g.lifetime_redeemed) || 0,
+      holderCount: Number(g.holder_count) || 0,
+      rcnAllocated: Number(g.rcn_allocated) || 0,
+      rcnAvailable: Number(g.rcn_available) || 0,
+      liabilityUsd: outstanding * tokenValue,
+    };
+  });
+
+  const summary = {
+    totalGroups: groups.length,
+    activeGroups: groups.filter((g) => g.active).length,
+    totalMembers: groups.reduce((s, g) => s + (g.memberCount || 0), 0),
+    totalOutstandingTokens: groups.reduce((s, g) => s + (g.outstandingBalance || 0), 0),
+    totalLiabilityUsd: groups.reduce((s, g) => s + (g.liabilityUsd || 0), 0),
+    totalRcnAllocated: groups.reduce((s, g) => s + (g.rcnAllocated || 0), 0),
+  };
+
+  res.json({ success: true, data: { summary, groups } });
+}));
+
+// Referral program analytics (platform-wide)
+router.get('/referrals/analytics', asyncHandler(async (req, res) => {
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const pool = getSharedPool();
+
+  const summaryRes = await pool.query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE completed_at IS NOT NULL)::int AS completed,
+      COUNT(*) FILTER (WHERE completed_at IS NULL AND (expires_at IS NULL OR expires_at > NOW()))::int AS pending,
+      COUNT(*) FILTER (WHERE completed_at IS NULL AND expires_at IS NOT NULL AND expires_at <= NOW())::int AS expired,
+      COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN COALESCE(reward_amount,0) + COALESCE(referee_bonus,0) ELSE 0 END), 0)::float AS rcn_paid,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int AS last7,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS last30
+    FROM referrals
+  `);
+  const s = summaryRes.rows[0];
+  const conversionRate = s.total > 0 ? (s.completed / s.total) * 100 : 0;
+
+  // Leaderboard computed directly from referrals (there is no referral_stats view here).
+  const lbRes = await pool.query(`
+    SELECT
+      r.referrer_address,
+      c.name AS referrer_name,
+      COUNT(*)::int AS total_referrals,
+      COUNT(*) FILTER (WHERE r.completed_at IS NOT NULL)::int AS successful_referrals,
+      COALESCE(SUM(CASE WHEN r.completed_at IS NOT NULL THEN COALESCE(r.reward_amount,0) ELSE 0 END), 0)::float AS total_earned_rcn,
+      MAX(r.created_at) AS last_referral_date
+    FROM referrals r
+    LEFT JOIN customers c ON LOWER(c.address) = LOWER(r.referrer_address)
+    GROUP BY r.referrer_address, c.name
+    ORDER BY successful_referrals DESC, total_earned_rcn DESC
+    LIMIT 20
+  `);
+  const leaderboard = lbRes.rows.map((row: Record<string, unknown>) => ({
+    referrerAddress: row.referrer_address as string,
+    referrerName: (row.referrer_name as string) || undefined,
+    totalReferrals: Number(row.total_referrals) || 0,
+    successfulReferrals: Number(row.successful_referrals) || 0,
+    totalEarnedRcn: Number(row.total_earned_rcn) || 0,
+    lastReferralDate: row.last_referral_date as string | undefined,
+  }));
+
+  res.json({
+    success: true,
+    data: {
+      summary: {
+        total: s.total,
+        completed: s.completed,
+        pending: s.pending,
+        expired: s.expired,
+        rcnPaid: s.rcn_paid,
+        conversionRate,
+        last7Days: s.last7,
+        last30Days: s.last30,
+      },
+      leaderboard,
+    },
+  });
+}));
+
 // System maintenance
 router.post('/maintenance/cleanup-webhooks', 
   asyncHandler(adminController.cleanupWebhooks.bind(adminController))

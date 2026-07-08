@@ -296,6 +296,8 @@ export class MetaService {
     /** When optimizing for a pixel conversion (OFFSITE_CONVERSIONS), the ad set's promoted_object
      *  must name the pixel + the standard event to optimize toward. Takes precedence over page. */
     conversionPixelId?: string; customEventType?: string;
+    /** Click-to-Messenger (OUTCOME_ENGAGEMENT): ad set targets the MESSENGER destination + promotes the page. */
+    messagingDestination?: boolean;
   }): Promise<string> {
     const body: Record<string, any> = {
       name: opts.name,
@@ -312,6 +314,8 @@ export class MetaService {
     // Lead-gen optimization uses a native instant form on the ad (ON_AD destination) — required
     // so a creative carrying a lead_gen_form_id is accepted (else Meta 100/1892040).
     if (opts.optimizationGoal === 'LEAD_GENERATION') body.destination_type = 'ON_AD';
+    // Click-to-Messenger: the ad opens a Messenger thread with the promoted page.
+    if (opts.messagingDestination) body.destination_type = 'MESSENGER';
     // promoted_object: a pixel conversion (OFFSITE_CONVERSIONS) takes precedence over the page —
     // Meta requires { pixel_id, custom_event_type } to optimize toward the Lead event.
     if (opts.conversionPixelId) {
@@ -333,19 +337,27 @@ export class MetaService {
     /** Opt into Meta Advantage+ standard creative enhancements (image expansion, background
      *  gen, text variations) on top of our approved creative. Default off (brand-safe). */
     enhancements?: boolean;
+    /** Click-to-Messenger: CTA opens a Messenger thread with the page (no outbound landing link). */
+    messaging?: boolean;
   }): Promise<string> {
-    const call_to_action = opts.leadFormId
-      ? { type: 'SIGN_UP', value: { lead_gen_form_id: opts.leadFormId, link: opts.linkUrl } }
-      : { type: opts.callToAction ?? 'LEARN_MORE', value: { link: opts.linkUrl } };
+    // Click-to-Messenger creative: MESSAGE_PAGE CTA → Messenger, no landing link. Otherwise a
+    // native-lead-form (SIGN_UP) or an outbound link (LEARN_MORE).
+    const call_to_action = opts.messaging
+      ? { type: 'MESSAGE_PAGE', value: { app_destination: 'MESSENGER' } }
+      : opts.leadFormId
+        ? { type: 'SIGN_UP', value: { lead_gen_form_id: opts.leadFormId, link: opts.linkUrl } }
+        : { type: opts.callToAction ?? 'LEARN_MORE', value: { link: opts.linkUrl } };
+    const link_data: Record<string, any> = {
+      picture: opts.imageUrl,
+      message: opts.message,
+      name: opts.headline,
+      call_to_action,
+    };
+    // Messaging ads route to Messenger via the CTA — no outbound `link`. All others carry the landing/lead URL.
+    if (!opts.messaging) link_data.link = opts.linkUrl;
     const objectStorySpec = {
       page_id: opts.pageId,
-      link_data: {
-        picture: opts.imageUrl,
-        link: opts.linkUrl,
-        message: opts.message,
-        name: opts.headline,
-        call_to_action,
-      },
+      link_data,
     };
     const body: Record<string, any> = {
       name: `${opts.headline} — creative`.slice(0, 100),

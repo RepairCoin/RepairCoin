@@ -31,14 +31,17 @@ const FIELD_GUIDES: Record<ImportSchema, string> = {
 - visitCount: number of visits / transactions
 - referralCode, referredBy, active, lifetimeEarnings: only if clearly present`,
   services: `
-- serviceName: the service/item name (e.g. "Item Name", "Service")
+- serviceName: the service/item name (e.g. "Item Name", "Service", "Customer-facing Name")
 - description: description / details
-- priceUsd: price (a currency amount)
+- priceUsd: price (a currency amount; the value may be the literal "variable")
 - durationMinutes: duration in minutes, if present
-- category: service/item category (free text — it will be normalized; unknown values become "other")
+- category: service/item category (free text — e.g. "Categories", "Reporting Category"; normalized, unknown → "other")
 - imageUrl: an image/photo URL, if present
 - tags: comma-separated tags/keywords
-- active: whether the service is active/enabled / available online`,
+- active: whether the item is active/enabled/available. For a Square export prefer "Square Online Item Visibility"
+  (visible=active) over "Archived"/"Sellable".
+- externalRef: the origin system's unique item id — for a Square catalog this is the "Token" column (NOT the SKU unless
+  no Token). Map it so re-imports update instead of duplicating.`,
 };
 
 const SCHEMA_NOUN: Record<ImportSchema, string> = { customers: 'customer-list', services: 'service/catalog' };
@@ -111,6 +114,57 @@ export class ImportMappingService {
     const used = new Set(Object.values(mapping).map((h) => h.toLowerCase()));
     const unmapped = headers.filter((h) => !used.has(h.trim().toLowerCase()));
     return { mapping, unmapped, notes, costUsd: resp.costUsd };
+  }
+
+  /** Classify a set of free-text source categories (e.g. Square "Game Console Repairs", "Accessories")
+   *  into a FIXED marketplace taxonomy. One Haiku call, spend-capped. Validated: any answer outside the
+   *  allowed set is dropped (caller defaults it to the catch-all). Non-fatal — returns {} on any failure,
+   *  so the import still proceeds with the default category. Keyed by the lower-cased input string. */
+  async mapCategories(
+    categories: string[],
+    validCategories: string[],
+    shopId?: string | null
+  ): Promise<{ mapping: Record<string, string>; costUsd: number }> {
+    const distinct = Array.from(new Set(categories.map((c) => String(c || '').trim()).filter(Boolean)));
+    if (!distinct.length) return { mapping: {}, costUsd: 0 };
+
+    if (shopId) {
+      const spend = await this.spendCap.canSpend(shopId);
+      if (!spend.allowed) return { mapping: {}, costUsd: 0 }; // over budget → fall back to default category
+    }
+
+    const sys =
+      'You classify service/product categories from a POS/CRM export into a FIXED marketplace taxonomy. ' +
+      'For EACH input category, return the single best-fit target from this exact list (copy the target string ' +
+      `verbatim): ${JSON.stringify(validCategories)}. If nothing fits, use "other_local_services". Never invent a ` +
+      'category. Return STRICT JSON only: an object {"<input category>": "<target>"}. JSON only.';
+    const userMsg = `INPUT CATEGORIES: ${JSON.stringify(distinct)}\n\nReturn the JSON mapping.`;
+
+    let resp;
+    try {
+      resp = await this.anthropic.complete({
+        systemPrompt: [{ text: sys, cache: true }],
+        messages: [{ role: 'user', content: userMsg }],
+        model: MODEL,
+        maxTokens: 700,
+      });
+    } catch (err) {
+      logger.error('ImportMappingService.mapCategories LLM call failed (non-fatal)', { err });
+      return { mapping: {}, costUsd: 0 };
+    }
+    if (shopId) await this.spendCap.recordSpend(shopId, resp.costUsd).catch(() => {});
+
+    const valid = new Set(validCategories);
+    const out: Record<string, string> = {};
+    try {
+      const s = resp.text.indexOf('{');
+      const e = resp.text.lastIndexOf('}');
+      const obj = s >= 0 && e > s ? JSON.parse(resp.text.slice(s, e + 1)) : {};
+      for (const [inp, tgt] of Object.entries(obj)) {
+        if (typeof tgt === 'string' && valid.has(tgt)) out[inp.trim().toLowerCase()] = tgt;
+      }
+    } catch { /* leave empty → caller defaults */ }
+    return { mapping: out, costUsd: resp.costUsd };
   }
 }
 
