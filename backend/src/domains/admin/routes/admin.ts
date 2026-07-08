@@ -427,9 +427,33 @@ router.get('/webhooks/logs', asyncHandler(async (req, res) => {
 }));
 
 router.get('/webhooks/health', asyncHandler(async (req, res) => {
-  const { webhookLoggingService } = await import('../../../services/WebhookLoggingService');
-  const health = await webhookLoggingService.checkWebhookHealth();
-  res.json({ success: true, data: health });
+  // Compute health directly from webhook_logs so it doesn't depend on the
+  // get_webhook_health() DB function (not present in every environment).
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const pool = getSharedPool();
+  const r = await pool.query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE status = 'failed' AND created_at >= NOW() - INTERVAL '24 hours')::int AS failed_24h,
+      COUNT(*) FILTER (WHERE status IN ('pending','processing','retry'))::int AS pending,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::int AS total_24h,
+      COUNT(*) FILTER (WHERE status = 'success' AND created_at >= NOW() - INTERVAL '24 hours')::int AS success_24h
+    FROM webhook_logs
+  `);
+  const s = r.rows[0];
+  const successRate24h = s.total_24h > 0 ? (s.success_24h / s.total_24h) * 100 : 100;
+  // Healthy when there are no recent failures, or the success rate holds up with volume.
+  const healthy = s.failed_24h === 0 ? true : (s.total_24h >= 10 && successRate24h >= 90);
+  res.json({
+    success: true,
+    data: {
+      healthy,
+      failedLast24h: s.failed_24h,
+      pendingCount: s.pending,
+      total: s.total,
+      successRate24h: Math.round(successRate24h),
+    },
+  });
 }));
 
 router.post('/webhooks/retry/:webhookId', asyncHandler(async (req, res) => {
