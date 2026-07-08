@@ -16,11 +16,18 @@ import { shopRepository } from '../../../repositories';
 import { ChatMessage, ClaudeModel } from '../../AIAgentDomain/types';
 import { LeadRepository } from '../repositories/LeadRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
+import { CreativeRepository } from '../repositories/CreativeRepository';
 import { AiCostRepository } from '../repositories/AiCostRepository';
 import { LeadMessageRepository, LeadMessage, MsgChannel } from '../repositories/LeadMessageRepository';
+import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { LeadChannelSender } from './LeadChannelSender';
 
 const MODEL: ClaudeModel = 'claude-haiku-4-5-20251001';
+
+/** Ground lead replies in the shop's live service catalog + the ad's creative copy (default on;
+ *  set ADS_AI_CATALOG_GROUNDING=false to fall back to name/voice-only grounding). */
+const catalogGroundingEnabled = (): boolean => process.env.ADS_AI_CATALOG_GROUNDING !== 'false';
+const MAX_CATALOG_SERVICES = 30;
 
 const systemPromptFor = (shopName: string, industry: string, voice: string, campaign: string): string =>
   `You are the customer-service assistant for ${shopName}, a ${industry}. A lead responded ` +
@@ -48,8 +55,61 @@ export class LeadAutoAnswerService {
     private readonly campaigns = new CampaignRepository(),
     private readonly aiCosts = new AiCostRepository(),
     private readonly messages = new LeadMessageRepository(),
+    private readonly services = new ServiceRepository(),
+    private readonly creatives = new CreativeRepository(),
     private readonly channel = new LeadChannelSender()
   ) {}
+
+  /** System block listing the shop's live, active services so the AI answers "do you offer X?"
+   *  decisively (and declines what isn't offered) instead of always deferring to the team.
+   *  Cached (stable per shop). Null when disabled, empty, or on error (behaviour-neutral fallback). */
+  private async catalogBlock(shopId: string): Promise<string | null> {
+    if (!catalogGroundingEnabled()) return null;
+    try {
+      const res = await this.services.getServicesByShop(shopId, { activeOnly: true, limit: MAX_CATALOG_SERVICES });
+      const items = res.items || [];
+      if (!items.length) return null;
+      const lines = items
+        .sort((a, b) => (a.category || '').localeCompare(b.category || '') || a.serviceName.localeCompare(b.serviceName))
+        .slice(0, MAX_CATALOG_SERVICES)
+        .map((s) => {
+          const price = typeof s.priceUsd === 'number' && s.priceUsd > 0 ? `, $${s.priceUsd}` : '';
+          const dur = s.durationMinutes ? `, ${s.durationMinutes}min` : '';
+          const desc = s.description ? ` — ${s.description.slice(0, 120)}` : '';
+          return `- ${s.serviceName} (${s.category})${price}${dur}${desc}`;
+        });
+      return (
+        `These are the ONLY services this shop offers:\n${lines.join('\n')}\n` +
+        `If the customer asks about something on this list, answer directly and name it (quote the price when shown). ` +
+        `If they ask about something NOT on this list, tell them the shop doesn't offer it — do NOT invent services, ` +
+        `prices, or guarantees. For scheduling/availability, say the team will confirm the time.`
+      );
+    } catch (e) {
+      logger.warn(`LeadAutoAnswerService: catalog grounding failed for shop ${shopId}: ${(e as Error)?.message || e}`);
+      return null;
+    }
+  }
+
+  /** System block with the ad's copy (the lead's creative, else the campaign's approved creative) so
+   *  the reply stays consistent with the promoted offer/promo. Cached. Null when disabled/unresolvable. */
+  private async creativeBlock(creativeId: string | null, campaignId: string): Promise<string | null> {
+    if (!catalogGroundingEnabled()) return null;
+    try {
+      let creative = creativeId ? await this.creatives.findById(creativeId) : null;
+      if (!creative) {
+        const all = await this.creatives.listByCampaign(campaignId);
+        creative = all.find((c) => c.reviewStatus === 'approved') || all[0] || null;
+      }
+      if (!creative || (!creative.headline && !creative.body)) return null;
+      const parts: string[] = [];
+      if (creative.headline) parts.push(`Headline: "${creative.headline}"`);
+      if (creative.body) parts.push(`Body: "${creative.body}"`);
+      return `The customer clicked an ad that said — ${parts.join('. ')}. Stay consistent with that offer; if it named a promo or discount, honor it.`;
+    } catch (e) {
+      logger.warn(`LeadAutoAnswerService: creative grounding failed for campaign ${campaignId}: ${(e as Error)?.message || e}`);
+      return null;
+    }
+  }
 
   async getThread(leadId: string): Promise<LeadMessage[]> {
     return this.messages.listByLead(leadId);
@@ -125,6 +185,14 @@ export class LeadAutoAnswerService {
     const systemBlocks: { text: string; cache: boolean }[] = [
       { text: systemPromptFor(shopName, industry, voice, campaign?.name || 'an ad'), cache: true },
     ];
+    // Ground the reply in what the shop actually sells + what the ad promised (both cached, stable per
+    // shop/campaign → near-free after the first turn). Each is skipped cleanly when absent.
+    const [catalog, creativeCtx] = await Promise.all([
+      this.catalogBlock(shopId),
+      this.creativeBlock(lead.creativeId, lead.campaignId),
+    ]);
+    if (catalog) systemBlocks.push({ text: catalog, cache: true });
+    if (creativeCtx) systemBlocks.push({ text: creativeCtx, cache: true });
     const memBlock = await getAiMemoryService().recallBlock(shopId, last?.body);
     if (memBlock) systemBlocks.push({ text: memBlock, cache: false });
     try {
