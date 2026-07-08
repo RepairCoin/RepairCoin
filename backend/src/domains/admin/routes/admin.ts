@@ -581,7 +581,6 @@ router.get('/affiliate-groups', asyncHandler(async (req, res) => {
 // Referral program analytics (platform-wide)
 router.get('/referrals/analytics', asyncHandler(async (req, res) => {
   const { getSharedPool } = await import('../../../utils/database-pool');
-  const { ReferralRepository } = await import('../../../repositories/ReferralRepository');
   const pool = getSharedPool();
 
   const summaryRes = await pool.query(`
@@ -598,8 +597,29 @@ router.get('/referrals/analytics', asyncHandler(async (req, res) => {
   const s = summaryRes.rows[0];
   const conversionRate = s.total > 0 ? (s.completed / s.total) * 100 : 0;
 
-  const repo = new ReferralRepository();
-  const leaderboard = await repo.getReferralStats(20);
+  // Leaderboard computed directly from referrals (there is no referral_stats view here).
+  const lbRes = await pool.query(`
+    SELECT
+      r.referrer_address,
+      c.name AS referrer_name,
+      COUNT(*)::int AS total_referrals,
+      COUNT(*) FILTER (WHERE r.completed_at IS NOT NULL)::int AS successful_referrals,
+      COALESCE(SUM(CASE WHEN r.completed_at IS NOT NULL THEN COALESCE(r.reward_amount,0) ELSE 0 END), 0)::float AS total_earned_rcn,
+      MAX(r.created_at) AS last_referral_date
+    FROM referrals r
+    LEFT JOIN customers c ON LOWER(c.address) = LOWER(r.referrer_address)
+    GROUP BY r.referrer_address, c.name
+    ORDER BY successful_referrals DESC, total_earned_rcn DESC
+    LIMIT 20
+  `);
+  const leaderboard = lbRes.rows.map((row: Record<string, unknown>) => ({
+    referrerAddress: row.referrer_address as string,
+    referrerName: (row.referrer_name as string) || undefined,
+    totalReferrals: Number(row.total_referrals) || 0,
+    successfulReferrals: Number(row.successful_referrals) || 0,
+    totalEarnedRcn: Number(row.total_earned_rcn) || 0,
+    lastReferralDate: row.last_referral_date as string | undefined,
+  }));
 
   res.json({
     success: true,
