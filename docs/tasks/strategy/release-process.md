@@ -234,5 +234,8 @@ git push origin prod                  # auto-deploys the reverted state
 
 If prod is down and the normal flow is too slow: a repo admin (with
 `enforce_admins:false`, or by temporarily lifting protection) may push a fix branch
-straight to `prod`. **Immediately after:** open the matching PR into `main` so staging
-and `prod` don't diverge, and note the incident. This is the exception, not a shortcut.
+straight to `prod`. CI runs on **pull requests only** (not on push), so a direct push
+to `prod` deploys **without a CI run** — run `npm run test:unit` + `npm run build`
+locally before pushing. **Immediately after:** open the matching PR into `main` so
+staging and `prod` don't diverge, and note the incident. This is the exception, not a
+shortcut.
