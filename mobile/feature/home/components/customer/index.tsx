@@ -57,7 +57,7 @@ export default function CustomerWalletTab() {
     data: trendingData,
     isLoading: trendingLoading,
     refetch: refetchTrending,
-  } = useGetTrendingServicesQuery({ limit: 4, days: 7 });
+  } = useGetTrendingServicesQuery({ limit: 4, days: 30 });
 
   const {
     data: recentlyViewedData,
@@ -276,7 +276,7 @@ export default function CustomerWalletTab() {
             </Pressable>
           </Pressable>
         </Modal> */}
-        {trendingData && trendingData.length > 0 && (
+        {(trendingLoading || (trendingData && trendingData.length > 0)) && (
           <TrendingSection
             handleViewAllTrendingServices={handleViewAllTrendingServices}
             trendingLoading={trendingLoading}
