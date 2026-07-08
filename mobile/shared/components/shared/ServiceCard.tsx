@@ -341,6 +341,7 @@ function ServiceCard({
           <Text
             className={`${titleColor} text-[15px] font-bold leading-5`}
             numberOfLines={2}
+            ellipsizeMode="tail"
           >
             {title}
           </Text>

@@ -53,7 +53,7 @@ export default function TrendingSection({
             {trendingData.map((item: ServiceData) => (
               <View
                 key={item.serviceId}
-                style={{ width: 280, marginRight: 6 }}
+                style={{ width: 200, marginRight: 20 }}
               >
                 <ServiceCard
                   transparent
