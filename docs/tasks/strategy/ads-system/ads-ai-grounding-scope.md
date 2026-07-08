@@ -4,7 +4,8 @@ Make the lead-conversation AI answer **definitively about what the shop sells, w
 customer can come in** — instead of deferring ("let me get our team to confirm") — so more ad clicks become bookings.
 
 **Status:** Phase 1 (service catalog) + Phase 2 (ad creative) **SHIPPED + live-verified in production 2026-07-08**
-(commit `b1204b71c`, merged in `ed07935`). **Phase 3 (availability grounding) is scoped below.**
+(commit `b1204b71c`, merged in `ed07935`). Phase 3 (availability grounding) **BUILT + committed `13294f5fa`, live-verified
+against peanut** (flag `ADS_AI_AVAILABILITY_GROUNDING` default OFF — needs deploy + flag-on to go live).
 
 ## Goal — why this exists (the path to bookings)
 The AI auto-reply is not a chatbot for its own sake. Its single purpose: **turn ad spend into confirmed, paid bookings,
@@ -97,7 +98,13 @@ Everything else in `generateReply` is untouched (thread mapping, empty-reply gua
 ## Effort
 ~0.5 day: the two blocks + resolver + flag + unit test. No migration, no new deps, no API surface change.
 
-## Phase 3 — availability grounding (answer "when," make the lead book-ready)
+## Phase 3 — availability grounding (answer "when," make the lead book-ready) — BUILT
+
+*Built as scoped below (commit `13294f5fa`). One addition learned live: the extraction is given an explicit
+date→weekday reference table for the next 14 days, because the LLM mis-resolved a bare "Friday" by a day; and it
+maps the customer's words to an EXACT catalog service name (code substring-matching missed "baking"→"Newly Baker").
+Live-verified on peanut: "Friday morning for baking training?"→"Newly Baker, Friday July 10, 9/10/11am"; off-day→"fully
+booked, try another day"; off-catalog→declines. Flag default OFF; deploy + flag-on to go live.*
 
 **Funnel leak it plugs:** the "*When can I come in?*" drop-off. Today the AI defers scheduling ("the team will confirm").
 Answering with a **real, concrete slot** turns a warm lead into a book-ready moment — the strongest CTA in the whole thread.
