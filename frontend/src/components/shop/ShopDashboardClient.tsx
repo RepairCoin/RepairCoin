@@ -11,6 +11,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { SHOP_TAB_PERMISSIONS } from "@/config/shopTabPermissions";
 import DashboardLayout from "@/components/ui/DashboardLayout";
+import TrialBanner from "./TrialBanner";
 import ThirdwebPayment from "../ThirdwebPayment";
 import "@/styles/animations.css";
 import { toast } from "react-hot-toast";
@@ -1429,6 +1430,10 @@ export default function ShopDashboardClient() {
             isMessagesFullHeight ? "flex-1 flex flex-col overflow-hidden min-h-0" : ""
           }`}
         >
+          {/* Free-trial countdown — persistent across tabs (not on messages, and
+              not on the subscription tab where the full trial card already shows). */}
+          {!isMessagesTab && activeTab !== "subscription" && <TrialBanner />}
+
           {/* Warning Banner for Non-Operational Shops.
               Hidden on messages tab — same call as customer-side alert
               banners. The shop owner sees this on every other tab they
