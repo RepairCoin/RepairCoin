@@ -13,13 +13,12 @@ import {
 } from "lucide-react";
 import apiClient from '@/services/api/client';
 import { useAuthStore } from '@/stores/authStore';
+import { PlanComparison } from '@/components/shop/PlanComparison';
 import {
-  SUBSCRIPTION_PLANS,
   SUBSCRIBE_TIER_STORAGE_KEY,
   DEFAULT_TIER,
   SubscriptionTier,
   isValidTier,
-  getPlanByTier,
 } from '@/config/subscriptionPlans';
 
 export default function SubscriptionForm() {
@@ -100,7 +99,6 @@ export default function SubscriptionForm() {
     }
   }, []);
 
-  const selectedPlan = getPlanByTier(selectedTier);
 
   // Load shop data to pre-fill form
   // Use shopId from auth store (available immediately from session cookie)
@@ -254,48 +252,10 @@ export default function SubscriptionForm() {
               </p>
             </div>
 
-            {/* Plan selector */}
-            <div className="flex flex-wrap gap-3">
-              {SUBSCRIPTION_PLANS.map((plan) => (
-                <button
-                  key={plan.tier}
-                  type="button"
-                  onClick={() => setSelectedTier(plan.tier)}
-                  className={`px-4 py-2 rounded-xl border text-sm font-medium transition-colors ${
-                    selectedTier === plan.tier
-                      ? "bg-[#FFCC00] text-black border-[#FFCC00]"
-                      : "bg-gray-900/50 text-gray-300 border-gray-700 hover:border-gray-500"
-                  }`}
-                >
-                  {plan.label} · ${plan.price}
-                </button>
-              ))}
-            </div>
-
-            {/* Pricing Card */}
-            <div className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-2xl p-8 border border-blue-600/50">
-              <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-5xl font-bold text-white">
-                  ${selectedPlan.price}
-                </span>
-                <span className="text-gray-400">/month</span>
-              </div>
-              <p className="text-[#FFCC00] font-semibold mb-4">
-                {selectedPlan.label}
-              </p>
-              <p className="text-gray-300 mb-6">
-                {selectedPlan.includesLabel}
-              </p>
-
-              {/* Features List */}
-              <ul className="space-y-3">
-                {selectedPlan.features.map((feature, index) => (
-                  <li key={index} className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-300">{feature}</span>
-                  </li>
-                ))}
-              </ul>
+            {/* Plan comparison — all tiers side by side */}
+            <div>
+              <p className="text-sm text-gray-400 mb-3">Compare plans and pick the one that fits your shop:</p>
+              <PlanComparison selectedTier={selectedTier} onSelect={setSelectedTier} />
             </div>
 
             {/* Free Trial CTA */}
