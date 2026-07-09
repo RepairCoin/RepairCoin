@@ -19,7 +19,7 @@ import { CampaignRepository } from '../repositories/CampaignRepository';
 import { CreativeRepository } from '../repositories/CreativeRepository';
 import { AiCostRepository } from '../repositories/AiCostRepository';
 import { LeadMessageRepository, LeadMessage, MsgChannel } from '../repositories/LeadMessageRepository';
-import { ServiceRepository } from '../../../repositories/ServiceRepository';
+import { ServiceRepository, ShopService } from '../../../repositories/ServiceRepository';
 import { AppointmentService } from '../../ServiceDomain/services/AppointmentService';
 import { AppointmentRepository, TimeSlot } from '../../../repositories/AppointmentRepository';
 import { getCurrentTimeInTimezone } from '../../../utils/timezoneUtils';
@@ -327,31 +327,53 @@ export class LeadAutoAnswerService {
   /** System block listing the shop's live, active services so the AI answers "do you offer X?"
    *  decisively (and declines what isn't offered) instead of always deferring to the team.
    *  Cached (stable per shop). Null when disabled, empty, or on error (behaviour-neutral fallback). */
-  private async catalogBlock(shopId: string): Promise<string | null> {
-    if (!catalogGroundingEnabled()) return null;
-    try {
-      const res = await this.services.getServicesByShop(shopId, { activeOnly: true, limit: MAX_CATALOG_SERVICES });
-      const items = res.items || [];
-      if (!items.length) return null;
-      const lines = items
-        .sort((a, b) => (a.category || '').localeCompare(b.category || '') || a.serviceName.localeCompare(b.serviceName))
-        .slice(0, MAX_CATALOG_SERVICES)
-        .map((s) => {
-          const price = typeof s.priceUsd === 'number' && s.priceUsd > 0 ? `, $${s.priceUsd}` : '';
-          const dur = s.durationMinutes ? `, ${s.durationMinutes}min` : '';
-          const desc = s.description ? ` — ${s.description.slice(0, 120)}` : '';
-          return `- ${s.serviceName} (${s.category})${price}${dur}${desc}`;
-        });
-      return (
-        `These are the ONLY services this shop offers:\n${lines.join('\n')}\n` +
-        `If the customer asks about something on this list, answer directly and name it (quote the price when shown). ` +
-        `If they ask about something NOT on this list, tell them the shop doesn't offer it — do NOT invent services, ` +
-        `prices, or guarantees. For scheduling/availability, say the team will confirm the time.`
-      );
-    } catch (e) {
-      logger.warn(`LeadAutoAnswerService: catalog grounding failed for shop ${shopId}: ${(e as Error)?.message || e}`);
-      return null;
+  private catalogBlock(items: ShopService[]): string | null {
+    if (!catalogGroundingEnabled() || !items.length) return null;
+    const lines = items
+      .slice()
+      .sort((a, b) => (a.category || '').localeCompare(b.category || '') || a.serviceName.localeCompare(b.serviceName))
+      .slice(0, MAX_CATALOG_SERVICES)
+      .map((s) => {
+        const price = typeof s.priceUsd === 'number' && s.priceUsd > 0 ? `, $${s.priceUsd}` : '';
+        const dur = s.durationMinutes ? `, ${s.durationMinutes}min` : '';
+        const desc = s.description ? ` — ${s.description.slice(0, 120)}` : '';
+        return `- ${s.serviceName} (${s.category})${price}${dur}${desc}`;
+      });
+    return (
+      `These are the ONLY services this shop offers:\n${lines.join('\n')}\n` +
+      `If the customer asks about a service on this list, answer directly and name it, and quote ITS OWN price/duration ` +
+      `from this list — NEVER a different service's price. If they ask about something NOT on this list, tell them the ` +
+      `shop doesn't offer it — do NOT invent services, prices, or guarantees.`
+    );
+  }
+
+  /** When the conversation is focused on ONE service, pin its exact price/duration so a small model can't
+   *  cross-wire a neighbouring similar service's price onto it. Best-effort keyword match, no LLM call. */
+  private focusedServiceBlock(items: ShopService[], thread: LeadMessage[]): string | null {
+    if (!catalogGroundingEnabled() || !items.length || !thread.length) return null;
+    const referenced = (text: string): ShopService[] => {
+      const t = (text || '').toLowerCase();
+      if (!t) return [];
+      return items.filter((s) => {
+        const name = s.serviceName.toLowerCase();
+        if (t.includes(name)) return true;
+        return name.split(/\s+/).filter((w) => w.length >= 4).some((w) => t.includes(w));
+      });
+    };
+    // Newest → oldest: the first turn that names a service is the current focus.
+    for (const m of [...thread].reverse().slice(0, 5)) {
+      const matched = referenced(m.body || '');
+      const ids = Array.from(new Set(matched.map((s) => s.serviceId)));
+      if (ids.length === 1) {
+        const s = matched.find((x) => x.serviceId === ids[0])!;
+        const price = typeof s.priceUsd === 'number' && s.priceUsd > 0 ? `$${s.priceUsd}` : 'available on request';
+        const dur = s.durationMinutes ? `, ${s.durationMinutes} min` : '';
+        return `The customer is focused on "${s.serviceName}". Its EXACT price is ${price}${dur}. When you state a price ` +
+          `or details for ${s.serviceName}, use THESE exact figures — never quote another service's price for it.`;
+      }
+      if (ids.length > 1) return null; // most-recent service-mentioning turn is ambiguous → don't anchor
     }
+    return null;
   }
 
   /** System block with the ad's copy (the lead's creative, else the campaign's approved creative) so
@@ -449,14 +471,18 @@ export class LeadAutoAnswerService {
     const systemBlocks: { text: string; cache: boolean }[] = [
       { text: systemPromptFor(shopName, industry, voice, campaign?.name || 'an ad', bookingEnabled()), cache: true },
     ];
-    // Ground the reply in what the shop actually sells + what the ad promised (both cached, stable per
-    // shop/campaign → near-free after the first turn). Each is skipped cleanly when absent.
-    const [catalog, creativeCtx] = await Promise.all([
-      this.catalogBlock(shopId),
-      this.creativeBlock(lead.creativeId, lead.campaignId),
-    ]);
+    // Ground the reply in what the shop actually sells + what the ad promised. Fetch the active catalog ONCE →
+    // shared by the catalog list and the focused single-service price anchor.
+    const catItems: ShopService[] = catalogGroundingEnabled()
+      ? ((await this.services.getServicesByShop(shopId, { activeOnly: true, limit: MAX_CATALOG_SERVICES }).catch(() => null))?.items ?? [])
+      : [];
+    const catalog = this.catalogBlock(catItems);
     if (catalog) systemBlocks.push({ text: catalog, cache: true });
+    const creativeCtx = await this.creativeBlock(lead.creativeId, lead.campaignId);
     if (creativeCtx) systemBlocks.push({ text: creativeCtx, cache: true });
+    // Pin the focused service's EXACT price so a small model can't cross-wire a similar service's price. Not cached.
+    const focused = this.focusedServiceBlock(catItems, thread);
+    if (focused) systemBlocks.push({ text: focused, cache: false });
     // Phase 3: real availability for "when can I come in?" (read-only). Not cached — date/query-specific.
     const availability = await this.availabilityBlock(shopId, last?.body || '');
     if (availability.text) systemBlocks.push({ text: availability.text, cache: false });
