@@ -93,7 +93,11 @@ export class LeadBookingService {
     // synthetic guest contact for the lead (contact record only — no wallet/RCN).
     let address: string;
     const existing = await this.pool.query(
-      `SELECT address FROM customers WHERE lower(email) = lower($1) LIMIT 1`, [customerEmail]);
+      `SELECT address FROM customers
+         WHERE lower(email) = lower($1)
+            OR ($2::text IS NOT NULL AND $2 <> '' AND phone = $2)
+         LIMIT 1`,
+      [customerEmail, input.customerPhone ?? null]);
     if (existing.rows.length) {
       address = existing.rows[0].address;
     } else {

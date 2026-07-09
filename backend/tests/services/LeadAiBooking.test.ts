@@ -22,6 +22,7 @@ function build(opts: { thread: any[]; bookingExtraction?: any; bookingResult?: a
       const first = systemPrompt?.[0]?.text || '';
       if (first.includes('confirming')) return { text: JSON.stringify(opts.bookingExtraction ?? { confirming: false }), costUsd: 0.0001, model: MODEL };
       if (first.includes('booking intent')) return { text: JSON.stringify({ wantsAvailability: false }), costUsd: 0.0001, model: MODEL };
+      if (first.includes('contact details')) return { text: JSON.stringify({ name: 'Deo', email: 'deo@example.com', phone: null }), costUsd: 0.0001, model: MODEL };
       replyBlocks = systemPrompt;
       return { text: 'ok', costUsd: 0.0002, model: MODEL };
     },
@@ -39,7 +40,7 @@ function build(opts: { thread: any[]; bookingExtraction?: any; bookingResult?: a
     anthropic as any,
     { canSpend: async () => ({ allowed: true }), recordSpend: async () => {} } as any,
     { getBrandKit: async () => ({}) } as any,
-    { findById: async () => lead, updateStatus: async () => {}, clearEscalated: async () => {} } as any,
+    { findById: async () => lead, updateStatus: async () => {}, clearEscalated: async () => {}, updateContact: async () => {} } as any,
     { findById: async () => ({ id: 'C1', shopId: 'shop1', name: 'Camp', aiAgentEnabled: true }) } as any,
     { record: async () => {} } as any,
     { listByLead: async () => opts.thread, append: async (m: any) => ({ ...m, id: 'x', createdAt: new Date() }) } as any,
@@ -75,7 +76,7 @@ describe('LeadAutoAnswerService — Phase 4 booking trigger', () => {
     });
     await h.svc.generateReply('L1');
     expect(h.booked()).toBeNull();
-    expect(h.text()).toContain('ask for their full name and email');
+    expect(h.text()).toContain('ask for their full name, email, and phone');
   });
 
   it('does not book when the customer is not confirming', async () => {
