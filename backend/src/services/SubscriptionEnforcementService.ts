@@ -90,10 +90,14 @@ export class SubscriptionEnforcementService extends BaseRepository {
     synced: number;
     errors: number;
     trialsExpired: number;
+    trialRemindersSent: number;
   }> {
-    const stats = { checked: 0, warned: 0, cancelled: 0, synced: 0, errors: 0, trialsExpired: 0 };
+    const stats = { checked: 0, warned: 0, cancelled: 0, synced: 0, errors: 0, trialsExpired: 0, trialRemindersSent: 0 };
 
     try {
+      // Nudge shops whose free trial is ending soon (before we expire ended ones below)
+      stats.trialRemindersSent = await this.sendTrialEndingReminders();
+
       // Expire DB-only free trials that have ended
       stats.trialsExpired = await this.expireEndedTrials();
 
@@ -210,6 +214,55 @@ export class SubscriptionEnforcementService extends BaseRepository {
       return 0;
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Email shops whose DB-only free trial is ending soon. Runs daily; the day-count match
+   * (3 or 1 days out) means each threshold fires once per trial without a dedup column.
+   */
+  async sendTrialEndingReminders(): Promise<number> {
+    try {
+      const due = await this.pool.query(`
+        SELECT s.shop_id, s.name AS shop_name, s.email AS shop_email,
+               ss.current_period_end,
+               (ss.current_period_end::date - CURRENT_DATE) AS days_left
+        FROM shop_subscriptions ss
+        JOIN shops s ON s.shop_id = ss.shop_id
+        WHERE ss.subscription_type = 'trial'
+          AND ss.status = 'active'
+          AND ss.is_active = true
+          AND (ss.current_period_end::date - CURRENT_DATE) IN (3, 1)
+      `);
+
+      let sent = 0;
+      for (const row of due.rows) {
+        if (!row.shop_email) continue;
+        try {
+          await this.emailService.sendTrialEndingReminder(
+            row.shop_email,
+            row.shop_name || 'there',
+            Number(row.days_left),
+            new Date(row.current_period_end)
+          );
+          sent++;
+        } catch (error) {
+          logger.error('Failed to send trial-ending reminder', {
+            shopId: row.shop_id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      if (sent > 0) {
+        logger.info('Sent trial-ending reminders', { count: sent });
+      }
+      return sent;
+    } catch (error) {
+      logger.error('Failed to send trial-ending reminders', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return 0;
     }
   }
 
