@@ -11,6 +11,7 @@ import { getSharedPool } from '../../../utils/database-pool';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { EmailService } from '../../../services/EmailService';
+import { resendEmailService } from '../../../services/ResendEmailService';
 import { AppointmentService } from '../../ServiceDomain/services/AppointmentService';
 
 export interface LeadBookingInput {
@@ -44,6 +45,29 @@ function addMinutes(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number);
   const total = h * 60 + m + minutes;
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/** A SHORT pay link that survives Messenger/Facebook link-wrapping. The raw Stripe checkout URL carries a
+ *  required `#fragment` that FB strips (replacing it with ?fbclid), breaking the page. So we hand out a short
+ *  backend URL that 302-redirects to the live Stripe session (fragment intact). Falls back to the raw URL only
+ *  when no public API base is configured (dev). */
+function shortPayLink(orderId: string, rawUrl: string | null): string | null {
+  const apiBase = (process.env.API_BASE_URL || '').trim().replace(/\/$/, '');
+  if (apiBase && !/localhost|127\.0\.0\.1/i.test(apiBase)) return `${apiBase}/api/ads/pay/${orderId}`;
+  return rawUrl;
+}
+
+/** Simple, brand-neutral HTML for the booking pay-link email (sent via Resend). */
+function paymentLinkHtml(d: { customerName: string; shopName: string; serviceName: string; dateStr: string; timeStr: string; amount: number; payLink: string }): string {
+  const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;color:#1a1a1a;font-size:15px;line-height:1.6">` +
+    `<h2 style="margin:0 0 12px">Confirm your booking</h2>` +
+    `<p>Hi ${esc(d.customerName)},</p>` +
+    `<p>Your <strong>${esc(d.serviceName)}</strong> at <strong>${esc(d.shopName)}</strong> is reserved for ` +
+    `<strong>${esc(d.dateStr)} at ${esc(d.timeStr)}</strong> — $${d.amount.toFixed(2)}.</p>` +
+    `<p style="margin:20px 0"><a href="${d.payLink}" style="background:#FFCC00;color:#111827;text-decoration:none;font-weight:600;padding:12px 28px;border-radius:9999px;display:inline-block">Pay &amp; confirm</a></p>` +
+    `<p style="font-size:13px;color:#666">Or open this link: <a href="${d.payLink}">${esc(d.payLink)}</a></p>` +
+    `<p style="font-size:13px;color:#666">This link expires in 24 hours.</p></div>`;
 }
 
 export class LeadBookingService {
@@ -160,19 +184,32 @@ export class LeadBookingService {
       logger.warn('LeadBooking: STRIPE_SECRET_KEY unset — booking created without a pay link');
     }
 
-    // Email the pay link too (Messenger delivery is handled by the caller).
+    // Hand out the SHORT, Messenger-safe redirect link (not the raw fragment-bearing Stripe URL).
+    const payLink = shortPayLink(orderId, paymentUrl);
+
+    // Email the pay link too (Messenger delivery is handled by the caller). Prefer Resend (the configured
+    // provider); fall back to the legacy EmailService only if Resend isn't ready.
     let emailSent = false;
-    if (customerEmail && paymentUrl) {
+    if (customerEmail && payLink) {
+      const dateStr = new Date(`${bookingDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const timeStr = new Date(`2000-01-01T${bookingTimeSlot}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       try {
-        emailSent = await this.email.sendPaymentLinkEmail(customerEmail, customerName || 'Customer', {
-          shopName,
-          serviceName: service.service_name,
-          bookingDate: new Date(`${bookingDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          bookingTime: new Date(`2000-01-01T${bookingTimeSlot}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          amount: Number(service.price_usd),
-          paymentLink: paymentUrl,
-          expiresIn: '24 hours',
-        });
+        if (resendEmailService.isReady()) {
+          const html = paymentLinkHtml({ customerName: customerName || 'there', shopName, serviceName: service.service_name, dateStr, timeStr, amount: Number(service.price_usd), payLink });
+          const result = await resendEmailService.sendEmail({
+            to: customerEmail,
+            subject: `Confirm your booking at ${shopName}`,
+            html,
+            from: { email: process.env.RESEND_FROM_EMAIL || 'leads@send.fixflow.ai', name: `${shopName} via FixFlow` },
+          });
+          emailSent = result.success;
+          if (!result.success) logger.error(`LeadBooking: Resend pay-link email failed for order ${orderId}: ${result.error}`);
+        } else {
+          emailSent = await this.email.sendPaymentLinkEmail(customerEmail, customerName || 'Customer', {
+            shopName, serviceName: service.service_name, bookingDate: dateStr, bookingTime: timeStr,
+            amount: Number(service.price_usd), paymentLink: payLink, expiresIn: '24 hours',
+          });
+        }
       } catch (e: any) {
         logger.error(`LeadBooking: pay-link email failed for order ${orderId}: ${e?.message || e}`);
       }
@@ -180,8 +217,60 @@ export class LeadBookingService {
 
     return {
       orderId, serviceName: service.service_name, price: Number(service.price_usd),
-      bookingDate, bookingTimeSlot: hhmm(bookingTimeSlot), paymentUrl, emailSent,
+      bookingDate, bookingTimeSlot: hhmm(bookingTimeSlot), paymentUrl: payLink, emailSent,
     };
+  }
+
+  /** Resolve the live Stripe checkout URL for an order (for the /api/ads/pay/:orderId redirect). Reuses the
+   *  open session; regenerates a fresh one if it expired; returns { paid:true } when already paid. */
+  async getCheckoutUrl(orderId: string): Promise<{ url: string | null; paid: boolean; found: boolean }> {
+    const r = await this.pool.query(
+      `SELECT o.status, o.payment_status, o.stripe_session_id, o.service_id, o.shop_id, o.total_amount,
+              o.booking_date, s.service_name, sh.name AS shop_name
+         FROM service_orders o
+         LEFT JOIN shop_services s ON s.service_id = o.service_id
+         LEFT JOIN shops sh ON sh.shop_id = o.shop_id
+        WHERE o.order_id = $1`,
+      [orderId]
+    );
+    if (!r.rows.length) return { url: null, paid: false, found: false };
+    const o = r.rows[0];
+    if (o.status === 'paid' || o.payment_status === 'paid') return { url: null, paid: true, found: true };
+    const stripe = this.getStripe();
+    if (!stripe) return { url: null, paid: false, found: true };
+    if (o.stripe_session_id) {
+      try {
+        const s = await stripe.checkout.sessions.retrieve(o.stripe_session_id);
+        if (s.status === 'complete' || s.payment_status === 'paid') return { url: null, paid: true, found: true };
+        if (s.status === 'open' && s.url) return { url: s.url, paid: false, found: true };
+      } catch (e: any) {
+        logger.warn(`LeadBooking.getCheckoutUrl retrieve failed for ${orderId}: ${e?.message || e}`);
+      }
+    }
+    // Session missing/expired → regenerate one for the still-pending order.
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: { name: o.service_name || 'Appointment', description: `Appointment at ${o.shop_name || 'the shop'} on ${o.booking_date}` },
+            unit_amount: Math.round(Number(o.total_amount) * 100),
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/payment/success?orderId=${orderId}`,
+        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/payment/cancelled?orderId=${orderId}`,
+        metadata: { orderId, shopId: o.shop_id, serviceId: o.service_id, bookingType: 'manual_booking_payment' },
+        expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
+      });
+      await this.pool.query(`UPDATE service_orders SET stripe_session_id = $1 WHERE order_id = $2`, [session.id, orderId]);
+      return { url: session.url, paid: false, found: true };
+    } catch (e: any) {
+      logger.error(`LeadBooking.getCheckoutUrl regenerate failed for ${orderId}: ${e?.message || e}`);
+      return { url: null, paid: false, found: true };
+    }
   }
 }
 
