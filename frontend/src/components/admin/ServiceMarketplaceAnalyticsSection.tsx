@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { serviceAnalyticsApi, PlatformAnalyticsSummary, MarketplaceHealthScore } from '@/services/api/serviceAnalytics';
+import { getCategoryLabel } from '@/services/api/services';
 import { Loader2, TrendingUp, DollarSign, Package, Store, Activity, RefreshCw, Trophy } from 'lucide-react';
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
 
@@ -176,7 +177,7 @@ function MarketplaceBody({
             {overview.topCategories.map((category) => (
               <div key={category.category} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#101010] border border-gray-800/60">
                 <div className="min-w-0 flex-1">
-                  <p className="text-white font-medium capitalize truncate">{category.category}</p>
+                  <p className="text-white font-medium truncate">{getCategoryLabel(category.category)}</p>
                   <p className="text-gray-500 text-xs">
                     {category.serviceCount} services · {category.totalOrders} orders
                   </p>

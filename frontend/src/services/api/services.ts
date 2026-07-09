@@ -1223,3 +1223,6 @@ export const SERVICE_CATEGORIES: Array<{ value: ServiceCategory; label: string }
   { value: 'food_beverage', label: 'Food & Beverage' },
   { value: 'other_local_services', label: 'Other Local Services' },
 ];
+
+export const getCategoryLabel = (value?: string | null): string =>
+  SERVICE_CATEGORIES.find((c) => c.value === value)?.label ?? (value ?? '');
