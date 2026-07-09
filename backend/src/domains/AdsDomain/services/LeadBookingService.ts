@@ -11,6 +11,7 @@ import { getSharedPool } from '../../../utils/database-pool';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { EmailService } from '../../../services/EmailService';
+import { resendEmailService } from '../../../services/ResendEmailService';
 import { AppointmentService } from '../../ServiceDomain/services/AppointmentService';
 
 export interface LeadBookingInput {
@@ -54,6 +55,19 @@ function shortPayLink(orderId: string, rawUrl: string | null): string | null {
   const apiBase = (process.env.API_BASE_URL || '').trim().replace(/\/$/, '');
   if (apiBase && !/localhost|127\.0\.0\.1/i.test(apiBase)) return `${apiBase}/api/ads/pay/${orderId}`;
   return rawUrl;
+}
+
+/** Simple, brand-neutral HTML for the booking pay-link email (sent via Resend). */
+function paymentLinkHtml(d: { customerName: string; shopName: string; serviceName: string; dateStr: string; timeStr: string; amount: number; payLink: string }): string {
+  const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;color:#1a1a1a;font-size:15px;line-height:1.6">` +
+    `<h2 style="margin:0 0 12px">Confirm your booking</h2>` +
+    `<p>Hi ${esc(d.customerName)},</p>` +
+    `<p>Your <strong>${esc(d.serviceName)}</strong> at <strong>${esc(d.shopName)}</strong> is reserved for ` +
+    `<strong>${esc(d.dateStr)} at ${esc(d.timeStr)}</strong> — $${d.amount.toFixed(2)}.</p>` +
+    `<p style="margin:20px 0"><a href="${d.payLink}" style="background:#FFCC00;color:#111827;text-decoration:none;font-weight:600;padding:12px 28px;border-radius:9999px;display:inline-block">Pay &amp; confirm</a></p>` +
+    `<p style="font-size:13px;color:#666">Or open this link: <a href="${d.payLink}">${esc(d.payLink)}</a></p>` +
+    `<p style="font-size:13px;color:#666">This link expires in 24 hours.</p></div>`;
 }
 
 export class LeadBookingService {
@@ -173,19 +187,29 @@ export class LeadBookingService {
     // Hand out the SHORT, Messenger-safe redirect link (not the raw fragment-bearing Stripe URL).
     const payLink = shortPayLink(orderId, paymentUrl);
 
-    // Email the pay link too (Messenger delivery is handled by the caller).
+    // Email the pay link too (Messenger delivery is handled by the caller). Prefer Resend (the configured
+    // provider); fall back to the legacy EmailService only if Resend isn't ready.
     let emailSent = false;
     if (customerEmail && payLink) {
+      const dateStr = new Date(`${bookingDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const timeStr = new Date(`2000-01-01T${bookingTimeSlot}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       try {
-        emailSent = await this.email.sendPaymentLinkEmail(customerEmail, customerName || 'Customer', {
-          shopName,
-          serviceName: service.service_name,
-          bookingDate: new Date(`${bookingDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          bookingTime: new Date(`2000-01-01T${bookingTimeSlot}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          amount: Number(service.price_usd),
-          paymentLink: payLink,
-          expiresIn: '24 hours',
-        });
+        if (resendEmailService.isReady()) {
+          const html = paymentLinkHtml({ customerName: customerName || 'there', shopName, serviceName: service.service_name, dateStr, timeStr, amount: Number(service.price_usd), payLink });
+          const result = await resendEmailService.sendEmail({
+            to: customerEmail,
+            subject: `Confirm your booking at ${shopName}`,
+            html,
+            from: { email: process.env.RESEND_FROM_EMAIL || 'leads@send.fixflow.ai', name: `${shopName} via FixFlow` },
+          });
+          emailSent = result.success;
+          if (!result.success) logger.error(`LeadBooking: Resend pay-link email failed for order ${orderId}: ${result.error}`);
+        } else {
+          emailSent = await this.email.sendPaymentLinkEmail(customerEmail, customerName || 'Customer', {
+            shopName, serviceName: service.service_name, bookingDate: dateStr, bookingTime: timeStr,
+            amount: Number(service.price_usd), paymentLink: payLink, expiresIn: '24 hours',
+          });
+        }
       } catch (e: any) {
         logger.error(`LeadBooking: pay-link email failed for order ${orderId}: ${e?.message || e}`);
       }
