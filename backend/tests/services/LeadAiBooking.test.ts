@@ -98,6 +98,19 @@ describe('LeadAutoAnswerService — Phase 4 booking trigger', () => {
     expect(h.booked()).toBeNull();
   });
 
+  it('still books when a prior message only says the words "payment link" (no real Stripe link)', async () => {
+    const h = build({
+      thread: [
+        OFFER,
+        { author: 'ai', body: 'To lock it in I need your name and email so I can send the confirmation and payment link.' },
+        { author: 'lead', body: 'yes book 9am, Deo deo@example.com' },
+      ],
+      bookingExtraction: { confirming: true, service: 'Newly Baker', date: '2026-07-10', time: '09:00', name: 'Deo', email: 'deo@example.com' },
+    });
+    await h.svc.generateReply('L1');
+    expect(h.booked()).toMatchObject({ serviceId: 'srv-1' });
+  });
+
   it('offers alternatives when the slot was just taken (409)', async () => {
     const h = build({
       thread: [OFFER, { author: 'lead', body: 'yes book 9am deo@example.com' }],
