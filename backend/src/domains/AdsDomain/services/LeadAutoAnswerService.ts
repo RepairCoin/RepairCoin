@@ -51,15 +51,23 @@ const ALREADY_BOOKED_RE = /checkout\.stripe\.com/i;
 /** The message plausibly contains contact info (email or a phone-like number) → worth an enrichment extract. */
 const CONTACT_RE = /\S+@\S+\.\S+|\+?\d[\d\s().-]{6,}\d/;
 
-const systemPromptFor = (shopName: string, industry: string, voice: string, campaign: string): string =>
-  `You are the customer-service assistant for ${shopName}, a ${industry}. A lead responded ` +
-  `to the "${campaign}" ad and is now messaging. Hold a natural, helpful conversation: answer ` +
-  `their questions, address concerns, and gently move them toward booking an appointment. ` +
-  `Rules: plain text only, NO markdown; 1-3 short sentences; warm and professional in this brand ` +
-  `voice — ${voice}. NEVER invent prices, availability, or guarantees you weren't given; if you ` +
-  `don't know, offer to have the team confirm. If the lead wants to book, tell them you'll get ` +
-  `them set up and that the team will confirm the time. Do not claim a booking is already made. ` +
-  `Output ONLY the message to send.`;
+const systemPromptFor = (shopName: string, industry: string, voice: string, campaign: string, canBook: boolean): string => {
+  const base =
+    `You are the AI sales assistant for ${shopName}, a ${industry}. A lead responded to the "${campaign}" ad ` +
+    `and is now messaging. Hold a natural, helpful conversation: answer their questions, address concerns, and ` +
+    `drive toward booking an appointment. Rules: plain text only, NO markdown; 1-3 short sentences; warm and ` +
+    `professional in this brand voice — ${voice}. NEVER invent prices, availability, or guarantees you weren't given. `;
+  const close = canBook
+    ? `YOU close the deal yourself — this is an automated assistant on autopilot; there is NO team to hand off to. ` +
+      `When the lead wants to book, propose a specific time, collect their name, email and phone, then confirm the ` +
+      `appointment and send the secure payment link. Do NOT say "the team will confirm/check/get back to you" or defer ` +
+      `to anyone — you own scheduling and booking. Only for a genuinely unknown detail you weren't given (e.g. an unusual ` +
+      `policy) may you say you'll double-check — never use that to defer the booking itself. Do not claim a booking is ` +
+      `paid/complete until the payment link has been used. `
+    : `If you don't know something, offer to have the team confirm. If the lead wants to book, tell them you'll get them ` +
+      `set up and that the team will confirm the time. Do not claim a booking is already made. `;
+  return base + close + `Output ONLY the message to send.`;
+};
 
 export interface AutoAnswerResult {
   inbound: LeadMessage;
@@ -286,17 +294,19 @@ export class LeadAutoAnswerService {
       const slots = LeadAutoAnswerService.filterByTimeOfDay(open, parsed.timeOfDay ?? null);
       const label = LeadAutoAnswerService.humanDate(parsed.date);
       const todLabel = parsed.timeOfDay ? ` (${parsed.timeOfDay})` : '';
+      const pickLine = bookingEnabled()
+        ? `If the customer picks one, ask for their name, email and phone so you can book it and send the payment link — YOU handle the booking, do NOT say a team will confirm.`
+        : `If the customer picks one, tell them you'll get them booked and the team will confirm — do NOT claim the booking is already made.`;
       if (!slots.length) {
         return {
-          text: `REAL AVAILABILITY CHECK — ${svc.serviceName} on ${label}${todLabel}: NO open slots. Tell the customer that time is fully booked and offer to check another day. Do NOT invent times.`,
+          text: `REAL AVAILABILITY CHECK — ${svc.serviceName} on ${label}${todLabel}: NO open slots (fully booked or the shop is closed that day). Tell the customer directly and offer the next available day yourself — do NOT say a team will check. Do NOT invent times.`,
           costUsd,
         };
       }
       return {
         text:
           `REAL AVAILABILITY — ${svc.serviceName} on ${label} (shop timezone ${tz}): ${slots.map((s) => s.time).join(', ')}. ` +
-          `State these EXACT open times. If the customer picks one, tell them you'll get them booked and the team will ` +
-          `confirm — do NOT claim the booking is already made, and note the time is subject to confirmation. Do NOT invent any other times.`,
+          `State these EXACT open times. ${pickLine} Do NOT invent any other times.`,
         costUsd,
       };
     } catch (e) {
@@ -428,7 +438,7 @@ export class LeadAutoAnswerService {
     // AI Memory (Phase 5 shared reads): honor the owner's standing instructions
     // (tone, offers, do's/don'ts) in lead replies too. No-op when off/empty.
     const systemBlocks: { text: string; cache: boolean }[] = [
-      { text: systemPromptFor(shopName, industry, voice, campaign?.name || 'an ad'), cache: true },
+      { text: systemPromptFor(shopName, industry, voice, campaign?.name || 'an ad', bookingEnabled()), cache: true },
     ];
     // Ground the reply in what the shop actually sells + what the ad promised (both cached, stable per
     // shop/campaign → near-free after the first turn). Each is skipped cleanly when absent.
