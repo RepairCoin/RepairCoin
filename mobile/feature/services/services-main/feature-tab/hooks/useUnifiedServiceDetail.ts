@@ -119,7 +119,7 @@ export function useUnifiedServiceDetail() {
   };
 
   // Share functionality
-  const getShareUrl = () => `https://repaircoin.app/service/${id}`;
+  const getShareUrl = () => `https://repaircoin.ai/service/${id}`;
 
   const getShareMessage = () => {
     if (!serviceData) return "";

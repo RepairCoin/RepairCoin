@@ -100,7 +100,7 @@ export function useReferral() {
   const handleFacebookShare = async () => {
     await Clipboard.setStringAsync(referralMessage);
     showWarning("Message copied — paste it as your caption on Facebook.");
-    const shareLink = "https://repaircoin.app";
+    const shareLink = "https://repaircoin.ai";
     const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareLink)}`;
     await WebBrowser.openBrowserAsync(url);
   };
