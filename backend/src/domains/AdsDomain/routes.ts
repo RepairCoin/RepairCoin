@@ -18,7 +18,7 @@ import {
 import {
   listLeads, createManualLead, updateLeadStatus, updateShopLeadStatus, listShopLeads, webformLead, draftLeadReply,
   listAwaitingLeads, listShopAwaitingLeads,
-  getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage, triggerAttributionBackfill,
+  getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage, triggerAttributionBackfill, payRedirect,
   getLeadActivities, logLeadActivity, emailLead,
   getShopLeadActivities, logShopLeadActivity, emailShopLead,
   getShopLeadThread, postShopLeadMessage, autoAnswerShopLead, draftShopLeadReply,
@@ -84,6 +84,10 @@ export function initializeRoutes(): Router {
 
   // PUBLIC — ad landing-page data (shop + offer + promoted services) for /l/:campaignId.
   router.get('/landing/:campaignId', getCampaignLanding);
+
+  // PUBLIC — Messenger-safe pay link: 302 → live Stripe checkout URL (the raw URL's #fragment
+  // doesn't survive Facebook's link wrapper, so we hand out this short redirect instead).
+  router.get('/pay/:orderId', payRedirect);
 
   // PUBLIC — landing-page lead webform (UTM-attributed). No auth: attribution is
   // by campaign id / utm params in the body. (Stage 2.)

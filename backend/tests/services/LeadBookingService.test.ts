@@ -74,6 +74,17 @@ describe('LeadBookingService.createLeadBooking', () => {
     expect(insert.params).toContain('0xreal_account');
   });
 
+  it('hands out the short Messenger-safe pay link when API_BASE_URL is set', async () => {
+    process.env.API_BASE_URL = 'https://api.example.com';
+    try {
+      const { svc } = build();
+      const res = await svc.createLeadBooking(input);
+      expect(res.paymentUrl).toBe('https://api.example.com/api/ads/pay/order-1'); // NOT the raw checkout.stripe.com URL
+    } finally {
+      delete process.env.API_BASE_URL;
+    }
+  });
+
   it('throws 409 when the slot was just taken', async () => {
     const { svc } = build({ conflict: true });
     await expect(svc.createLeadBooking(input)).rejects.toMatchObject({ status: 409 });

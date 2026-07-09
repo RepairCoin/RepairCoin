@@ -15,6 +15,7 @@ import { leadAttributionService } from '../services/LeadAttributionService';
 import { getAdAttributionService } from '../services/AdAttributionService';
 import { leadAIService } from '../services/LeadAIService';
 import { leadAutoAnswerService } from '../services/LeadAutoAnswerService';
+import { leadBookingService } from '../services/LeadBookingService';
 import { leadEmailService } from '../services/LeadEmailService';
 
 const leads = new LeadRepository();
@@ -514,6 +515,24 @@ export async function triggerAttributionBackfill(req: Request, res: Response): P
   } catch (err) {
     logger.error('LeadController.triggerAttributionBackfill failed', err);
     res.status(500).json({ success: false, error: 'Failed to run attribution backfill' });
+  }
+}
+
+// GET /pay/:orderId (PUBLIC) — short, Messenger-safe pay link. 302-redirects to the live Stripe checkout
+// URL. We hand out THIS link (not the raw Stripe URL) because Facebook/Messenger strips the required
+// #fragment from the raw checkout URL (replacing it with ?fbclid), which breaks the page.
+export async function payRedirect(req: Request, res: Response): Promise<void> {
+  const orderId = String(req.params.orderId || '');
+  if (!/^[0-9a-fA-F-]{36}$/.test(orderId)) { res.status(400).send('Invalid payment link.'); return; }
+  try {
+    const { url, paid, found } = await leadBookingService.getCheckoutUrl(orderId);
+    if (!found) { res.status(404).send('Booking not found.'); return; }
+    if (paid) { res.redirect(302, `${process.env.FRONTEND_URL || ''}/payment/success?orderId=${orderId}`); return; }
+    if (url) { res.redirect(302, url); return; }
+    res.status(503).send('This payment link is temporarily unavailable — please contact the shop.');
+  } catch (e: any) {
+    logger.error(`payRedirect failed for ${orderId}: ${e?.message || e}`);
+    res.status(500).send('Something went wrong. Please try again.');
   }
 }
 
