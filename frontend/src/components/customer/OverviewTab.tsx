@@ -329,7 +329,7 @@ export const OverviewTab: React.FC = () => {
                       Your tokens have been successfully minted to your wallet.
                     </p>
                   </div>
-                  {mintResult.transactionHash && (
+                  {mintResult.transactionHash && blockchainEnabled && (
                     <a
                       href={getExplorerUrl(mintResult.transactionHash)}
                       target="_blank"

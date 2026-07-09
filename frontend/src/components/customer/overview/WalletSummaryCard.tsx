@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Wallet, TrendingUp, Gift } from "lucide-react";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
 interface WalletSummaryCardProps {
   availableBalance: number;
@@ -19,9 +20,11 @@ export const WalletSummaryCard: React.FC<WalletSummaryCardProps> = ({
   tokensRedeemed,
 }) => {
   const [bgError, setBgError] = useState(false);
+  const blockchainEnabled = useBlockchainEnabled();
 
   const rows = [
-    { label: "Wallet Balance", value: fmt(walletBalance), icon: Wallet },
+    // On-chain wallet balance is blockchain-only — hidden in database-only mode.
+    ...(blockchainEnabled ? [{ label: "Wallet Balance", value: fmt(walletBalance), icon: Wallet }] : []),
     { label: "Tokens Earned", value: fmt(tokensEarned), icon: TrendingUp },
     { label: "Tokens Redeemed", value: fmt(tokensRedeemed), icon: Gift },
   ];
@@ -30,7 +33,7 @@ export const WalletSummaryCard: React.FC<WalletSummaryCardProps> = ({
     <div className="rounded-2xl border border-[#262626] bg-[#161616]">
       <div className="flex items-center gap-4 border-b border-[#262626] px-4 py-5">
         <Wallet className="w-4 h-4 text-[#FFCC00]" />
-        <h3 className="text-sm font-semibold text-white">My FixFlow Wallet</h3>
+        <h3 className="text-sm font-semibold text-white">{blockchainEnabled ? "My FixFlow Wallet" : "My Rewards"}</h3>
       </div>
 
       <div className="p-4 space-y-5">

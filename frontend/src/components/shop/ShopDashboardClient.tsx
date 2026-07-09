@@ -1750,8 +1750,8 @@ export default function ShopDashboardClient() {
             />
           )}
 
-          {/* Wallet & Payouts Tab */}
-          {activeTab === "wallet-payouts" && shopData && (
+          {/* Wallet & Payouts Tab (blockchain-only; hidden in database-only mode) */}
+          {activeTab === "wallet-payouts" && shopData && blockchainEnabled && (
             <WalletPayoutsTab />
           )}
 

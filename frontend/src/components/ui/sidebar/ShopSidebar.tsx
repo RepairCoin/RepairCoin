@@ -287,12 +287,15 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           },
         ]
       : []),
-    {
-      title: "Wallet & Payouts",
-      href: "/shop?tab=wallet-payouts",
-      icon: <Wallet className="w-5 h-5" />,
-      tabId: "wallet-payouts",
-    },
+    // Wallet & Payouts is blockchain-only — hidden in database-only mode.
+    ...(blockchainEnabled
+      ? [{
+          title: "Wallet & Payouts",
+          href: "/shop?tab=wallet-payouts",
+          icon: <Wallet className="w-5 h-5" />,
+          tabId: "wallet-payouts",
+        }]
+      : []),
     {
       title: "Settings",
       href: "/shop?tab=settings",
