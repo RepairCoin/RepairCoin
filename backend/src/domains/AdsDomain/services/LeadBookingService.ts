@@ -106,6 +106,11 @@ export class LeadBookingService {
       } catch (e: any) {
         logger.warn(`LeadBooking.onPaymentConfirmed: status advance failed for ${orderId}: ${e?.message || e}`);
       }
+      // Advance the lead's Kanban stage to 'paid' (forward-only, best-effort).
+      await this.pool.query(
+        `UPDATE ad_leads SET lead_status = 'paid', updated_at = now() WHERE id = $1 AND lead_status IN ('new','contacted','booked')`,
+        [o.ad_lead_id]
+      ).catch((e: any) => logger.warn(`LeadBooking.onPaymentConfirmed: lead stage→paid failed for ${o.ad_lead_id}: ${e?.message || e}`));
       const lead = await this.leads.findById(o.ad_lead_id);
       if (!lead) return;
       const first = (lead.name || '').trim().split(/\s+/)[0];
@@ -194,6 +199,13 @@ export class LeadBookingService {
       'service.order_created', address,
       { orderId, customerAddress: address, shopId, serviceId, status: 'pending' }, 'AdsDomain'
     )).catch((e) => logger.warn(`LeadBooking: order_created publish failed: ${e?.message || e}`));
+
+    // Advance the lead's Kanban stage to 'booked' — deterministic (we know the lead) so it works without the
+    // ADS_CONVERSION_ATTRIBUTION flag. Forward-only; best-effort (never fails the booking).
+    this.pool.query(
+      `UPDATE ad_leads SET lead_status = 'booked', updated_at = now() WHERE id = $1 AND lead_status IN ('new','contacted')`,
+      [leadId]
+    ).catch((e) => logger.warn(`LeadBooking: lead stage→booked failed for ${leadId}: ${e?.message || e}`));
 
     // Stripe pay link (same metadata the booking webhook keys on → auto-marks paid).
     let paymentUrl: string | null = null;
