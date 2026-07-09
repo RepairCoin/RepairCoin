@@ -286,7 +286,15 @@ export class AppointmentRepository extends BaseRepository {
           reason,
           created_at as "createdAt"
         FROM shop_date_overrides
-        WHERE shop_id = $1 AND (location_id = $2::uuid OR location_id IS NULL)
+        WHERE shop_id = $1 AND (
+          location_id = $2::uuid
+          OR (
+            location_id IS NULL AND (
+              $2::uuid IS NULL
+              OR $2::uuid = (SELECT id FROM shop_locations WHERE shop_id = $1 AND is_primary = true LIMIT 1)
+            )
+          )
+        )
       `;
 
       if (startDate) {
