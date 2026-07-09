@@ -231,13 +231,6 @@ export function ShopPopupExpanded({
             <Ionicons name="storefront" size={20} color="#FFCC00" />
             <Text className="text-white font-semibold ml-2">View Shop</Text>
           </Pressable>
-          <Pressable
-            onPress={onDirections}
-            className="flex-1 bg-[#FFCC00] py-3.5 rounded-xl flex-row items-center justify-center"
-          >
-            <Ionicons name="navigate" size={20} color="#000" />
-            <Text className="text-black font-semibold ml-2">Directions</Text>
-          </Pressable>
         </View>
       </View>
     </View>

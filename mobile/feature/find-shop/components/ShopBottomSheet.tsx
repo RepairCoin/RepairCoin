@@ -204,16 +204,6 @@ export function ShopBottomSheet({
                 <Ionicons name="storefront-outline" size={19} color="#FFCC00" />
                 <Text className="text-white font-semibold ml-2">View Shop</Text>
               </Pressable>
-              <Pressable
-                onPress={() => {
-                  closeSheet();
-                  setTimeout(onDirections, 280);
-                }}
-                className="flex-1 bg-[#FFCC00] py-3.5 rounded-xl flex-row items-center justify-center"
-              >
-                <Ionicons name="navigate" size={19} color="#000" />
-                <Text className="text-black font-semibold ml-2">Directions</Text>
-              </Pressable>
             </View>
           </View>
 
