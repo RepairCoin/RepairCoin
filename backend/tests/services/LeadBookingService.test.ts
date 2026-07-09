@@ -90,3 +90,39 @@ describe('LeadBookingService.createLeadBooking', () => {
     await expect(svc.createLeadBooking(input)).rejects.toMatchObject({ status: 409 });
   });
 });
+
+describe('LeadBookingService.onPaymentConfirmed', () => {
+  function build(row: any) {
+    const queries: { sql: string; params: any[] }[] = [];
+    const pool = {
+      query: async (sql: string, params: any[] = []) => {
+        queries.push({ sql, params });
+        if (/SELECT o\.ad_lead_id/i.test(sql)) return { rows: row ? [row] : [] };
+        return { rows: [] };
+      },
+    };
+    let appended: any = null;
+    const leads = { findById: async () => ({ id: 'L1', name: 'Deo Cagunot', email: 'x@y.com', messengerId: 'PSID' }) };
+    const messages = { append: async (m: any) => { appended = m; } };
+    const channel = { deliver: async () => 'sent' };
+    const svc = new LeadBookingService(pool as any, {} as any, {} as any, leads as any, messages as any, channel as any);
+    return { svc, queries, appended: () => appended };
+  }
+
+  it('advances an AI booking paid→scheduled + confirms on Messenger', async () => {
+    const h = build({ ad_lead_id: 'L1', booking_time_slot: '09:00:00', service_name: 'Newly Baker' });
+    await h.svc.onPaymentConfirmed('order-1');
+    expect(h.queries.some((q) => /SET status = 'scheduled'/i.test(q.sql))).toBe(true);
+    expect(h.appended().direction).toBe('outbound');
+    expect(h.appended().body).toContain('confirmed');
+    expect(h.appended().body).toContain('Deo'); // first name
+    expect(h.appended().body).toContain('Newly Baker');
+  });
+
+  it('does nothing for a non-ad booking (no ad_lead_id)', async () => {
+    const h = build({ ad_lead_id: null });
+    await h.svc.onPaymentConfirmed('order-1');
+    expect(h.queries.some((q) => /SET status = 'scheduled'/i.test(q.sql))).toBe(false);
+    expect(h.appended()).toBeNull();
+  });
+});

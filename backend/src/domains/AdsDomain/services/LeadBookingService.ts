@@ -13,6 +13,9 @@ import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { EmailService } from '../../../services/EmailService';
 import { resendEmailService } from '../../../services/ResendEmailService';
 import { AppointmentService } from '../../ServiceDomain/services/AppointmentService';
+import { LeadRepository } from '../repositories/LeadRepository';
+import { LeadMessageRepository } from '../repositories/LeadMessageRepository';
+import { LeadChannelSender, leadChannelSender } from './LeadChannelSender';
 
 export interface LeadBookingInput {
   leadId: string;
@@ -75,8 +78,47 @@ export class LeadBookingService {
   constructor(
     private readonly pool = getSharedPool(),
     private readonly email = new EmailService(),
-    private readonly appointments = new AppointmentService()
+    private readonly appointments = new AppointmentService(),
+    private readonly leads = new LeadRepository(),
+    private readonly messages = new LeadMessageRepository(),
+    private readonly channel = leadChannelSender
   ) {}
+
+  /** Called when a booking's Stripe payment completes (from the webhook). For an AI/ad booking (has ad_lead_id):
+   *  auto-advance the status paid→scheduled (autopilot — the slot is chosen + paid, no manual shop step needed) and
+   *  send the customer a thank-you/confirmation on their channel (Messenger). Best-effort; never throws. */
+  async onPaymentConfirmed(orderId: string): Promise<void> {
+    try {
+      const r = await this.pool.query(
+        `SELECT o.ad_lead_id, o.booking_time_slot, s.service_name
+           FROM service_orders o LEFT JOIN shop_services s ON s.service_id = o.service_id
+          WHERE o.order_id = $1`,
+        [orderId]
+      );
+      const o = r.rows[0];
+      if (!o?.ad_lead_id) return; // not an AI/ad booking — leave the shop's normal flow alone
+      // Advance paid→scheduled (best-effort + ISOLATED so a status hiccup never blocks the confirmation below).
+      try {
+        await this.pool.query(
+          `UPDATE service_orders SET status = 'scheduled', updated_at = now() WHERE order_id = $1 AND status = 'paid'`,
+          [orderId]
+        );
+      } catch (e: any) {
+        logger.warn(`LeadBooking.onPaymentConfirmed: status advance failed for ${orderId}: ${e?.message || e}`);
+      }
+      const lead = await this.leads.findById(o.ad_lead_id);
+      if (!lead) return;
+      const first = (lead.name || '').trim().split(/\s+/)[0];
+      const time = o.booking_time_slot ? hhmm(o.booking_time_slot) : '';
+      const body = `Payment received${first ? `, ${first}` : ''} — you're all set! 🎉 Your ${o.service_name || 'appointment'}` +
+        `${time ? ` at ${time}` : ''} is confirmed. Thank you so much, and we'll see you then!`;
+      const channel = LeadChannelSender.pickChannel(lead);
+      const deliveryStatus = await this.channel.deliver(channel, lead, body);
+      await this.messages.append({ leadId: lead.id, direction: 'outbound', author: 'ai', channel, body, deliveryStatus });
+    } catch (e: any) {
+      logger.error(`LeadBooking.onPaymentConfirmed failed for ${orderId}: ${e?.message || e}`);
+    }
+  }
 
   private getStripe(): Stripe | null {
     if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -196,10 +238,14 @@ export class LeadBookingService {
       try {
         if (resendEmailService.isReady()) {
           const html = paymentLinkHtml({ customerName: customerName || 'there', shopName, serviceName: service.service_name, dateStr, timeStr, amount: Number(service.price_usd), payLink });
+          const text = `Hi ${customerName || 'there'},\n\nYour ${service.service_name} at ${shopName} is reserved for ` +
+            `${dateStr} at ${timeStr} — $${Number(service.price_usd).toFixed(2)}.\n\nPay & confirm: ${payLink}\n\n` +
+            `This link expires in 24 hours.`;
           const result = await resendEmailService.sendEmail({
             to: customerEmail,
             subject: `Confirm your booking at ${shopName}`,
             html,
+            text,
             from: { email: process.env.RESEND_FROM_EMAIL || 'leads@send.fixflow.ai', name: `${shopName} via FixFlow` },
           });
           emailSent = result.success;

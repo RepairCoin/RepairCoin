@@ -7,6 +7,7 @@ import { logger } from '../../../utils/logger';
 import { eventBus } from '../../../events/EventBus';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopPurchaseService } from '../services/ShopPurchaseService';
+import { leadBookingService } from '../../AdsDomain/services/LeadBookingService';
 import { ShopSubscriptionRepository } from '../../../repositories/ShopSubscriptionRepository';
 import { setMultiLocationActive } from '../../../utils/multiLocationEntitlement';
 import { NotificationService } from '../../notification/services/NotificationService';
@@ -1479,6 +1480,11 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
         shopId,
         sessionId: session.id
       });
+
+      // Autopilot close for AI/ad bookings: advance paid→scheduled + confirm to the customer on Messenger.
+      // Best-effort (no-op for non-ad bookings); never blocks the webhook.
+      leadBookingService.onPaymentConfirmed(orderId).catch((e) =>
+        logger.error(`onPaymentConfirmed failed for ${orderId}: ${e instanceof Error ? e.message : e}`));
 
       // Send notification to shop about payment received
       try {
