@@ -228,7 +228,7 @@ function ServiceCard({
   // V2 white card. Rating renders as a 5-star row (rounded to avgRating).
   const ratingValue = avgRating ?? 0;
   const stars = [1, 2, 3, 4, 5];
-  const subLabel = shopName ?? category;
+  const subLabel = shopName || category;
 
   // Theme-aware text colors: transparent variant sits on the dark home bg.
   const titleColor = transparent ? "text-white" : "text-gray-900";
@@ -337,18 +337,26 @@ function ServiceCard({
         )}
 
         <View className="flex-1 p-3">
-          {/* Title */}
-          <Text
-            className={`${titleColor} text-[15px] font-bold leading-5`}
-            numberOfLines={2}
-            ellipsizeMode="tail"
-          >
-            {title}
-          </Text>
+          {/* Title — fixed 2-line height so cards align whether the title
+              wraps to 1 or 2 lines (leading-5 = 20px × 2). */}
+          {title ? (
+            <Text
+              className={`${titleColor} text-[15px] font-bold leading-5`}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              style={{ height: 40 }}
+            >
+              {title}
+            </Text>
+          ) : null}
 
-          {/* Shop / category — pin icon matches the Figma trending card */}
+          {/* Shop / category — pin icon matches the Figma trending card.
+              Fixed height keeps the row aligned across cards. */}
           {subLabel ? (
-            <View className="flex-row items-center mt-1.5">
+            <View
+              className="flex-row items-center mt-1.5"
+              style={{ height: 18 }}
+            >
               {transparent && (
                 <Ionicons
                   name="location-outline"
@@ -365,8 +373,9 @@ function ServiceCard({
 
           {/* Bottom cluster — rating, price, badges pinned to the bottom */}
           <View className="mt-auto">
-            {/* Rating */}
-            {ratingValue > 0 && (
+            {/* Rating — shows stars when rated, otherwise a "Not yet rated"
+                placeholder so the row height stays consistent across cards. */}
+            {ratingValue > 0 ? (
               <View className="flex-row items-center pt-1.5">
                 {stars.map((s) => (
                   <Ionicons
@@ -385,26 +394,38 @@ function ServiceCard({
                   </Text>
                 ) : null}
               </View>
+            ) : (
+              <View className="flex-row items-center pt-1.5">
+                <Ionicons
+                  name="star-outline"
+                  size={13}
+                  color="#6B7280"
+                  style={{ marginRight: 4 }}
+                />
+                <Text className={`${ratingTextColor} text-xs`}>Not yet rated</Text>
+              </View>
             )}
 
             {/* Price */}
-            <View className="flex-row items-center flex-wrap pt-1.5">
-              <Text className={`${priceColor} font-bold text-lg`}>
-                $ {price}
-              </Text>
-              {hasDiscount && (
-                <>
-                  <Text className="text-gray-400 text-sm line-through ml-2">
-                    $ {originalPrice}
-                  </Text>
-                  {resolvedDiscountLabel && (
-                    <View className="ml-2">
-                      <Badge tone="discount" label={resolvedDiscountLabel} />
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
+            {price != null && (
+              <View className="flex-row items-center flex-wrap pt-1.5">
+                <Text className={`${priceColor} font-bold text-lg`}>
+                  $ {price}
+                </Text>
+                {hasDiscount && (
+                  <>
+                    <Text className="text-gray-400 text-sm line-through ml-2">
+                      $ {originalPrice}
+                    </Text>
+                    {resolvedDiscountLabel && (
+                      <View className="ml-2">
+                        <Badge tone="discount" label={resolvedDiscountLabel} />
+                      </View>
+                    )}
+                  </>
+                )}
+              </View>
+            )}
 
             {/* Rank / group / trending badges */}
             {(rankBadge || showGroupReward || showTrendingBadge) && (

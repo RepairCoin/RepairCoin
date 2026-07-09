@@ -197,7 +197,6 @@ export default function CustomerWalletTab() {
   return (
     <View className="flex-1">
       <ScrollView
-        className="h-full"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
