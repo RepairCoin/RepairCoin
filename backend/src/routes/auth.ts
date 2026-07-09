@@ -1777,12 +1777,16 @@ const getDemoAccounts = (platform: DemoPlatform) =>
     : { address: IOS_DEMO_ADDRESS, shopAddress: IOS_DEMO_SHOP_ADDRESS, shopId: IOS_DEMO_SHOP_ID };
 
 /**
- * Check if demo mode is enabled for a given platform
- * GET /api/auth/demo/status?platform=ios|android
+ * Check if demo mode is enabled per platform.
+ * Returns both flags so the client picks the right one using its own Platform.OS,
+ * avoiding server-side platform parsing that could silently fall back to 'ios'.
+ * GET /api/auth/demo/status
  */
-router.get('/demo/status', (req, res) => {
-  const platform = parsePlatform(req.query.platform);
-  return res.json({ enabled: isDemoEnabled(platform) });
+router.get('/demo/status', (_req, res) => {
+  return res.json({
+    android: process.env.DEMO_ENABLE_ANDROID === 'true',
+    ios: process.env.DEMO_ENABLE_IOS === 'true',
+  });
 });
 
 /**

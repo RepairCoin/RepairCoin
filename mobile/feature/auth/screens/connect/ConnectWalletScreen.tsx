@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { Text, View, ActivityIndicator, TouchableOpacity } from "react-native";
+import { Text, View, ActivityIndicator, TouchableOpacity, Platform } from "react-native";
 import { useConnect } from "thirdweb/react";
 import { createWallet, walletConnect } from "thirdweb/wallets";
 import { getUserEmail } from "thirdweb/wallets/in-app";
@@ -36,7 +36,9 @@ export default function ConnectWalletScreen() {
   const isCancelledRef = useRef(false);
 
   useEffect(() => {
-    authApi.getDemoStatus().then((res) => setDemoEnabled(res.enabled));
+    authApi.getDemoStatus().then((res) => {
+      setDemoEnabled(Platform.OS === 'android' ? res.android : res.ios);
+    });
   }, []);
 
   const handleCancel = useCallback(() => {
