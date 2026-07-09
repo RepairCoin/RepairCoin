@@ -6,3 +6,4 @@ export { CustomerProfileHeader } from "./CustomerProfileHeader";
 export { CustomerStats } from "./CustomerStats";
 export { ContactInfoCard } from "./ContactInfoCard";
 export { CustomerContactInfo } from "./CustomerContactInfo";
+export { CustomerNoShowRecord } from "./CustomerNoShowRecord";

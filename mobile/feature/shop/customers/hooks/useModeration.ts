@@ -43,9 +43,16 @@ export function useBlockCustomer(onSuccess?: () => void) {
       shopApi.blockCustomer(request),
     onSuccess: (_data, variables) => {
       showSuccess("Customer blocked");
-      qc.invalidateQueries({ queryKey: queryKeys.blockedCustomers() });
+      // refetchType "all" is required: the Blocked Customers list is unmounted
+      // (inactive) while blocking, and the global refetchOnMount:false means an
+      // invalidate-only would serve it stale until the cache is rebuilt on relogin.
+      qc.invalidateQueries({
+        queryKey: queryKeys.blockedCustomers(),
+        refetchType: "all",
+      });
       qc.invalidateQueries({
         queryKey: queryKeys.customerBlockStatus(variables.customerWalletAddress),
+        refetchType: "all",
       });
       onSuccess?.();
     },
@@ -120,9 +127,13 @@ export function useUnblockCustomer(onSuccess?: () => void) {
       shopApi.unblockCustomer(walletAddress),
     onSuccess: (_data, walletAddress) => {
       showSuccess("Customer unblocked");
-      qc.invalidateQueries({ queryKey: queryKeys.blockedCustomers() });
+      qc.invalidateQueries({
+        queryKey: queryKeys.blockedCustomers(),
+        refetchType: "all",
+      });
       qc.invalidateQueries({
         queryKey: queryKeys.customerBlockStatus(walletAddress),
+        refetchType: "all",
       });
       onSuccess?.();
     },
