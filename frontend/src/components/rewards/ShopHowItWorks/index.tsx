@@ -4,10 +4,10 @@ import { MessageCircle, CheckCircle } from "lucide-react";
 import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
 
 const points = [
-  "Tiers define a shop's RCN issuance rate, analytics access, and governance privileges.",
-  "Standard Tier requires no RCG staking, making it ideal for shops testing the system.",
+  "Tiers define a shop's RCN issuance rate and analytics access.",
+  "Standard Tier has no upfront requirements, making it ideal for shops testing the system.",
   "Premium unlocks improved RCN costs and access to deeper customer insights.",
-  "Elite gives shops the best RCN economics, advanced tools, and access to governance-based perks.",
+  "Elite gives shops the best RCN economics and advanced tools.",
   "No matter the tier, every shop can start issuing RCN and tracking customer activity from day one.",
 ];
 
