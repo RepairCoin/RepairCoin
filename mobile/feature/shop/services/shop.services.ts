@@ -407,6 +407,15 @@ class ShopApi {
     }
   }
 
+  async cancelPurchase(purchaseId: string): Promise<any> {
+    try {
+      return await apiClient.post(`/shops/purchase/${purchaseId}/cancel`);
+    } catch (error: any) {
+      console.error("Failed to cancel purchase:", error.message);
+      throw error;
+    }
+  }
+
   async checkPaymentStatus(purchaseId: string): Promise<any> {
     try {
       return await apiClient.post(`/shops/purchase-sync/check-payment/${purchaseId}`);

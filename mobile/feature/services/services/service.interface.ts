@@ -8,9 +8,9 @@ export type NoShowTier = 'normal' | 'warning' | 'caution' | 'deposit_required' |
 export type PaymentType = "subscription" | "token_purchase";
 export type TrendDays = 7 | 30 | 90;
 export type BookingStep = "schedule" | "discount";
-export type OrderFilterType = "all" | "pending" | "paid" | "completed" | "cancelled" | "no_show";
+export type OrderFilterType = "all" | "paid" | "completed" | "cancelled" | "no_show";
 export type BookingStage = "requested" | "paid" | "approved" | "scheduled" | "completed";
-export type BookingStatus = "pending" | "paid" | "in_progress" | "completed" | "cancelled" | "refunded" | "expired";
+export type BookingStatus = "paid" | "in_progress" | "completed" | "cancelled" | "refunded" | "expired";
 export type AvailabilityTab = "hours" | "settings" | "overrides";
 export type ServiceStatusFilter = "all" | "active" | "inactive";
 export type RatingLevel = 0 | 1 | 2 | 3 | 4 | 5;
@@ -705,7 +705,7 @@ export interface ManualBookingData {
   bookingDate: string;
   bookingTimeSlot: string;
   bookingEndTime: string;
-  paymentStatus: "paid" | "pending" | "unpaid";
+  paymentStatus: "paid" | "unpaid";
   notes?: string;
   createNewCustomer?: boolean;
 }
