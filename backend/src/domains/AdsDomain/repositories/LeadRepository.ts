@@ -99,6 +99,33 @@ export class LeadRepository extends BaseRepository {
     return this.mapRow(res.rows[0]);
   }
 
+  /** Enrich a lead with contact details captured in the conversation (or a form), and link it to an
+   *  EXISTING customer when the email/phone matches one (no duplicate). Latest non-null value wins;
+   *  customer_id is only set (once) when a real customer matches — a booking's synthetic guest never links here. */
+  async updateContact(id: string, c: { name?: string | null; email?: string | null; phone?: string | null }): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_leads
+          SET name = COALESCE($2, name), email = COALESCE($3, email), phone = COALESCE($4, phone), updated_at = now()
+        WHERE id = $1`,
+      [id, c.name ?? null, c.email ?? null, c.phone ?? null]
+    );
+    if (c.email || c.phone) {
+      const cust = await this.pool.query(
+        `SELECT address FROM customers
+           WHERE ($1::text IS NOT NULL AND $1 <> '' AND lower(email) = lower($1))
+              OR ($2::text IS NOT NULL AND $2 <> '' AND phone = $2)
+           LIMIT 1`,
+        [c.email ?? null, c.phone ?? null]
+      );
+      if (cust.rows.length) {
+        await this.pool.query(
+          `UPDATE ad_leads SET customer_id = $2 WHERE id = $1 AND customer_id IS NULL`,
+          [id, cust.rows[0].address]
+        );
+      }
+    }
+  }
+
   /** Mark a lead's Google offline conversion as uploaded (idempotent — no-op if already set). */
   async markConversionUploaded(id: string): Promise<void> {
     await this.pool.query(

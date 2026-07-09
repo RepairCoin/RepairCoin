@@ -12,7 +12,7 @@ function fakePool(overrides: { conflict?: boolean; existingCustomer?: string } =
       queries.push({ sql, params });
       if (/FROM shop_services/i.test(sql)) return { rows: [{ service_name: 'Newly Baker', price_usd: 99, duration_minutes: 45 }] };
       if (/FROM shops WHERE shop_id/i.test(sql)) return { rows: [{ name: 'Peanut' }] };
-      if (/SELECT address FROM customers WHERE lower\(email\)/i.test(sql)) return { rows: overrides.existingCustomer ? [{ address: overrides.existingCustomer }] : [] };
+      if (/SELECT address FROM customers[\s\S]*lower\(email\)/i.test(sql)) return { rows: overrides.existingCustomer ? [{ address: overrides.existingCustomer }] : [] };
       if (/SELECT order_id FROM service_orders/i.test(sql)) return { rows: overrides.conflict ? [{ order_id: 'x' }] : [] };
       if (/INSERT INTO service_orders/i.test(sql)) return { rows: [{ order_id: 'order-1' }] };
       return { rows: [] };

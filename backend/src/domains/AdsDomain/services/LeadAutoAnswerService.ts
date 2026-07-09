@@ -47,6 +47,8 @@ const BOOK_INTENT_RE = /\b(book|reserve|schedule me|sign me up|confirm|i'?ll tak
 const CLOCK_RE = /\b\d{1,2}(:\d{2})?\s?(am|pm)\b|\b\d{1,2}:\d{2}\b/i;
 /** A prior assistant turn already handed over a pay link → don't re-book. */
 const ALREADY_BOOKED_RE = /checkout\.stripe\.com|pending payment|reserved for 24|payment link/i;
+/** The message plausibly contains contact info (email or a phone-like number) → worth an enrichment extract. */
+const CONTACT_RE = /\S+@\S+\.\S+|\+?\d[\d\s().-]{6,}\d/;
 
 const systemPromptFor = (shopName: string, industry: string, voice: string, campaign: string): string =>
   `You are the customer-service assistant for ${shopName}, a ${industry}. A lead responded ` +
@@ -82,6 +84,37 @@ export class LeadAutoAnswerService {
     private readonly booking = new LeadBookingService()
   ) {}
 
+  /** Capture contact details (name/email/phone) a customer volunteers in chat and persist them onto the LEAD
+   *  (and link to an existing customer if the email/phone matches). Cheap — gated on a contact-looking message.
+   *  Enrichment happens here for EVERY inbound (form parity: landing captures name/phone/email); booking just
+   *  reuses whatever's been captured. Returns the extraction cost. Fails safe. */
+  private async enrichLeadContact(leadId: string, userMsg: string): Promise<number> {
+    if (!userMsg || !CONTACT_RE.test(userMsg)) return 0;
+    try {
+      const extract = await this.anthropic.complete({
+        systemPrompt: [{
+          text:
+            `From the customer's message, extract any contact details they provided as JSON ONLY: ` +
+            `{"name": string|null, "email": string|null, "phone": string|null}. Only include values actually ` +
+            `present in the message; use null otherwise. Output ONLY the JSON.`,
+          cache: false,
+        }],
+        messages: [{ role: 'user', content: userMsg }],
+        model: MODEL,
+        maxTokens: 80,
+      });
+      const cost = extract.costUsd || 0;
+      const m = extract.text.match(/\{[\s\S]*\}/);
+      if (!m) return cost;
+      const c = JSON.parse(m[0]) as { name?: string | null; email?: string | null; phone?: string | null };
+      if (c.name || c.email || c.phone) await this.leads.updateContact(leadId, c);
+      return cost;
+    } catch (e) {
+      logger.warn(`LeadAutoAnswerService: lead contact enrichment failed for ${leadId}: ${(e as Error)?.message || e}`);
+      return 0;
+    }
+  }
+
   /** Phase 4 — booking on explicit confirmation (WRITE). When the customer agrees to a specific slot the AI
    *  offered and has given name+email, create the pending booking + Stripe pay link and hand the link back so
    *  the reply delivers it (also emailed). Missing contact → ask for it. Never books twice (thread guard),
@@ -114,9 +147,9 @@ export class LeadAutoAnswerService {
             `Services: ${JSON.stringify(items.map((s) => s.serviceName))}. Recent conversation:\n${transcript}\n` +
             `The customer's latest message may confirm booking a specific time the assistant offered. Extract JSON ONLY: ` +
             `{"confirming": boolean, "service": <EXACT service name from the list|null>, "date": "YYYY-MM-DD"|null, ` +
-            `"time": "HH:MM"|null, "name": string|null, "email": string|null}. confirming=true ONLY if the latest ` +
-            `customer message agrees to book a SPECIFIC time. name/email = the customer's contact IF given anywhere ` +
-            `in the conversation, else null. Output ONLY the JSON.`,
+            `"time": "HH:MM"|null, "name": string|null, "email": string|null, "phone": string|null}. confirming=true ONLY ` +
+            `if the latest customer message agrees to book a SPECIFIC time. name/email/phone = the customer's contact IF ` +
+            `given anywhere in the conversation, else null. Output ONLY the JSON.`,
           cache: false,
         }],
         messages: [{ role: 'user', content: last.body }],
@@ -126,7 +159,7 @@ export class LeadAutoAnswerService {
       costUsd = extract.costUsd || 0;
       const match = extract.text.match(/\{[\s\S]*\}/);
       if (!match) return { text: null, costUsd };
-      const p = JSON.parse(match[0]) as { confirming?: boolean; service?: string | null; date?: string | null; time?: string | null; name?: string | null; email?: string | null };
+      const p = JSON.parse(match[0]) as { confirming?: boolean; service?: string | null; date?: string | null; time?: string | null; name?: string | null; email?: string | null; phone?: string | null };
       if (!p.confirming) return { text: null, costUsd };
 
       const wanted = (p.service || '').toLowerCase().trim();
@@ -137,13 +170,13 @@ export class LeadAutoAnswerService {
         return { text: `The customer seems ready to book, but the exact service/date/time isn't clear yet. Ask them to confirm which service and which of the times you offered. Do NOT say anything is booked.`, costUsd };
       }
       if (!p.email) {
-        return { text: `The customer wants to book ${svc.serviceName} on ${LeadAutoAnswerService.humanDate(p.date!)} at ${p.time}. To lock it in, ask for their full name and email so you can send the confirmation and a secure payment link. Do NOT say it's booked yet.`, costUsd };
+        return { text: `The customer wants to book ${svc.serviceName} on ${LeadAutoAnswerService.humanDate(p.date!)} at ${p.time}. To lock it in, ask for their full name, email, and phone number so you can send the confirmation and a secure payment link. Do NOT say it's booked yet.`, costUsd };
       }
 
       try {
         const result = await this.booking.createLeadBooking({
           leadId, shopId, serviceId: svc.serviceId, bookingDate: p.date!, bookingTimeSlot: p.time!,
-          customerName: p.name || 'Messenger Lead', customerEmail: p.email,
+          customerName: p.name || 'Messenger Lead', customerEmail: p.email, customerPhone: p.phone || null,
         });
         const when = `${LeadAutoAnswerService.humanDate(result.bookingDate)} at ${result.bookingTimeSlot}`;
         if (result.paymentUrl) {
@@ -407,6 +440,8 @@ export class LeadAutoAnswerService {
     // Phase 3: real availability for "when can I come in?" (read-only). Not cached — date/query-specific.
     const availability = await this.availabilityBlock(shopId, last?.body || '');
     if (availability.text) systemBlocks.push({ text: availability.text, cache: false });
+    // Capture any contact the customer volunteered → enrich the LEAD (name/email/phone) + link existing customer.
+    const enrichCost = await this.enrichLeadContact(lead.id, last?.body || '');
     // Phase 4: on explicit confirmation, create the booking + pay link (write). Not cached.
     const booking = await this.bookingBlock(shopId, lead.id, thread);
     if (booking.text) systemBlocks.push({ text: booking.text, cache: false });
@@ -430,8 +465,8 @@ export class LeadAutoAnswerService {
         body: reply, aiCostCents: resp.costUsd * 100, deliveryStatus,
       });
 
-      // Reply cost + the Phase 3/4 extraction calls (when they ran) all count against budget.
-      await this.spendCap.recordSpend(shopId, resp.costUsd + availability.costUsd + booking.costUsd);
+      // Reply cost + the Phase 3/4 + enrichment extraction calls (when they ran) all count against budget.
+      await this.spendCap.recordSpend(shopId, resp.costUsd + availability.costUsd + booking.costUsd + enrichCost);
       try {
         await this.aiCosts.record({
           campaignId: lead.campaignId, leadId: lead.id,
