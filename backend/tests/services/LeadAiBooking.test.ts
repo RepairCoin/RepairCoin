@@ -111,6 +111,21 @@ describe('LeadAutoAnswerService — Phase 4 booking trigger', () => {
     expect(h.booked()).toMatchObject({ serviceId: 'srv-1' });
   });
 
+  it('books when the customer provides contact AFTER being asked (no "book" word in the final message)', async () => {
+    const h = build({
+      thread: [
+        OFFER,
+        { author: 'lead', body: 'Book me 9am' },
+        { author: 'ai', body: 'To lock it in, I just need your full name, email, and phone number so I can send the payment link.' },
+        { author: 'lead', body: "I'm Deo Cagunot, deo@example.com, 09162512445" },
+      ],
+      // confirming:false on purpose — the "completing" state (AI asked → customer gave contact) must book anyway.
+      bookingExtraction: { confirming: false, service: 'Newly Baker', date: '2026-07-10', time: '09:00', name: 'Deo Cagunot', email: 'deo@example.com', phone: '09162512445' },
+    });
+    await h.svc.generateReply('L1');
+    expect(h.booked()).toMatchObject({ serviceId: 'srv-1', customerEmail: 'deo@example.com', customerPhone: '09162512445' });
+  });
+
   it('offers alternatives when the slot was just taken (409)', async () => {
     const h = build({
       thread: [OFFER, { author: 'lead', body: 'yes book 9am deo@example.com' }],

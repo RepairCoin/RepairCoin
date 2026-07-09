@@ -136,8 +136,16 @@ export class LeadAutoAnswerService {
     if (thread.some((m) => m.author !== 'lead' && ALREADY_BOOKED_RE.test(m.body || ''))) return { text: null, costUsd: 0 };
     // Gate: the AI must have offered real times, and the customer must be affirming / naming a time.
     const offered = thread.some((m) => m.author !== 'lead' && /\d{1,2}:\d{2}/.test(m.body || ''));
+    // The AI's most recent turn already asked for booking details → the customer's reply (their contact)
+    // is completing the booking even though it has no "book"/time word.
+    const lastAi = [...thread].reverse().find((m) => m.author !== 'lead')?.body || '';
+    const askedToBook = /name,?\s*email|to (lock|book)|payment link|secure payment|get you (booked|set up)/i.test(lastAi);
     const explicitBook = /\b(book|reserve|schedule)\b/i.test(last.body);
-    if (!(explicitBook || ((BOOK_INTENT_RE.test(last.body) || CLOCK_RE.test(last.body)) && offered))) return { text: null, costUsd: 0 };
+    const responding = BOOK_INTENT_RE.test(last.body) || CLOCK_RE.test(last.body) || CONTACT_RE.test(last.body);
+    if (!(explicitBook || (responding && (offered || askedToBook)))) return { text: null, costUsd: 0 };
+    // "Completing" = the AI just asked for booking details and the customer replied WITH contact info. Real Haiku
+    // won't reliably call a contact-only message "confirming", so treat this state as an implicit confirmation.
+    const completing = askedToBook && CONTACT_RE.test(last.body);
 
     let costUsd = 0;
     try {
@@ -154,11 +162,12 @@ export class LeadAutoAnswerService {
           text:
             `Today is ${today}; shop timezone ${tz}. Date reference: ${LeadAutoAnswerService.dateReference(today)}. ` +
             `Services: ${JSON.stringify(items.map((s) => s.serviceName))}. Recent conversation:\n${transcript}\n` +
-            `The customer's latest message may confirm booking a specific time the assistant offered. Extract JSON ONLY: ` +
+            `The customer is trying to book. Using the WHOLE conversation, extract JSON ONLY: ` +
             `{"confirming": boolean, "service": <EXACT service name from the list|null>, "date": "YYYY-MM-DD"|null, ` +
-            `"time": "HH:MM"|null, "name": string|null, "email": string|null, "phone": string|null}. confirming=true ONLY ` +
-            `if the latest customer message agrees to book a SPECIFIC time. name/email/phone = the customer's contact IF ` +
-            `given anywhere in the conversation, else null. Output ONLY the JSON.`,
+            `"time": "HH:MM"|null, "name": string|null, "email": string|null, "phone": string|null}. confirming=true if the ` +
+            `customer has chosen a SPECIFIC time to book — either they just agreed to one, OR they agreed earlier and are now ` +
+            `providing their contact details to finalize it. service/date/time = the slot being booked (from anywhere in the ` +
+            `conversation). name/email/phone = the customer's contact IF given anywhere, else null. Output ONLY the JSON.`,
           cache: false,
         }],
         messages: [{ role: 'user', content: last.body }],
@@ -169,7 +178,7 @@ export class LeadAutoAnswerService {
       const match = extract.text.match(/\{[\s\S]*\}/);
       if (!match) return { text: null, costUsd };
       const p = JSON.parse(match[0]) as { confirming?: boolean; service?: string | null; date?: string | null; time?: string | null; name?: string | null; email?: string | null; phone?: string | null };
-      if (!p.confirming) return { text: null, costUsd };
+      if (!p.confirming && !completing) return { text: null, costUsd };
 
       const wanted = (p.service || '').toLowerCase().trim();
       const svc = items.find((s) => s.serviceName.toLowerCase() === wanted) || (items.length === 1 ? items[0] : undefined);
