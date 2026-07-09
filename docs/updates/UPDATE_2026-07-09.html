@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 9, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-done { background: var(--green-bg); color: #14753b; }
+  .tag-new { background: var(--violet-bg); color: var(--violet); }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Launch Prep — the Web/UI Track</h1>
+    <p class="sub">Blockchain fully hidden for launch, trial + billing verified, and the remaining shop/agency UI built.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 9, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Delivered &amp; Pushed to main</span></span>
+      <span class="meta-pill"><strong>Focus:</strong>&nbsp; Go-live checklist (Web/UI)</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      Full day on the go-live checklist (Web/UI lane). We fully hid wallet/blockchain from every user-facing
+      surface for the barbershop launch, verified the 14-day trial + Stripe billing flow is complete, built the
+      side-by-side plan comparison, added the Dedicated Account Manager / Priority Support UI and the Agency
+      Program page, and delivered a pre-launch end-to-end test plan.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Hide Wallet &amp; Blockchain <span class="tag tag-done">DONE</span></h2>
+    <p>
+      Every user-visible wallet/blockchain/token element is now hidden or reworded behind the existing
+      blockchain flag — while wallet login stays. Fully reversible: turning the flag back on at launch restores
+      everything automatically.
+    </p>
+    <ul>
+      <li><strong>Customer:</strong> hid Token Gifting (tab + nav), the on-chain "Wallet Balance" row (card retitled
+          "My Rewards"), and the block-explorer link; filtered blockchain/RCG FAQs; relabeled "Wallet Address" →
+          <strong>"RepairCoin ID"</strong> in Settings and the redemption QR.</li>
+      <li><strong>Shop:</strong> hid Wallet &amp; Payouts (tab + nav). Mint, staking, RCG and crypto payment were
+          already gated.</li>
+      <li><strong>Public / legal:</strong> dropped blockchain/crypto wording from SEO, the About page, the privacy
+          policy, and the delete-account page; hid the RCG-staking tiers on the public rewards page.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> 14-day Trial + Billing <span class="tag tag-done">DONE (verified)</span></h2>
+    <p>Already built end-to-end — verified all pieces connect:</p>
+    <ul>
+      <li>14-day trial countdown banner across the shop dashboard (urgent + non-dismissible in the last 3 days)</li>
+      <li>"No credit card" start-trial flow, and Subscribe → Stripe checkout redirect</li>
+      <li>Trial-ending notifications and subscription-state guarding (pending / paused / expired / suspended)</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Plan Comparison <span class="tag tag-new">NEW</span></h2>
+    <p>
+      The subscribe form only showed the selected plan's features. Built a side-by-side comparison of all tiers —
+      <strong>Starter $80 / Growth $299 / Business $599</strong> — each with price, full "includes everything in X,
+      plus…" feature list, a "Most Popular" badge, and clear selection, wired into the working checkout.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> Account Manager &amp; Priority Support UI <span class="tag tag-new">NEW</span></h2>
+    <p>
+      The shop's Support tab now shows their plan-based support level: <strong>Business → Priority Support + a
+      Dedicated Account Manager card</strong>, Growth → Priority Email Support, Starter → Standard — each with an
+      upgrade nudge.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Agency Program Page <span class="tag tag-new">NEW</span></h2>
+    <p>
+      New <code class="inline">/agency</code> marketing page: hero, feature grid, pricing
+      (<strong>$999/mo for 10 client accounts, +$50/client</strong>), how-it-works, and Apply CTAs. Linked from the
+      footer. Fully responsive.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span> Responsive &amp; <span class="num">7</span> End-to-End Testing</h2>
+    <ul>
+      <li><strong>Responsive:</strong> all new UI (plan comparison, support card, agency page) uses responsive
+          breakpoints and stacks cleanly on mobile. Full-app responsive QA is scoped into the test plan.</li>
+      <li><strong>End-to-end testing:</strong> delivered a pre-launch <strong>Go-Live Checklist</strong> covering
+          blockchain-hidden verification, onboarding, trial + billing, the core
+          booking → payment → shop → notifications loop, referrals, admin tools, the agency page, responsive
+          (mobile / tablet / desktop), and team sign-off.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Web/UI launch checklist — status</h2>
+    <table>
+      <thead><tr><th>#</th><th>Item</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Hide Wallet &amp; Blockchain</td><td><span class="ok">✓ Done</span></td></tr>
+        <tr><td>2</td><td>14-day trial + billing</td><td><span class="ok">✓ Done (verified)</span></td></tr>
+        <tr><td>3</td><td>Per-tier inclusions + plan comparison</td><td><span class="ok">✓ Done</span></td></tr>
+        <tr><td>4</td><td>Account Manager &amp; Priority Support UI</td><td><span class="ok">✓ Done</span></td></tr>
+        <tr><td>5</td><td>Agency Program pages</td><td><span class="ok">✓ Done</span></td></tr>
+        <tr><td>6</td><td>Web responsive polish</td><td>New UI responsive; full QA in checklist</td></tr>
+        <tr><td>7</td><td>End-to-end web testing</td><td><span class="ok">✓ Plan delivered</span></td></tr>
+      </tbody>
+    </table>
+    <div class="callout green" style="margin-top:18px;">
+      <strong>Verification:</strong> backend type-checking clean (0 errors); the frontend gained 0 new type errors
+      across every change; shipped in focused commits, each rebased onto the latest main and pushed.
+    </div>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>
+      All seven Web/UI launch items are addressed: #1–#5 built and pushed, #6 responsive is built into the new UI
+      with a QA pass scoped, and #7 is the ready-to-run go-live test plan. Blockchain is invisible for the
+      barbershop launch and fully reversible for later.
+    </p>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 9, 2026</footer>
+</div>
+</body>
+</html>
