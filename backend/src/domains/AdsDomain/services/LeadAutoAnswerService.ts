@@ -45,8 +45,9 @@ const bookingEnabled = (): boolean => process.env.ADS_AI_BOOKING_ENABLED === 'tr
 const BOOK_INTENT_RE = /\b(book|reserve|schedule me|sign me up|confirm|i'?ll take|take it|lock it in|works for me|that works|sounds good|let'?s do|yes|yeah|yep|sure|ok|okay|sige|go ahead)\b/i;
 /** A clock time in the message (e.g. "9am", "10:30"). */
 const CLOCK_RE = /\b\d{1,2}(:\d{2})?\s?(am|pm)\b|\b\d{1,2}:\d{2}\b/i;
-/** A prior assistant turn already handed over a pay link → don't re-book. */
-const ALREADY_BOOKED_RE = /checkout\.stripe\.com|pending payment|reserved for 24|payment link/i;
+/** A prior assistant turn already handed over a REAL pay link → don't re-book. Match only the delivered
+ *  Stripe checkout URL — NOT phrases like "payment link", which the AI also says while ASKING for contact. */
+const ALREADY_BOOKED_RE = /checkout\.stripe\.com/i;
 /** The message plausibly contains contact info (email or a phone-like number) → worth an enrichment extract. */
 const CONTACT_RE = /\S+@\S+\.\S+|\+?\d[\d\s().-]{6,}\d/;
 
