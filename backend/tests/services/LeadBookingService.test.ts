@@ -54,6 +54,8 @@ describe('LeadBookingService.createLeadBooking', () => {
     expect(insert.params).toContain('srv-1');
     // New email → a synthetic guest customer is created.
     expect(queries.some((q) => /INSERT INTO customers/i.test(q.sql))).toBe(true);
+    // Lead's Kanban stage advances to 'booked'.
+    expect(queries.some((q) => /UPDATE ad_leads SET lead_status = 'booked'/i.test(q.sql))).toBe(true);
 
     // Stripe metadata MUST match what /api/shops/webhooks/stripe keys on.
     expect(sessionArgs().metadata.bookingType).toBe('manual_booking_payment');
@@ -113,6 +115,7 @@ describe('LeadBookingService.onPaymentConfirmed', () => {
     const h = build({ ad_lead_id: 'L1', booking_time_slot: '09:00:00', service_name: 'Newly Baker' });
     await h.svc.onPaymentConfirmed('order-1');
     expect(h.queries.some((q) => /SET status = 'scheduled'/i.test(q.sql))).toBe(true);
+    expect(h.queries.some((q) => /UPDATE ad_leads SET lead_status = 'paid'/i.test(q.sql))).toBe(true);
     expect(h.appended().direction).toBe('outbound');
     expect(h.appended().body).toContain('confirmed');
     expect(h.appended().body).toContain('Deo'); // first name
