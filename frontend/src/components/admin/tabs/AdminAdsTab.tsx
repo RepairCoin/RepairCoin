@@ -9,6 +9,7 @@ import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw, ChevronDo
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { LeadKanban } from "@/components/ads/LeadKanban";
+import { ChannelBreakdown } from "@/components/ads/ChannelBreakdown";
 import { ConversationInbox } from "@/components/ads/ConversationInbox";
 import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import { IndustryAnalytics } from "@/components/ads/IndustryAnalytics";
@@ -457,6 +458,8 @@ export const AdminAdsTab: React.FC = () => {
                 <Stat label="Cost / Booking" value={fmtMoney(perf.roi.cpbCents, selected.currency)} />
                 <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
               </div>
+
+              <ChannelBreakdown channels={perf.channels} currency={selected.currency} />
 
               {/* True margin (Q6) — admin only. Shared (cost/revenue based). */}
               <MarginPanel campaignId={selected.id} />

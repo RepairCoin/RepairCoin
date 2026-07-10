@@ -23,6 +23,15 @@ export interface CampaignTotals {
   totalBookings: number;
 }
 
+export type LeadChannel = 'messenger' | 'whatsapp' | 'google' | 'meta_form' | 'webform';
+
+export interface ChannelRow {
+  channel: LeadChannel;
+  leads: number;
+  bookings: number;
+  revenueCents: number;
+}
+
 export interface DailyMetricsInput {
   spendCents?: number;
   impressions?: number;
@@ -49,6 +58,44 @@ export class PerformanceRepository extends BaseRepository {
       clicks: r.clicks,
       leadsCaptured: r.leads_captured,
       bookingsCreated: r.bookings_created,
+      revenueCents: r.revenue_cents,
+    }));
+  }
+
+  /** Per-channel split of the lead pipeline for one campaign (all-time, matching
+   *  getTotals). Channel is derived from the lead's own identifiers — Messenger and
+   *  webform leads both live under a Meta campaign, so `platform` can't tell them
+   *  apart; the lead row can. Leads counted from ad_leads (non-duplicate); bookings +
+   *  revenue from the ad-attributed, non-cancelled/refunded service orders. Spend is
+   *  per-campaign (not per-channel) so it's left to the caller to allocate. */
+  async getChannelBreakdown(campaignId: string): Promise<ChannelRow[]> {
+    const res = await this.pool.query(
+      `SELECT
+          CASE
+            WHEN l.messenger_id  IS NOT NULL THEN 'messenger'
+            WHEN l.whatsapp_id   IS NOT NULL THEN 'whatsapp'
+            WHEN l.gclid         IS NOT NULL THEN 'google'
+            WHEN l.meta_lead_id  IS NOT NULL THEN 'meta_form'
+            ELSE 'webform'
+          END AS channel,
+          count(DISTINCT l.id)::int AS leads,
+          count(DISTINCT o.order_id) FILTER (
+            WHERE o.order_id IS NOT NULL AND COALESCE(o.status, '') NOT IN ('cancelled', 'refunded')
+          )::int AS bookings,
+          ROUND(COALESCE(SUM(
+            CASE WHEN COALESCE(o.status, '') NOT IN ('cancelled', 'refunded')
+                 THEN o.final_amount_usd ELSE 0 END
+          ), 0) * 100)::int AS revenue_cents
+         FROM ad_leads l
+         LEFT JOIN service_orders o ON o.ad_lead_id = l.id
+        WHERE l.campaign_id = $1 AND l.is_duplicate = false
+        GROUP BY 1`,
+      [campaignId]
+    );
+    return res.rows.map((r) => ({
+      channel: r.channel as ChannelRow['channel'],
+      leads: r.leads,
+      bookings: r.bookings,
       revenueCents: r.revenue_cents,
     }));
   }

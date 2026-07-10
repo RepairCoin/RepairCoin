@@ -63,10 +63,29 @@ export interface PerformanceRow {
   revenueCents: number;
 }
 
+// One channel's slice (Messenger / webform / Google …). leads/bookings/revenue +
+// conversionRate + avgOrderValue are exact; spend isn't reported per channel, so
+// it's allocated by lead share — allocatedSpend/roi/cpl/cpb are estimates.
+export type LeadChannel = 'messenger' | 'whatsapp' | 'google' | 'meta_form' | 'webform';
+
+export interface ChannelRoi {
+  channel: LeadChannel;
+  leads: number;
+  bookings: number;
+  revenueCents: number;
+  allocatedSpendCents: number;
+  roi: number | null;
+  conversionRate: number | null;
+  avgOrderValueCents: number | null;
+  cplCents: number | null;
+  cpbCents: number | null;
+}
+
 export interface CampaignPerformance {
   campaignId: string;
   roi: CampaignRoi;
   dailyRows: PerformanceRow[];
+  channels: ChannelRoi[];
 }
 
 export interface AllShopsSummary {

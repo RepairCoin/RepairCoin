@@ -22,7 +22,13 @@ async function buildPayload(campaignId: string) {
     perf.getDailyRows(campaignId, 30),
     roi.computeForCampaign(campaignId),
   ]);
-  return { campaignId, roi: roiSummary, dailyRows: rows };
+  // Per-channel split (Messenger vs webform vs Google …). Spend isn't reported per
+  // channel, so it's allocated by lead share — leads/bookings/revenue are exact.
+  const channels = RoiCalculator.channelsFromRows(
+    await perf.getChannelBreakdown(campaignId),
+    roiSummary.totalSpendCents
+  );
+  return { campaignId, roi: roiSummary, dailyRows: rows, channels };
 }
 
 // POST /campaigns/:id/metrics (admin) — manual daily metric entry (idempotent per day)
