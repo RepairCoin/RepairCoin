@@ -1,14 +1,22 @@
 import { useState, useEffect } from "react";
 import * as WebBrowser from "expo-web-browser";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { apiClient } from "@/shared/utilities/axios";
 import { useShop } from "../../account/hooks/useShopQuery";
 import { SubscriptionFormData } from "../../services/shop.interface";
+import {
+  DEFAULT_TIER,
+  isValidTier,
+  getPlanByTier,
+} from "../constants/subscriptionPlans";
 
 export function useSubscriptionForm() {
   const router = useRouter();
+  const { tier: tierParam } = useLocalSearchParams<{ tier?: string }>();
+  const selectedTier = isValidTier(tierParam) ? tierParam : DEFAULT_TIER;
+  const selectedPlan = getPlanByTier(selectedTier);
   const { account } = useAuthStore();
   const { useGetShopByWalletAddress } = useShop();
   const { data: shopData, isLoading: isLoadingShop } = useGetShopByWalletAddress(
@@ -73,6 +81,7 @@ export function useSubscriptionForm() {
         {
           billingEmail: formData.email,
           billingContact: formData.shopName,
+          tier: selectedTier,
         }
       );
 
@@ -116,6 +125,7 @@ export function useSubscriptionForm() {
     isLoading,
     isLoadingShop,
     error,
+    selectedPlan,
     handleSubmit,
     handleGoBack,
   };

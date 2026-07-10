@@ -6,6 +6,12 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { apiClient } from "@/shared/utilities/axios";
 import { useShop } from "../../account/hooks/useShopQuery";
+import {
+  SubscriptionTier,
+  isValidTier,
+  getPlanByTier,
+  TRIAL_PERIOD_DAYS,
+} from "../constants/subscriptionPlans";
 
 interface CancelSubscriptionResponse {
   success: boolean;
@@ -24,6 +30,9 @@ interface SubscriptionStatusResponse {
       status: string;
       currentPeriodEnd?: string;
       cancelAtPeriodEnd?: boolean;
+      tier?: string | null;
+      planLabel?: string | null;
+      monthlyAmount?: number;
     };
   };
   error?: string;
@@ -37,6 +46,28 @@ interface ReactivateSubscriptionResponse {
   error?: string;
 }
 
+interface TrialEligibilityResponse {
+  success: boolean;
+  data?: {
+    eligible: boolean;
+    trialUsed: boolean;
+    hasActiveSubscription: boolean;
+    trialPeriodDays: number;
+  };
+  error?: string;
+}
+
+interface StartTrialResponse {
+  success: boolean;
+  data?: {
+    message: string;
+    tier: string;
+    trialEndsAt: string;
+    trialPeriodDays: number;
+  };
+  error?: string;
+}
+
 export function useSubscription() {
   const router = useRouter();
   const { account } = useAuthStore();
@@ -46,9 +77,14 @@ export function useSubscription() {
 
   const [isCancelling, setIsCancelling] = useState(false);
   const [isReactivating, setIsReactivating] = useState(false);
+  const [trialEligible, setTrialEligible] = useState(false);
+  const [isStartingTrial, setIsStartingTrial] = useState(false);
   const [subscriptionDetails, setSubscriptionDetails] = useState<{
     currentPeriodEnd?: string;
     cancelAtPeriodEnd?: boolean;
+    tier?: SubscriptionTier | null;
+    planLabel?: string | null;
+    monthlyAmount?: number;
   } | null>(null);
 
   const isSubscribed = shopData?.operational_status === "subscription_qualified";
@@ -71,9 +107,13 @@ export function useSubscription() {
       console.log("[Subscription] API Response:", JSON.stringify(result, null, 2));
 
       if (result.success && result.data?.currentSubscription) {
+        const sub = result.data.currentSubscription;
         const details = {
-          currentPeriodEnd: result.data.currentSubscription.currentPeriodEnd,
-          cancelAtPeriodEnd: result.data.currentSubscription.cancelAtPeriodEnd,
+          currentPeriodEnd: sub.currentPeriodEnd,
+          cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+          tier: isValidTier(sub.tier) ? sub.tier : null,
+          planLabel: sub.planLabel ?? null,
+          monthlyAmount: sub.monthlyAmount,
         };
         console.log("[Subscription] Setting details:", details);
         setSubscriptionDetails(details);
@@ -87,14 +127,81 @@ export function useSubscription() {
     }
   }, [isSubscribed]);
 
+  const fetchTrialEligibility = useCallback(async () => {
+    if (isSubscribed) {
+      setTrialEligible(false);
+      return;
+    }
+
+    try {
+      const result = await apiClient.get<TrialEligibilityResponse>(
+        "/shops/subscription/trial-eligibility"
+      );
+      setTrialEligible(!!result.data?.eligible);
+    } catch {
+      setTrialEligible(false);
+    }
+  }, [isSubscribed]);
+
   useFocusEffect(
     useCallback(() => {
       fetchSubscriptionDetails();
-    }, [fetchSubscriptionDetails])
+      fetchTrialEligibility();
+    }, [fetchSubscriptionDetails, fetchTrialEligibility])
   );
 
-  const handleSubscribe = () => {
-    router.push("/shop/subscription-form" as any);
+  const handleSubscribe = (tier: SubscriptionTier) => {
+    router.push({
+      pathname: "/shop/subscription-form",
+      params: { tier },
+    } as any);
+  };
+
+  const handleStartTrial = (tier: SubscriptionTier) => {
+    Alert.alert(
+      "Start Free Trial",
+      `Start your ${TRIAL_PERIOD_DAYS}-day free trial of ${getPlanByTier(tier).label}? Full access, no credit card required.`,
+      [
+        {
+          text: "Not Now",
+          style: "cancel",
+        },
+        {
+          text: "Start Trial",
+          onPress: () => startTrial(tier),
+        },
+      ]
+    );
+  };
+
+  const startTrial = async (tier: SubscriptionTier) => {
+    try {
+      setIsStartingTrial(true);
+
+      const result = await apiClient.post<StartTrialResponse>(
+        "/shops/subscription/start-trial",
+        { tier }
+      );
+
+      if (result.success) {
+        setTrialEligible(false);
+        await refetch();
+        await fetchSubscriptionDetails();
+
+        showSuccess(
+          result.data?.message ||
+            "Your free trial has started. No credit card required."
+        );
+      } else {
+        throw new Error(result.error || "Failed to start free trial");
+      }
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error || error.message || "Failed to start free trial";
+      showError(errorMessage);
+    } finally {
+      setIsStartingTrial(false);
+    }
   };
 
   const handleCancelSubscription = () => {
@@ -221,9 +328,19 @@ export function useSubscription() {
     isSubscribed,
     isPendingCancellation,
     expirationDate,
+    currentPlan: subscriptionDetails
+      ? {
+          tier: subscriptionDetails.tier ?? null,
+          planLabel: subscriptionDetails.planLabel ?? null,
+          monthlyAmount: subscriptionDetails.monthlyAmount,
+        }
+      : null,
     shopData,
     isCancelling,
     isReactivating,
+    trialEligible,
+    isStartingTrial,
+    handleStartTrial,
     handleSubscribe,
     handleCancelSubscription,
     handleResubscribe,
