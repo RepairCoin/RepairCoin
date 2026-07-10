@@ -3,6 +3,7 @@ import { jwtDecode } from "jwt-decode";
 import { router } from "expo-router";
 import { Toast } from "react-native-toast-notifications";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
+import Constants from "expo-constants";
 
 interface DecodedToken {
   exp: number;
@@ -71,6 +72,7 @@ class ApiClient {
       timeout: 60000,
       headers: {
         "Content-Type": "application/json",
+        "x-app-version": Constants.expoConfig?.version ?? "0.0.0",
       },
     });
 
