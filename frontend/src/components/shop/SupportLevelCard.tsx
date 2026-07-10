@@ -104,7 +104,7 @@ export function SupportLevelCard() {
         </div>
 
         {tier !== "business" && (
-          <Link href="/shop/subscription-form">
+          <Link href="/pricing">
             <button className="inline-flex items-center gap-1.5 text-sm font-medium text-[#FFCC00] hover:text-[#FFD700] transition-colors">
               {tier === "starter" ? "Upgrade for a dedicated manager" : "Upgrade to Business"}
               <ArrowUpRight className="w-4 h-4" />
