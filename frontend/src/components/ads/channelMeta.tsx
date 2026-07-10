@@ -3,12 +3,13 @@
 // backend deriveLeadChannel (messenger_id/whatsapp_id/gclid/meta_lead_id → channel).
 
 import React from "react";
-import { MessageCircle, Globe, Search, FileText, Phone, Mail } from "lucide-react";
+import { MessageCircle, Globe, Search, FileText, Phone, Mail, Facebook } from "lucide-react";
 import type { LeadChannel } from "@/services/api/ads";
 
 export const CHANNEL_META: Record<LeadChannel, { label: string; Icon: React.ComponentType<{ className?: string }>; color: string }> = {
   messenger: { label: "Messenger", Icon: MessageCircle, color: "text-[#0084FF]" },
   whatsapp: { label: "WhatsApp", Icon: Phone, color: "text-[#25D366]" },
+  facebook: { label: "Facebook", Icon: Facebook, color: "text-[#1877F2]" },
   google: { label: "Google", Icon: Search, color: "text-[#EA4335]" },
   meta_form: { label: "Instant form", Icon: FileText, color: "text-[#FFCC00]" },
   webform: { label: "Web form", Icon: Globe, color: "text-gray-300" },

@@ -21,6 +21,8 @@ export interface RawLead {
   /** Google click id specifically (for offline conversion upload); distinct from clickId, which
    *  may be an fbclid. */
   gclid?: string;
+  /** Facebook click id (auto-appended on FB ad-click landing URLs) — attributes to Facebook. */
+  fbclid?: string;
   consentToContact?: boolean;
   metaLeadId?: string;
   method: AttributionMethod;
@@ -77,6 +79,7 @@ export class LeadAttributionService {
       consentToContact: raw.consentToContact ?? false,
       metaLeadId: raw.metaLeadId ?? null,
       gclid: raw.gclid ?? null,
+      fbclid: raw.fbclid ?? null,
     });
 
     await eventBus.publish(

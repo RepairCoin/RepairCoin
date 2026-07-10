@@ -66,7 +66,7 @@ export interface PerformanceRow {
 // One channel's slice (Messenger / webform / Google …). leads/bookings/revenue +
 // conversionRate + avgOrderValue are exact; spend isn't reported per channel, so
 // it's allocated by lead share — allocatedSpend/roi/cpl/cpb are estimates.
-export type LeadChannel = 'messenger' | 'whatsapp' | 'google' | 'meta_form' | 'webform';
+export type LeadChannel = 'messenger' | 'whatsapp' | 'facebook' | 'google' | 'meta_form' | 'webform';
 
 export interface ChannelRoi {
   channel: LeadChannel;
@@ -474,7 +474,7 @@ export const autoAnswerLead = async (id: string, mode: LeadMode = 'admin'): Prom
 // Submit a lead from a public landing-page form (UTM-attributed). No auth.
 export const submitWebformLead = async (payload: {
   campaignId?: string; name?: string; phone?: string; email?: string;
-  utm?: Record<string, string>; clickId?: string; gclid?: string;
+  utm?: Record<string, string>; clickId?: string; gclid?: string; fbclid?: string;
 }): Promise<{ deduped: boolean }> => {
   const res = await apiClient.post('/ads/leads/webform', { ...payload, consentToContact: true });
   return unwrap<{ deduped: boolean }>(res);

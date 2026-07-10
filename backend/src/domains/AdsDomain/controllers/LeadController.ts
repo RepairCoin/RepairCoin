@@ -118,6 +118,7 @@ export async function webformLead(req: Request, res: Response): Promise<void> {
       utm: b.utm,
       clickId: b.clickId,
       gclid: b.gclid,
+      fbclid: b.fbclid,
       consentToContact: b.consentToContact ?? true, // form submit = consent
       method: 'utm',
     });
