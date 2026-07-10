@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Constants from "expo-constants";
 import { Linking, Share, Alert } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
@@ -119,12 +120,12 @@ export function useUnifiedServiceDetail() {
   };
 
   // Share functionality
-  const appEnv = process.env.APP_ENV;
+  const appEnv = Constants.expoConfig?.extra?.appEnv;
   const webBaseUrl =
     appEnv === "staging"
       ? "https://staging.repaircoin.ai"
       : "https://repaircoin.ai";
-  const getShareUrl = () => `${webBaseUrl}/customer/shop/${shopId}`;
+  const getShareUrl = () => `${webBaseUrl}/services/${id}`;
 
   const getShareMessage = () => {
     if (!serviceData) return "";

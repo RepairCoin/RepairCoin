@@ -142,6 +142,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         projectId: "ac220b86-d08f-403e-a3bb-d1657b30f245",
       },
       router: {},
+      appEnv: ENV,
     },
     updates: {
       enabled: true,
