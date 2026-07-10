@@ -950,6 +950,13 @@ export class SubscriptionService extends BaseRepository {
       throw new Error('No active subscription found');
     }
 
+    // A subscription pending cancellation still ends at period end no matter what
+    // price it carries — an "upgrade" would charge the prorated difference for a
+    // plan the shop is about to lose. Require reactivation first.
+    if (subscription.cancelAtPeriodEnd) {
+      throw new Error('Subscription is scheduled for cancellation. Reactivate it before changing plans.');
+    }
+
     const newPriceId = resolveCheckoutPriceId(newTier);
     const previousAmount = getMonthlyAmountForPriceId(subscription.stripePriceId);
     const newAmount = getPlanByTier(newTier).amount;

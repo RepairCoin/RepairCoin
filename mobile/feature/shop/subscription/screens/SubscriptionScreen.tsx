@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
@@ -31,14 +31,18 @@ export default function SubscriptionScreen() {
   const {
     isSubscribed,
     isPendingCancellation,
+    canChangePlan,
     expirationDate,
     currentPlan,
+    scheduledDowngrade,
     isCancelling,
     isReactivating,
+    isChangingPlan,
     trialEligible,
     isStartingTrial,
     handleStartTrial,
     handleSubscribe,
+    handleChangePlan,
     handleCancelSubscription,
     handleResubscribe,
     handleGoBack,
@@ -46,17 +50,35 @@ export default function SubscriptionScreen() {
 
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>(DEFAULT_TIER);
 
-  // When subscribed, show the current plan; otherwise show the tier being selected
-  const displayTier = isSubscribed
-    ? currentPlan?.tier ?? DEFAULT_TIER
+  const currentTier = currentPlan?.tier ?? null;
+
+  // Once the subscribed plan loads, start from it so the tabs reflect reality
+  useEffect(() => {
+    if (isSubscribed && currentTier) {
+      setSelectedTier(currentTier);
+    }
+  }, [isSubscribed, currentTier]);
+
+  const showPlanTabs = !isSubscribed || canChangePlan;
+  const isViewingCurrentPlan = isSubscribed && selectedTier === currentTier;
+  const hasTierChange = canChangePlan && currentTier !== null && selectedTier !== currentTier;
+
+  // When subscribed, show the plan being previewed; the current plan by default
+  const displayTier = isSubscribed && !canChangePlan
+    ? currentTier ?? DEFAULT_TIER
     : selectedTier;
   const displayPlan = getPlanByTier(displayTier);
-  const displayPrice = isSubscribed
+  const showAsCurrent = isSubscribed && displayTier === currentTier;
+  const displayPrice = showAsCurrent
     ? currentPlan?.monthlyAmount || displayPlan.price
     : displayPlan.price;
-  const displayLabel = isSubscribed
+  const displayLabel = showAsCurrent
     ? currentPlan?.planLabel ?? displayPlan.label
     : displayPlan.label;
+
+  const currentAmount =
+    currentPlan?.monthlyAmount ?? (currentTier ? getPlanByTier(currentTier).price : 0);
+  const changePlanIsUpgrade = getPlanByTier(selectedTier).price > currentAmount;
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("en-US", {
@@ -98,7 +120,28 @@ export default function SubscriptionScreen() {
               title="Cancellation Scheduled"
               description={`You still have full access until ${
                 expirationDate ? formatDate(expirationDate) : ""
-              }`}
+              }. Reactivate to keep your subscription — you can change plans after reactivating.`}
+              className="mb-5"
+            />
+          )}
+
+          {!isPendingCancellation && scheduledDowngrade && (
+            <CalloutCard
+              tone="info"
+              icon="swap-horizontal"
+              title="Plan Change Scheduled"
+              description={`Your plan changes to ${
+                getPlanByTier(scheduledDowngrade.tier).label
+              }${
+                scheduledDowngrade.effectiveAt
+                  ? ` on ${formatDate(new Date(scheduledDowngrade.effectiveAt))}`
+                  : " at your next renewal"
+              }. Changed your mind? Keep your current plan at no charge.`}
+              action={{
+                label: "Keep Current Plan",
+                onPress: () => currentTier && handleChangePlan(currentTier),
+                loading: isChangingPlan,
+              }}
               className="mb-5"
             />
           )}
@@ -118,7 +161,7 @@ export default function SubscriptionScreen() {
             isPendingCancellation={isPendingCancellation}
           />
 
-          {!isSubscribed && (
+          {showPlanTabs && (
             <TabButtons
               tabs={PLAN_TABS}
               activeTab={selectedTier}
@@ -130,7 +173,7 @@ export default function SubscriptionScreen() {
           )}
 
           <PlanCard
-            isSubscribed={isSubscribed}
+            isSubscribed={showAsCurrent}
             planLabel={displayLabel}
             price={displayPrice}
             includesLabel={displayPlan.includesLabel}
@@ -141,11 +184,22 @@ export default function SubscriptionScreen() {
           <SubscriptionActionButton
             isSubscribed={isSubscribed}
             isPendingCancellation={isPendingCancellation}
-            isLoading={isCancelling || isReactivating}
+            isLoading={isCancelling || isReactivating || isChangingPlan}
+            showChangePlan={hasTierChange}
+            changePlanIsUpgrade={changePlanIsUpgrade}
             onSubscribe={() => handleSubscribe(selectedTier)}
             onCancel={handleCancelSubscription}
             onResubscribe={handleResubscribe}
+            onChangePlan={() => handleChangePlan(selectedTier)}
           />
+
+          {canChangePlan && !isViewingCurrentPlan && (
+            <Text className="text-gray-500 text-xs text-center mt-3 px-4 leading-4">
+              Upgrades start right away — you're only charged the prorated
+              difference. Downgrades take effect at your next renewal, with no
+              refund for the current month.
+            </Text>
+          )}
 
           {!isSubscribed && trialEligible && (
             <CalloutCard
