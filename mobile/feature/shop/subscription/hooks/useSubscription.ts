@@ -33,7 +33,24 @@ interface SubscriptionStatusResponse {
       tier?: string | null;
       planLabel?: string | null;
       monthlyAmount?: number;
+      subscriptionType?: string;
+      scheduledDowngrade?: {
+        tier: string;
+        effectiveAt: string | null;
+      } | null;
     };
+  };
+  error?: string;
+}
+
+interface ChangePlanResponse {
+  success: boolean;
+  data?: {
+    message: string;
+    isUpgrade: boolean;
+    outcome: "upgraded" | "downgrade_scheduled" | "downgrade_canceled";
+    tier: string;
+    monthlyAmount: number;
   };
   error?: string;
 }
@@ -79,16 +96,30 @@ export function useSubscription() {
   const [isReactivating, setIsReactivating] = useState(false);
   const [trialEligible, setTrialEligible] = useState(false);
   const [isStartingTrial, setIsStartingTrial] = useState(false);
+  const [isChangingPlan, setIsChangingPlan] = useState(false);
   const [subscriptionDetails, setSubscriptionDetails] = useState<{
     currentPeriodEnd?: string;
     cancelAtPeriodEnd?: boolean;
     tier?: SubscriptionTier | null;
     planLabel?: string | null;
     monthlyAmount?: number;
+    subscriptionType?: string;
+    scheduledDowngrade?: {
+      tier: SubscriptionTier;
+      effectiveAt: string | null;
+    } | null;
   } | null>(null);
 
   const isSubscribed = shopData?.operational_status === "subscription_qualified";
   const isPendingCancellation = subscriptionDetails?.cancelAtPeriodEnd === true;
+  const isOnTrial = subscriptionDetails?.subscriptionType === "trial";
+  // Plan changes go through Stripe (prorated upgrade / scheduled downgrade), so
+  // they only apply to Stripe-billed subscriptions that aren't ending already.
+  const canChangePlan =
+    isSubscribed &&
+    !isPendingCancellation &&
+    subscriptionDetails?.subscriptionType === "stripe_subscription" &&
+    isValidTier(subscriptionDetails?.tier);
 
   const fetchSubscriptionDetails = useCallback(async () => {
     if (!isSubscribed) {
@@ -114,6 +145,14 @@ export function useSubscription() {
           tier: isValidTier(sub.tier) ? sub.tier : null,
           planLabel: sub.planLabel ?? null,
           monthlyAmount: sub.monthlyAmount,
+          subscriptionType: sub.subscriptionType,
+          scheduledDowngrade:
+            sub.scheduledDowngrade && isValidTier(sub.scheduledDowngrade.tier)
+              ? {
+                  tier: sub.scheduledDowngrade.tier,
+                  effectiveAt: sub.scheduledDowngrade.effectiveAt,
+                }
+              : null,
         };
         console.log("[Subscription] Setting details:", details);
         setSubscriptionDetails(details);
@@ -201,6 +240,84 @@ export function useSubscription() {
       showError(errorMessage);
     } finally {
       setIsStartingTrial(false);
+    }
+  };
+
+  const handleChangePlan = (newTier: SubscriptionTier) => {
+    if (!canChangePlan || !subscriptionDetails) return;
+
+    const currentTier = subscriptionDetails.tier;
+    const newPlan = getPlanByTier(newTier);
+
+    // Re-selecting the live tier only makes sense to cancel a pending downgrade.
+    if (newTier === currentTier) {
+      if (!subscriptionDetails.scheduledDowngrade) return;
+      Alert.alert(
+        "Keep Current Plan",
+        `Cancel the scheduled downgrade and stay on ${
+          subscriptionDetails.planLabel ?? newPlan.label
+        }? You won't be charged anything today.`,
+        [
+          { text: "Not Now", style: "cancel" },
+          { text: "Keep Current Plan", onPress: () => changePlan(newTier) },
+        ]
+      );
+      return;
+    }
+
+    const currentAmount =
+      subscriptionDetails.monthlyAmount ??
+      (currentTier ? getPlanByTier(currentTier).price : 0);
+    const isUpgrade = newPlan.price > currentAmount;
+
+    const renewalDate = subscriptionDetails.currentPeriodEnd
+      ? new Date(subscriptionDetails.currentPeriodEnd).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : null;
+
+    Alert.alert(
+      isUpgrade ? "Upgrade Plan" : "Downgrade Plan",
+      isUpgrade
+        ? `Upgrade to ${newPlan.label} for $${newPlan.price}/mo? The upgrade starts right away and the prorated difference will be charged to your card today.`
+        : `Switch to ${newPlan.label} ($${newPlan.price}/mo)? The change takes effect at your next renewal${
+            renewalDate ? ` on ${renewalDate}` : ""
+          }. You keep your current plan until then — no refund for this month.`,
+      [
+        { text: "Not Now", style: "cancel" },
+        {
+          text: isUpgrade ? "Upgrade" : "Downgrade",
+          onPress: () => changePlan(newTier),
+        },
+      ]
+    );
+  };
+
+  const changePlan = async (newTier: SubscriptionTier) => {
+    try {
+      setIsChangingPlan(true);
+
+      const result = await apiClient.post<ChangePlanResponse>(
+        "/shops/subscription/change-plan",
+        { tier: newTier }
+      );
+
+      if (result.success) {
+        await refetch();
+        await fetchSubscriptionDetails();
+
+        showSuccess(result.data?.message || "Your subscription plan has been updated.");
+      } else {
+        throw new Error(result.error || "Failed to change plan");
+      }
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error || error.message || "Failed to change plan";
+      showError(errorMessage);
+    } finally {
+      setIsChangingPlan(false);
     }
   };
 
@@ -327,6 +444,8 @@ export function useSubscription() {
   return {
     isSubscribed,
     isPendingCancellation,
+    isOnTrial,
+    canChangePlan,
     expirationDate,
     currentPlan: subscriptionDetails
       ? {
@@ -335,13 +454,16 @@ export function useSubscription() {
           monthlyAmount: subscriptionDetails.monthlyAmount,
         }
       : null,
+    scheduledDowngrade: subscriptionDetails?.scheduledDowngrade ?? null,
     shopData,
     isCancelling,
     isReactivating,
+    isChangingPlan,
     trialEligible,
     isStartingTrial,
     handleStartTrial,
     handleSubscribe,
+    handleChangePlan,
     handleCancelSubscription,
     handleResubscribe,
     handleGoBack,

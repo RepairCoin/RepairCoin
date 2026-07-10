@@ -1214,7 +1214,11 @@ router.post('/subscriptions/:subscriptionId/change-plan', async (req: Request, r
     const message = error instanceof Error ? error.message : 'Failed to change subscription plan';
     logger.error('Error changing subscription plan:', message);
 
-    const clientErrors = ['No active subscription found', 'Shop is already subscribed to this plan'];
+    const clientErrors = [
+      'No active subscription found',
+      'Shop is already subscribed to this plan',
+      'Subscription is scheduled for cancellation. Reactivate it before changing plans.'
+    ];
     const status = clientErrors.includes(message) ? 400 : 500;
 
     res.status(status).json({

@@ -855,7 +855,11 @@ router.post('/subscription/change-plan', requireShopPermission('billing:manage')
       shopId: req.user?.shopId
     });
 
-    const clientErrors = ['No active subscription found', 'Shop is already subscribed to this plan'];
+    const clientErrors = [
+      'No active subscription found',
+      'Shop is already subscribed to this plan',
+      'Subscription is scheduled for cancellation. Reactivate it before changing plans.'
+    ];
     const status = clientErrors.includes(message) ? 400 : 500;
 
     return res.status(status).json({
