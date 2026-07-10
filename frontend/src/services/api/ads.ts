@@ -98,12 +98,10 @@ export interface AllShopsSummary {
 
 export interface DailyMetricsPayload {
   date: string; // YYYY-MM-DD
+  // Spend/impressions/clicks only — leads/bookings/revenue are pipeline-derived (Q5).
   spendCents?: number;
   impressions?: number;
   clicks?: number;
-  leadsCaptured?: number;
-  bookingsCreated?: number;
-  revenueCents?: number;
 }
 
 export interface AdLead {

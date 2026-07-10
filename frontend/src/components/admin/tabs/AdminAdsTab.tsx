@@ -132,7 +132,7 @@ export const AdminAdsTab: React.FC = () => {
 
   const [form, setForm] = useState({ shopId: "", name: "", dailyBudget: "", notes: "" });
   const [metrics, setMetrics] = useState({
-    date: todayStr(), spend: "", impressions: "", clicks: "", leads: "", bookings: "", revenue: "",
+    date: todayStr(), spend: "", impressions: "", clicks: "",
   });
 
   const load = useCallback(async () => {
@@ -284,14 +284,12 @@ export const AdminAdsTab: React.FC = () => {
     const num = (v: string) => (v ? parseInt(v, 10) : 0);
     setSavingMetrics(true);
     try {
+      // Spend/impressions/clicks only — leads/bookings/revenue are pipeline-derived.
       const updated = await enterDailyMetrics(selectedId, {
         date: metrics.date,
         spendCents: metrics.spend ? Math.round(parseFloat(metrics.spend) * 100) : 0,
         impressions: num(metrics.impressions),
         clicks: num(metrics.clicks),
-        leadsCaptured: num(metrics.leads),
-        bookingsCreated: num(metrics.bookings),
-        revenueCents: metrics.revenue ? Math.round(parseFloat(metrics.revenue) * 100) : 0,
       });
       setPerf(updated);
       await load(); // refresh summary
@@ -540,15 +538,12 @@ export const AdminAdsTab: React.FC = () => {
                 </button>
                 {showMetrics && (
                   <div className="px-4 pb-4">
-                    <p className="text-xs text-gray-500 mb-3">Meta syncs spend, impressions &amp; clicks automatically — use this only to correct or backfill.</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                    <p className="text-xs text-gray-500 mb-3">Meta syncs spend, impressions &amp; clicks automatically — use this only to correct or backfill. Leads, bookings &amp; revenue are derived from real activity and can&apos;t be hand-set.</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <Field label="Date"><input className={inputCls} type="date" value={metrics.date} onChange={(e) => setMetrics({ ...metrics, date: e.target.value })} /></Field>
                       <Field label={`Spend (${selected.currency || "USD"})`}><input className={inputCls} type="number" value={metrics.spend} onChange={(e) => setMetrics({ ...metrics, spend: e.target.value })} /></Field>
                       <Field label="Impr."><input className={inputCls} type="number" value={metrics.impressions} onChange={(e) => setMetrics({ ...metrics, impressions: e.target.value })} /></Field>
                       <Field label="Clicks"><input className={inputCls} type="number" value={metrics.clicks} onChange={(e) => setMetrics({ ...metrics, clicks: e.target.value })} /></Field>
-                      <Field label="Leads"><input className={inputCls} type="number" value={metrics.leads} onChange={(e) => setMetrics({ ...metrics, leads: e.target.value })} /></Field>
-                      <Field label="Bookings"><input className={inputCls} type="number" value={metrics.bookings} onChange={(e) => setMetrics({ ...metrics, bookings: e.target.value })} /></Field>
-                      <Field label={`Revenue (${selected.currency || "USD"})`}><input className={inputCls} type="number" value={metrics.revenue} onChange={(e) => setMetrics({ ...metrics, revenue: e.target.value })} /></Field>
                     </div>
                     <Button onClick={saveMetrics} disabled={savingMetrics} className="mt-3 bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
                       {savingMetrics ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save metrics

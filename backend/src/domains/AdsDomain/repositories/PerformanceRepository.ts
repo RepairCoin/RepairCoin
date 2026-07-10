@@ -36,9 +36,6 @@ export interface DailyMetricsInput {
   spendCents?: number;
   impressions?: number;
   clicks?: number;
-  leadsCaptured?: number;
-  bookingsCreated?: number;
-  revenueCents?: number;
 }
 
 export class PerformanceRepository extends BaseRepository {
@@ -100,26 +97,19 @@ export class PerformanceRepository extends BaseRepository {
     }));
   }
 
-  /** Admin daily-metric entry — one row per campaign per day (idempotent upsert). */
+  /** Admin daily-metric correction — spend/impressions/clicks ONLY (idempotent upsert).
+   *  leads/bookings/revenue are owned by the pipeline roll-up and are deliberately NOT
+   *  written here, so a manual spend fix can't clobber the derived conversion columns. */
   async upsertDaily(campaignId: string, date: string, m: DailyMetricsInput): Promise<void> {
     await this.pool.query(
-      `INSERT INTO ad_performance_daily
-         (campaign_id, date, spend_cents, impressions, clicks, leads_captured,
-          bookings_created, revenue_cents)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO ad_performance_daily (campaign_id, date, spend_cents, impressions, clicks)
+       VALUES ($1,$2,$3,$4)
        ON CONFLICT (campaign_id, date) DO UPDATE SET
-         spend_cents      = EXCLUDED.spend_cents,
-         impressions      = EXCLUDED.impressions,
-         clicks           = EXCLUDED.clicks,
-         leads_captured   = EXCLUDED.leads_captured,
-         bookings_created = EXCLUDED.bookings_created,
-         revenue_cents    = EXCLUDED.revenue_cents,
-         updated_at       = now()`,
-      [
-        campaignId, date,
-        m.spendCents ?? 0, m.impressions ?? 0, m.clicks ?? 0,
-        m.leadsCaptured ?? 0, m.bookingsCreated ?? 0, m.revenueCents ?? 0,
-      ]
+         spend_cents = EXCLUDED.spend_cents,
+         impressions = EXCLUDED.impressions,
+         clicks      = EXCLUDED.clicks,
+         updated_at  = now()`,
+      [campaignId, date, m.spendCents ?? 0, m.impressions ?? 0, m.clicks ?? 0]
     );
   }
 
