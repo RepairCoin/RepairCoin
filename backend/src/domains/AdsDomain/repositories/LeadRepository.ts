@@ -9,6 +9,21 @@ import { BaseRepository } from '../../../repositories/BaseRepository';
 export type LeadStatus = 'new' | 'contacted' | 'booked' | 'paid' | 'completed' | 'lost';
 export type AttributionMethod = 'manual' | 'utm' | 'click_id' | 'meta_webhook';
 
+/** Where the lead came from, derived from its own identifiers (same logic the
+ *  per-channel performance breakdown uses). A Meta campaign can't tell Messenger
+ *  from a lead-form apart via `platform`/`attribution_method` — the lead row can. */
+export type LeadChannel = 'messenger' | 'whatsapp' | 'google' | 'meta_form' | 'webform';
+
+export function deriveLeadChannel(r: {
+  messenger_id?: string | null; whatsapp_id?: string | null; gclid?: string | null; meta_lead_id?: string | null;
+}): LeadChannel {
+  if (r.messenger_id) return 'messenger';
+  if (r.whatsapp_id) return 'whatsapp';
+  if (r.gclid) return 'google';
+  if (r.meta_lead_id) return 'meta_form';
+  return 'webform';
+}
+
 export interface AdLead {
   id: string;
   campaignId: string;
@@ -27,6 +42,9 @@ export interface AdLead {
   /** True when the lead has a 2-way chat channel (Messenger/WhatsApp) — drives whether the UI
    *  offers Chat / AI-reply. Web-form & manual leads (phone/email only) are false → contact by call/email. */
   hasChatChannel: boolean;
+  /** Human-facing source of the lead (Messenger/WhatsApp/Google/Instant form/Web form),
+   *  derived from its identifiers. Drives the channel badge on the Kanban/inbox. */
+  channel: LeadChannel;
   firstResponseAt: Date | null;
   notes: string | null;
   lostReason: string | null;
@@ -397,6 +415,7 @@ export class LeadRepository extends BaseRepository {
       attributionMethod: r.attribution_method,
       consentToContact: r.consent_to_contact,
       hasChatChannel: !!(r.messenger_id || r.whatsapp_id),
+      channel: deriveLeadChannel(r),
       firstResponseAt: r.first_response_at,
       notes: r.notes,
       lostReason: r.lost_reason,

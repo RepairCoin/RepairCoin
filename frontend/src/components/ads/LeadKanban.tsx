@@ -12,6 +12,7 @@ import {
   listLeads, listShopLeads, updateLeadStatus, updateShopLeadStatus, draftLeadReply,
   type AdLead, type LeadStatus,
 } from "@/services/api/ads";
+import { ChannelBadge } from "@/components/ads/channelMeta";
 import { LeadConversation } from "@/components/ads/LeadConversation";
 import { LeadCallLogger } from "@/components/ads/LeadCallLogger";
 
@@ -131,9 +132,10 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                       {lead.phone && <p className="text-xs text-gray-400 flex items-center gap-1.5"><Phone className="w-3 h-3" /> {lead.phone}</p>}
                       {lead.email && <p className="text-xs text-gray-400 flex items-center gap-1.5 truncate"><Mail className="w-3 h-3 shrink-0" /> {lead.email}</p>}
                     </div>
-                    <p className="text-[11px] text-gray-600 mt-1.5">
-                      {lead.attributionMethod} · {new Date(lead.createdAt).toLocaleDateString()}
-                    </p>
+                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                      <ChannelBadge channel={lead.channel} />
+                      <span className="text-[11px] text-gray-600">{new Date(lead.createdAt).toLocaleDateString()}</span>
+                    </div>
                     <p className={`text-[11px] mt-0.5 flex items-center gap-1 ${lead.firstResponseAt ? "text-gray-400" : "text-amber-500/80"}`}>
                       <Clock className="w-3 h-3 shrink-0" /> {contactedLabel(lead.firstResponseAt)}
                     </p>
