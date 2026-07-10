@@ -11,8 +11,12 @@ import {
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import { SkeletonHorizontalCards } from "@/shared/components/ui/Skeleton";
 import ShopGridCard from "@/shared/components/shared/ShopGridCard";
+import { rScale } from "@/shared/utilities/responsive";
 
-const CARD_GAP = 12;
+// Fixed spacing scaled from the Figma baseline. Card width itself is derived
+// from the live screen width below (percentage + clamp), which is already
+// device-adaptive, so it stays as-is.
+const CARD_GAP = rScale(12);
 const MILES_TO_KM = 1.60934;
 const WALKING_MIN_PER_KM = 12; // ~5 km/h walking pace, matching the "run" ETA
 
