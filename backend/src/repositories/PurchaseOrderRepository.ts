@@ -46,6 +46,8 @@ export interface CreatePurchaseOrderData {
   orderDate?: Date;
   expectedDeliveryDate?: Date | null;
   notes?: string | null;
+  // Branch this PO's stock is received into. NULL = the shop's primary, resolved at receive time.
+  locationId?: string | null;
   createdBy: string;
   items: Array<{
     inventoryItemId: string | null;
@@ -63,6 +65,7 @@ export interface UpdatePurchaseOrderData {
   expectedDeliveryDate?: Date | null;
   notes?: string | null;
   trackingNumber?: string | null;
+  locationId?: string | null;
 }
 
 export class PurchaseOrderRepository extends BaseRepository {
@@ -132,8 +135,8 @@ export class PurchaseOrderRepository extends BaseRepository {
           po_number, shop_id, vendor_id, vendor_name,
           order_date, expected_delivery_date,
           subtotal, tax, shipping, total,
-          notes, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          notes, location_id, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
       `;
 
@@ -149,6 +152,7 @@ export class PurchaseOrderRepository extends BaseRepository {
         0, // shipping
         total,
         data.notes || null,
+        data.locationId || null,
         data.createdBy
       ];
 
@@ -197,9 +201,10 @@ export class PurchaseOrderRepository extends BaseRepository {
    */
   async getPurchaseOrderById(poId: string): Promise<PurchaseOrder> {
     const poQuery = `
-      SELECT *
-      FROM purchase_orders
-      WHERE id = $1
+      SELECT po.*, sl.name AS location_name
+      FROM purchase_orders po
+      LEFT JOIN shop_locations sl ON sl.id = po.location_id
+      WHERE po.id = $1
     `;
 
     const poResult = await this.pool.query(poQuery, [poId]);
@@ -239,31 +244,32 @@ export class PurchaseOrderRepository extends BaseRepository {
     const { status, vendorId, page = 1, limit = 20 } = options;
     const offset = (page - 1) * limit;
 
-    const conditions: string[] = ['shop_id = $1'];
+    const conditions: string[] = ['po.shop_id = $1'];
     const values: Array<string | number> = [shopId];
     let paramIndex = 2;
 
     if (status) {
-      conditions.push(`status = $${paramIndex++}`);
+      conditions.push(`po.status = $${paramIndex++}`);
       values.push(status);
     }
 
     if (vendorId) {
-      conditions.push(`vendor_id = $${paramIndex++}`);
+      conditions.push(`po.vendor_id = $${paramIndex++}`);
       values.push(vendorId);
     }
 
     const whereClause = conditions.join(' AND ');
 
     // Get total count
-    const countQuery = `SELECT COUNT(*) as count FROM purchase_orders WHERE ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) as count FROM purchase_orders po WHERE ${whereClause}`;
     const countResult = await this.pool.query(countQuery, values.slice(0, paramIndex - 1));
     const total = parseInt(countResult.rows[0].count);
 
     // Get orders
     const query = `
-      SELECT po.*
+      SELECT po.*, sl.name AS location_name
       FROM purchase_orders po
+      LEFT JOIN shop_locations sl ON sl.id = po.location_id
       WHERE ${whereClause}
       ORDER BY po.order_date DESC, po.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -326,6 +332,11 @@ export class PurchaseOrderRepository extends BaseRepository {
       values.push(data.trackingNumber);
     }
 
+    if (data.locationId !== undefined) {
+      updates.push(`location_id = $${paramIndex++}`);
+      values.push(data.locationId);
+    }
+
     if (updates.length === 0) {
       throw new Error('No updates provided');
     }
@@ -358,6 +369,17 @@ export class PurchaseOrderRepository extends BaseRepository {
     items: Array<{ itemId: string; quantityReceived: number; }>
   ): Promise<PurchaseOrder> {
     return await this.withTransaction(async (client) => {
+      // Resolve which branch this PO receives into — its own location_id, else the shop's primary.
+      const poMeta = await client.query(
+        `SELECT po.location_id, po.shop_id, sl.id AS primary_location_id
+         FROM purchase_orders po
+         LEFT JOIN shop_locations sl ON sl.shop_id = po.shop_id AND sl.is_primary = true
+         WHERE po.id = $1`,
+        [poId]
+      );
+      const receiveLocationId: string | null =
+        poMeta.rows[0]?.location_id || poMeta.rows[0]?.primary_location_id || null;
+
       // Update purchase order item quantities
       for (const item of items) {
         const query = `
@@ -377,43 +399,53 @@ export class PurchaseOrderRepository extends BaseRepository {
 
         // Update inventory stock if item is linked
         if (poItem.inventory_item_id) {
-          const updateStockQuery = `
-            UPDATE inventory_items
-            SET stock_quantity = stock_quantity + $1
-            WHERE id = $2
-          `;
-
-          await client.query(updateStockQuery, [item.quantityReceived, poItem.inventory_item_id]);
-
-          // Create adjustment record
-          const adjustmentQuery = `
-            INSERT INTO inventory_adjustments (
-              item_id, shop_id, quantity_change,
-              quantity_before, quantity_after,
-              adjustment_type, reason, reference_type, reference_id,
-              adjusted_by
-            )
-            SELECT
-              $1,
-              i.shop_id,
-              $2,
-              i.stock_quantity - $2,
-              i.stock_quantity,
-              'purchase',
-              'Received from purchase order',
-              'purchase_order',
-              $3,
-              $4
-            FROM inventory_items i
-            WHERE i.id = $1
-          `;
-
-          await client.query(adjustmentQuery, [
-            poItem.inventory_item_id,
-            item.quantityReceived,
-            poId,
-            'system'
-          ]);
+          if (receiveLocationId) {
+            // Add to the branch's stock row (before/after are the branch's), then apply the same
+            // delta to the item's cached shop-total.
+            await client.query(
+              `INSERT INTO inventory_item_stock (item_id, location_id, stock_quantity, reserved_quantity)
+               VALUES ($1, $2, 0, 0) ON CONFLICT (item_id, location_id) DO NOTHING`,
+              [poItem.inventory_item_id, receiveLocationId]
+            );
+            const branch = await client.query(
+              `UPDATE inventory_item_stock
+               SET stock_quantity = stock_quantity + $1, updated_at = CURRENT_TIMESTAMP
+               WHERE item_id = $2 AND location_id = $3
+               RETURNING stock_quantity`,
+              [item.quantityReceived, poItem.inventory_item_id, receiveLocationId]
+            );
+            await client.query(
+              `UPDATE inventory_items SET stock_quantity = stock_quantity + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+              [item.quantityReceived, poItem.inventory_item_id]
+            );
+            const after = branch.rows[0].stock_quantity;
+            await client.query(
+              `INSERT INTO inventory_adjustments (
+                item_id, shop_id, location_id, quantity_change, quantity_before, quantity_after,
+                adjustment_type, reason, reference_type, reference_id, adjusted_by
+              )
+              SELECT $1, i.shop_id, $2, $3, $4, $5, 'purchase', 'Received from purchase order',
+                     'purchase_order', $6, 'system'
+              FROM inventory_items i WHERE i.id = $1`,
+              [poItem.inventory_item_id, receiveLocationId, item.quantityReceived, after - item.quantityReceived, after, poId]
+            );
+          } else {
+            // Legacy path: no location resolvable — add to the item total directly.
+            await client.query(
+              `UPDATE inventory_items SET stock_quantity = stock_quantity + $1 WHERE id = $2`,
+              [item.quantityReceived, poItem.inventory_item_id]
+            );
+            await client.query(
+              `INSERT INTO inventory_adjustments (
+                item_id, shop_id, quantity_change, quantity_before, quantity_after,
+                adjustment_type, reason, reference_type, reference_id, adjusted_by
+              )
+              SELECT $1, i.shop_id, $2, i.stock_quantity - $2, i.stock_quantity,
+                     'purchase', 'Received from purchase order', 'purchase_order', $3, 'system'
+              FROM inventory_items i WHERE i.id = $1`,
+              [poItem.inventory_item_id, item.quantityReceived, poId]
+            );
+          }
         }
       }
 

@@ -87,6 +87,16 @@ export interface ShopServiceWithShopInfo extends ShopService {
     state?: string;
     zipCode?: string;
   };
+  // Bookable locations for this service's shop (primary only unless the shop has paid
+  // multi-location). Customers pick a branch at checkout when there is more than one.
+  locations?: {
+    id: string;
+    name: string;
+    address?: string | null;
+    city?: string | null;
+    state?: string | null;
+    isPrimary: boolean;
+  }[];
   // Inventory status for linked items
   inventoryStatus?: 'available' | 'low_stock' | 'out_of_stock';
   // Trending: bookings in the recent period
@@ -200,6 +210,7 @@ export interface CreatePaymentIntentData {
   bookingTime?: string;
   rcnToRedeem?: number;
   notes?: string;
+  locationId?: string;
   // Set only when the booking originated from an AI chat booking card.
   // Threaded to the order row so the AI can post a confirmation message
   // back into this conversation after payment.
@@ -235,6 +246,7 @@ export interface OrderFilters {
   status?: OrderStatus;
   page?: number;
   limit?: number;
+  locationId?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -466,6 +478,28 @@ export const getCustomerOrders = async (
   }
 };
 
+export interface BookableLocation {
+  id: string;
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  isPrimary: boolean;
+}
+
+/**
+ * Get a shop's bookable locations (public) for the customer checkout branch picker.
+ */
+export const getBookableLocations = async (shopId: string): Promise<BookableLocation[]> => {
+  try {
+    const response = await apiClient.get<BookableLocation[]>(`/services/shop/${shopId}/locations`);
+    return (response.data as BookableLocation[]) || [];
+  } catch (error) {
+    console.error('Error getting bookable locations:', error);
+    return [];
+  }
+};
+
 /**
  * Get shop's orders (Shop only)
  */
@@ -487,9 +521,12 @@ export const getShopOrders = async (
 /**
  * Get shop order counts by status (Shop only)
  */
-export const getShopOrderCounts = async (): Promise<Record<string, number> | null> => {
+export const getShopOrderCounts = async (
+  locationId?: string
+): Promise<Record<string, number> | null> => {
   try {
-    const response = await apiClient.get<Record<string, number>>('/services/orders/shop/counts');
+    const qs = locationId ? `?locationId=${encodeURIComponent(locationId)}` : '';
+    const response = await apiClient.get<Record<string, number>>(`/services/orders/shop/counts${qs}`);
     return response.data || null;
   } catch (error) {
     console.error('Error getting shop order counts:', error);
@@ -1186,3 +1223,6 @@ export const SERVICE_CATEGORIES: Array<{ value: ServiceCategory; label: string }
   { value: 'food_beverage', label: 'Food & Beverage' },
   { value: 'other_local_services', label: 'Other Local Services' },
 ];
+
+export const getCategoryLabel = (value?: string | null): string =>
+  SERVICE_CATEGORIES.find((c) => c.value === value)?.label ?? (value ?? '');

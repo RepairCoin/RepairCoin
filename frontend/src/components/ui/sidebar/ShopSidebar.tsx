@@ -35,6 +35,8 @@ import {
 import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem, SidebarSection } from "./useSidebar";
+import { useAuthStore } from "@/stores/authStore";
+import { SHOP_TAB_PERMISSIONS } from "@/config/shopTabPermissions";
 
 interface ShopSidebarProps {
   isOpen?: boolean;
@@ -53,6 +55,9 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingRescheduleCount, setPendingRescheduleCount] = useState(0);
+  // Subscribe to userProfile so the nav re-filters when permissions load.
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
   // Collapsed-state hover flyout: which group is open + its vertical anchor
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   const [flyoutTop, setFlyoutTop] = useState(0);
@@ -93,7 +98,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
   });
 
   // Shop sections definition
-  const shopSections: SidebarSection[] = [
+  const shopSectionsRaw: SidebarSection[] = [
     {
       id: "dashboard",
       title: "Dashboard",
@@ -213,6 +218,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           icon: <Megaphone className="w-5 h-5" />,
           tabId: "marketing",
         },
+        {
+          title: "Team",
+          href: "/shop?tab=team",
+          icon: <UsersIcon className="w-5 h-5" />,
+          tabId: "team",
+        },
         // Ads is reached via the Plans & Billing hub (AI Ads card → ?tab=ads),
         // so the standalone sidebar link is removed to avoid a duplicate entry.
         {
@@ -228,10 +239,10 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
         //   tabId: "groups",
         // },
         {
-          title: "Shop Location",
-          href: "/shop?tab=shop-location",
+          title: "Locations",
+          href: "/shop?tab=locations",
           icon: <MapPinnedIcon className="w-5 h-5" />,
-          tabId: "shop-location",
+          tabId: "locations",
         },
         {
           title: "Buy Credits",
@@ -259,7 +270,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     },
   ];
 
-  const bottomMenuItems: SidebarItem[] = [
+  const bottomMenuItemsRaw: SidebarItem[] = [
     {
       title: "Support",
       href: "/shop?tab=support",
@@ -276,12 +287,15 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           },
         ]
       : []),
-    {
-      title: "Wallet & Payouts",
-      href: "/shop?tab=wallet-payouts",
-      icon: <Wallet className="w-5 h-5" />,
-      tabId: "wallet-payouts",
-    },
+    // Wallet & Payouts is blockchain-only — hidden in database-only mode.
+    ...(blockchainEnabled
+      ? [{
+          title: "Wallet & Payouts",
+          href: "/shop?tab=wallet-payouts",
+          icon: <Wallet className="w-5 h-5" />,
+          tabId: "wallet-payouts",
+        }]
+      : []),
     {
       title: "Settings",
       href: "/shop?tab=settings",
@@ -294,6 +308,18 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
       icon: <LogOut className="w-5 h-5" />,
     },
   ];
+
+  // Hide tabs the current member lacks permission for. Owners/admins (permissions
+  // '*' or absent) see everything; unmapped tabs are always visible.
+  const canViewTab = (tabId?: string) => {
+    if (!tabId) return true;
+    const required = SHOP_TAB_PERMISSIONS[tabId];
+    return !required || hasPermission(required);
+  };
+  const shopSections: SidebarSection[] = shopSectionsRaw
+    .map((section) => ({ ...section, items: section.items.filter((i) => canViewTab(i.tabId)) }))
+    .filter((section) => section.items.length > 0);
+  const bottomMenuItems: SidebarItem[] = bottomMenuItemsRaw.filter((i) => canViewTab(i.tabId));
 
   const settingsItems = bottomMenuItems.filter(
     (item) => item.href !== "/logout"

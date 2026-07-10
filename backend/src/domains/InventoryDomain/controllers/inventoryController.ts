@@ -1,6 +1,7 @@
 // backend/src/domains/InventoryDomain/controllers/inventoryController.ts
 import { Request, Response } from 'express';
 import { InventoryRepository } from '../../../repositories/InventoryRepository';
+import { resolveLocationFilter } from '../../../utils/multiLocationEntitlement';
 import { logger } from '../../../utils/logger';
 
 const inventoryRepo = new InventoryRepository();
@@ -46,7 +47,8 @@ export const getInventoryItem = async (req: Request, res: Response): Promise<voi
     }
 
     const { itemId } = req.params;
-    const item = await inventoryRepo.getItemById(itemId, shopId);
+    const locationId = await resolveLocationFilter(shopId, req.query.locationId as string | undefined);
+    const item = await inventoryRepo.getItemById(itemId, shopId, locationId || undefined);
 
     if (!item) {
       res.status(404).json({ error: 'Item not found' });
@@ -74,8 +76,10 @@ export const getInventoryItems = async (req: Request, res: Response): Promise<vo
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
 
+    const locationId = await resolveLocationFilter(shopId, req.query.locationId as string | undefined);
     const filters = {
       shopId,
+      locationId: locationId || undefined,
       categoryId: req.query.categoryId as string,
       vendorId: req.query.vendorId as string,
       status: req.query.status as any,
@@ -228,7 +232,8 @@ export const getInventoryStats = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const stats = await inventoryRepo.getInventoryStats(shopId);
+    const locationId = await resolveLocationFilter(shopId, req.query.locationId as string | undefined);
+    const stats = await inventoryRepo.getInventoryStats(shopId, locationId || undefined);
     res.json({ stats });
   } catch (error: any) {
     logger.error('Error fetching inventory stats:', error);

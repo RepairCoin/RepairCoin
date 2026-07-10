@@ -18,6 +18,7 @@ import subscriptionRoutes from './subscription';
 import adminsRoutes from './admins';
 import promoCodeRoutes from './promoCodes';
 import sessionsRoutes from './sessions';
+import adminTeamRoutes from './team';
 import { logger } from '../../../utils/logger';
 
 const router = Router();
@@ -148,6 +149,12 @@ router.post('/shops/:shopId/unsuspend',
 router.put('/shops/:shopId',
   requirePermission('manage_shops'),
   asyncHandler(adminController.updateShop.bind(adminController))
+);
+
+// Shop team & permissions management
+router.use('/shops/:shopId/team',
+  requirePermission('manage_shops'),
+  adminTeamRoutes
 );
 
 // Shop verification
@@ -400,9 +407,261 @@ router.post('/unsuspend-requests/:requestId/reject',
 );
 
 // Webhook management
-router.get('/webhooks/failed', 
+router.get('/webhooks/failed',
   asyncHandler(adminController.getFailedWebhooks.bind(adminController))
 );
+
+// Webhook monitoring console (admin-authed; reuses the real logging service)
+router.get('/webhooks/logs', asyncHandler(async (req, res) => {
+  const { webhookLoggingService } = await import('../../../services/WebhookLoggingService');
+  const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
+  const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '25', 10)));
+  const result = await webhookLoggingService.getWebhookLogs({
+    page,
+    limit,
+    status: req.query.status as string,
+    source: req.query.source as string,
+    eventType: req.query.eventType as string,
+  });
+  res.json({ success: true, data: result });
+}));
+
+router.get('/webhooks/health', asyncHandler(async (req, res) => {
+  // Compute health directly from webhook_logs so it doesn't depend on the
+  // get_webhook_health() DB function (not present in every environment).
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const pool = getSharedPool();
+  const r = await pool.query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE status = 'failed' AND created_at >= NOW() - INTERVAL '24 hours')::int AS failed_24h,
+      COUNT(*) FILTER (WHERE status IN ('pending','processing','retry'))::int AS pending,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::int AS total_24h,
+      COUNT(*) FILTER (WHERE status = 'success' AND created_at >= NOW() - INTERVAL '24 hours')::int AS success_24h
+    FROM webhook_logs
+  `);
+  const s = r.rows[0];
+  const successRate24h = s.total_24h > 0 ? (s.success_24h / s.total_24h) * 100 : 100;
+  // Healthy when there are no recent failures, or the success rate holds up with volume.
+  const healthy = s.failed_24h === 0 ? true : (s.total_24h >= 10 && successRate24h >= 90);
+  res.json({
+    success: true,
+    data: {
+      healthy,
+      failedLast24h: s.failed_24h,
+      pendingCount: s.pending,
+      total: s.total,
+      successRate24h: Math.round(successRate24h),
+    },
+  });
+}));
+
+router.post('/webhooks/retry/:webhookId', asyncHandler(async (req, res) => {
+  const { webhookService } = await import('../../webhook/services/WebhookService');
+  const result = await webhookService.retryFailedWebhook(req.params.webhookId);
+  res.json({ success: result?.success !== false, data: result });
+}));
+
+// Announcement broadcast — recipient counts for the composer
+router.get('/notifications/audience-counts', asyncHandler(async (req, res) => {
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const pool = getSharedPool();
+  const shopRes = await pool.query(
+    `SELECT COUNT(*)::int AS c FROM shops WHERE COALESCE(wallet_address, address) IS NOT NULL`
+  );
+  const custRes = await pool.query(
+    `SELECT COUNT(*)::int AS c FROM customers WHERE COALESCE(address, wallet_address) IS NOT NULL`
+  );
+  const shops = shopRes.rows[0].c;
+  const customers = custRes.rows[0].c;
+  res.json({ success: true, data: { shops, customers, all: shops + customers } });
+}));
+
+// Announcement broadcast — fan out a platform announcement via the notification gateway
+router.post('/notifications/broadcast', asyncHandler(async (req, res) => {
+  const { audience, title, message } = req.body || {};
+  if (!['shops', 'customers', 'all'].includes(audience)) {
+    return res.status(400).json({ success: false, error: 'audience must be shops, customers, or all' });
+  }
+  if (!message || !String(message).trim()) {
+    return res.status(400).json({ success: false, error: 'message is required' });
+  }
+
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const { getNotificationGateway } = await import('../../notification/services/NotificationGateway');
+  const pool = getSharedPool();
+
+  const addresses: string[] = [];
+  if (audience === 'shops' || audience === 'all') {
+    const r = await pool.query(
+      `SELECT DISTINCT COALESCE(wallet_address, address) AS addr FROM shops WHERE COALESCE(wallet_address, address) IS NOT NULL`
+    );
+    addresses.push(...r.rows.map((x: { addr: string }) => x.addr));
+  }
+  if (audience === 'customers' || audience === 'all') {
+    const r = await pool.query(
+      `SELECT DISTINCT COALESCE(address, wallet_address) AS addr FROM customers WHERE COALESCE(address, wallet_address) IS NOT NULL`
+    );
+    addresses.push(...r.rows.map((x: { addr: string }) => x.addr));
+  }
+  const unique = Array.from(new Set(addresses.map((a) => a.toLowerCase())));
+
+  const gateway = getNotificationGateway();
+  const sender = req.user?.address || 'ADMIN';
+  const meta = { title: title ? String(title).trim() : undefined, message: String(message).trim() };
+
+  // Fan out in batches so a large recipient list doesn't overwhelm the pool.
+  let delivered = 0;
+  const BATCH = 25;
+  for (let i = 0; i < unique.length; i += BATCH) {
+    const chunk = unique.slice(i, i + BATCH);
+    const results = await Promise.allSettled(
+      chunk.map((addr) =>
+        gateway.dispatch('admin_announcement', addr, {
+          message: meta.message,
+          metadata: meta,
+          senderAddress: sender,
+        })
+      )
+    );
+    // Non-null result = delivered (null = muted by preference or suppressed).
+    delivered += results.filter((r) => r.status === 'fulfilled' && r.value).length;
+  }
+
+  logger.info('Admin announcement broadcast', {
+    audience,
+    recipients: unique.length,
+    delivered,
+    by: sender,
+  });
+  res.json({ success: true, data: { recipients: unique.length, delivered } });
+}));
+
+// Affiliate shop groups — platform oversight (coalitions + custom-token liability)
+router.get('/affiliate-groups', asyncHandler(async (req, res) => {
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const pool = getSharedPool();
+
+  const groupsRes = await pool.query(`
+    SELECT
+      g.group_id,
+      g.group_name,
+      g.group_type,
+      g.active,
+      g.custom_token_name,
+      g.custom_token_symbol,
+      COALESCE(g.token_value_usd, 0)::float AS token_value_usd,
+      g.created_by_shop_id,
+      g.created_at,
+      (SELECT COUNT(*) FROM affiliate_shop_group_members m WHERE m.group_id = g.group_id AND m.status = 'active')::int AS member_count,
+      (SELECT COUNT(*) FROM affiliate_shop_group_members m WHERE m.group_id = g.group_id AND m.status = 'pending')::int AS pending_members,
+      COALESCE((SELECT SUM(balance) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id), 0)::float AS outstanding_balance,
+      COALESCE((SELECT SUM(lifetime_earned) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id), 0)::float AS lifetime_earned,
+      COALESCE((SELECT SUM(lifetime_redeemed) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id), 0)::float AS lifetime_redeemed,
+      (SELECT COUNT(DISTINCT customer_address) FROM customer_affiliate_group_balances b WHERE b.group_id = g.group_id)::int AS holder_count,
+      COALESCE((SELECT SUM(allocated_rcn) FROM shop_group_rcn_allocations a WHERE a.group_id = g.group_id), 0)::float AS rcn_allocated,
+      COALESCE((SELECT SUM(available_rcn) FROM shop_group_rcn_allocations a WHERE a.group_id = g.group_id), 0)::float AS rcn_available
+    FROM affiliate_shop_groups g
+    ORDER BY g.created_at DESC
+  `);
+
+  const groups = groupsRes.rows.map((g: Record<string, unknown>) => {
+    const outstanding = Number(g.outstanding_balance) || 0;
+    const tokenValue = Number(g.token_value_usd) || 0;
+    return {
+      groupId: g.group_id as string,
+      groupName: g.group_name as string,
+      groupType: g.group_type as string,
+      active: Boolean(g.active),
+      customTokenName: g.custom_token_name as string | null,
+      customTokenSymbol: g.custom_token_symbol as string | null,
+      tokenValueUsd: tokenValue,
+      createdByShopId: g.created_by_shop_id as string | null,
+      createdAt: g.created_at as string,
+      memberCount: Number(g.member_count) || 0,
+      pendingMembers: Number(g.pending_members) || 0,
+      outstandingBalance: outstanding,
+      lifetimeEarned: Number(g.lifetime_earned) || 0,
+      lifetimeRedeemed: Number(g.lifetime_redeemed) || 0,
+      holderCount: Number(g.holder_count) || 0,
+      rcnAllocated: Number(g.rcn_allocated) || 0,
+      rcnAvailable: Number(g.rcn_available) || 0,
+      liabilityUsd: outstanding * tokenValue,
+    };
+  });
+
+  const summary = {
+    totalGroups: groups.length,
+    activeGroups: groups.filter((g) => g.active).length,
+    totalMembers: groups.reduce((s, g) => s + (g.memberCount || 0), 0),
+    totalOutstandingTokens: groups.reduce((s, g) => s + (g.outstandingBalance || 0), 0),
+    totalLiabilityUsd: groups.reduce((s, g) => s + (g.liabilityUsd || 0), 0),
+    totalRcnAllocated: groups.reduce((s, g) => s + (g.rcnAllocated || 0), 0),
+  };
+
+  res.json({ success: true, data: { summary, groups } });
+}));
+
+// Referral program analytics (platform-wide)
+router.get('/referrals/analytics', asyncHandler(async (req, res) => {
+  const { getSharedPool } = await import('../../../utils/database-pool');
+  const pool = getSharedPool();
+
+  const summaryRes = await pool.query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE completed_at IS NOT NULL)::int AS completed,
+      COUNT(*) FILTER (WHERE completed_at IS NULL AND (expires_at IS NULL OR expires_at > NOW()))::int AS pending,
+      COUNT(*) FILTER (WHERE completed_at IS NULL AND expires_at IS NOT NULL AND expires_at <= NOW())::int AS expired,
+      COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN COALESCE(reward_amount,0) + COALESCE(referee_bonus,0) ELSE 0 END), 0)::float AS rcn_paid,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int AS last7,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS last30
+    FROM referrals
+  `);
+  const s = summaryRes.rows[0];
+  const conversionRate = s.total > 0 ? (s.completed / s.total) * 100 : 0;
+
+  // Leaderboard computed directly from referrals (there is no referral_stats view here).
+  const lbRes = await pool.query(`
+    SELECT
+      r.referrer_address,
+      c.name AS referrer_name,
+      COUNT(*)::int AS total_referrals,
+      COUNT(*) FILTER (WHERE r.completed_at IS NOT NULL)::int AS successful_referrals,
+      COALESCE(SUM(CASE WHEN r.completed_at IS NOT NULL THEN COALESCE(r.reward_amount,0) ELSE 0 END), 0)::float AS total_earned_rcn,
+      MAX(r.created_at) AS last_referral_date
+    FROM referrals r
+    LEFT JOIN customers c ON LOWER(c.address) = LOWER(r.referrer_address)
+    GROUP BY r.referrer_address, c.name
+    ORDER BY successful_referrals DESC, total_earned_rcn DESC
+    LIMIT 20
+  `);
+  const leaderboard = lbRes.rows.map((row: Record<string, unknown>) => ({
+    referrerAddress: row.referrer_address as string,
+    referrerName: (row.referrer_name as string) || undefined,
+    totalReferrals: Number(row.total_referrals) || 0,
+    successfulReferrals: Number(row.successful_referrals) || 0,
+    totalEarnedRcn: Number(row.total_earned_rcn) || 0,
+    lastReferralDate: row.last_referral_date as string | undefined,
+  }));
+
+  res.json({
+    success: true,
+    data: {
+      summary: {
+        total: s.total,
+        completed: s.completed,
+        pending: s.pending,
+        expired: s.expired,
+        rcnPaid: s.rcn_paid,
+        conversionRate,
+        last7Days: s.last7,
+        last30Days: s.last30,
+      },
+      leaderboard,
+    },
+  });
+}));
 
 // System maintenance
 router.post('/maintenance/cleanup-webhooks', 
@@ -499,6 +758,94 @@ router.post('/test/subscription-reminders/setup/:shopId',
 // Treasury management routes
 router.use('', treasuryRoutes);
 
+// Fraud & Abuse Detection — Trust & Safety review queue (Admin AI #1)
+import fraudRoutes from './fraud';
+router.use('', fraudRoutes);
+
+// Platform Health Copilot — "ask the platform" admin assistant (Admin AI #2)
+import { makePlatformCopilotController } from '../../AIAgentDomain/controllers/PlatformCopilotController';
+const platformCopilot = makePlatformCopilotController();
+router.post('/ai/platform-copilot', (req, res) => { void platformCopilot.ask(req, res); });
+
+// Smart Command Bar (⌘K) brain — routes a query to navigation or a data answer.
+import { makeCommandBarController } from '../../AIAgentDomain/controllers/CommandBarController';
+const commandBar = makeCommandBarController();
+router.post('/ai/command', (req, res) => { void commandBar.run(req, res); });
+
+// AI Content Moderation (Admin AI #5) — flag inappropriate listings/reviews.
+import { scanContent, deactivateService, removeReview } from '../../AIAgentDomain/services/contentModeration';
+router.get('/content-moderation/scan', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const result = await scanContent(force);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('Content moderation scan failed:', error);
+    res.status(500).json({ success: false, error: 'Content scan failed' });
+  }
+});
+router.post('/content-moderation/service/:serviceId/deactivate', async (req, res) => {
+  try {
+    const ok = await deactivateService(req.params.serviceId);
+    if (!ok) return res.status(404).json({ success: false, error: 'Service not found' });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to deactivate service:', error);
+    res.status(500).json({ success: false, error: 'Failed to deactivate service' });
+  }
+});
+router.post('/content-moderation/review/:reviewId/remove', async (req, res) => {
+  try {
+    const ok = await removeReview(req.params.reviewId);
+    if (!ok) return res.status(404).json({ success: false, error: 'Review not found' });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to remove review:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove review' });
+  }
+});
+
+// Support Ticket Triage (Admin AI #4) — suggest category/priority/summary/reply.
+import { getSupportTriage } from '../../AIAgentDomain/services/supportTriage';
+router.get('/support/tickets/:ticketId/ai-triage', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const triage = await getSupportTriage(req.params.ticketId, force);
+    if (!triage) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    res.json({ success: true, data: triage });
+  } catch (error) {
+    logger.error('Error generating support triage:', error);
+    res.status(500).json({ success: false, error: 'Failed to triage ticket' });
+  }
+});
+
+// Shop Approval Assistant (Admin AI #3) — AI screening for a pending shop.
+import { getShopScreening } from '../../AIAgentDomain/services/shopScreening';
+router.get('/shops/:shopId/ai-screening', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const screening = await getShopScreening(req.params.shopId, force);
+    if (!screening) return res.status(404).json({ success: false, error: 'Shop not found' });
+    res.json({ success: true, data: screening });
+  } catch (error) {
+    logger.error('Error generating shop screening:', error);
+    res.status(500).json({ success: false, error: 'Failed to screen shop' });
+  }
+});
+
+// Daily Executive Briefing (Platform Copilot Phase 3) — cached once/day.
+import { getExecutiveBriefing } from '../../AIAgentDomain/services/platform/executiveBriefing';
+router.get('/ai/briefing', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const briefing = await getExecutiveBriefing(force);
+    res.json({ success: true, data: briefing });
+  } catch (error) {
+    logger.error('Error generating executive briefing:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate briefing' });
+  }
+});
+
 // Analytics routes
 router.use('/analytics', analyticsRoutes);
 
@@ -533,6 +880,10 @@ router.use('', shopManagementRoutes);
 // Bug report management routes
 import bugReportAdminRoutes from './bugReports';
 router.use('/bug-reports', bugReportAdminRoutes);
+
+// Moderation: shop issue reports + flagged reviews
+import moderationAdminRoutes from './moderation';
+router.use('/moderation', moderationAdminRoutes);
 
 // System settings routes
 import settingsRoutes from './settings';

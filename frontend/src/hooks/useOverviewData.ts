@@ -10,6 +10,7 @@ export interface PlatformStats {
   totalTransactions: number;
   totalTokensIssued: number;
   totalRedemptions: number;
+  totalRevenue?: number;
   activeCustomersLast30Days: number;
   averageTransactionValue: number;
   topPerformingShops: Array<{
@@ -77,6 +78,7 @@ export function useOverviewData() {
           totalTransactions: optimizedStats.transactionStats.totalTransactions,
           totalTokensIssued: optimizedStats.tokenStats.totalRcnMinted,
           totalRedemptions: optimizedStats.tokenStats.totalRcnRedeemed,
+          totalRevenue: optimizedStats.revenueStats.totalRevenue,
           activeCustomersLast30Days: optimizedStats.userStats.totalActiveCustomers, // Approximation
           averageTransactionValue: optimizedStats.transactionStats.totalTransactions > 0
             ? optimizedStats.tokenStats.totalRcnMinted / optimizedStats.transactionStats.totalTransactions
@@ -90,7 +92,7 @@ export function useOverviewData() {
         // Fallback to old endpoint if new one fails
         const statsData = await adminApi.getStats();
         if (statsData) {
-          setStats(statsData as PlatformStats);
+          setStats(statsData as unknown as PlatformStats);
           setDataFetched(true);
         } else {
           setError("Failed to load platform statistics");

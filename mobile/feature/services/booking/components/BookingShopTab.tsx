@@ -5,6 +5,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   ScrollView,
+  FlatList,
+  RefreshControl,
   Modal,
   Pressable,
   Dimensions,
@@ -519,29 +521,32 @@ type ViewMode = "calendar" | "list";
 interface BookingListProps {
   bookings: BookingData[];
   actions: BookingActions;
+  onRefresh: () => Promise<void>;
+  refreshing: boolean;
 }
 
-function BookingList({ bookings, actions }: BookingListProps) {
+function BookingList({ bookings, actions, onRefresh, refreshing }: BookingListProps) {
   const sortedBookings = [...bookings].sort((a, b) => {
     const dateA = new Date(a.bookingDate || a.createdAt).getTime();
     const dateB = new Date(b.bookingDate || b.createdAt).getTime();
     return dateB - dateA;
   });
 
-  if (sortedBookings.length === 0) {
-    return (
-      <View className="flex-1 items-center justify-center py-12">
-        <Ionicons name="receipt-outline" size={48} color="#333" />
-        <Text className="text-gray-500 mt-3">No bookings found</Text>
-      </View>
-    );
-  }
-
   return (
-    <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-      {sortedBookings.map((booking, idx) => (
+    <FlatList
+      data={sortedBookings}
+      keyExtractor={(item, idx) => item.orderId || String(idx)}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#FFCC00"
+          colors={["#FFCC00"]}
+        />
+      }
+      renderItem={({ item: booking }) => (
         <EnhancedBookingCard
-          key={booking.orderId || idx}
           booking={booking}
           showDate={true}
           onApprove={actions.onApprove}
@@ -549,15 +554,22 @@ function BookingList({ bookings, actions }: BookingListProps) {
           onNoShow={actions.onNoShow}
           isProcessing={actions.isProcessing}
         />
-      ))}
-      <View className="h-24" />
-    </ScrollView>
+      )}
+      ListEmptyComponent={
+        <View className="flex-1 items-center justify-center py-12">
+          <Ionicons name="receipt-outline" size={48} color="#333" />
+          <Text className="text-gray-500 mt-3">No bookings found</Text>
+        </View>
+      }
+      ListFooterComponent={<View className="h-24" />}
+    />
   );
 }
 
 export default function BookingsTab() {
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { data: pendingRescheduleCount } = useRescheduleRequestCountQuery();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const { userProfile } = useAuthStore();
@@ -784,7 +796,19 @@ export default function BookingsTab() {
           actions={actions}
         />
       ) : (
-        <BookingList bookings={bookings} actions={actions} />
+        <BookingList
+          bookings={bookings}
+          actions={actions}
+          refreshing={isRefreshing}
+          onRefresh={async () => {
+            setIsRefreshing(true);
+            try {
+              await refetch();
+            } finally {
+              setIsRefreshing(false);
+            }
+          }}
+        />
       )}
     </View>
   );

@@ -3,10 +3,12 @@ import { getSubscriptionService } from '../../../services/SubscriptionService';
 import { getStripeService } from '../../../services/StripeService';
 import { logger } from '../../../utils/logger';
 import { authMiddleware } from '../../../middleware/auth';
+import { requireShopPermission } from '../../../middleware/permissions';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopRepository } from '../../../repositories';
 import { eventBus } from '../../../events/EventBus';
 import { EmailService } from '../../../services/EmailService';
+import { DEFAULT_TIER, getMonthlyAmountForPriceId, getPlanByPriceId, isValidTier, resolveCheckoutPriceId, TRIAL_PERIOD_DAYS } from '../../../config/subscriptionPlans';
 
 const router = Router();
 
@@ -71,13 +73,22 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
     if (shopSubQuery.rows.length > 0) {
       const shopSub = shopSubQuery.rows[0];
 
+      // An ended/cancelled free trial was never a paid subscription — report it as
+      // "no subscription" so the shop sees "Subscribe", not "Resubscribe".
+      if (shopSub.subscription_type === 'trial' && shopSub.status !== 'active') {
+        return res.json({
+          success: true,
+          data: { currentSubscription: null, hasActiveSubscription: false }
+        });
+      }
+
       // If subscription is paused or cancelled, check if there's a newer active Stripe subscription first
       // This handles resubscription where the shop paid again but shop_subscriptions hasn't been updated yet
       if (shopSub.status === 'paused' || shopSub.status === 'cancelled') {
         // Check if there's an active Stripe subscription that overrides the cancelled status
         if (shopSub.status === 'cancelled') {
           const activeStripeCheck = await db.query(
-            `SELECT id, stripe_subscription_id, status, current_period_end
+            `SELECT id, stripe_subscription_id, stripe_price_id, status, current_period_end
              FROM stripe_subscriptions
              WHERE shop_id = $1 AND status IN ('active', 'past_due', 'unpaid') AND current_period_end > NOW()
              ORDER BY created_at DESC LIMIT 1`,
@@ -99,7 +110,8 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
               shopId,
               activeStripeCheck.rows[0].stripe_subscription_id,
               activeStripeCheck.rows[0].status,
-              new Date(activeStripeCheck.rows[0].current_period_end)
+              new Date(activeStripeCheck.rows[0].current_period_end),
+              activeStripeCheck.rows[0].stripe_price_id
             );
 
             // Fall through to the Stripe subscription check below (don't return cancelled)
@@ -181,6 +193,34 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
           });
         }
       }
+
+      // DB-only free trial has no Stripe subscription to look up — return it here
+      if (shopSub.status === 'active' && shopSub.subscription_type === 'trial') {
+        const trialEndRaw = shopSub.next_payment_date || shopSub.current_period_end;
+        const trialActive = trialEndRaw ? new Date(trialEndRaw) >= new Date() : true;
+        if (trialActive) {
+          const trialEndIso = trialEndRaw ? new Date(trialEndRaw).toISOString() : null;
+          return res.json({
+            success: true,
+            data: {
+              currentSubscription: {
+                id: shopSub.id,
+                shopId: shopSub.shop_id,
+                status: 'active',
+                monthlyAmount: 0,
+                subscriptionType: 'trial',
+                isActive: true,
+                enrolledAt: shopSub.enrolled_at,
+                activatedAt: shopSub.activated_at,
+                nextPaymentDate: trialEndIso,
+                currentPeriodEnd: trialEndIso,
+                cancelAtPeriodEnd: false
+              },
+              hasActiveSubscription: true
+            }
+          });
+        }
+      }
     }
 
     // Check for Stripe subscription only if shop_subscriptions is not cancelled/paused
@@ -253,8 +293,9 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
       const now = new Date();
       const monthsDiff = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
       const paymentsMade = Math.max(1, monthsDiff); // At least 1 if subscription is active
-      const monthlyAmount = stripeSubscription.stripePriceId === process.env.STRIPE_MONTHLY_PRICE_ID ? 500 : 0;
-      
+      const plan = getPlanByPriceId(stripeSubscription.stripePriceId);
+      const monthlyAmount = getMonthlyAmountForPriceId(stripeSubscription.stripePriceId);
+
       // Return Stripe subscription data
       res.json({
         success: true,
@@ -263,6 +304,8 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
             id: stripeSubscription.id,
             status: stripeSubscription.status,
             monthlyAmount: monthlyAmount,
+            tier: plan?.tier ?? null,
+            planLabel: plan?.label ?? null,
             subscriptionType: 'stripe_subscription',
             billingMethod: 'credit_card',
             nextPaymentDate: new Date(stripeSubscription.currentPeriodEnd).toISOString(),
@@ -271,7 +314,16 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
             cancelAtPeriodEnd: stripeSubscription.cancelAtPeriodEnd || false,
             currentPeriodEnd: stripeSubscription.currentPeriodEnd ? new Date(stripeSubscription.currentPeriodEnd).toISOString() : null,
             paymentsMade: paymentsMade,
-            totalPaid: paymentsMade * monthlyAmount
+            totalPaid: paymentsMade * monthlyAmount,
+            // Pending downgrade scheduled for the next renewal (if any)
+            scheduledDowngrade: stripeSubscription.scheduledTier
+              ? {
+                  tier: stripeSubscription.scheduledTier,
+                  effectiveAt: stripeSubscription.scheduledChangeAt
+                    ? new Date(stripeSubscription.scheduledChangeAt).toISOString()
+                    : (stripeSubscription.currentPeriodEnd ? new Date(stripeSubscription.currentPeriodEnd).toISOString() : null)
+                }
+              : null
           },
           hasActiveSubscription: true
         }
@@ -445,7 +497,8 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
         shopId,
         latestSubscription.id,
         latestSubscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
-        currentPeriodEnd
+        currentPeriodEnd,
+        latestSubscription.items.data[0]?.price.id
       );
 
       logger.info('Manually synced subscription from Stripe (created new record + updated shop_subscriptions)', {
@@ -478,7 +531,8 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
         shopId,
         latestSubscription.id,
         syncedSubscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
-        periodEnd
+        periodEnd,
+        latestSubscription.items.data[0]?.price.id
       );
 
       logger.info('Manually synced subscription from Stripe (updated existing record + shop_subscriptions)', {
@@ -550,11 +604,11 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/subscription/subscribe', async (req: Request, res: Response) => {
+router.post('/subscription/subscribe', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
-    const { billingMethod, notes, billingEmail, billingContact, billingPhone } = req.body;
-    
+    const { billingMethod, notes, billingEmail, billingContact, billingPhone, tier } = req.body;
+
     if (!shopId) {
       return res.status(401).json({
         success: false,
@@ -567,6 +621,14 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Billing method, email, and contact name are required'
+      });
+    }
+
+    const selectedTier = tier === undefined ? DEFAULT_TIER : tier;
+    if (!isValidTier(selectedTier)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid subscription tier. Must be one of: starter, growth, business'
       });
     }
 
@@ -634,11 +696,12 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
 
       // Create Stripe checkout session
       const stripe = stripeService.getStripe();
+      const checkoutPriceId = resolveCheckoutPriceId(selectedTier);
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomer.stripeCustomerId,
         payment_method_types: ['card'],
         line_items: [{
-          price: process.env.STRIPE_MONTHLY_PRICE_ID,
+          price: checkoutPriceId,
           quantity: 1
         }],
         mode: 'subscription',
@@ -646,6 +709,7 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
         cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/shop?tab=subscription`,
         metadata: {
           shopId: shopId,
+          tier: selectedTier,
           environment: process.env.NODE_ENV || 'development'
         }
       });
@@ -657,9 +721,9 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
           shopId: shopId,
           stripeCustomerId: stripeCustomer.stripeCustomerId,
           stripeSubscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription.id,
-          stripePriceId: process.env.STRIPE_MONTHLY_PRICE_ID || '',
+          stripePriceId: checkoutPriceId,
           status: 'incomplete', // Will be updated by webhook when payment succeeds
-          metadata: { checkoutSessionId: session.id }
+          metadata: { checkoutSessionId: session.id, tier: selectedTier }
         });
       }
 
@@ -721,6 +785,206 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
 
 /**
  * @swagger
+ * /api/shops/subscription/change-plan:
+ *   post:
+ *     summary: Change the tier of the shop's active subscription
+ *     tags: [Shop Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [tier]
+ *             properties:
+ *               tier:
+ *                 type: string
+ *                 enum: [starter, growth, business]
+ *     responses:
+ *       200:
+ *         description: Subscription tier changed
+ */
+router.post('/subscription/change-plan', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { tier } = req.body;
+
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    if (!isValidTier(tier)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid subscription tier. Must be one of: starter, growth, business'
+      });
+    }
+
+    const subscriptionService = getSubscriptionService();
+    const result = await subscriptionService.changeSubscriptionTier(shopId, tier);
+
+    const messageByOutcome: Record<typeof result.outcome, string> = {
+      upgraded: 'Your plan has been upgraded. The prorated difference has been charged to your card.',
+      downgrade_scheduled: 'Your plan will change at your next renewal. No charge today.',
+      downgrade_canceled: 'Your scheduled downgrade has been cancelled. Your current plan stays unchanged — no charge.',
+    };
+
+    return res.json({
+      success: true,
+      data: {
+        message: messageByOutcome[result.outcome],
+        isUpgrade: result.isUpgrade,
+        outcome: result.outcome,
+        tier: result.newTier,
+        monthlyAmount: result.newAmount,
+        previousAmount: result.previousAmount,
+        effective: result.outcome === 'upgraded' ? 'immediate' : 'next_renewal',
+        nextPaymentDate: new Date(result.subscription.currentPeriodEnd).toISOString(),
+        subscription: result.subscription
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to change subscription plan';
+    logger.error('Failed to change subscription plan', {
+      error: message,
+      shopId: req.user?.shopId
+    });
+
+    const clientErrors = [
+      'No active subscription found',
+      'Shop is already subscribed to this plan',
+      'Subscription is scheduled for cancellation. Reactivate it before changing plans.'
+    ];
+    const status = clientErrors.includes(message) ? 400 : 500;
+
+    return res.status(status).json({
+      success: false,
+      error: status === 400 ? message : 'Failed to change subscription plan. Please try again later.'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/shops/subscription/trial-eligibility:
+ *   get:
+ *     summary: Whether the shop can start a free trial
+ *     tags: [Shop Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/subscription/trial-eligibility', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    if (!shopId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    const db = DatabaseService.getInstance();
+    const shopRes = await db.query('SELECT trial_used_at FROM shops WHERE shop_id = $1', [shopId]);
+    const trialUsed = !!shopRes.rows[0]?.trial_used_at;
+
+    const subscriptionService = getSubscriptionService();
+    const activeStripe = await subscriptionService.getActiveSubscription(shopId);
+
+    const activeShopSub = await db.query(
+      `SELECT 1 FROM shop_subscriptions
+       WHERE shop_id = $1 AND is_active = true AND status IN ('active', 'paused') LIMIT 1`,
+      [shopId]
+    );
+
+    const hasActiveSubscription = !!activeStripe || activeShopSub.rows.length > 0;
+
+    return res.json({
+      success: true,
+      data: {
+        eligible: !trialUsed && !hasActiveSubscription,
+        trialUsed,
+        hasActiveSubscription,
+        trialPeriodDays: TRIAL_PERIOD_DAYS
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to check trial eligibility', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      shopId: req.user?.shopId
+    });
+    return res.status(500).json({ success: false, error: 'Failed to check trial eligibility' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/shops/subscription/start-trial:
+ *   post:
+ *     summary: Start a DB-only free trial (no credit card)
+ *     tags: [Shop Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tier:
+ *                 type: string
+ *                 enum: [starter, growth, business]
+ */
+router.post('/subscription/start-trial', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { tier } = req.body;
+
+    if (!shopId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    const selectedTier = tier === undefined ? DEFAULT_TIER : tier;
+    if (!isValidTier(selectedTier)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid subscription tier. Must be one of: starter, growth, business'
+      });
+    }
+
+    const subscriptionService = getSubscriptionService();
+    const result = await subscriptionService.startTrial(shopId, selectedTier);
+
+    return res.json({
+      success: true,
+      data: {
+        message: `Your ${TRIAL_PERIOD_DAYS}-day free trial has started. No credit card required.`,
+        tier: result.tier,
+        trialEndsAt: result.trialEndsAt.toISOString(),
+        trialPeriodDays: TRIAL_PERIOD_DAYS
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to start free trial';
+    logger.error('Failed to start free trial', { error: message, shopId: req.user?.shopId });
+
+    const clientErrors = [
+      'Shop already has an active subscription',
+      'Free trial has already been used for this shop',
+      'Shop not found'
+    ];
+    const status = clientErrors.includes(message) ? 400 : 500;
+
+    return res.status(status).json({
+      success: false,
+      error: status === 400 ? message : 'Failed to start free trial. Please try again later.'
+    });
+  }
+});
+
+/**
+ * @swagger
  * /api/shops/subscription/subscribe-mobile:
  *   post:
  *     summary: Subscribe to commitment program (Mobile - returns clientSecret for native payment)
@@ -769,13 +1033,18 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
 router.post('/subscription/checkout-mobile', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
-    const { billingEmail, billingContact } = req.body;
+    const { billingEmail, billingContact, tier } = req.body;
 
     if (!shopId) {
       return res.status(401).json({ success: false, error: 'Shop ID not found in token' });
     }
     if (!billingEmail || !billingContact) {
       return res.status(400).json({ success: false, error: 'Billing email and contact name are required' });
+    }
+
+    const selectedTier = tier === undefined ? DEFAULT_TIER : tier;
+    if (!isValidTier(selectedTier)) {
+      return res.status(400).json({ success: false, error: 'Invalid subscription tier. Must be one of: starter, growth, business' });
     }
 
     const subscriptionService = getSubscriptionService();
@@ -800,10 +1069,10 @@ router.post('/subscription/checkout-mobile', async (req: Request, res: Response)
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomer.stripeCustomerId,
       mode: 'subscription',
-      line_items: [{ price: process.env.STRIPE_MONTHLY_PRICE_ID, quantity: 1 }],
+      line_items: [{ price: resolveCheckoutPriceId(selectedTier), quantity: 1 }],
       success_url: `repaircoin://subscription-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `repaircoin://subscription-cancel`,
-      metadata: { shopId, platform: 'mobile' },
+      metadata: { shopId, platform: 'mobile', tier: selectedTier },
     });
 
     return res.json({ success: true, data: { checkoutUrl: session.url, sessionId: session.id } });
@@ -1068,7 +1337,7 @@ router.post('/subscription/subscribe-mobile', async (req: Request, res: Response
  *       401:
  *         description: Unauthorized
  */
-router.post('/subscription/cancel', async (req: Request, res: Response) => {
+router.post('/subscription/cancel', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { reason } = req.body;
@@ -1180,7 +1449,7 @@ router.post('/subscription/cancel', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/subscription/reactivate', async (req: Request, res: Response) => {
+router.post('/subscription/reactivate', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     
@@ -1387,7 +1656,7 @@ router.post('/subscription/reactivate', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-router.post('/:shopId/subscription', async (req: Request, res: Response) => {
+router.post('/:shopId/subscription', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const { shopId } = req.params;
     const { email, name, paymentMethodId } = req.body;
@@ -1561,7 +1830,7 @@ router.get('/:shopId/subscription', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/:shopId/subscription/setup-intent', async (req: Request, res: Response) => {
+router.post('/:shopId/subscription/setup-intent', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const { shopId } = req.params;
 
@@ -1648,7 +1917,7 @@ router.post('/:shopId/subscription/setup-intent', async (req: Request, res: Resp
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:shopId/subscription', async (req: Request, res: Response) => {
+router.delete('/:shopId/subscription', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const { shopId } = req.params;
     const { immediately = false } = req.body;
@@ -2130,7 +2399,7 @@ router.post('/subscription/payment/confirm', async (req: Request, res: Response)
 
 // DEPRECATED: Commitment cancellation endpoint - use DELETE /:shopId/subscription instead
 /*
-router.post('/subscription/cancel', async (req: Request, res: Response) => {
+router.post('/subscription/cancel', requireShopPermission('billing:manage'), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { reason } = req.body;

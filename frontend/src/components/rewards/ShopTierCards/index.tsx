@@ -4,6 +4,7 @@ import { Shield, Sparkles, Crown, CheckCircle, Coins } from "lucide-react";
 import { m, useReducedMotion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import { staggerItem } from "@/components/motion/StaggerContainer";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
 interface ShopTier {
   name: string;
@@ -83,6 +84,7 @@ const shopTiers: ShopTier[] = [
 
 const ShopTierCards = () => {
   const prefersReducedMotion = useReducedMotion();
+  const blockchainEnabled = useBlockchainEnabled();
 
   return (
     <m.div
@@ -115,14 +117,16 @@ const ShopTierCards = () => {
             <h3 className="text-xl md:text-2xl font-bold text-white mb-2">{tier.name}</h3>
             <p className="text-sm text-[#777] mb-6 leading-relaxed">{tier.description}</p>
 
-            {/* RCG Stake pill */}
-            <div className="inline-flex items-center gap-2 border border-[#2a2a2a] rounded-lg px-3 py-2 w-fit mb-6">
-              <Coins className="w-4 h-4 text-[#666]" />
-              <span className="text-sm text-[#aaa]">
-                RCG Stake:{" "}
-                <span className="font-semibold text-white">{tier.rcgStake}</span>
-              </span>
-            </div>
+            {/* RCG Stake pill — blockchain-only, hidden in database-only mode */}
+            {blockchainEnabled && (
+              <div className="inline-flex items-center gap-2 border border-[#2a2a2a] rounded-lg px-3 py-2 w-fit mb-6">
+                <Coins className="w-4 h-4 text-[#666]" />
+                <span className="text-sm text-[#aaa]">
+                  RCG Stake:{" "}
+                  <span className="font-semibold text-white">{tier.rcgStake}</span>
+                </span>
+              </div>
+            )}
 
             {/* Stats grid */}
             <div className="grid grid-cols-2 gap-3 mb-6">

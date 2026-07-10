@@ -22,7 +22,13 @@ async function buildPayload(campaignId: string) {
     perf.getDailyRows(campaignId, 30),
     roi.computeForCampaign(campaignId),
   ]);
-  return { campaignId, roi: roiSummary, dailyRows: rows };
+  // Per-channel split (Messenger vs webform vs Google …). Spend isn't reported per
+  // channel, so it's allocated by lead share — leads/bookings/revenue are exact.
+  const channels = RoiCalculator.channelsFromRows(
+    await perf.getChannelBreakdown(campaignId),
+    roiSummary.totalSpendCents
+  );
+  return { campaignId, roi: roiSummary, dailyRows: rows, channels };
 }
 
 // POST /campaigns/:id/metrics (admin) — manual daily metric entry (idempotent per day)
@@ -35,13 +41,12 @@ export async function enterDailyMetrics(req: Request, res: Response): Promise<vo
   try {
     const campaign = await campaigns.findById(req.params.id);
     if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    // Spend/impressions/clicks only — leads/bookings/revenue are pipeline-derived (Q5)
+    // and must not be hand-set, or the next roll-up would clobber the manual values.
     await perf.upsertDaily(campaign.id, date, {
       spendCents: req.body.spendCents,
       impressions: req.body.impressions,
       clicks: req.body.clicks,
-      leadsCaptured: req.body.leadsCaptured,
-      bookingsCreated: req.body.bookingsCreated,
-      revenueCents: req.body.revenueCents,
     });
     res.json({ success: true, data: await buildPayload(campaign.id) });
   } catch (err) {

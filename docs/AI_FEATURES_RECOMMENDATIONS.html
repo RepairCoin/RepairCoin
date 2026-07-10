@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RepairCoin — AI Features: Recommendations &amp; Roadmap</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #181b22;
+    --card2: #1d212b;
+    --line: #2a2f3a;
+    --text: #e8eaed;
+    --muted: #9aa3b2;
+    --accent: #f5b301;
+    --green: #34d399;
+    --blue: #60a5fa;
+    --amber: #fbbf24;
+    --purple: #a78bfa;
+    --pink: #f472b6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55; padding: 40px 20px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  header { border-bottom: 2px solid var(--purple); padding-bottom: 22px; margin-bottom: 26px; }
+  .eyebrow { color: var(--purple); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin: 0 0 6px; }
+  h1 { font-size: 31px; margin: 0 0 6px; }
+  .dates { color: var(--muted); font-size: 15px; margin: 0; }
+  .byline { color: var(--muted); font-size: 13.5px; margin: 8px 0 0; }
+  .byline strong { color: var(--text); }
+
+  .intro {
+    background: linear-gradient(135deg, #211d30, #181b22);
+    border: 1px solid var(--line); border-left: 4px solid var(--purple);
+    border-radius: 10px; padding: 18px 22px; margin: 24px 0; font-size: 15.5px;
+  }
+  .intro strong { color: var(--purple); }
+
+  h2 { font-size: 21px; margin: 38px 0 14px; display: flex; align-items: center; gap: 10px; }
+  h3 { font-size: 15px; margin: 14px 0 5px; color: var(--accent); }
+  .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; background: var(--purple); color: #160f22;
+    border-radius: 7px; font-size: 15px; font-weight: 800; flex: none;
+  }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 22px; margin-bottom: 14px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
+  ul { margin: 6px 0 0; padding-left: 20px; } li { margin: 6px 0; } li strong { color: #fff; }
+  .muted { color: var(--muted); }
+  code {
+    background: #11141a; border: 1px solid var(--line); border-radius: 5px;
+    padding: 1px 6px; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: #d6deeb;
+  }
+
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; vertical-align: middle; }
+  .rank { background: var(--accent); color:#1a1a1a; }
+  .rank2 { background: var(--blue); color:#06122a; }
+  .rank3 { background: var(--pink); color:#2a0a1c; }
+  .eff-low { background: rgba(52,211,153,0.15); color: var(--green); border: 1px solid rgba(52,211,153,0.4); }
+  .eff-med { background: rgba(251,191,36,0.13); color: var(--amber); border: 1px solid rgba(251,191,36,0.4); }
+  .eff-high { background: rgba(244,114,182,0.13); color: var(--pink); border: 1px solid rgba(244,114,182,0.4); }
+
+  .metrics { display: flex; gap: 12px; flex-wrap: wrap; margin: 22px 0; }
+  .metric { flex: 1; min-width: 120px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .metric .big { font-size: 24px; font-weight: 800; color: var(--purple); }
+  .metric .lbl { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+
+  .rec { border-left: 4px solid var(--line); }
+  .rec.top { border-left-color: var(--accent); }
+  .rec.two { border-left-color: var(--blue); }
+  .rec.three { border-left-color: var(--pink); }
+  .rec-head { display:flex; align-items:center; gap:10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .rec-head h3 { margin: 0; color: #fff; font-size: 17px; }
+
+  .meta-row { display:flex; gap:18px; flex-wrap:wrap; margin-top: 10px; font-size:13px; }
+  .meta-row div { color: var(--muted); }
+  .meta-row b { color: var(--text); font-weight:600; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .reco-box {
+    background: rgba(245,179,1,0.07); border: 1px solid rgba(245,179,1,0.35);
+    border-radius: 10px; padding: 16px 20px; margin-top: 12px; font-size: 15px;
+  }
+  .reco-box strong { color: var(--accent); }
+  footer { margin-top: 38px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Product / Engineering Proposal</p>
+    <h1>AI Features — Recommendations &amp; Roadmap</h1>
+    <p class="dates">RepairCoin · Prepared June 19, 2026</p>
+    <p class="byline">Prepared by: <strong>Zeff</strong> · Focus: high-leverage AI features that build on existing infrastructure</p>
+  </header>
+
+  <div class="intro">
+    <strong>Context:</strong> RepairCoin already has a remarkably mature AI platform. These recommendations deliberately <strong>skip the basics we already have</strong> and target high-impact gaps that reuse existing infrastructure — leaning into our unique advantage: <strong>repair shops + RCN/RCG rewards</strong>.
+  </div>
+
+  <!-- WHAT WE HAVE -->
+  <h2><span class="num">◉</span> What We Already Have</h2>
+  <div class="metrics">
+    <div class="metric"><div class="big">20</div><div class="lbl">AI controllers</div></div>
+    <div class="metric"><div class="big">80+</div><div class="lbl">AI services</div></div>
+    <div class="metric"><div class="big">19</div><div class="lbl">agentic insight tools</div></div>
+    <div class="metric"><div class="big">4</div><div class="lbl">modalities (text/vision/voice/image)</div></div>
+    <div class="metric"><div class="big">2</div><div class="lbl">providers (Claude + OpenAI)</div></div>
+  </div>
+  <div class="card">
+    <p class="sub" style="margin-bottom:8px">A quick snapshot of the existing footprint, so recommendations don't duplicate it:</p>
+    <ul style="margin-top:0">
+      <li><strong>Customer:</strong> public AI repair diagnostic chat (text + image), per-service sales assistant (tone, FAQ, upsell, booking).</li>
+      <li><strong>Shop:</strong> business insights (agentic, 19 tools), marketing assistant, unified "talk to my business" assistant, anomaly alerts, how-to help assistant, brand kit &amp; template studio.</li>
+      <li><strong>Media:</strong> image generation &amp; editing (DALL·E 3), voice transcription (Whisper), text-to-speech, voice dispatch classifier.</li>
+      <li><strong>Platform:</strong> per-shop spend caps, model auto-fallback, full audit trail, admin cost dashboards.</li>
+    </ul>
+  </div>
+
+  <!-- TOP 3 -->
+  <h2><span class="num">★</span> Recommended New Features</h2>
+
+  <!-- #1 -->
+  <div class="card rec top">
+    <div class="rec-head">
+      <span class="pill rank">Priority 1</span>
+      <h3>Proactive Retention Agent — churn &amp; cancellation prevention</h3>
+    </div>
+    <p class="sub">Our AI today is mostly <em>reactive</em> (waits to be asked). The biggest untapped value is going <em>proactive</em>.</p>
+    <h3>What it does</h3>
+    <ul>
+      <li>Nightly job scores <strong>at-risk / lapsing customers</strong> → drafts a personalized win-back message with a targeted <strong>RCN reward bonus</strong> as the incentive.</li>
+      <li>Detects <strong>cancellation-risk bookings</strong> and suggests a retention offer before they fall through.</li>
+      <li>Surfaces everything <strong>confirm-gated</strong> in the existing marketing assistant — nothing sends without owner approval.</li>
+    </ul>
+    <h3>Why it wins</h3>
+    <ul>
+      <li>Directly drives revenue and uniquely uses our <strong>token economics</strong> as the retention lever.</li>
+      <li>Mostly <strong>wiring together existing pieces</strong> (anomaly detection, lapsed-customer insights, follow-up handlers, campaign tools) — not new infrastructure.</li>
+    </ul>
+    <div class="meta-row">
+      <div><b>Builds on:</b> Insights tools, Anomaly detector, Marketing assistant, RCN rewards</div>
+      <div><b>Effort:</b> <span class="pill eff-med">Medium</span></div>
+      <div><b>ROI:</b> Highest</div>
+    </div>
+  </div>
+
+  <!-- #2 -->
+  <div class="card rec two">
+    <div class="rec-head">
+      <span class="pill rank2">Priority 2</span>
+      <h3>Semantic Search via Embeddings — recommendation-quality upgrade</h3>
+    </div>
+    <p class="sub">Customer repair chat and the marketplace currently use keyword/tag matching — the weakest link in recommendation quality.</p>
+    <h3>What it does</h3>
+    <ul>
+      <li>Add <code>pgvector</code> to our existing PostgreSQL; embed services, FAQs, and past conversations.</li>
+      <li>Back the diagnostic chat's service-search tool and the marketplace with <strong>vector (meaning-based) search</strong>.</li>
+    </ul>
+    <h3>Why it wins</h3>
+    <ul>
+      <li>One upgrade lifts <strong>many features at once</strong> — better diagnoses, search, and FAQ matching.</li>
+      <li><strong>No new database</strong> required; low risk, foundational investment.</li>
+    </ul>
+    <div class="meta-row">
+      <div><b>Builds on:</b> Existing Postgres, customer chat search tool, marketplace</div>
+      <div><b>Effort:</b> <span class="pill eff-med">Medium</span></div>
+      <div><b>ROI:</b> High (foundational)</div>
+    </div>
+  </div>
+
+  <!-- #3 -->
+  <div class="card rec three">
+    <div class="rec-head">
+      <span class="pill rank3">Priority 3</span>
+      <h3>Voice Booking Agent — inbound phone calls</h3>
+    </div>
+    <p class="sub">Repair shops live on phone calls. We already have the voice building blocks.</p>
+    <h3>What it does</h3>
+    <ul>
+      <li>A real-time voice agent answers calls, diagnoses the issue, quotes a service, and <strong>books an appointment</strong> — handing off to a human on escalation.</li>
+    </ul>
+    <h3>Why it wins</h3>
+    <ul>
+      <li>Genuinely <strong>novel for this vertical</strong>; turns missed calls into booked revenue.</li>
+      <li>Reuses our Whisper, TTS, dispatch classifier, and booking tools.</li>
+    </ul>
+    <div class="meta-row">
+      <div><b>Builds on:</b> Whisper, TTS, voice dispatch, booking/availability tools</div>
+      <div><b>Effort:</b> <span class="pill eff-high">Larger</span> (telephony)</div>
+      <div><b>ROI:</b> High — flagship differentiator</div>
+    </div>
+  </div>
+
+  <!-- HONORABLE MENTIONS -->
+  <h2><span class="num">+</span> Honorable Mentions</h2>
+  <div class="card" style="padding-top:8px;padding-bottom:8px;">
+    <table>
+      <tr><th>Feature</th><th>What it does</th><th>Effort</th></tr>
+      <tr>
+        <td><b>AI Reward Optimizer</b><br><span class="muted">unique to RepairCoin</span></td>
+        <td>Recommends the optimal RCN reward % per service/customer to maximize retention vs. cost.</td>
+        <td><span class="pill eff-med">Medium</span></td>
+      </tr>
+      <tr>
+        <td><b>Review &amp; Reputation Mgmt</b></td>
+        <td>Auto-draft responses to reviews and request reviews at the optimal moment.</td>
+        <td><span class="pill eff-low">Low</span></td>
+      </tr>
+      <tr>
+        <td><b>Customer Personal Assistant</b></td>
+        <td>"Your repair history, your RCN balance, best places to redeem." Most AI today is shop-facing; the customer side is thin.</td>
+        <td><span class="pill eff-med">Medium</span></td>
+      </tr>
+      <tr>
+        <td><b>AI Eval / Quality Harness</b><br><span class="muted">internal</span></td>
+        <td>A regression suite for prompts/tools to catch quality drift as the AI surface grows.</td>
+        <td><span class="pill eff-low">Low</span></td>
+      </tr>
+      <tr>
+        <td><b>Lead Quality Scoring (Ads)</b></td>
+        <td>Classify inbound leads by likelihood-to-convert before auto-answer, to prioritize routing.</td>
+        <td><span class="pill eff-low">Low</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- PRIORITIZATION -->
+  <h2><span class="num">▦</span> At-a-Glance Prioritization</h2>
+  <div class="card" style="padding-top:8px;padding-bottom:8px;">
+    <table>
+      <tr><th>#</th><th>Feature</th><th>Impact</th><th>Effort</th><th>Reuses existing?</th></tr>
+      <tr><td>1</td><td>Proactive Retention Agent</td><td>Revenue ↑↑↑</td><td>Medium</td><td>Heavily</td></tr>
+      <tr><td>2</td><td>Semantic Search (embeddings)</td><td>Quality ↑↑ (broad)</td><td>Medium</td><td>Yes</td></tr>
+      <tr><td>3</td><td>Voice Booking Agent</td><td>Differentiator ↑↑↑</td><td>Larger</td><td>Partially</td></tr>
+      <tr><td>4</td><td>AI Reward Optimizer</td><td>Margin ↑↑</td><td>Medium</td><td>Yes</td></tr>
+      <tr><td>5</td><td>Review / Reputation Mgmt</td><td>Trust ↑</td><td>Low</td><td>Yes</td></tr>
+    </table>
+  </div>
+
+  <!-- RECOMMENDED PATH -->
+  <h2><span class="num">→</span> Recommended Path</h2>
+  <div class="reco-box">
+    <strong>Start with the Proactive Retention Agent</strong> — best ROI, reuses our infrastructure, and showcases the rewards angle that makes RepairCoin different. <strong>Semantic Search</strong> is the best foundational investment if we'd rather strengthen the base first — and the two pair well, since better search makes the retention agent's recommendations sharper.
+    <div style="margin-top:10px; font-size:14px; color:var(--muted)">
+      Suggested sequence: <b>1)</b> Retention Agent (quick revenue win) → <b>2)</b> Semantic Search (foundation) → <b>3)</b> Voice Booking Agent (flagship).
+    </div>
+  </div>
+
+  <footer>
+    Prepared June 19, 2026 · RepairCoin · Recommendations based on a full inventory of the existing AI platform (20 controllers, 80+ services, text/vision/voice/image).
+  </footer>
+
+</div>
+</body>
+</html>

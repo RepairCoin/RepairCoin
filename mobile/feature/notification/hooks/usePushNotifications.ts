@@ -7,6 +7,7 @@ import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { usePaymentStore } from "@/feature/services/payment/store/payment.store";
+import { useNotificationUiStore } from "@/shared/store/notification-ui.store";
 import { notificationApi } from "@/feature/notification/services/notification.services";
 import {
   PushNotificationState,
@@ -15,16 +16,54 @@ import {
 
 // Persists the user's explicit "Turn off notifications" choice so the app does
 // NOT silently re-register the push token on the next launch / re-login.
-const PUSH_DISABLED_KEY = "push_notifications_disabled";
+//
+// Scoped PER WALLET. AsyncStorage is device-global, so a single shared key let
+// one account's "off" choice suppress registration for the NEXT account that
+// logs in on the same device — leaving the previous user's token active and
+// still receiving pushes. Keying by wallet keeps each account's choice isolated.
+const PUSH_DISABLED_PREFIX = "push_notifications_disabled";
+
+function pushDisabledKey(address?: string | null): string {
+  return address
+    ? `${PUSH_DISABLED_PREFIX}:${address.toLowerCase()}`
+    : PUSH_DISABLED_PREFIX;
+}
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data as NotificationData;
+    const isForeground = AppState.currentState === "active";
+    const activeConversationId =
+      useNotificationUiStore.getState().activeConversationId;
+
+    // If we're already inside the exact conversation this message belongs to,
+    // the chat screen polls and renders it live — so suppress the redundant OS
+    // banner/sound. Pushes for other conversations (or any other type, or while
+    // backgrounded) still show normally.
+    const viewingThisConversation =
+      isForeground &&
+      data?.type === "new_message" &&
+      !!data?.conversationId &&
+      data.conversationId === activeConversationId;
+
+    if (viewingThisConversation) {
+      return {
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      };
+    }
+
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    };
+  },
 });
 
 export function usePushNotifications() {
@@ -36,17 +75,30 @@ export function usePushNotifications() {
     error: null,
   });
 
-  const { isAuthenticated, accessToken, userType, isDemo } = useAuthStore();
+  const { isAuthenticated, accessToken, userType, isDemo, account, userProfile } =
+    useAuthStore();
+
+  const walletAddress: string | null =
+    userProfile?.walletAddress || userProfile?.address || account?.address || null;
 
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
   const isRegistering = useRef(false);
   const userTypeRef = useRef(userType);
+  const walletAddressRef = useRef(walletAddress);
   const lastHandledResponseId = useRef<string | null>(null);
+  // Holds a tap whose deep link couldn't be resolved yet because auth state
+  // (userType) hadn't hydrated — typical when a tap cold-starts a killed app.
+  // Replayed once userType is available so the redirect isn't lost.
+  const pendingResponseRef = useRef<Notifications.NotificationResponse | null>(null);
 
   useEffect(() => {
     userTypeRef.current = userType;
   }, [userType]);
+
+  useEffect(() => {
+    walletAddressRef.current = walletAddress;
+  }, [walletAddress]);
 
   const setupAndroidChannels = useCallback(async () => {
     if (Platform.OS !== "android") return;
@@ -146,7 +198,7 @@ export function usePushNotifications() {
           });
 
           // Successfully registered → clear any prior "turned off" choice.
-          await AsyncStorage.removeItem(PUSH_DISABLED_KEY);
+          await AsyncStorage.removeItem(pushDisabledKey(walletAddressRef.current));
 
           setState({
             expoPushToken,
@@ -209,21 +261,30 @@ export function usePushNotifications() {
       if (lastHandledResponseId.current === responseId) {
         return;
       }
-      lastHandledResponseId.current = responseId;
 
-      if (AppState.currentState !== "active") {
-        return;
-      }
+      // NOTE: do not gate on AppState here. Tapping a native notification while
+      // the app is backgrounded or killed fires this listener during the
+      // foreground transition, when currentState is still "background"/
+      // "inactive" — gating on "active" silently dropped the redirect.
 
+      // Don't redirect away from an in-progress payment flow.
       if (usePaymentStore.getState().activeSession) {
+        lastHandledResponseId.current = responseId;
         return;
       }
 
       const currentUserType = userTypeRef.current;
 
       if (!currentUserType) {
+        // Auth hasn't hydrated yet (cold start from a killed app). Stash the
+        // tap and replay it once userType is available instead of dropping the
+        // deep link. Don't mark it handled yet, or the replay would dedupe out.
+        pendingResponseRef.current = response;
         return;
       }
+
+      lastHandledResponseId.current = responseId;
+      pendingResponseRef.current = null;
 
       const isShop = currentUserType === "shop";
       const notificationType = data?.type;
@@ -249,13 +310,22 @@ export function usePushNotifications() {
             ? "/(dashboard)/shop/tabs/history"
             : "/(dashboard)/customer/tabs/history";
           break;
+        case "new_booking":
+        case "service_booking_received": {
+          // Open the specific booking. New-booking notifications target the shop
+          // and carry orderId; fall back to the bookings list if it's missing.
+          const orderId = data?.orderId as string | undefined;
+          const base = isShop
+            ? "/(dashboard)/shop/booking"
+            : "/(dashboard)/customer/booking";
+          route = orderId ? `${base}/${orderId}` : base;
+          break;
+        }
         case "booking_confirmed":
         case "appointment_reminder":
         case "upcoming_appointment":
         case "service_order_completed":
         case "order_completed":
-        case "service_booking_received":
-        case "new_booking":
           route = isShop
             ? "/(dashboard)/shop/booking"
             : "/(dashboard)/customer/tabs/service/";
@@ -274,6 +344,16 @@ export function usePushNotifications() {
             ? "/(dashboard)/shop/subscription"
             : "/(dashboard)/customer/notification";
           break;
+        case "new_message": {
+          // Open the conversation directly. Fall back to the messages list if
+          // the payload is missing the conversationId for any reason.
+          const conversationId = data?.conversationId as string | undefined;
+          const base = isShop
+            ? "/(dashboard)/shop/messages"
+            : "/(dashboard)/customer/messages";
+          route = conversationId ? `${base}/${conversationId}` : base;
+          break;
+        }
         default:
           route = isShop
             ? "/(dashboard)/shop/notification"
@@ -290,8 +370,9 @@ export function usePushNotifications() {
   const unregisterPushNotifications = useCallback(async () => {
     // Remember the user's choice first, so it persists even if the backend call
     // fails — otherwise the next launch / re-login would silently re-register
-    // and turn notifications back on.
-    await AsyncStorage.setItem(PUSH_DISABLED_KEY, "true");
+    // and turn notifications back on. Scoped to this wallet so it does not
+    // suppress a different account that later logs in on the same device.
+    await AsyncStorage.setItem(pushDisabledKey(walletAddressRef.current), "true");
 
     // Deactivate ALL of this user's tokens (by wallet), not just the one in
     // local state. The current token may have rotated or be missing from state,
@@ -336,8 +417,8 @@ export function usePushNotifications() {
     if (isAuthenticated && accessToken) {
       (async () => {
         // Respect an explicit "Turn off notifications" choice — do not
-        // auto-register on launch / re-login if the user disabled push.
-        const disabled = await AsyncStorage.getItem(PUSH_DISABLED_KEY);
+        // auto-register on launch / re-login if THIS wallet disabled push.
+        const disabled = await AsyncStorage.getItem(pushDisabledKey(walletAddress));
         if (disabled === "true") {
           setState((prev) => ({
             ...prev,
@@ -355,7 +436,7 @@ export function usePushNotifications() {
         isLoading: false,
       }));
     }
-  }, [isAuthenticated, accessToken, isDemo, registerForPushNotifications]);
+  }, [isAuthenticated, accessToken, isDemo, walletAddress, registerForPushNotifications]);
 
   useEffect(() => {
     notificationListener.current =
@@ -372,14 +453,41 @@ export function usePushNotifications() {
     };
   }, [handleNotificationReceived, handleNotificationResponse]);
 
+  // Handle the notification that LAUNCHED the app from a killed state. The
+  // response listener above isn't guaranteed to fire for the cold-start tap, so
+  // pull it explicitly on mount. Dedupe via lastHandledResponseId prevents
+  // double-routing if the listener also delivers it.
+  useEffect(() => {
+    let isMounted = true;
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (isMounted && response) {
+        handleNotificationResponse(response);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [handleNotificationResponse]);
+
+  // Replay a tap that arrived before auth hydrated (see pendingResponseRef).
+  useEffect(() => {
+    if (userType && pendingResponseRef.current) {
+      const pending = pendingResponseRef.current;
+      pendingResponseRef.current = null;
+      handleNotificationResponse(pending);
+    }
+  }, [userType, handleNotificationResponse]);
+
   useEffect(() => {
     const subscription = Notifications.addPushTokenListener(async () => {
       if (isRegistering.current) {
         return;
       }
 
-      // Don't re-register on token rotation if the user turned push off.
-      const disabled = await AsyncStorage.getItem(PUSH_DISABLED_KEY);
+      // Don't re-register on token rotation if this wallet turned push off.
+      const disabled = await AsyncStorage.getItem(
+        pushDisabledKey(walletAddressRef.current)
+      );
       if (disabled === "true") {
         return;
       }

@@ -7,11 +7,14 @@ import { logger } from '../../../utils/logger';
 import { eventBus } from '../../../events/EventBus';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopPurchaseService } from '../services/ShopPurchaseService';
+import { leadBookingService } from '../../AdsDomain/services/LeadBookingService';
 import { ShopSubscriptionRepository } from '../../../repositories/ShopSubscriptionRepository';
+import { setMultiLocationActive } from '../../../utils/multiLocationEntitlement';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { EmailService } from '../../../services/EmailService';
 import { generalNotificationPreferencesRepository } from '../../../repositories/GeneralNotificationPreferencesRepository';
 import { shopRepository } from '../../../repositories';
+import { getPlanByPriceId } from '../../../config/subscriptionPlans';
 import Stripe from 'stripe';
 
 const router = Router();
@@ -671,6 +674,35 @@ async function handlePaymentSucceeded(event: Stripe.Event, subscriptionService: 
       }
     }
 
+    // Skip subscription_create: the checkout-completed path already seeds payments_made = 1.
+    if (subscriptionId && invoice.billing_reason !== 'subscription_create') {
+      try {
+        const shopId = await getShopIdFromSubscription(subscriptionId);
+        const paidAtTs = invoice.status_transitions?.paid_at;
+        const shopSubRepo = new ShopSubscriptionRepository();
+        const result = await shopSubRepo.recordInvoicePayment({
+          stripeInvoiceId: invoice.id,
+          stripeSubscriptionId: subscriptionId,
+          shopId: shopId ?? invoice.metadata?.shopId,
+          amount: (invoice.amount_paid ?? 0) / 100,
+          billingReason: invoice.billing_reason ?? null,
+          paidAt: paidAtTs ? new Date(paidAtTs * 1000) : new Date(),
+        });
+        if (result.recorded) {
+          logger.info('Incremented subscription payment counters', {
+            invoiceId: invoice.id,
+            subscriptionId,
+          });
+        }
+      } catch (counterError) {
+        logger.error('Failed to increment subscription payment counters', {
+          invoiceId: invoice.id,
+          subscriptionId,
+          error: counterError instanceof Error ? counterError.message : 'Unknown error',
+        });
+      }
+    }
+
     // IMPORTANT: Sync subscription dates after successful payment (renewal)
     // This ensures shop_subscriptions.next_payment_date stays in sync with Stripe
     if (subscriptionId) {
@@ -1169,6 +1201,11 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
       sourceLocation: (subscription as any).current_period_end ? 'subscription' : 'items.data[0]'
     });
 
+    // Keep stripe_price_id in sync with the live price. This matters when a
+    // scheduled downgrade applies at renewal: Stripe switches the price and fires
+    // this webhook, so the DB must pick up the new (lower) price id.
+    const livePriceId = subscription.items?.data?.[0]?.price?.id ?? null;
+
     // Update stripe_subscriptions table
     const query = `
       UPDATE stripe_subscriptions
@@ -1179,8 +1216,9 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
         cancel_at_period_end = $4,
         canceled_at = $5,
         ended_at = $6,
+        stripe_price_id = COALESCE($7, stripe_price_id),
         updated_at = CURRENT_TIMESTAMP
-      WHERE stripe_subscription_id = $7
+      WHERE stripe_subscription_id = $8
       RETURNING shop_id
     `;
 
@@ -1191,10 +1229,25 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
       subscription.cancel_at_period_end,
       subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
       subscription.ended_at ? new Date(subscription.ended_at * 1000) : null,
+      livePriceId,
       subscription.id
     ];
 
     const result = await db.query(query, values);
+
+    // Once a scheduled downgrade has actually applied (the live price is now the
+    // scheduled tier's price), clear the pending-downgrade marker.
+    if (livePriceId) {
+      const livePlan = getPlanByPriceId(livePriceId);
+      if (livePlan?.tier) {
+        await db.query(
+          `UPDATE stripe_subscriptions
+           SET scheduled_tier = NULL, scheduled_change_at = NULL
+           WHERE stripe_subscription_id = $1 AND scheduled_tier = $2`,
+          [subscription.id, livePlan.tier]
+        );
+      }
+    }
 
     // Update shop operational_status based on subscription status
     if (result.rows.length > 0) {
@@ -1251,9 +1304,13 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
           shopId,
           subscription.id,
           subscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
-          new Date(periodEndTs * 1000)
+          new Date(periodEndTs * 1000),
+          subscription.items?.data?.[0]?.price?.id
         );
       }
+
+      // Recompute the paid multi-location entitlement flag after any subscription change.
+      await setMultiLocationActive(shopId);
     }
 
     logger.info('Subscription updated in database', {
@@ -1424,6 +1481,11 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
         sessionId: session.id
       });
 
+      // Autopilot close for AI/ad bookings: advance paid→scheduled + confirm to the customer on Messenger.
+      // Best-effort (no-op for non-ad bookings); never blocks the webhook.
+      leadBookingService.onPaymentConfirmed(orderId).catch((e) =>
+        logger.error(`onPaymentConfirmed failed for ${orderId}: ${e instanceof Error ? e.message : e}`));
+
       // Send notification to shop about payment received
       try {
         const orderResult = await db.query(
@@ -1540,21 +1602,37 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
           const shopSubRepo = new ShopSubscriptionRepository();
           const currentPeriodEnd = periodEndDate;
 
+          const plan = getPlanByPriceId(subscription.items.data[0]?.price.id);
+          const monthlyAmount = plan?.amount ?? 500;
+          const subscriptionType = plan?.tier ?? 'standard';
+
           await shopSubRepo.createSubscription({
             shopId: shopId,
             status: 'active',
-            monthlyAmount: 500,
-            subscriptionType: 'standard',
+            monthlyAmount,
+            subscriptionType,
             billingMethod: 'credit_card',
             billingReference: subscription.id,
             paymentsMade: 1,
-            totalPaid: 500,
+            totalPaid: monthlyAmount,
             nextPaymentDate: currentPeriodEnd,
             lastPaymentDate: new Date(),
             activatedAt: new Date(),
             createdBy: `Stripe Webhook - ${session.id}`,
             notes: `Created via Stripe webhook on checkout.session.completed | Stripe Sub ID: ${subscription.id} | Customer ID: ${stripeCustomerId}`
           });
+
+          // Retire any active free-trial row now that the shop has converted to paid
+          await DatabaseService.getInstance().query(
+            `UPDATE shop_subscriptions
+             SET status = 'cancelled', is_active = false, cancelled_at = NOW(),
+                 cancellation_reason = 'Converted to paid subscription', updated_at = CURRENT_TIMESTAMP
+             WHERE shop_id = $1 AND subscription_type = 'trial' AND is_active = true`,
+            [shopId]
+          );
+
+          // Recompute the paid multi-location entitlement flag on first paid activation.
+          await setMultiLocationActive(shopId);
 
           logger.info('Shop subscription record created from webhook', {
             shopId,

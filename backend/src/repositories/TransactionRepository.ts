@@ -581,9 +581,10 @@ export class TransactionRepository extends BaseRepository {
 
       // Get paginated results
       const query = `
-        SELECT 
+        SELECT
           t.*,
-          c.name as customer_name
+          c.name as customer_name,
+          c.tier as customer_tier
         FROM transactions t
         LEFT JOIN customers c ON t.customer_address = c.address
         ${whereClause}

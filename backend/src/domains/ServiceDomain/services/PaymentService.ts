@@ -3,9 +3,11 @@ import { OrderRepository, ServiceOrder } from '../../../repositories/OrderReposi
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { StripeService } from '../../../services/StripeService';
 import { NotificationService } from '../../notification/services/NotificationService';
+import { NotificationGateway, getNotificationGateway } from '../../notification/services/NotificationGateway';
 import { EmailService } from '../../../services/EmailService';
 import { RcnRedemptionService } from './RcnRedemptionService';
 import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
+import { AppointmentService } from './AppointmentService';
 import { TransactionRepository } from '../../../repositories/TransactionRepository';
 import { customerRepository, shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
@@ -13,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Stripe from 'stripe';
 import { NoShowPolicyService } from '../../../services/NoShowPolicyService';
 import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
+import { resolveBookingLocationId, getCalendarLocationLabel } from '../../../utils/multiLocationEntitlement';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
@@ -23,6 +26,7 @@ export interface CreatePaymentIntentRequest {
   bookingTime?: string;
   rcnToRedeem?: number;
   notes?: string;
+  locationId?: string;
   // AI chat conversation the customer booked from (conv_*), when the
   // booking originated from an AI booking card. Threaded into the Stripe
   // PaymentIntent metadata so it lands on the order row at payment success.
@@ -142,9 +146,11 @@ export class PaymentService {
   private serviceRepository: ServiceRepository;
   private stripeService: StripeService;
   private notificationService: NotificationService;
+  private notificationGateway: NotificationGateway;
   private emailService: EmailService;
   private rcnRedemptionService: RcnRedemptionService;
   private appointmentRepository: AppointmentRepository;
+  private appointmentService: AppointmentService;
   private transactionRepository: TransactionRepository;
   private noShowPolicyService: NoShowPolicyService;
   private googleCalendarService: GoogleCalendarService;
@@ -154,9 +160,11 @@ export class PaymentService {
     this.serviceRepository = new ServiceRepository();
     this.stripeService = stripeService;
     this.notificationService = new NotificationService();
+    this.notificationGateway = getNotificationGateway();
     this.emailService = new EmailService();
     this.rcnRedemptionService = new RcnRedemptionService();
     this.appointmentRepository = new AppointmentRepository();
+    this.appointmentService = new AppointmentService();
     this.transactionRepository = new TransactionRepository();
     this.noShowPolicyService = new NoShowPolicyService();
     this.googleCalendarService = new GoogleCalendarService();
@@ -220,14 +228,15 @@ export class PaymentService {
         const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
         bookingEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
 
-        // Get time slot configuration
-        const config = await this.appointmentRepository.getTimeSlotConfig(service.shopId);
+        // Resolve the branch this booking is for, then read its config + booked slots.
+        const preCheckLocationId = await resolveBookingLocationId(service.shopId, request.locationId);
+
+        const config = await this.appointmentRepository.getTimeSlotConfig(service.shopId, preCheckLocationId);
         if (!config) {
           throw new Error('Shop has not configured appointment scheduling');
         }
 
-        // Get booked slots for this date
-        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, bookingDateStr);
+        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, bookingDateStr, preCheckLocationId);
         const normalizedRequestTime = normalizeTimeSlot(request.bookingTime);
         const bookedCount = bookedSlots.find(slot => normalizeTimeSlot(slot.timeSlot) === normalizedRequestTime)?.count || 0;
 
@@ -255,6 +264,13 @@ export class PaymentService {
           } else {
             throw new Error(`Bookings require at least ${requiredAdvanceHours} hours advance notice. Please select a later time.`);
           }
+        }
+
+        const withinHours = await this.appointmentService.isWithinOperatingHours(
+          service.shopId, bookingDateStr, request.bookingTime, preCheckLocationId
+        );
+        if (!withinHours) {
+          throw new Error(`The selected time (${request.bookingTime}) is outside the shop's operating hours. Please choose an available time slot.`);
         }
 
         logger.info('Time slot validated', {
@@ -348,6 +364,7 @@ export class PaymentService {
           bookingTime: request.bookingTime || '',
           bookingEndTime: bookingEndTime || '',
           notes: request.notes || '',
+          locationId: request.locationId || '',
           conversationId: request.conversationId || '',
           type: 'service_booking'
         },
@@ -439,14 +456,15 @@ export class PaymentService {
         const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
         bookingEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
 
-        // Get time slot configuration
-        const config = await this.appointmentRepository.getTimeSlotConfig(service.shopId);
+        // Resolve the branch this booking is for, then read its config + booked slots.
+        const preCheckLocationId = await resolveBookingLocationId(service.shopId, request.locationId);
+
+        const config = await this.appointmentRepository.getTimeSlotConfig(service.shopId, preCheckLocationId);
         if (!config) {
           throw new Error('Shop has not configured appointment scheduling');
         }
 
-        // Get booked slots for this date
-        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, bookingDateStr);
+        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, bookingDateStr, preCheckLocationId);
         const normalizedRequestTime = normalizeTimeSlot(request.bookingTime);
         const bookedCount = bookedSlots.find(slot => normalizeTimeSlot(slot.timeSlot) === normalizedRequestTime)?.count || 0;
 
@@ -470,6 +488,13 @@ export class PaymentService {
           } else {
             throw new Error(`Bookings require at least ${requiredAdvanceHours} hours advance notice. Please select a later time.`);
           }
+        }
+
+        const withinHours = await this.appointmentService.isWithinOperatingHours(
+          service.shopId, bookingDateStr, request.bookingTime, preCheckLocationId
+        );
+        if (!withinHours) {
+          throw new Error(`The selected time (${request.bookingTime}) is outside the shop's operating hours. Please choose an available time slot.`);
         }
 
         logger.info('Time slot validated (checkout)', {
@@ -580,6 +605,7 @@ export class PaymentService {
           bookingTime: request.bookingTime || '',
           bookingEndTime: bookingEndTime || '',
           notes: request.notes || '',
+          locationId: request.locationId || '',
           type: 'service_booking'
         }
       });
@@ -663,11 +689,13 @@ export class PaymentService {
 
       // Create order from Stripe metadata with 'paid' status
       const bookingDate = metadata.bookingDate ? toLocalDate(metadata.bookingDate) : undefined;
+      const locationId = await resolveBookingLocationId(metadata.shopId, metadata.locationId || undefined);
       const order = await this.orderRepository.createOrder({
         orderId: metadata.orderId,
         serviceId: metadata.serviceId,
         customerAddress: metadata.customerAddress,
         shopId: metadata.shopId,
+        locationId: locationId || undefined,
         totalAmount: parseFloat(metadata.totalAmount) || 0,
         rcnRedeemed: parseFloat(metadata.rcnRedeemed) || 0,
         rcnDiscountUsd: parseFloat(metadata.rcnDiscountUsd) || 0,
@@ -823,9 +851,11 @@ export class PaymentService {
               order.shopId
             );
             const shopTimezone = shopConfig?.timezone || 'America/New_York';
+            const branchLabel = await getCalendarLocationLabel(order.locationId);
 
             await this.googleCalendarService.createEvent({
               orderId: order.orderId,
+              shopId: order.shopId,
               serviceName: service.serviceName,
               serviceDescription: service.description,
               customerName: customer?.name,
@@ -837,6 +867,7 @@ export class PaymentService {
               endTime,
               totalAmount: order.totalAmount,
               shopTimezone,
+              ...branchLabel,
             });
             logger.info('Calendar event created for booking', { orderId: order.orderId });
           }
@@ -1128,31 +1159,47 @@ export class PaymentService {
       const service = await this.serviceRepository.getServiceById(order.serviceId);
       const shop = await shopRepository.getShop(order.shopId);
 
-      // 5. Send notification to customer
+      const refundSummary = refundDetails.length > 0 ? refundDetails.join(', ') : undefined;
+
+      // 5. Send confirmation to customer (in-app + WS + native push via gateway).
+      // The gateway fans out to every channel the registry declares for
+      // 'service_order_cancelled_by_customer' — the legacy createNotification
+      // path used before only persisted a row (no push / no WS).
       try {
-        if (service) {
-          await this.notificationService.createServiceOrderCancelledNotification(
-            order.customerAddress,
-            service.serviceName,
-            orderId,
-            refundStatus
-          );
+        if (service && shop) {
+          await this.notificationGateway.dispatch('service_order_cancelled_by_customer', order.customerAddress, {
+            message:
+              `Your booking for ${service.serviceName} at ${shop.name} has been cancelled` +
+              (refundSummary ? `. Refund: ${refundSummary}` : ''),
+            metadata: {
+              orderId,
+              serviceName: service.serviceName,
+              shopName: shop.name,
+              cancellationReason,
+              refundSummary,
+              timestamp: new Date().toISOString()
+            }
+          });
         }
       } catch (notifError) {
         logger.error('Failed to send customer cancellation notification:', notifError);
       }
 
-      // 6. Send notification to shop
+      // 6. Notify the shop (in-app + WS + native push via gateway) so it can free
+      // the slot and see who cancelled. Previously persisted only (no push/WS).
       try {
         if (service && shop && shop.walletAddress) {
-          await this.notificationService.createNotification({
-            senderAddress: 'SYSTEM',
-            receiverAddress: shop.walletAddress,
-            notificationType: 'service_booking_cancelled',
-            message: `Booking cancelled: ${service.serviceName} (Order ${orderId})`,
+          const cancelCustomer = await customerRepository.getCustomer(order.customerAddress);
+          const customerDisplayName =
+            cancelCustomer?.name ||
+            [(cancelCustomer as any)?.first_name, (cancelCustomer as any)?.last_name].filter(Boolean).join(' ').trim() ||
+            'A customer';
+          await this.notificationGateway.dispatch('service_booking_cancelled', shop.walletAddress, {
+            message: `${customerDisplayName} cancelled their ${service.serviceName} booking (Order ${orderId}).`,
             metadata: {
               orderId,
               serviceName: service.serviceName,
+              customerName: customerDisplayName,
               cancellationReason,
               cancellationNotes,
               timestamp: new Date().toISOString()
@@ -1412,10 +1459,13 @@ export class PaymentService {
             ? `. Refund: ${refundDetails.join(', ')}`
             : '';
 
-          await this.notificationService.createNotification({
-            senderAddress: 'SYSTEM',
-            receiverAddress: order.customerAddress,
-            notificationType: 'service_cancelled_by_shop',
+          // One dispatch fans out to all channels the registry configures for
+          // 'service_order_cancelled': persist (transactional → always
+          // delivered even if the customer muted order updates) + WS in-app
+          // broadcast + native push (web + mobile). The canonical type drives
+          // the correct icon/title on both clients; the "by shop" distinction
+          // lives in metadata.reason. refundSummary feeds the push body.
+          await this.notificationGateway.dispatch('service_order_cancelled', order.customerAddress, {
             message: `Your booking for ${service.serviceName} at ${shop.name} has been cancelled by the shop${refundMessage}`,
             metadata: {
               orderId,
@@ -1425,6 +1475,7 @@ export class PaymentService {
               notes: cancellationNotes,
               rcnRefunded,
               stripeRefunded,
+              refundSummary: refundDetails.length > 0 ? refundDetails.join(', ') : undefined,
               timestamp: new Date().toISOString()
             }
           });
@@ -1500,6 +1551,14 @@ export class PaymentService {
         }
       } catch (refundEmailError) {
         logger.error('Failed to send refund email to shop:', refundEmailError);
+      }
+
+      // Remove the booking from the shop's Google Calendar (no-op if not synced).
+      try {
+        await this.googleCalendarService.deleteEvent(orderId, order.shopId);
+        logger.info('Calendar event deleted for shop-cancelled booking', { orderId });
+      } catch (calendarError) {
+        logger.error('Failed to delete calendar event on shop cancellation:', calendarError);
       }
 
       logger.info('Shop cancellation processed with refund', {

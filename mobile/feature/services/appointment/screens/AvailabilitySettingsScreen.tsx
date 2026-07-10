@@ -25,6 +25,8 @@ import {
 import { appointmentApi } from "@/feature/services/services/service.services";
 import { formatTimeSlot } from "@/shared/utilities/timeFormat";
 import { useAppToast } from "@/shared/hooks/useAppToast";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/shared/config/queryClient";
 
 const DAY_NAMES = [
   "Sunday",
@@ -42,6 +44,20 @@ export default function AvailabilitySettingsScreen() {
   const { userProfile } = useAuthStore();
   const shopId = userProfile?.shopId || "";
   const { showSuccess, showError } = useAppToast();
+  const queryClient = useQueryClient();
+
+  // Invalidate every cache the booking calendars read, so changes to hours /
+  // overrides here (add/delete/toggle) immediately reflect in the customer
+  // booking, reschedule, and manual-booking calendars (which use React Query,
+  // separate from this screen's manual reload). Keys are fragmented across the
+  // app, so invalidate all the variants.
+  const invalidateCalendarCaches = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["shop-date-overrides"] }); // reschedule + manual booking
+    queryClient.invalidateQueries({ queryKey: ["shopDateOverrides"] });   // customer booking calendar
+    queryClient.invalidateQueries({ queryKey: ["shop-availability"] });   // reschedule + manual booking
+    queryClient.invalidateQueries({ queryKey: ["time-slots"] });          // reschedule + manual booking slots
+    queryClient.invalidateQueries({ queryKey: queryKeys.appointments() }); // customer calendar slots/availability/overrides
+  }, [queryClient]);
 
   const [activeTab, setActiveTab] = useState<TabType>("hours");
   const [loading, setLoading] = useState(true);
@@ -157,6 +173,7 @@ export default function AvailabilitySettingsScreen() {
       showSuccess("Hours updated");
       setEditingDay(null);
       await loadAllData();
+      invalidateCalendarCaches();
     } catch (err) {
       showError("Failed to update hours");
     } finally {
@@ -194,6 +211,7 @@ export default function AvailabilitySettingsScreen() {
       showSuccess("Settings saved");
       setEditingConfig(false);
       await loadAllData();
+      invalidateCalendarCaches();
     } catch (err) {
       showError("Failed to save settings");
     } finally {
@@ -221,6 +239,7 @@ export default function AvailabilitySettingsScreen() {
       showSuccess("Override added");
       setNewOverride({ overrideDate: "", isClosed: true, customOpenTime: "", customCloseTime: "", reason: "" });
       await loadAllData();
+      invalidateCalendarCaches();
     } catch (err) {
       showError("Failed to add override");
     } finally {
@@ -229,16 +248,21 @@ export default function AvailabilitySettingsScreen() {
   };
 
   const deleteOverride = (date: string) => {
-    Alert.alert("Delete Override", `Remove override for ${date}?`, [
+    // The API returns overrideDate as a full ISO timestamp (the DATE column is
+    // serialized as a Date). Send only the YYYY-MM-DD part so it matches the
+    // DATE column on the backend — otherwise the delete silently matches 0 rows.
+    const dateOnly = (date || "").split("T")[0].split(" ")[0];
+    Alert.alert("Delete Override", `Remove override for ${dateOnly}?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
           try {
-            await appointmentApi.deleteDateOverride(date);
+            await appointmentApi.deleteDateOverride(dateOnly);
             showSuccess("Override removed");
             await loadAllData();
+            invalidateCalendarCaches();
           } catch (err) {
             showError("Failed to delete override");
           }
@@ -788,6 +812,36 @@ export default function AvailabilitySettingsScreen() {
 
 // ==================== Sub-Components ====================
 
+// Parse an "HH:MM" string into a Date for the time picker (defaults to 09:00).
+function timeStringToDate(value: string): Date {
+  const [h, m] = (value || "").split(":").map((n) => parseInt(n, 10));
+  const d = new Date();
+  d.setHours(Number.isFinite(h) ? Math.min(Math.max(h, 0), 23) : 9);
+  d.setMinutes(Number.isFinite(m) ? Math.min(Math.max(m, 0), 59) : 0);
+  d.setSeconds(0);
+  return d;
+}
+
+// Normalize free-typed text into a valid clamped "HH:MM" (or "" when empty).
+// e.g. "9" -> "09:00", "930" -> "09:30", "25:99" -> "23:59".
+function normalizeTimeInput(raw: string): string {
+  const cleaned = (raw || "").replace(/[^0-9]/g, "");
+  if (!cleaned) return "";
+  let h: number;
+  let m: number;
+  if (cleaned.length <= 2) {
+    h = parseInt(cleaned, 10);
+    m = 0;
+  } else {
+    h = parseInt(cleaned.slice(0, cleaned.length - 2), 10);
+    m = parseInt(cleaned.slice(-2), 10);
+  }
+  if (!Number.isFinite(h)) return "";
+  h = Math.min(Math.max(h, 0), 23);
+  m = Math.min(Math.max(Number.isFinite(m) ? m : 0, 0), 59);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 function TimeInput({
   label,
   value,
@@ -799,17 +853,45 @@ function TimeInput({
   onChange: (v: string) => void;
   placeholder?: string;
 }) {
+  const [showPicker, setShowPicker] = useState(false);
+
+  const handlePicked = (event: any, selected?: Date) => {
+    // Android shows a modal that dismisses itself; iOS renders inline.
+    if (Platform.OS === "android") setShowPicker(false);
+    if (event?.type === "dismissed") return;
+    if (selected) {
+      const hh = String(selected.getHours()).padStart(2, "0");
+      const mm = String(selected.getMinutes()).padStart(2, "0");
+      onChange(`${hh}:${mm}`);
+    }
+  };
+
   return (
     <View className="flex-1">
       <Text className="text-gray-400 text-xs mb-1">{label}</Text>
-      <TextInput
-        className="bg-[#2a2a2c] rounded-lg px-3 h-11 text-white text-sm text-center"
-        placeholder={placeholder}
-        placeholderTextColor="#666"
-        value={value}
-        onChangeText={onChange}
-        keyboardType="numbers-and-punctuation"
-      />
+      <View className="flex-row items-center bg-[#2a2a2c] rounded-lg px-3 h-11">
+        <TextInput
+          className="flex-1 text-white text-sm text-center"
+          placeholder={placeholder}
+          placeholderTextColor="#666"
+          value={value}
+          onChangeText={onChange}
+          onBlur={() => onChange(normalizeTimeInput(value))}
+          keyboardType="numbers-and-punctuation"
+        />
+        <TouchableOpacity onPress={() => setShowPicker((s) => !s)} className="pl-2">
+          <Ionicons name="time-outline" size={18} color="#FFCC00" />
+        </TouchableOpacity>
+      </View>
+      {showPicker && (
+        <DateTimePicker
+          value={timeStringToDate(value)}
+          mode="time"
+          is24Hour
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={handlePicked}
+        />
+      )}
     </View>
   );
 }

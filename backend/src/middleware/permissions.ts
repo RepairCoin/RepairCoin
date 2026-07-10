@@ -3,6 +3,27 @@ import { Request, Response, NextFunction } from 'express';
 import { ResponseHelper } from '../utils/responseHelper';
 import { adminRepository } from '../repositories';
 import { logger } from '../utils/logger';
+import { hasPermission } from '../domains/shop/permissions';
+
+/**
+ * Gate a shop route on a granular team permission. Admins bypass. Shop tokens without
+ * an explicit permissions claim (owners / pre-team-management sessions) default to '*'.
+ */
+export const requireShopPermission = (permission: string) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return ResponseHelper.error(res, 'Authentication required', 401);
+    }
+    if (req.user.role === 'admin') {
+      return next();
+    }
+    const perms = req.user.permissions ?? ['*'];
+    if (hasPermission(perms, permission)) {
+      return next();
+    }
+    return ResponseHelper.error(res, `Permission denied. Required permission: ${permission}`, 403);
+  };
+};
 
 export const requirePermission = (permission: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -53,11 +74,24 @@ export const requirePermission = (permission: string) => {
         }
       }
       
-      // Fallback to checking individual permissions for backward compatibility
-      if (admin.permissions.includes('*') || admin.permissions.includes(permission)) {
+      // Fallback to checking individual permissions for backward compatibility.
+      // Routes gate on group names (manage_shops / manage_customers), but stored
+      // permissions are granular (approve_shop, suspend_shop, …). Treat a group
+      // permission as satisfied by any of its WRITE granular permissions — view_*
+      // is intentionally excluded so read-only roles don't gain write access.
+      const PERMISSION_GROUPS: Record<string, string[]> = {
+        manage_shops: ['create_shop', 'update_shop', 'approve_shop', 'suspend_shop'],
+        manage_customers: ['update_customer', 'suspend_customer'],
+      };
+      const perms: string[] = admin.permissions || [];
+      const hasWildcard = perms.includes('*') || perms.includes('all');
+      const hasExact = perms.includes(permission);
+      const hasGroupMember = (PERMISSION_GROUPS[permission] || []).some((p) => perms.includes(p));
+
+      if (hasWildcard || hasExact || hasGroupMember) {
         return next();
       }
-      
+
       return ResponseHelper.error(res, `Permission denied. Required permission: ${permission}`, 403);
     } catch (error) {
       logger.error('Permission check failed:', error);

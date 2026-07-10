@@ -10,6 +10,7 @@ export interface ServiceOrder {
   serviceId: string;
   customerAddress: string;
   shopId: string;
+  locationId?: string;
   stripePaymentIntentId?: string;
   status: OrderStatus;
   totalAmount: number;
@@ -77,6 +78,7 @@ export interface CreateOrderParams {
   serviceId: string;
   customerAddress: string;
   shopId: string;
+  locationId?: string;
   totalAmount: number;
   rcnRedeemed?: number;
   rcnDiscountUsd?: number;
@@ -99,6 +101,7 @@ export interface OrderFilters {
   startDate?: Date;
   endDate?: Date;
   customerAddress?: string;
+  locationId?: string;
 }
 
 export class OrderRepository extends BaseRepository {
@@ -116,8 +119,8 @@ export class OrderRepository extends BaseRepository {
           rcn_redeemed, rcn_discount_usd, final_amount_usd,
           booking_date, booking_time_slot, booking_end_time, notes,
           stripe_payment_intent_id, status, shop_approved, approved_at,
-          conversation_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          conversation_id, location_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         RETURNING *
       `;
 
@@ -138,7 +141,8 @@ export class OrderRepository extends BaseRepository {
         status,
         params.shopApproved || false,
         params.approvedAt || null,
-        params.conversationId || null
+        params.conversationId || null,
+        params.locationId || null
       ];
 
       const result = await this.pool.query(query, values);
@@ -194,12 +198,17 @@ export class OrderRepository extends BaseRepository {
           sh.address as shop_address,
           sh.phone as shop_phone,
           c.name as customer_name,
-          COALESCE(t.amount, 0) as rcn_earned
+          COALESCE(t.total_amount, 0) as rcn_earned
         FROM service_orders o
         INNER JOIN shop_services s ON o.service_id = s.service_id
         INNER JOIN shops sh ON o.shop_id = sh.shop_id
         LEFT JOIN customers c ON o.customer_address = c.address
-        LEFT JOIN transactions t ON t.metadata->>'orderId' = o.order_id AND t.type = 'mint'
+        LEFT JOIN (
+          SELECT (metadata->>'orderId') AS order_id, SUM(amount) AS total_amount
+          FROM transactions
+          WHERE type = 'mint'
+          GROUP BY metadata->>'orderId'
+        ) t ON t.order_id = o.order_id
         WHERE o.order_id = $1
       `;
       const result = await this.pool.query(query, [orderId]);
@@ -300,12 +309,17 @@ export class OrderRepository extends BaseRepository {
           sh.name as shop_name,
           sh.address as shop_address,
           sh.phone as shop_phone,
-          COALESCE(t.amount, 0) as rcn_earned,
+          COALESCE(t.total_amount, 0) as rcn_earned,
           CASE WHEN sr.review_id IS NOT NULL THEN true ELSE false END as has_review
         FROM service_orders o
         INNER JOIN shop_services s ON o.service_id = s.service_id
         INNER JOIN shops sh ON o.shop_id = sh.shop_id
-        LEFT JOIN transactions t ON t.metadata->>'orderId' = o.order_id AND t.type = 'mint'
+        LEFT JOIN (
+          SELECT (metadata->>'orderId') AS order_id, SUM(amount) AS total_amount
+          FROM transactions
+          WHERE type = 'mint'
+          GROUP BY metadata->>'orderId'
+        ) t ON t.order_id = o.order_id
         LEFT JOIN service_reviews sr ON sr.order_id = o.order_id
         ${whereClause}
         ORDER BY o.created_at DESC
@@ -381,6 +395,12 @@ export class OrderRepository extends BaseRepository {
         params.push(filters.customerAddress);
       }
 
+      if (filters.locationId) {
+        paramCount++;
+        whereClauses.push(`o.location_id = $${paramCount}`);
+        params.push(filters.locationId);
+      }
+
       const whereClause = `WHERE ${whereClauses.join(' AND ')}`;
 
       // Get total count
@@ -404,11 +424,16 @@ export class OrderRepository extends BaseRepository {
           c.name as customer_name,
           c.tier as customer_tier,
           c.phone as customer_phone,
-          COALESCE(t.amount, 0) as rcn_earned
+          COALESCE(t.total_amount, 0) as rcn_earned
         FROM service_orders o
         INNER JOIN shop_services s ON o.service_id = s.service_id
         LEFT JOIN customers c ON o.customer_address = c.address
-        LEFT JOIN transactions t ON t.metadata->>'orderId' = o.order_id AND t.type = 'mint'
+        LEFT JOIN (
+          SELECT (metadata->>'orderId') AS order_id, SUM(amount) AS total_amount
+          FROM transactions
+          WHERE type = 'mint'
+          GROUP BY metadata->>'orderId'
+        ) t ON t.order_id = o.order_id
         ${whereClause}
         ORDER BY o.created_at DESC
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
@@ -437,15 +462,16 @@ export class OrderRepository extends BaseRepository {
   /**
    * Get order counts by status for a shop
    */
-  async getOrderCountsByShop(shopId: string): Promise<Record<string, number>> {
+  async getOrderCountsByShop(shopId: string, locationId?: string): Promise<Record<string, number>> {
     try {
       const query = `
         SELECT status, COUNT(*)::int as count
         FROM service_orders
         WHERE shop_id = $1
+          AND ($2::uuid IS NULL OR location_id = $2::uuid)
         GROUP BY status
       `;
-      const result = await this.pool.query(query, [shopId]);
+      const result = await this.pool.query(query, [shopId, locationId || null]);
       const counts: Record<string, number> = {};
       for (const row of result.rows) {
         counts[row.status] = row.count;
@@ -678,6 +704,7 @@ export class OrderRepository extends BaseRepository {
       serviceId: row.service_id,
       customerAddress: row.customer_address,
       shopId: row.shop_id,
+      locationId: row.location_id || undefined,
       stripePaymentIntentId: row.stripe_payment_intent_id,
       status: row.status,
       totalAmount: parseFloat(row.total_amount),

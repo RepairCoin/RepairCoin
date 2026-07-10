@@ -11,11 +11,24 @@ export default function AppointmentScheduleScreen({
   isLoadingSlots,
   slotsError,
   shopAvailability,
+  dateOverrides,
   bookingAdvanceDays = 30,
   allowWeekendBooking = true,
   onDateSelect,
   onTimeSelect,
 }: AppointmentScheduleScreenProps) {
+  // Dates the shop marked fully closed via an override (holidays/closures).
+  // overrideDate arrives as a full ISO timestamp, so keep only the date part.
+  const closedDates = useMemo(() => {
+    const set = new Set<string>();
+    (dateOverrides || []).forEach((o) => {
+      if (o.isClosed && o.overrideDate) {
+        set.add(o.overrideDate.split("T")[0].split(" ")[0]);
+      }
+    });
+    return set;
+  }, [dateOverrides]);
+
   // Get today's date in YYYY-MM-DD format for calendar
   const today = useMemo(() => {
     return new Date().toISOString().split("T")[0];
@@ -54,14 +67,15 @@ export default function AppointmentScheduleScreen({
       };
     }
 
-    if (shopAvailability) {
+    if (shopAvailability || closedDates.size) {
       const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + bookingAdvanceDays);
 
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const dateString = d.toISOString().split("T")[0];
-        if (!isDateAvailable(d)) {
+        // Disable closed days (operating hours/weekend) AND holiday overrides.
+        if (!isDateAvailable(d) || closedDates.has(dateString)) {
           marks[dateString] = {
             ...marks[dateString],
             disabled: true,
@@ -72,7 +86,7 @@ export default function AppointmentScheduleScreen({
     }
 
     return marks;
-  }, [selectedDate, shopAvailability, bookingAdvanceDays, allowWeekendBooking]);
+  }, [selectedDate, shopAvailability, closedDates, bookingAdvanceDays, allowWeekendBooking]);
 
   const formatDateFull = (dateString: string) => {
     const date = new Date(dateString + "T00:00:00");

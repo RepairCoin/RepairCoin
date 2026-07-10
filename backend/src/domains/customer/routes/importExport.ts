@@ -9,6 +9,7 @@ import {
   exportCustomers,
   downloadTemplate,
   importCustomers,
+  suggestImportMapping,
   getImportStatus
 } from '../controllers/CustomerImportExportController';
 
@@ -165,6 +166,29 @@ router.post(
           });
         }
         return importCustomers(req, res);
+      });
+    });
+  }
+);
+
+/**
+ * POST /api/customers/import/suggest-mapping
+ * AI-suggest a column mapping for an uploaded file (headers + samples only; imports nothing).
+ */
+router.post(
+  '/import/suggest-mapping',
+  authMiddleware,
+  requireRole(['shop', 'admin']),
+  async (req, res) => {
+    const { importRateLimiter } = await import('../../../middleware/importRateLimit');
+    const { uploadMiddleware } = await import('../../../middleware/fileUpload');
+
+    importRateLimiter(req, res, () => {
+      uploadMiddleware.single('file')(req, res, async (err: any) => {
+        if (err) {
+          return res.status(400).json({ success: false, error: err.message });
+        }
+        return suggestImportMapping(req, res);
       });
     });
   }

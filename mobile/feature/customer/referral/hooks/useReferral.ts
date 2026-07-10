@@ -47,7 +47,8 @@ export function useReferral() {
   const totalReferrals = customerData?.customer?.referralCount || 0;
   const totalEarned = totalReferrals * REFERRER_REWARD;
 
-  const referralMessage = `Join FixFlow and earn rewards on every repair! Use my referral code: ${referralCode} to get 10 RCN bonus on your first repair. Download now!`;
+  const referralLink = "https://repaircoin.ai";
+  const referralMessage = `Join FixFlow and earn rewards on every repair! Use my referral code: ${referralCode} to get 10 RCN bonus on your first repair. Sign up here: ${referralLink}`;
 
   useEffect(() => {
     if (codeCopied) {
@@ -100,8 +101,7 @@ export function useReferral() {
   const handleFacebookShare = async () => {
     await Clipboard.setStringAsync(referralMessage);
     showWarning("Message copied — paste it as your caption on Facebook.");
-    const shareLink = "https://repaircoin.app";
-    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareLink)}`;
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}`;
     await WebBrowser.openBrowserAsync(url);
   };
 

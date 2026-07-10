@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CustomerNoShowStatus } from '@/services/api/noShow';
+import { CustomerNoShowStatus, getTierLabel } from '@/services/api/noShow';
 
 interface NoShowWarningBannerProps {
   status: CustomerNoShowStatus | null;
@@ -107,6 +107,20 @@ export default function NoShowWarningBanner({ status, onDismiss }: NoShowWarning
             {config.message}
           </p>
 
+          {/* Recent reduction confirmation — shows that a just-completed appointment
+              counted and lowered the restriction level (the progress counter resets
+              to 0 after each reduction, which otherwise looks like "nothing happened"). */}
+          {status.recentReduction && status.tier !== 'suspended' && (
+            <div className="bg-green-50 border border-green-200 rounded p-3 mb-3">
+              <p className="text-sm text-green-800">
+                <strong>✅ Nice work!</strong> Your restrictions were just reduced from{' '}
+                <strong>{getTierLabel(status.recentReduction.previousTier)}</strong> to{' '}
+                <strong>{getTierLabel(status.recentReduction.newTier)}</strong> for completing your appointments.
+                Complete 3 more successful appointments to reduce them further.
+              </p>
+            </div>
+          )}
+
           {/* Restrictions List */}
           {config.showDetails && status.restrictions.length > 0 && (
             <ul className={`${config.textColor} space-y-2 mb-3`}>
@@ -123,10 +137,10 @@ export default function NoShowWarningBanner({ status, onDismiss }: NoShowWarning
           {(status.tier === 'deposit_required' || status.tier === 'caution' || status.tier === 'warning') && (
             <div className="bg-white/50 rounded p-3 mt-3">
               <p className="text-sm text-gray-700">
-                <strong>Good News:</strong> Complete 3 successful appointments and you'll move to a lower restriction level.
+                <strong>Good News:</strong> Complete 3 successful appointments and you'll move to a lower restriction level. Each level down needs a fresh 3, so this resets after every reduction.
               </p>
               <p className="text-xs text-gray-600 mt-1">
-                Progress: {status.successfulAppointmentsSinceTier3} / 3 successful appointments
+                Progress toward your next reduction: {status.successfulAppointmentsSinceTier3} / 3 successful appointments
               </p>
             </div>
           )}

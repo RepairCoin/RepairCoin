@@ -32,11 +32,13 @@ export const startChatSession = async (
     return mockStartChatSession(data);
   }
 
+  // apiClient unwraps to the HTTP body, which is already the wrapped
+  // { success, data } shape that StartChatResponse describes.
   const response = await apiClient.post<StartChatResponse>(
     '/ai/customer-chat/start',
     data
   );
-  return response.data;
+  return response;
 };
 
 /**
@@ -53,7 +55,7 @@ export const sendMessage = async (
     '/ai/customer-chat/message',
     data
   );
-  return response.data;
+  return response;
 };
 
 /**
@@ -82,7 +84,7 @@ export const uploadImage = async (
       },
     }
   );
-  return response.data;
+  return response;
 };
 
 /**
@@ -99,7 +101,7 @@ export const getRecommendations = async (
     '/ai-assistant/chat/recommendations',
     { params: data }
   );
-  return response.data;
+  return response;
 };
 
 /**
@@ -117,7 +119,7 @@ export const getChatHistory = async (
     '/ai-assistant/chat/history',
     { params: { sessionId, sessionToken } }
   );
-  return response.data;
+  return response;
 };
 
 // ============================================================================

@@ -170,7 +170,10 @@ export default function CustomFooter() {
     if (active !== tab.id) {
       haptics.selection();
       setActive(tab.id);
-      router.push(tab.route as any);
+      // navigate (not push): reuse an existing tab screen if it's already on
+      // the stack instead of stacking duplicates, which would grow unbounded
+      // as the user switches tabs.
+      router.navigate(tab.route as any);
     }
   };
 

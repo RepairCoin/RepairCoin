@@ -2,6 +2,8 @@ import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { PoolClient } from 'pg';
 import { logger } from '../utils/logger';
 import { getShopStatus, ShopStatus } from '../utils/shopStatus';
+import { ShopTeamRepository } from './ShopTeamRepository';
+import { ShopLocationRepository } from './ShopLocationRepository';
 
 interface ShopData {
   shopId: string;
@@ -156,6 +158,22 @@ export class ShopRepository extends BaseRepository {
     }
   }
 
+  // Lazily-instantiated team repo for owner-seeding. Imported as a class (not the
+  // index.ts singleton) to avoid a repositories/index ↔ ShopRepository import cycle.
+  private teamRepo?: ShopTeamRepository;
+  private getTeamRepo(): ShopTeamRepository {
+    if (!this.teamRepo) this.teamRepo = new ShopTeamRepository();
+    return this.teamRepo;
+  }
+
+  // Lazily-instantiated location repo for primary-location seeding (same cycle-avoidance
+  // rationale as the team repo above).
+  private locationRepo?: ShopLocationRepository;
+  private getLocationRepo(): ShopLocationRepository {
+    if (!this.locationRepo) this.locationRepo = new ShopLocationRepository();
+    return this.locationRepo;
+  }
+
   async createShop(shop: ShopData & { location?: any }): Promise<{ id: string }> {
     try {
       const query = `
@@ -211,6 +229,50 @@ export class ShopRepository extends BaseRepository {
 
       // Auto-create time slot configuration for new shop
       await this.createDefaultTimeSlotConfig(createdShopId);
+
+      // Auto-seed the shop owner as a team member (Team Management Phase 1).
+      // Non-fatal by design: a failure here must NEVER block shop registration
+      // (shared by both web and mobile). Missing owner rows are also backfilled
+      // by migration 173, so this is belt-and-suspenders.
+      if (shop.walletAddress) {
+        try {
+          const ownerName =
+            [shop.firstName, shop.lastName].filter(Boolean).join(' ').trim() || shop.name;
+          await this.getTeamRepo().seedOwner({
+            shopId: createdShopId,
+            walletAddress: shop.walletAddress,
+            email: shop.email,
+            name: ownerName || null,
+          });
+        } catch (seedError) {
+          logger.error('Failed to seed owner team member for new shop (non-fatal):', {
+            shopId: createdShopId,
+            error: seedError instanceof Error ? seedError.message : seedError,
+          });
+        }
+      }
+
+      // Auto-seed the shop's primary location from its own address, mirroring the migration-192
+      // backfill so new shops open the Locations tab pre-populated. Idempotent and non-fatal:
+      // a failure here must never block registration.
+      try {
+        await this.getLocationRepo().seedPrimary({
+          shopId: createdShopId,
+          name: shop.name,
+          address: shop.address,
+          city: typeof shop.location === 'object' ? shop.location?.city : null,
+          state: typeof shop.location === 'object' ? shop.location?.state : null,
+          zipCode: typeof shop.location === 'object' ? shop.location?.zipCode : null,
+          lat: typeof shop.location === 'object' && shop.location?.lat ? parseFloat(shop.location.lat) : null,
+          lng: typeof shop.location === 'object' && shop.location?.lng ? parseFloat(shop.location.lng) : null,
+          phone: shop.phone,
+        });
+      } catch (locationSeedError) {
+        logger.error('Failed to seed primary location for new shop (non-fatal):', {
+          shopId: createdShopId,
+          error: locationSeedError instanceof Error ? locationSeedError.message : locationSeedError,
+        });
+      }
 
       logger.info('Shop created successfully with time slot config', { shopId: shop.shopId });
       return { id: createdShopId };
@@ -1600,6 +1662,8 @@ export class ShopRepository extends BaseRepository {
       suspended?: boolean;
       suspendedAt?: string;
       suspensionReason?: string;
+      importSource?: string | null;
+      isPlaceholder?: boolean;
     }>;
     totalItems: number;
     totalPages: number;
@@ -1609,14 +1673,15 @@ export class ShopRepository extends BaseRepository {
       const { page, limit, search } = options;
       const offset = this.getPaginationOffset(page, limit);
 
-      // Build query to get customers who have interacted with this shop (earned OR redeemed)
-      let whereClause = 'WHERE t.shop_id = $1';
+      // Drive from `customers` so the list includes BOTH customers who transacted here (mint/redeem)
+      // AND customers assigned to this shop via home_shop_id (e.g. imported/migrated, no txns yet).
+      // The transaction join is scoped to this shop so earnings/txn counts stay shop-specific.
+      let whereClause = 'WHERE (LOWER(c.home_shop_id) = LOWER($1) OR t.id IS NOT NULL)';
       let params: any[] = [shopId];
       let paramCount = 1;
 
       if (search) {
         paramCount++;
-        // Full-text search across all customer columns
         whereClause += ` AND (
           LOWER(c.address) LIKE LOWER($${paramCount}) OR
           LOWER(COALESCE(c.email, '')) LIKE LOWER($${paramCount}) OR
@@ -1630,14 +1695,17 @@ export class ShopRepository extends BaseRepository {
         params.push(`%${search}%`);
       }
 
-      // Get total count - include customers who earned (mint) OR redeemed at this shop
-      const countQuery = `
-        SELECT COUNT(DISTINCT t.customer_address) as count
-        FROM transactions t
-        LEFT JOIN customers c ON c.address = t.customer_address
-        ${whereClause} AND t.type IN ('mint', 'redeem')
-      `;
-      const countResult = await this.pool.query(countQuery, params);
+      const joinClause = `
+        FROM customers c
+        LEFT JOIN transactions t
+          ON LOWER(t.customer_address) = LOWER(c.address)
+          AND t.shop_id = $1 AND t.type IN ('mint', 'redeem')
+        ${whereClause}`;
+
+      const countResult = await this.pool.query(
+        `SELECT COUNT(*) AS count FROM (SELECT c.address ${joinClause} GROUP BY c.address) sub`,
+        params
+      );
       const totalItems = parseInt(countResult.rows[0].count);
 
       // Get paginated customer list with their details
@@ -1646,25 +1714,23 @@ export class ShopRepository extends BaseRepository {
       paramCount++;
       params.push(offset);
 
-      // Include customers who earned (mint) OR redeemed at this shop
-      // For lifetime_earnings, only sum mint transactions (what they actually earned at this shop)
       const query = `
         SELECT
-          t.customer_address as address,
+          c.address as address,
           MAX(c.name) as name,
           MAX(c.profile_image_url) as profile_image_url,
           COALESCE(MAX(c.tier), 'BRONZE') as tier,
-          SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) as lifetime_earnings,
+          COALESCE(SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END), 0) as lifetime_earnings,
           MAX(t.timestamp) as last_transaction_date,
           COUNT(t.id) as total_transactions,
           BOOL_OR(c.is_active) as is_active,
           MAX(c.suspended_at) as suspended_at,
-          MAX(c.suspension_reason) as suspension_reason
-        FROM transactions t
-        LEFT JOIN customers c ON c.address = t.customer_address
-        ${whereClause} AND t.type IN ('mint', 'redeem')
-        GROUP BY t.customer_address
-        ORDER BY SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) DESC
+          MAX(c.suspension_reason) as suspension_reason,
+          MAX(c.import_source) as import_source,
+          BOOL_OR(LOWER(c.address) LIKE '0xmanual%') as is_placeholder
+        ${joinClause}
+        GROUP BY c.address
+        ORDER BY lifetime_earnings DESC
         LIMIT $${paramCount - 1} OFFSET $${paramCount}
       `;
 
@@ -1681,7 +1747,9 @@ export class ShopRepository extends BaseRepository {
         isActive: row.is_active !== false, // Default to true if null
         suspended: row.is_active === false,
         suspendedAt: row.suspended_at,
-        suspensionReason: row.suspension_reason
+        suspensionReason: row.suspension_reason,
+        importSource: row.import_source ?? null,
+        isPlaceholder: row.is_placeholder === true
       }));
 
       const totalPages = Math.ceil(totalItems / limit);

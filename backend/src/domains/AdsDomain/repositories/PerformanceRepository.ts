@@ -23,13 +23,19 @@ export interface CampaignTotals {
   totalBookings: number;
 }
 
+export type LeadChannel = 'messenger' | 'whatsapp' | 'google' | 'meta_form' | 'webform';
+
+export interface ChannelRow {
+  channel: LeadChannel;
+  leads: number;
+  bookings: number;
+  revenueCents: number;
+}
+
 export interface DailyMetricsInput {
   spendCents?: number;
   impressions?: number;
   clicks?: number;
-  leadsCaptured?: number;
-  bookingsCreated?: number;
-  revenueCents?: number;
 }
 
 export class PerformanceRepository extends BaseRepository {
@@ -53,32 +59,78 @@ export class PerformanceRepository extends BaseRepository {
     }));
   }
 
-  /** Admin daily-metric entry — one row per campaign per day (idempotent upsert). */
+  /** Per-channel split of the lead pipeline for one campaign (all-time, matching
+   *  getTotals). Channel is derived from the lead's own identifiers — Messenger and
+   *  webform leads both live under a Meta campaign, so `platform` can't tell them
+   *  apart; the lead row can. Leads counted from ad_leads (non-duplicate); bookings +
+   *  revenue from the ad-attributed, non-cancelled/refunded service orders. Spend is
+   *  per-campaign (not per-channel) so it's left to the caller to allocate. */
+  async getChannelBreakdown(campaignId: string): Promise<ChannelRow[]> {
+    const res = await this.pool.query(
+      `SELECT
+          CASE
+            WHEN l.messenger_id  IS NOT NULL THEN 'messenger'
+            WHEN l.whatsapp_id   IS NOT NULL THEN 'whatsapp'
+            WHEN l.gclid         IS NOT NULL THEN 'google'
+            WHEN l.meta_lead_id  IS NOT NULL THEN 'meta_form'
+            ELSE 'webform'
+          END AS channel,
+          count(DISTINCT l.id)::int AS leads,
+          count(DISTINCT o.order_id) FILTER (
+            WHERE o.order_id IS NOT NULL AND COALESCE(o.status, '') NOT IN ('cancelled', 'refunded')
+          )::int AS bookings,
+          ROUND(COALESCE(SUM(
+            CASE WHEN COALESCE(o.status, '') NOT IN ('cancelled', 'refunded')
+                 THEN o.final_amount_usd ELSE 0 END
+          ), 0) * 100)::int AS revenue_cents
+         FROM ad_leads l
+         LEFT JOIN service_orders o ON o.ad_lead_id = l.id
+        WHERE l.campaign_id = $1 AND l.is_duplicate = false
+        GROUP BY 1`,
+      [campaignId]
+    );
+    return res.rows.map((r) => ({
+      channel: r.channel as ChannelRow['channel'],
+      leads: r.leads,
+      bookings: r.bookings,
+      revenueCents: r.revenue_cents,
+    }));
+  }
+
+  /** Admin daily-metric correction — spend/impressions/clicks ONLY (idempotent upsert).
+   *  leads/bookings/revenue are owned by the pipeline roll-up and are deliberately NOT
+   *  written here, so a manual spend fix can't clobber the derived conversion columns. */
   async upsertDaily(campaignId: string, date: string, m: DailyMetricsInput): Promise<void> {
     await this.pool.query(
-      `INSERT INTO ad_performance_daily
-         (campaign_id, date, spend_cents, impressions, clicks, leads_captured,
-          bookings_created, revenue_cents)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO ad_performance_daily (campaign_id, date, spend_cents, impressions, clicks)
+       VALUES ($1,$2,$3,$4)
        ON CONFLICT (campaign_id, date) DO UPDATE SET
-         spend_cents      = EXCLUDED.spend_cents,
-         impressions      = EXCLUDED.impressions,
-         clicks           = EXCLUDED.clicks,
-         leads_captured   = EXCLUDED.leads_captured,
-         bookings_created = EXCLUDED.bookings_created,
-         revenue_cents    = EXCLUDED.revenue_cents,
-         updated_at       = now()`,
-      [
-        campaignId, date,
-        m.spendCents ?? 0, m.impressions ?? 0, m.clicks ?? 0,
-        m.leadsCaptured ?? 0, m.bookingsCreated ?? 0, m.revenueCents ?? 0,
-      ]
+         spend_cents = EXCLUDED.spend_cents,
+         impressions = EXCLUDED.impressions,
+         clicks      = EXCLUDED.clicks,
+         updated_at  = now()`,
+      [campaignId, date, m.spendCents ?? 0, m.impressions ?? 0, m.clicks ?? 0]
     );
   }
 
   /** Stage-4 push Phase 3 — write Meta insights (spend/impressions/clicks) ONLY, leaving
    *  leads/bookings/revenue to the pipeline roll-up (orthogonal columns, no clobber). */
   async upsertMetaInsights(campaignId: string, date: string, m: { spendCents: number; impressions: number; clicks: number }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO ad_performance_daily (campaign_id, date, spend_cents, impressions, clicks)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (campaign_id, date) DO UPDATE SET
+         spend_cents = EXCLUDED.spend_cents,
+         impressions = EXCLUDED.impressions,
+         clicks      = EXCLUDED.clicks,
+         updated_at  = now()`,
+      [campaignId, date, m.spendCents ?? 0, m.impressions ?? 0, m.clicks ?? 0]
+    );
+  }
+
+  /** Slice 4 — write Google insights (spend/impressions/clicks) ONLY, leaving leads/bookings/revenue
+   *  to the pipeline roll-up (same orthogonal-column contract as upsertMetaInsights). */
+  async upsertGoogleInsights(campaignId: string, date: string, m: { spendCents: number; impressions: number; clicks: number }): Promise<void> {
     await this.pool.query(
       `INSERT INTO ad_performance_daily (campaign_id, date, spend_cents, impressions, clicks)
        VALUES ($1,$2,$3,$4,$5)

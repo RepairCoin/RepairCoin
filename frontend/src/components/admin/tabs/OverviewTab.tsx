@@ -178,7 +178,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
         /> */}
         <StatCard
           title="Total Revenue"
-          value={`$${((stats?.totalTokensIssued || 0) * 0.1).toFixed(0)}`}
+          value={`$${(stats?.totalRevenue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
           icon={<DollarSign className="w-6 h-6 text-white" />}
         />
       </div>
@@ -209,7 +209,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
                     <SelectItem variant="dark" value="all">All Types</SelectItem>
                     <SelectItem variant="dark" value="purchase">RCN Purchases</SelectItem>
                     <SelectItem variant="dark" value="mint">Token Mints</SelectItem>
-                    <SelectItem variant="dark" value="redemption">Redemptions</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -312,7 +311,7 @@ const TransactionsTable: React.FC<{
       header: "AMOUNT",
       accessor: (tx) => (
         <span className="text-sm font-semibold text-yellow-400">
-          {parseFloat(tx.amount).toFixed(2)} RCN
+          {parseFloat(String(tx.amount)).toFixed(2)} RCN
         </span>
       ),
       sortable: true,

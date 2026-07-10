@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { serviceAnalyticsApi, GroupPerformanceAnalytics } from '@/services/api/serviceAnalytics';
+import { useLocationStore } from '@/stores/locationStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Users, Package, Coins, TrendingUp, Gift } from 'lucide-react';
 
@@ -10,16 +11,18 @@ export function GroupPerformanceSection() {
   const [analytics, setAnalytics] = useState<GroupPerformanceAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
 
   useEffect(() => {
     loadGroupPerformance();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLocationId]);
 
   const loadGroupPerformance = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await serviceAnalyticsApi.getGroupPerformanceAnalytics();
+      const data = await serviceAnalyticsApi.getGroupPerformanceAnalytics(activeLocationId ?? undefined);
       setAnalytics(data);
     } catch (err: any) {
       console.error('Failed to load group performance analytics:', err);

@@ -95,7 +95,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
   /**
    * Get overall metrics for a specific shop's services
    */
-  async getShopMetrics(shopId: string): Promise<ShopServiceMetrics> {
+  async getShopMetrics(shopId: string, locationId?: string | null): Promise<ShopServiceMetrics> {
     try {
       const query = `
         WITH service_stats AS (
@@ -121,6 +121,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
             COALESCE(AVG(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE NULL END), 0) as avg_order_value
           FROM service_orders
           WHERE shop_id = $1
+            AND ($2::uuid IS NULL OR location_id = $2::uuid)
         )
         SELECT
           ss.total_services,
@@ -139,7 +140,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         CROSS JOIN order_stats os
       `;
 
-      const result = await this.pool.query(query, [shopId]);
+      const result = await this.pool.query(query, [shopId, locationId || null]);
 
       if (result.rows.length === 0) {
         return {
@@ -182,7 +183,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
   /**
    * Get performance metrics for individual services
    */
-  async getServicePerformance(shopId: string, limit: number = 10): Promise<ServicePerformance[]> {
+  async getServicePerformance(shopId: string, limit: number = 10, locationId?: string | null): Promise<ServicePerformance[]> {
     try {
       const query = `
         SELECT
@@ -205,6 +206,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           END as conversion_rate
         FROM shop_services s
         LEFT JOIN service_orders o ON s.service_id = o.service_id
+          AND ($3::uuid IS NULL OR o.location_id = $3::uuid)
         LEFT JOIN service_favorites f ON s.service_id = f.service_id
         WHERE s.shop_id = $1
         GROUP BY s.service_id, s.service_name, s.category, s.price_usd, s.average_rating, s.review_count
@@ -212,7 +214,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         LIMIT $2
       `;
 
-      const result = await this.pool.query(query, [shopId, limit]);
+      const result = await this.pool.query(query, [shopId, limit, locationId || null]);
 
       return result.rows.map(row => ({
         serviceId: row.service_id,
@@ -238,7 +240,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
   /**
    * Get order trends over time (daily aggregation)
    */
-  async getOrderTrends(shopId: string, days: number = 30): Promise<OrderTrend[]> {
+  async getOrderTrends(shopId: string, days: number = 30, locationId?: string | null): Promise<OrderTrend[]> {
     try {
       const query = `
         SELECT
@@ -249,11 +251,12 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         FROM service_orders
         WHERE shop_id = $1
           AND created_at >= NOW() - INTERVAL '1 day' * $2
+          AND ($3::uuid IS NULL OR location_id = $3::uuid)
         GROUP BY DATE(created_at)
         ORDER BY date DESC
       `;
 
-      const result = await this.pool.query(query, [shopId, days]);
+      const result = await this.pool.query(query, [shopId, days, locationId || null]);
 
       return result.rows.map(row => ({
         date: row.date,
@@ -270,7 +273,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
   /**
    * Get category performance for a shop
    */
-  async getShopCategoryPerformance(shopId: string): Promise<CategoryPerformance[]> {
+  async getShopCategoryPerformance(shopId: string, locationId?: string | null): Promise<CategoryPerformance[]> {
     try {
       const query = `
         SELECT
@@ -282,12 +285,13 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           COALESCE(AVG(s.price_usd), 0) as average_price
         FROM shop_services s
         LEFT JOIN service_orders o ON s.service_id = o.service_id
+          AND ($2::uuid IS NULL OR o.location_id = $2::uuid)
         WHERE s.shop_id = $1
         GROUP BY s.category
         ORDER BY total_revenue DESC
       `;
 
-      const result = await this.pool.query(query, [shopId]);
+      const result = await this.pool.query(query, [shopId, locationId || null]);
 
       return result.rows.map(row => ({
         category: row.category,
@@ -470,7 +474,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
   /**
    * Get group performance analytics for a shop
    */
-  async getGroupPerformanceAnalytics(shopId: string): Promise<{
+  async getGroupPerformanceAnalytics(shopId: string, locationId?: string | null): Promise<{
     summary: {
       totalServicesLinked: number;
       totalGroupsActive: number;
@@ -503,6 +507,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
     }>;
   }> {
     try {
+      const loc = locationId || null;
       // Get summary statistics
       const summaryQuery = `
         SELECT
@@ -519,10 +524,11 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         FROM service_group_availability sga
         INNER JOIN shop_services s ON sga.service_id = s.service_id
         LEFT JOIN service_orders so ON s.service_id = so.service_id
+          AND ($2::uuid IS NULL OR so.location_id = $2::uuid)
         WHERE s.shop_id = $1 AND sga.active = true
       `;
 
-      const summaryResult = await this.pool.query(summaryQuery, [shopId]);
+      const summaryResult = await this.pool.query(summaryQuery, [shopId, loc]);
       const summary = summaryResult.rows[0];
 
       // Get group breakdown
@@ -546,12 +552,13 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         INNER JOIN service_group_availability sga ON asg.group_id = sga.group_id
         INNER JOIN shop_services s ON sga.service_id = s.service_id
         LEFT JOIN service_orders so ON s.service_id = so.service_id
+          AND ($2::uuid IS NULL OR so.location_id = $2::uuid)
         WHERE s.shop_id = $1 AND sga.active = true
         GROUP BY asg.group_id, asg.group_name, asg.custom_token_symbol, asg.icon
         ORDER BY total_bookings DESC, total_revenue DESC
       `;
 
-      const groupResult = await this.pool.query(groupQuery, [shopId]);
+      const groupResult = await this.pool.query(groupQuery, [shopId, loc]);
 
       // Get services linked to groups
       const servicesQuery = `
@@ -571,12 +578,13 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         INNER JOIN service_group_availability sga ON s.service_id = sga.service_id
         INNER JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
         LEFT JOIN service_orders so ON s.service_id = so.service_id
+          AND ($2::uuid IS NULL OR so.location_id = $2::uuid)
         WHERE s.shop_id = $1 AND sga.active = true
         GROUP BY s.service_id, s.service_name
         ORDER BY bookings DESC, revenue DESC
       `;
 
-      const servicesResult = await this.pool.query(servicesQuery, [shopId]);
+      const servicesResult = await this.pool.query(servicesQuery, [shopId, loc]);
 
       return {
         summary: {
@@ -615,36 +623,38 @@ export class ServiceAnalyticsRepository extends BaseRepository {
   /**
    * Get booking analytics for a shop
    */
-  async getBookingAnalytics(shopId: string, trendDays: number): Promise<BookingAnalytics> {
+  async getBookingAnalytics(shopId: string, trendDays: number, locationId?: string | null): Promise<BookingAnalytics> {
     try {
       const safeTrendDays = Math.max(1, Math.min(Math.floor(Number(trendDays) || 30), 365));
+      const loc = locationId || null;
+      const locFilter = 'AND ($2::uuid IS NULL OR location_id = $2::uuid)';
 
       // Run all queries in parallel
       const [statusResult, busiestDaysResult, peakHoursResult, cancellationResult, trendsResult, summaryResult] = await Promise.all([
         // a) Status breakdown
         this.pool.query(
-          `SELECT status, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL GROUP BY status`,
-          [shopId]
+          `SELECT status, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL ${locFilter} GROUP BY status`,
+          [shopId, loc]
         ),
         // b) Busiest days
         this.pool.query(
-          `SELECT EXTRACT(DOW FROM booking_date)::int as day_of_week, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL GROUP BY day_of_week ORDER BY day_of_week`,
-          [shopId]
+          `SELECT EXTRACT(DOW FROM booking_date)::int as day_of_week, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL ${locFilter} GROUP BY day_of_week ORDER BY day_of_week`,
+          [shopId, loc]
         ),
         // c) Peak hours
         this.pool.query(
-          `SELECT EXTRACT(HOUR FROM booking_time_slot::time)::int as hour, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_time_slot IS NOT NULL GROUP BY hour ORDER BY hour`,
-          [shopId]
+          `SELECT EXTRACT(HOUR FROM booking_time_slot::time)::int as hour, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_time_slot IS NOT NULL ${locFilter} GROUP BY hour ORDER BY hour`,
+          [shopId, loc]
         ),
         // d) Cancellation reasons
         this.pool.query(
-          `SELECT COALESCE(cancellation_reason, 'Not specified') as reason, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND status = 'cancelled' AND booking_date IS NOT NULL GROUP BY reason ORDER BY count DESC LIMIT 10`,
-          [shopId]
+          `SELECT COALESCE(cancellation_reason, 'Not specified') as reason, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND status = 'cancelled' AND booking_date IS NOT NULL ${locFilter} GROUP BY reason ORDER BY count DESC LIMIT 10`,
+          [shopId, loc]
         ),
         // e) Booking trends
         this.pool.query(
-          `SELECT booking_date::date as date, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL AND booking_date >= NOW() - INTERVAL '${safeTrendDays} days' GROUP BY date ORDER BY date`,
-          [shopId]
+          `SELECT booking_date::date as date, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL AND booking_date >= NOW() - INTERVAL '${safeTrendDays} days' ${locFilter} GROUP BY date ORDER BY date`,
+          [shopId, loc]
         ),
         // f) Summary stats
         this.pool.query(
@@ -656,8 +666,8 @@ export class ServiceAnalyticsRepository extends BaseRepository {
             AVG(EXTRACT(EPOCH FROM (booking_date - created_at)) / 86400)::float as avg_lead_time_days,
             COUNT(*) FILTER (WHERE reschedule_count > 0)::int as rescheduled_count,
             AVG(reschedule_count) FILTER (WHERE reschedule_count > 0)::float as avg_reschedule_count
-          FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL`,
-          [shopId]
+          FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL ${locFilter}`,
+          [shopId, loc]
         )
       ]);
 

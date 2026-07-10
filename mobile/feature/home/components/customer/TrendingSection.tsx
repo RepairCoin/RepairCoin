@@ -9,6 +9,13 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { SkeletonHorizontalCards } from "@/shared/components/ui/Skeleton";
+import { rScale } from "@/shared/utilities/responsive";
+
+// Card sizing scaled from the 375pt baseline so it stays proportional
+// across small phones and tablets.
+const CARD_WIDTH = rScale(200);
+const CARD_HEIGHT = rScale(350);
+const CARD_GAP = rScale(20);
 
 interface TrendingSectionProps {
   handleViewAllTrendingServices: () => void;
@@ -30,14 +37,16 @@ export default function TrendingSection({
       <View className="flex-row justify-between items-center mb-4">
         <View className="flex-row items-center">
           <MaterialCommunityIcons name="fire" size={22} color="#FF6B35" />
-          <Text className="text-white text-xl font-bold ml-1">Trending</Text>
+          <Text className="text-white text-xl font-bold ml-1">
+            Trending Services
+          </Text>
         </View>
         <TouchableOpacity onPress={handleViewAllTrendingServices}>
-          <Text className="text-[#FFCC00] text-sm font-semibold">View All</Text>
+          <Text className="text-[#FFCC00] text-sm font-semibold">See All</Text>
         </TouchableOpacity>
       </View>
       {trendingLoading ? (
-        <SkeletonHorizontalCards count={3} cardWidth={280} />
+        <SkeletonHorizontalCards count={3} cardWidth={CARD_WIDTH} />
       ) : trendingData && trendingData.length > 0 ? (
         <View style={{ marginHorizontal: -16 }}>
           <ScrollView
@@ -45,22 +54,27 @@ export default function TrendingSection({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16 }}
             decelerationRate="fast"
-            snapToInterval={286}
+            snapToInterval={CARD_WIDTH + CARD_GAP}
             snapToAlignment="start"
           >
             {trendingData.map((item: ServiceData) => (
-              <View key={item.serviceId} style={{ width: 280, marginRight: 6 }}>
+              <View
+                key={item.serviceId}
+                style={{ width: CARD_WIDTH, height: CARD_HEIGHT, marginRight: CARD_GAP }}
+              >
                 <ServiceCard
+                  transparent
                   imageUrl={item.imageUrl}
                   category={item.category}
+                  shopName={item.shopName}
                   title={item.serviceName}
                   description={item.description}
                   price={item.priceUsd}
                   avgRating={item.avgRating}
                   reviewCount={item.reviewCount}
+                  bookingCount={item.reviewCount}
                   duration={item.durationMinutes}
                   onPress={() => handleServicePress(item)}
-                  showTrendingBadge
                   showFavoriteButton
                   serviceId={item.serviceId}
                   isFavorited={favoritedIds.has(item.serviceId)}

@@ -18,6 +18,8 @@ export interface ParsedService {
   imageUrl?: string;
   tags?: string[];
   active: boolean;
+  /** Origin-system item id (e.g. a Square catalog Token) — stable identity for re-import dedup. */
+  externalRef?: string;
 }
 
 export interface ValidationError {
@@ -45,10 +47,12 @@ const COLUMN_ALIASES: { [key: string]: string[] } = {
   description: ['Description', 'description', 'Desc', 'Details', 'Info', 'Notes'],
   priceUsd: ['Price (USD)', 'Price', 'price', 'price_usd', 'Cost', 'Amount', 'Price USD'],
   durationMinutes: ['Duration (Minutes)', 'duration', 'Duration', 'Time', 'Length', 'Duration Minutes'],
-  category: ['Category', 'category', 'Type', 'Service Type', 'Item Category'],
+  category: ['Category', 'category', 'Type', 'Service Type', 'Item Category', 'Categories', 'Reporting Category'],
   imageUrl: ['Image URL', 'image', 'Image', 'Photo', 'Picture', 'Image Link', 'ImageURL'],
   tags: ['Tags', 'tags', 'Keywords', 'Labels'],
-  active: ['Active Status', 'Active', 'active', 'Status', 'Enabled', 'IsActive']
+  active: ['Active Status', 'Active', 'active', 'Status', 'Enabled', 'IsActive', 'Square Online Item Visibility', 'Visibility', 'Sellable'],
+  // Origin-system item id — Square exports a "Token" per item; also SKU / generic reference columns.
+  externalRef: ['External Ref', 'external_ref', 'externalRef', 'Token', 'SKU', 'Item ID', 'Reference ID', 'Reference']
 };
 
 /**
@@ -56,13 +60,14 @@ const COLUMN_ALIASES: { [key: string]: string[] } = {
  */
 export async function parseServiceExcel(
   buffer: Buffer,
-  fileType: 'xlsx' | 'xls' | 'csv'
+  fileType: 'xlsx' | 'xls' | 'csv',
+  mappingOverride?: ColumnMapping
 ): Promise<ParsedService[]> {
   try {
     if (fileType === 'csv') {
-      return await parseCSV(buffer);
+      return await parseCSV(buffer, mappingOverride);
     } else {
-      return parseExcel(buffer);
+      return parseExcel(buffer, mappingOverride);
     }
   } catch (error: any) {
     throw new Error(`Failed to parse file: ${error.message}`);
@@ -72,7 +77,7 @@ export async function parseServiceExcel(
 /**
  * Parse Excel file (.xlsx, .xls)
  */
-function parseExcel(buffer: Buffer): ParsedService[] {
+function parseExcel(buffer: Buffer, mappingOverride?: ColumnMapping): ParsedService[] {
   // Read workbook from buffer
   const workbook = XLSX.read(buffer, { type: 'buffer' });
 
@@ -97,7 +102,7 @@ function parseExcel(buffer: Buffer): ParsedService[] {
 
   // First row is headers
   const headers = rawData[0] as string[];
-  const columnMapping = mapColumnHeaders(headers);
+  const columnMapping = mapColumnHeaders(headers, mappingOverride);
 
   // Parse data rows (skip header)
   const parsedServices: ParsedService[] = [];
@@ -123,7 +128,7 @@ function parseExcel(buffer: Buffer): ParsedService[] {
 /**
  * Parse CSV file
  */
-function parseCSV(buffer: Buffer): Promise<ParsedService[]> {
+function parseCSV(buffer: Buffer, mappingOverride?: ColumnMapping): Promise<ParsedService[]> {
   return new Promise((resolve, reject) => {
     const parsedServices: ParsedService[] = [];
     const errors: Error[] = [];
@@ -137,7 +142,7 @@ function parseCSV(buffer: Buffer): Promise<ParsedService[]> {
       .pipe(csvParser())
       .on('headers', (headerRow: string[]) => {
         headers = headerRow;
-        columnMapping = mapColumnHeaders(headers);
+        columnMapping = mapColumnHeaders(headers, mappingOverride);
         rowIndex++; // Move to first data row
       })
       .on('data', (row: any) => {
@@ -168,7 +173,7 @@ function parseCSV(buffer: Buffer): Promise<ParsedService[]> {
 /**
  * Map column headers to internal field names
  */
-export function mapColumnHeaders(headers: string[]): ColumnMapping {
+export function mapColumnHeaders(headers: string[], override?: ColumnMapping): ColumnMapping {
   const mapping: ColumnMapping = {};
 
   for (const [internalName, aliases] of Object.entries(COLUMN_ALIASES)) {
@@ -178,6 +183,15 @@ export function mapColumnHeaders(headers: string[]): ColumnMapping {
         mapping[internalName] = normalizedHeader;
         break;
       }
+    }
+  }
+
+  // Explicit override (AI-suggested + confirmed) wins; only honor headers that exist in the file.
+  if (override) {
+    for (const [field, srcHeader] of Object.entries(override)) {
+      if (!srcHeader) { delete mapping[field]; continue; }
+      const actual = headers.find((h) => String(h).trim().toLowerCase() === String(srcHeader).trim().toLowerCase());
+      if (actual) mapping[field] = actual.trim();
     }
   }
 
@@ -221,7 +235,8 @@ function mapRowToService(
     category: sanitizeCategory(service.category),
     imageUrl: service.imageUrl ? sanitizeUrl(service.imageUrl) : undefined,
     tags: service.tags ? parseTags(service.tags) : undefined,
-    active: parseBoolean(service.active)
+    active: parseBoolean(service.active),
+    externalRef: service.externalRef ? sanitizeString(service.externalRef) || undefined : undefined
   };
 }
 
@@ -267,14 +282,23 @@ export function validateServiceRow(
       severity: 'error',
       code: 'MISSING_REQUIRED_FIELD'
     });
-  } else if (service.priceUsd <= 0) {
+  } else if (service.priceUsd < 0) {
     errors.push({
       row: service.rowIndex,
       column: 'Price (USD)',
       value: service.priceUsd,
-      message: 'Price must be greater than 0',
+      message: 'Price cannot be negative',
       severity: 'error',
       code: 'INVALID_PRICE'
+    });
+  } else if (service.priceUsd === 0) {
+    warnings.push({
+      row: service.rowIndex,
+      column: 'Price (USD)',
+      value: service.priceUsd,
+      message: 'Price is 0 (quote/variable) — set a price after import',
+      severity: 'warning',
+      code: 'ZERO_PRICE'
     });
   } else if (service.priceUsd > 10000) {
     warnings.push({
@@ -427,9 +451,18 @@ function sanitizeUrl(value: any): string | undefined {
   }
 }
 
+// Non-numeric "price" values that mean quote-on-request (Square exports "variable"). Import at 0 so
+// the item comes in and the shop sets a price later — rather than failing the whole row.
+const VARIABLE_PRICE_TOKENS = ['variable', 'varies', 'market', 'market price', 'call', 'quote', 'tbd', 'n/a'];
+
 function parsePrice(value: any): number {
   if (value === undefined || value === null || value === '') {
     return 0;
+  }
+
+  const raw = String(value).trim().toLowerCase();
+  if (VARIABLE_PRICE_TOKENS.includes(raw)) {
+    return 0; // quote-on-request → priced later
   }
 
   // Remove currency symbols and commas
@@ -479,7 +512,15 @@ function parseBoolean(value: any): boolean {
   }
 
   const normalized = String(value).toLowerCase().trim();
-  return ['true', '1', 'yes', 'active', 'enabled'].includes(normalized);
+  // Explicit "inactive" vocabulary — incl. Square's visibility/archived values.
+  if (['false', '0', 'no', 'n', 'inactive', 'disabled', 'hidden', 'unavailable', 'archived', 'unlisted'].includes(normalized)) {
+    return false;
+  }
+  // Explicit "active" vocabulary — incl. Square 'visible'/'available'/'sellable'.
+  if (['true', '1', 'yes', 'y', 'active', 'enabled', 'visible', 'available', 'listed', 'sellable'].includes(normalized)) {
+    return true;
+  }
+  return true; // unknown → default active
 }
 
 function stripHtml(str: string): string {

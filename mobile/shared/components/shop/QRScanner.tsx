@@ -28,23 +28,24 @@ export function QRScanner({ visible, onClose, onScan }: QRScannerProps) {
   const [cameraKey, setCameraKey] = useState(0);
 
   useEffect(() => {
-    if (visible && !permission?.granted) {
+    if (!visible) return;
+
+    setScanned(false);
+    setCameraReady(false);
+    setCameraKey((prev) => prev + 1);
+
+    if (!permission?.granted) {
       requestPermission();
+      // Don't show camera until permission is confirmed granted
+      return;
     }
-    if (visible) {
-      setScanned(false);
-      setCameraReady(false);
-      // Force camera remount and add delay for Android
-      setCameraKey((prev) => prev + 1);
-      if (Platform.OS === 'android') {
-        const timer = setTimeout(() => {
-          setCameraReady(true);
-        }, 500);
-        return () => clearTimeout(timer);
-      } else {
-        setCameraReady(true);
-      }
-    }
+
+    // Add a small delay on both platforms to let the camera hardware initialize
+    const delay = Platform.OS === 'android' ? 500 : 300;
+    const timer = setTimeout(() => {
+      setCameraReady(true);
+    }, delay);
+    return () => clearTimeout(timer);
   }, [visible, permission?.granted]);
 
   const handleBarCodeScanned = ({ data }: { data: string }) => {
@@ -128,9 +129,9 @@ export function QRScanner({ visible, onClose, onScan }: QRScannerProps) {
         )}
         
         {/* Header */}
-        <View className="absolute top-0 left-0 right-0 pt-16 px-4 pb-4 bg-black/50">
+        <View className="absolute top-0 left-0 right-0 pt-16 px-4 pb-4 bg-black/50" style={{ zIndex: 999 }}>
           <View className="flex-row justify-between items-center">
-            <TouchableOpacity onPress={onClose} className="p-2">
+            <TouchableOpacity onPress={onClose} className="p-2" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <MaterialIcons name="close" size={28} color="white" />
             </TouchableOpacity>
             <Text className="text-white text-lg font-bold">Scan QR Code</Text>

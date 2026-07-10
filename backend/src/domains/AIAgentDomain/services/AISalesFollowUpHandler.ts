@@ -430,7 +430,7 @@ ${slotRule}
   private async getShopTimezone(shopId: string): Promise<string> {
     try {
       const res = await this.pool.query<{ timezone: string | null }>(
-        `SELECT timezone FROM shop_time_slot_config WHERE shop_id = $1`,
+        `SELECT timezone FROM shop_time_slot_config WHERE shop_id = $1 AND location_id IS NULL`,
         [shopId]
       );
       return res.rows[0]?.timezone || "America/New_York";

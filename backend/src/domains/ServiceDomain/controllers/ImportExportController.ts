@@ -5,11 +5,54 @@
 
 import { Request, Response } from 'express';
 import { ImportExportService } from '../services/ImportExportService';
+import { serviceImportMappingService } from '../../customer/services/CustomerImportMappingService';
+import { extractHeadersAndSamples } from '../../../utils/customerExcelParser';
 import { getFileType, validateFileSignature } from '../../../middleware/fileUpload';
 import { generateFilename } from '../../../utils/excelGenerator';
 import { logger } from '../../../utils/logger';
 
 const importExportService = new ImportExportService();
+
+/** Parse the multipart `columnMapping` field (JSON string) into a {field: header} object. */
+function parseColumnMapping(raw: any): Record<string, string> | undefined {
+  if (!raw) return undefined;
+  try {
+    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(obj)) if (typeof v === 'string' && v.trim()) out[k] = v.trim();
+      return Object.keys(out).length ? out : undefined;
+    }
+  } catch { /* ignore malformed mapping */ }
+  return undefined;
+}
+
+/**
+ * AI-suggest a column mapping for a service/catalog file (Phase 3). Headers + samples only.
+ * POST /api/services/import/suggest-mapping
+ */
+export async function suggestServiceMapping(req: Request, res: Response): Promise<void> {
+  try {
+    const { shopId } = req.user as any;
+    if (!req.file) { res.status(400).json({ success: false, error: 'No file uploaded' }); return; }
+    if (!validateFileSignature(req.file.buffer, req.file.originalname)) {
+      res.status(422).json({ success: false, error: 'Invalid file format', message: 'File signature does not match extension.' });
+      return;
+    }
+    const fileType = getFileType(req.file.originalname);
+    if (!fileType) { res.status(422).json({ success: false, error: 'Invalid file format', message: 'File must be .xlsx, .xls, or .csv' }); return; }
+
+    const { headers, samples } = extractHeadersAndSamples(req.file.buffer, fileType, 5);
+    if (headers.length === 0) { res.status(422).json({ success: false, error: 'Empty file', message: 'No header row found.' }); return; }
+
+    const suggestion = await serviceImportMappingService.suggestMapping(headers, samples, shopId);
+    res.status(200).json({ success: true, headers, mapping: suggestion.mapping, unmapped: suggestion.unmapped, notes: suggestion.notes });
+  } catch (error: any) {
+    const status = error.status || 500;
+    logger.error('suggestServiceMapping failed', { error: error.message });
+    res.status(status).json({ success: false, error: 'Mapping suggestion failed', message: error.message });
+  }
+}
 
 /**
  * Export services to Excel or CSV
@@ -203,7 +246,8 @@ export async function importServices(req: Request, res: Response): Promise<void>
       {
         mode,
         dryRun,
-        onDuplicateName
+        onDuplicateName,
+        columnMapping: parseColumnMapping(req.body.columnMapping)
       }
     );
 

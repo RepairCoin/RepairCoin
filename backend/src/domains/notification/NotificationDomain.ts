@@ -9,6 +9,22 @@ import { getPushNotificationDispatcher, PushNotificationDispatcher } from '../..
 import { EmailService } from '../../services/EmailService';
 import { CustomerRepository } from '../../repositories/CustomerRepository';
 
+/**
+ * NotificationDomain
+ *
+ * ⚠️ LEGACY DELIVERY PATTERN — do NOT add new notification types here.
+ *
+ * The ~20 event handlers below hand-wire each delivery channel
+ * (createNotification + wsManager.sendNotificationToUser + pushDispatcher.sendX).
+ * That per-handler wiring is exactly what let channels get silently dropped.
+ * These handlers are frozen and kept working as-is; they are NOT a template.
+ *
+ * To add or change a notification, use the gateway instead:
+ *   1. Add a row to src/domains/notification/config/notificationRegistry.ts
+ *   2. getNotificationGateway().dispatch('<type>', receiver, { message, metadata })
+ * The gateway fans out to every channel the registry declares, so nothing can
+ * be forgotten. Over time these handlers should migrate onto dispatch() too.
+ */
 export class NotificationDomain implements DomainModule {
   name = 'notifications';
   routes = notificationRoutes;
@@ -315,6 +331,16 @@ export class NotificationDomain implements DomainModule {
           type: 'shop_status_changed',
           payload: { shopAddress, action: 'subscription_cancelled' }
         });
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'subscription_status_changed',
+            payload: { shopAddress, action: 'cancelled', reason, effectiveDate }
+          });
+          logger.info('Sent subscription status change event to admins', { shopAddress, action: 'cancelled' });
+        }
       }
     } catch (error: any) {
       logger.error('Error handling subscription cancelled event:', error);
@@ -377,6 +403,16 @@ export class NotificationDomain implements DomainModule {
           type: 'shop_status_changed',
           payload: { shopAddress, action: 'paused' }
         });
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'subscription_status_changed',
+            payload: { shopAddress, action: 'paused', reason }
+          });
+          logger.info('Sent subscription status change event to admins', { shopAddress, action: 'paused' });
+        }
       }
     } catch (error: any) {
       logger.error('Error handling subscription paused event:', error);
@@ -402,6 +438,16 @@ export class NotificationDomain implements DomainModule {
           type: 'shop_status_changed',
           payload: { shopAddress, action: 'resumed' }
         });
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'subscription_status_changed',
+            payload: { shopAddress, action: 'resumed' }
+          });
+          logger.info('Sent subscription status change event to admins', { shopAddress, action: 'resumed' });
+        }
       }
     } catch (error: any) {
       logger.error('Error handling subscription resumed event:', error);

@@ -53,7 +53,9 @@ export class CustomerRepository extends BaseRepository {
         suspendedAt: row.suspended_at,
         suspensionReason: row.suspension_reason,
         referralCode: row.referral_code,
-        referredBy: row.referred_by
+        referredBy: row.referred_by,
+        importSource: row.import_source ?? null,
+        externalRef: row.external_ref ?? null
       }));
     } catch (error) {
       logger.error('Error fetching all customers:', error);
@@ -1067,21 +1069,25 @@ export class CustomerRepository extends BaseRepository {
       // Marketing top_spenders ranking on shops without redemption
       // activity. See docs/tasks/ai-marketing-audience-fixes.md Item 3.
       //
-      // INNER JOIN on transactions preserves the existing "is this
-      // customer of this shop" gate (any token activity qualifies).
-      // LEFT JOIN on service_orders so customers with token activity
-      // but no completed orders still appear with total_spent=0.
+      // The "is this customer of this shop" gate now qualifies on EITHER
+      // shop token activity (tx) OR home_shop_id — so imported/migrated
+      // customers (e.g. a Square import) who have no transactions and no
+      // orders yet are still reachable by marketing campaigns. For those
+      // customers we fall back to the imported columns: lifetime_spend_usd
+      // for spend, visit_count for visits, and last_visit_at for recency.
+      // Both joins are LEFT so imported-only rows survive; the home_shop_id
+      // OR clause in WHERE keeps non-shop customers out.
       const query = `
         SELECT DISTINCT
           c.address as wallet_address,
           c.email,
           c.name,
           c.tier,
-          COALESCE(orders.total_spent, 0) as total_spent,
-          COALESCE(tx.visit_count, 0) as visit_count,
-          tx.last_visit
+          COALESCE(orders.total_spent, c.lifetime_spend_usd, 0) as total_spent,
+          COALESCE(tx.visit_count, c.visit_count, 0) as visit_count,
+          COALESCE(tx.last_visit, c.last_visit_at) as last_visit
         FROM customers c
-        INNER JOIN (
+        LEFT JOIN (
           SELECT
             customer_address,
             COUNT(DISTINCT DATE(created_at)) as visit_count,
@@ -1101,7 +1107,8 @@ export class CustomerRepository extends BaseRepository {
         ) orders ON c.address = orders.customer_address
         WHERE c.is_active = true
           AND (c.suspended_at IS NULL)
-        ORDER BY tx.last_visit DESC
+          AND (tx.customer_address IS NOT NULL OR LOWER(c.home_shop_id) = LOWER($1))
+        ORDER BY last_visit DESC NULLS LAST
       `;
 
       const result = await this.pool.query(query, [shopId]);
@@ -1137,6 +1144,14 @@ export class CustomerRepository extends BaseRepository {
    * matching the business_briefing lapsed metric. Same row shape as
    * findByShopInteraction so downstream audience filters keep working.
    *
+   * Imported/migrated customers (home_shop_id matches but no orders yet) are
+   * folded in too: their pre-platform recency lives in last_visit_at, so an
+   * imported customer is the canonical win-back target. We treat them as
+   * lapsed when last_visit_at is at least minDays old. Imported rows missing
+   * last_visit_at can't be recency-evaluated here, so they won't surface as
+   * "lapsed" — but they remain reachable via the all-customers audience
+   * (findByShopInteraction), which no longer requires token activity.
+   *
    * Customers without a real customer record (e.g. guest orders) and
    * inactive/suspended customers are excluded — they aren't reachable CRM
    * contacts. Email-less customers are kept (the count matches "lapsed bookers";
@@ -1161,11 +1176,11 @@ export class CustomerRepository extends BaseRepository {
           c.email,
           c.name,
           c.tier,
-          COALESCE(o.total_spent, 0) as total_spent,
-          COALESCE(o.order_count, 0) as visit_count,
-          o.last_order as last_visit
+          COALESCE(o.total_spent, c.lifetime_spend_usd, 0) as total_spent,
+          COALESCE(o.order_count, c.visit_count, 0) as visit_count,
+          COALESCE(o.last_order, c.last_visit_at) as last_visit
         FROM customers c
-        INNER JOIN (
+        LEFT JOIN (
           SELECT
             customer_address,
             MAX(created_at) as last_order,
@@ -1177,8 +1192,9 @@ export class CustomerRepository extends BaseRepository {
         ) o ON LOWER(c.address) = LOWER(o.customer_address)
         WHERE c.is_active = true
           AND (c.suspended_at IS NULL)
-          AND o.last_order <= now() - make_interval(days => $2)
-        ORDER BY o.last_order ASC
+          AND (o.customer_address IS NOT NULL OR LOWER(c.home_shop_id) = LOWER($1))
+          AND COALESCE(o.last_order, c.last_visit_at) <= now() - make_interval(days => $2)
+        ORDER BY last_visit ASC
       `;
 
       const result = await this.pool.query(query, [shopId, minDaysSinceLastVisit]);
@@ -1195,6 +1211,99 @@ export class CustomerRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error finding lapsed bookers:', error);
       throw new Error('Failed to find lapsed bookers');
+    }
+  }
+
+  /**
+   * Find a shop's IMPORTED/MIGRATED customers (e.g. a Square switch) for the
+   * "win back" audience — those with an import_source whose home shop is this
+   * shop. This is the cohort the shop wants to convert from the old POS onto
+   * FixFlow. Spend/visits/recency come from the imported columns
+   * (lifetime_spend_usd / visit_count / last_visit_at), since these customers
+   * have no FixFlow token activity or orders yet. Same row shape as
+   * findByShopInteraction so downstream audience filters/sends are unchanged.
+   *
+   * `stage` mirrors the migration funnel (see square-switch-execution-scope.md):
+   *   - 'not_claimed'        placeholder wallet — hasn't claimed a real account
+   *   - 'claimed_not_booked' real wallet but no booking at this shop yet
+   *   - 'active'             has a booking at this shop (already converted)
+   * Default (undefined) = everyone NOT yet converted (no booking) =
+   * not_claimed + claimed_not_booked — i.e. the win-back targets.
+   *
+   * inactive/suspended customers are excluded (not reachable CRM contacts).
+   * Email-less rows are kept (count matches the cohort; the email send step
+   * skips contactless/suppressed recipients, as it does for every audience).
+   */
+  async findImportedCustomers(
+    shopId: string,
+    stage?: 'not_claimed' | 'claimed_not_booked' | 'active'
+  ): Promise<Array<{
+    walletAddress: string;
+    email?: string;
+    name?: string;
+    tier?: string;
+    totalSpent?: number;
+    visitCount?: number;
+    lastVisit?: Date;
+  }>> {
+    try {
+      // "booked" = has any order at this shop (status-agnostic: any engagement
+      // counts as converted, so we don't re-target someone already using FixFlow).
+      const bookedExists = `EXISTS (
+        SELECT 1 FROM service_orders so
+        WHERE so.shop_id = $1
+          AND LOWER(so.customer_address) = LOWER(c.address)
+      )`;
+      const isPlaceholder = `LOWER(c.wallet_address) LIKE '0xmanual%'`;
+
+      let stageClause: string;
+      switch (stage) {
+        case 'not_claimed':
+          stageClause = `AND ${isPlaceholder}`;
+          break;
+        case 'claimed_not_booked':
+          stageClause = `AND NOT ${isPlaceholder} AND NOT ${bookedExists}`;
+          break;
+        case 'active':
+          stageClause = `AND ${bookedExists}`;
+          break;
+        default:
+          // win-back default: everyone not yet converted (no booking)
+          stageClause = `AND NOT ${bookedExists}`;
+      }
+
+      const query = `
+        SELECT
+          c.address as wallet_address,
+          c.email,
+          c.name,
+          c.tier,
+          COALESCE(c.lifetime_spend_usd, 0) as total_spent,
+          COALESCE(c.visit_count, 0) as visit_count,
+          COALESCE(c.last_visit_at, c.created_at) as last_visit
+        FROM customers c
+        WHERE c.import_source IS NOT NULL
+          AND LOWER(c.home_shop_id) = LOWER($1)
+          AND c.is_active = true
+          AND (c.suspended_at IS NULL)
+          ${stageClause}
+        ORDER BY last_visit DESC NULLS LAST
+      `;
+
+      const result = await this.pool.query(query, [shopId]);
+
+      return result.rows.map(row => ({
+        walletAddress: row.wallet_address,
+        email: row.email || undefined,
+        name: row.name || undefined,
+        tier: row.tier || undefined,
+        totalSpent: parseFloat(row.total_spent) || 0,
+        visitCount: parseInt(row.visit_count) || 0,
+        lastVisit: row.last_visit ? new Date(row.last_visit) : undefined
+      }));
+    } catch (error) {
+      logger.error('Error finding imported customers:', error);
+      throw new Error('Failed to find imported customers');
     }
   }
 
@@ -1231,7 +1340,7 @@ export class CustomerRepository extends BaseRepository {
       // service_orders.total_amount for paid+completed orders.
       let baseQuery = `
         FROM customers c
-        INNER JOIN (
+        LEFT JOIN (
           SELECT
             customer_address,
             COUNT(DISTINCT DATE(created_at)) as visit_count,
@@ -1251,6 +1360,7 @@ export class CustomerRepository extends BaseRepository {
         ) orders ON c.address = orders.customer_address
         WHERE c.is_active = true
           AND (c.suspended_at IS NULL)
+          AND (tx.customer_address IS NOT NULL OR LOWER(c.home_shop_id) = LOWER($1))
       `;
 
       const params: any[] = [shopId];
@@ -1279,11 +1389,11 @@ export class CustomerRepository extends BaseRepository {
           c.email,
           c.name,
           c.tier,
-          COALESCE(orders.total_spent, 0) as total_spent,
-          COALESCE(tx.visit_count, 0) as visit_count,
-          tx.last_visit
+          COALESCE(orders.total_spent, c.lifetime_spend_usd, 0) as total_spent,
+          COALESCE(tx.visit_count, c.visit_count, 0) as visit_count,
+          COALESCE(tx.last_visit, c.last_visit_at) as last_visit
         ${baseQuery}
-        ORDER BY tx.last_visit DESC
+        ORDER BY last_visit DESC NULLS LAST
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `;
       params.push(limit, offset);

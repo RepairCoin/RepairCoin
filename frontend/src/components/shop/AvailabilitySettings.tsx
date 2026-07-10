@@ -4,7 +4,11 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, Settings, Plus, Trash2, Loader2, Save, Check, AlertCircle } from 'lucide-react';
 import { appointmentsApi, ShopAvailability, TimeSlotConfig, DateOverride } from '@/services/api/appointments';
+import { getLocations, ShopLocation } from '@/services/api/locations';
 import { toast } from 'react-hot-toast';
+import { useAuthStore } from '@/stores/authStore';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { useLocationStore } from '@/stores/locationStore';
 
 type TabType = 'hours' | 'settings' | 'overrides';
 
@@ -23,9 +27,21 @@ interface AvailabilitySettingsProps {
 }
 
 export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shopId }) => {
+  // Editing availability/time-slots/overrides requires bookings:manage.
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canManage = !!userProfile && hasPermission('bookings:manage');
+  const { multiLocationActive } = useFeatureAccess();
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
+  const setActiveLocation = useLocationStore((s) => s.setActiveLocation);
   const [activeTab, setActiveTab] = useState<TabType>('hours');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Per-branch hours: null = primary / shop-level default hours. The selected branch is the shared,
+  // persisted activeLocationId (locationStore) so it survives refreshes and stays in sync with the
+  // analytics/booking switchers.
+  const [locations, setLocations] = useState<ShopLocation[]>([]);
 
   // Operating Hours State
   const [availability, setAvailability] = useState<ShopAvailability[]>([]);
@@ -45,9 +61,28 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
     reason: ''
   });
 
+  // Non-primary branch → scope hours to that location; null (primary/"main default") → shop-level.
+  const selectedLocation = locations.find((l) => l.id === activeLocationId);
+  const apiLocationId = selectedLocation && !selectedLocation.isPrimary ? selectedLocation.id : undefined;
+
+  useEffect(() => {
+    if (!multiLocationActive) return;
+    getLocations()
+      .then((locs) => {
+        setLocations(locs);
+        // Drop a stale/foreign selection (e.g. another shop's branch) → back to shop-level default.
+        if (activeLocationId && !locs.some((l) => l.id === activeLocationId)) {
+          setActiveLocation(null);
+        }
+      })
+      .catch(() => setLocations([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [multiLocationActive]);
+
   useEffect(() => {
     loadAllData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiLocationId]);
 
   const loadAllData = async () => {
     if (!shopId) {
@@ -59,9 +94,9 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
     try {
       setLoading(true);
       const [availData, configData, overridesData] = await Promise.all([
-        appointmentsApi.getShopAvailability(shopId),
-        appointmentsApi.getTimeSlotConfig(),
-        appointmentsApi.getDateOverrides()
+        appointmentsApi.getShopAvailability(shopId, apiLocationId),
+        appointmentsApi.getTimeSlotConfig(apiLocationId),
+        appointmentsApi.getDateOverrides(undefined, undefined, apiLocationId)
       ]);
       setAvailability(availData);
       setConfig(configData);
@@ -85,7 +120,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
         openTime: data.openTime || undefined,
         closeTime: data.closeTime || undefined,
         breakStartTime: data.breakStartTime || undefined,
-        breakEndTime: data.breakEndTime || undefined
+        breakEndTime: data.breakEndTime || undefined,
+        locationId: apiLocationId
       });
 
       await loadAllData();
@@ -117,7 +153,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
         maxConcurrentBookings: config.maxConcurrentBookings,
         bookingAdvanceDays: config.bookingAdvanceDays,
         minBookingHours: config.minBookingHours,
-        allowWeekendBooking: config.allowWeekendBooking
+        allowWeekendBooking: config.allowWeekendBooking,
+        locationId: apiLocationId ?? null
       });
 
       await loadAllData();
@@ -146,7 +183,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
         isClosed: newOverride.isClosed,
         customOpenTime: newOverride.customOpenTime || undefined,
         customCloseTime: newOverride.customCloseTime || undefined,
-        reason: newOverride.reason || undefined
+        reason: newOverride.reason || undefined,
+        locationId: apiLocationId
       });
 
       await loadAllData();
@@ -171,7 +209,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
 
     try {
       setSaving(true);
-      await appointmentsApi.deleteDateOverride(date);
+      await appointmentsApi.deleteDateOverride(date, apiLocationId);
       await loadAllData();
       toast.success('Date override deleted successfully');
     } catch (error) {
@@ -183,6 +221,31 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
   };
 
   // ==================== RENDER TABS ====================
+
+  const renderLocationSelector = () => {
+    if (!multiLocationActive || locations.length <= 1) return null;
+    const primaryName = locations.find((l) => l.isPrimary)?.name;
+    return (
+      <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-4 mb-4">
+        <label className="block text-sm font-medium text-gray-400 mb-2">Location</label>
+        <select
+          value={activeLocationId ?? ''}
+          onChange={(e) => setActiveLocation(e.target.value || null)}
+          className="w-full md:w-96 px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+        >
+          <option value="">{primaryName ? `${primaryName} (main — default)` : 'Main — default'}</option>
+          {locations.filter((l) => !l.isPrimary).map((loc) => (
+            <option key={loc.id} value={loc.id}>{loc.name}</option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 mt-2">
+          {apiLocationId
+            ? 'These settings apply only to this branch.'
+            : 'These are the defaults; branches without their own settings inherit them.'}
+        </p>
+      </div>
+    );
+  };
 
   const renderOperatingHours = () => (
     <div className="space-y-4">
@@ -236,7 +299,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                   <span className="text-sm text-gray-400">Open</span>
                 </label>
               </div>
-              {isOpen && (
+              {isOpen && canManage && (
                 <button
                   onClick={() => setEditingDay(isEditing ? null : day.value)}
                   className="text-sm text-[#FFCC00] hover:text-[#FFD700] transition-colors"
@@ -260,7 +323,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                         );
                         setAvailability(updated);
                       }}
-                      className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+                      onClick={(e) => e.currentTarget.showPicker?.()}
+                      className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                     />
                   ) : (
                     <p className="text-white">{dayAvailability.openTime || 'Not set'}</p>
@@ -278,7 +342,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                         );
                         setAvailability(updated);
                       }}
-                      className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+                      onClick={(e) => e.currentTarget.showPicker?.()}
+                      className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                     />
                   ) : (
                     <p className="text-white">{dayAvailability.closeTime || 'Not set'}</p>
@@ -296,7 +361,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                         );
                         setAvailability(updated);
                       }}
-                      className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+                      onClick={(e) => e.currentTarget.showPicker?.()}
+                      className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                     />
                   ) : (
                     <p className="text-white">{dayAvailability.breakStartTime || 'No break'}</p>
@@ -314,7 +380,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                         );
                         setAvailability(updated);
                       }}
-                      className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+                      onClick={(e) => e.currentTarget.showPicker?.()}
+                      className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                     />
                   ) : (
                     <p className="text-white">{dayAvailability.breakEndTime || 'No break'}</p>
@@ -326,7 +393,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
             {isEditing && (
               <div className="mt-4 flex justify-end">
                 <button
-                  onClick={() => handleUpdateAvailability(day.value, dayAvailability)}
+                  onClick={() => handleUpdateAvailability(day.value, dayAvailability || {})}
                   disabled={saving}
                   className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
@@ -375,6 +442,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
         <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-6 space-y-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">Time Slot Settings</h3>
+            {canManage && (
             <button
               onClick={() => configEditing ? handleUpdateConfig() : setConfigEditing(true)}
               disabled={saving}
@@ -394,6 +462,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 'Edit Settings'
               )}
             </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -562,8 +631,9 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
               type="date"
               value={newOverride.overrideDate}
               onChange={(e) => setNewOverride({ ...newOverride, overrideDate: e.target.value })}
+              onClick={(e) => e.currentTarget.showPicker?.()}
               min={new Date().toISOString().split('T')[0]}
-              className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+              className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
             />
           </div>
 
@@ -599,7 +669,8 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 type="time"
                 value={newOverride.customOpenTime}
                 onChange={(e) => setNewOverride({ ...newOverride, customOpenTime: e.target.value })}
-                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+                onClick={(e) => e.currentTarget.showPicker?.()}
+                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
               />
             </div>
             <div>
@@ -608,12 +679,14 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 type="time"
                 value={newOverride.customCloseTime}
                 onChange={(e) => setNewOverride({ ...newOverride, customCloseTime: e.target.value })}
-                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
+                onClick={(e) => e.currentTarget.showPicker?.()}
+                className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
               />
             </div>
           </div>
         )}
 
+        {canManage && (
         <button
           onClick={handleCreateOverride}
           disabled={saving || !newOverride.overrideDate}
@@ -631,6 +704,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
             </>
           )}
         </button>
+        )}
       </div>
 
       {/* Existing Overrides */}
@@ -676,6 +750,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                   </p>
                 )}
               </div>
+              {canManage && (
               <button
                 onClick={() => handleDeleteOverride(override.overrideDate)}
                 disabled={saving}
@@ -683,6 +758,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
               >
                 <Trash2 className="w-5 h-5" />
               </button>
+              )}
             </div>
           ))
         )}
@@ -764,6 +840,7 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
 
       {/* Tab Content */}
       <div>
+        {renderLocationSelector()}
         {activeTab === 'hours' && renderOperatingHours()}
         {activeTab === 'settings' && renderBookingSettings()}
         {activeTab === 'overrides' && renderDateOverrides()}

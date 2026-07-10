@@ -17,13 +17,29 @@ export interface AdCampaign {
   platform: string;
   dailyBudgetCents: number;
   status: CampaignStatus;
+  objective?: string | null; // OUTCOME_TRAFFIC | OUTCOME_AWARENESS | OUTCOME_ENGAGEMENT (admin picker)
+  allowMetaEnhancements?: boolean; // opt-in Meta Advantage+ creative enhancements
+  needsCreativeRefresh?: boolean;  // Safeguard 5: underperforming → nudge a free creative swap
+  creativeRefreshReason?: string | null;
+  isTestBudget?: boolean;          // Safeguard 4: running at the reduced test budget
+  fullDailyBudgetCents?: number | null;
+  testBudgetUpgradeReady?: boolean; // window passed + ROI ok → nudge scale-up
   aiAgentEnabled: boolean;
+  aiOutreachMode?: 'off' | 'draft' | 'auto'; // Part B: AI-initiated first contact
   notes: string | null;
   createdAt: string;
+  startedAt?: string | null; // set the first time it goes live — distinguishes pre-live drafts
   // Stage-4 push: present when the campaign was created on Meta.
   metaCampaignId?: string | null;
   metaStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ACTIVE
+  // Google plan push: present when the campaign was created on the shop's Google Ads account.
+  googleCampaignId?: string | null;
+  googleAdGroupId?: string | null;
+  googleStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ENABLED
+  googleSyncedConfigAt?: string | null; // last time budget/status was reconciled FROM Google (Slice 5)
+  googleAdContent?: GoogleAdContent | null; // RSA copy + keywords stored locally (composer)
   targetRadiusMiles?: number | null;
+  currency?: string | null; // joined from shops.meta_currency — the connected ad account's currency
 }
 
 export interface CampaignRoi {
@@ -47,10 +63,29 @@ export interface PerformanceRow {
   revenueCents: number;
 }
 
+// One channel's slice (Messenger / webform / Google …). leads/bookings/revenue +
+// conversionRate + avgOrderValue are exact; spend isn't reported per channel, so
+// it's allocated by lead share — allocatedSpend/roi/cpl/cpb are estimates.
+export type LeadChannel = 'messenger' | 'whatsapp' | 'google' | 'meta_form' | 'webform';
+
+export interface ChannelRoi {
+  channel: LeadChannel;
+  leads: number;
+  bookings: number;
+  revenueCents: number;
+  allocatedSpendCents: number;
+  roi: number | null;
+  conversionRate: number | null;
+  avgOrderValueCents: number | null;
+  cplCents: number | null;
+  cpbCents: number | null;
+}
+
 export interface CampaignPerformance {
   campaignId: string;
   roi: CampaignRoi;
   dailyRows: PerformanceRow[];
+  channels: ChannelRoi[];
 }
 
 export interface AllShopsSummary {
@@ -63,12 +98,10 @@ export interface AllShopsSummary {
 
 export interface DailyMetricsPayload {
   date: string; // YYYY-MM-DD
+  // Spend/impressions/clicks only — leads/bookings/revenue are pipeline-derived (Q5).
   spendCents?: number;
   impressions?: number;
   clicks?: number;
-  leadsCaptured?: number;
-  bookingsCreated?: number;
-  revenueCents?: number;
 }
 
 export interface AdLead {
@@ -79,6 +112,30 @@ export interface AdLead {
   email: string | null;
   leadStatus: LeadStatus;
   attributionMethod: string;
+  /** Human-facing source of the lead, derived from its identifiers (Messenger/WhatsApp/Google/
+   *  Instant form/Web form). Drives the channel badge. */
+  channel?: LeadChannel;
+  /** True only for Messenger/WhatsApp leads → enables Chat / AI-reply. Form/manual leads are false. */
+  hasChatChannel?: boolean;
+  /** First time the shop/admin actually contacted the lead (call/email/status→contacted). Null = never. */
+  firstResponseAt?: string | null;
+  /** Take-over (P3): the AI is paused for this lead — a human is handling it. */
+  aiPaused?: boolean;
+  createdAt: string;
+}
+
+export type AdLeadActivityType = 'email' | 'call' | 'note' | 'status_change';
+
+export interface AdLeadActivity {
+  id: string;
+  leadId: string;
+  type: AdLeadActivityType;
+  channel: string | null;
+  subject: string | null;
+  body: string | null;
+  outcome: string | null;
+  actorAddress: string | null;
+  meta: Record<string, any>;
   createdAt: string;
 }
 
@@ -290,10 +347,17 @@ export interface AdCreative {
   landingUrlType: LandingUrlType | null;
   headline: string | null;
   body: string | null;
+  imageUrl: string | null;
+  metaCreativeId: string | null;
+  generationPrompt: string | null;
   version: number;
   reviewStatus: CreativeReviewStatus;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  /** Two-way sync: the live creative was swapped/edited in Ads Manager and reflected back here,
+   *  bypassing FixFlow's review gate. Surfaced as an "Edited in Ads Manager" badge. */
+  externallyEdited?: boolean;
+  externallyEditedAt?: string | null;
   createdAt: string;
 }
 
@@ -336,9 +400,47 @@ export const updateLeadStatus = async (id: string, status: LeadStatus, lostReaso
   return unwrap<AdLead>(res);
 };
 
-// Stage 3 (Option C) — AI-drafted first outreach for a lead (admin).
-export const draftLeadReply = async (id: string): Promise<string> => {
-  const res = await apiClient.post(`/ads/leads/${id}/draft-reply`);
+// Shop works its own leads (ownership verified server-side via the lead's campaign shop_id).
+export const updateShopLeadStatus = async (id: string, status: LeadStatus, lostReason?: string) => {
+  const res = await apiClient.patch(`/ads/shop/leads/${id}/status`, { status, lostReason });
+  return unwrap<AdLead>(res);
+};
+
+// Lead follow-up is available to BOTH admin and the owning shop. Admin hits /ads/leads/:id/...,
+// shop hits the ownership-gated /ads/shop/leads/:id/... — pick the base by the caller's mode.
+export type LeadMode = 'admin' | 'shop';
+const leadBase = (mode: LeadMode = 'admin') => (mode === 'shop' ? '/ads/shop/leads' : '/ads/leads');
+
+// Follow-up activity timeline for a lead (calls/emails/notes/status changes).
+export const getLeadActivities = async (id: string, mode: LeadMode = 'admin') => {
+  const res = await apiClient.get(`${leadBase(mode)}/${id}/activities`);
+  return unwrap<AdLeadActivity[]>(res);
+};
+
+// Send a tracked email to a lead via Resend. Logs an email activity + posts to the thread.
+// Throws on failure; a 503 with code 'email_not_configured' means the UI should fall back to mailto:.
+export const sendLeadEmail = async (id: string, subject: string, html: string, mode: LeadMode = 'admin') => {
+  const res = await apiClient.post(`${leadBase(mode)}/${id}/email`, { subject, html });
+  return unwrap<{ success: boolean; messageId?: string }>(res);
+};
+
+// Log a manual follow-up activity — a note, or a call with an outcome. A logged call stamps
+// first_response_at server-side. (Emails and status changes are logged by their own endpoints.)
+export type LeadCallOutcome = 'reached' | 'no_answer' | 'booked' | 'not_interested';
+export const logLeadActivity = async (
+  id: string,
+  type: 'note' | 'call',
+  opts?: { outcome?: LeadCallOutcome; body?: string },
+  mode: LeadMode = 'admin'
+) => {
+  const res = await apiClient.post(`${leadBase(mode)}/${id}/activities`, { type, ...opts });
+  return unwrap<AdLeadActivity>(res);
+};
+
+// Stage 3 (Option C) — AI-drafted first outreach for a lead. Mode-aware: shop hits the
+// ownership-gated /ads/shop/leads/... base, admin hits /ads/leads/...
+export const draftLeadReply = async (id: string, mode: LeadMode = 'admin'): Promise<string> => {
+  const res = await apiClient.post(`${leadBase(mode)}/${id}/draft-reply`);
   return unwrap<{ draft: string }>(res).draft;
 };
 
@@ -354,16 +456,16 @@ export interface LeadMessage {
   deliveryStatus: 'recorded' | 'queued' | 'sent' | 'delivered' | 'failed';
   createdAt: string;
 }
-export const getLeadThread = async (id: string): Promise<LeadMessage[]> => {
-  const res = await apiClient.get(`/ads/leads/${id}/messages`);
+export const getLeadThread = async (id: string, mode: LeadMode = 'admin'): Promise<LeadMessage[]> => {
+  const res = await apiClient.get(`${leadBase(mode)}/${id}/messages`);
   return unwrap<LeadMessage[]>(res);
 };
-export const sendLeadMessage = async (id: string, body: string): Promise<LeadMessage> => {
-  const res = await apiClient.post(`/ads/leads/${id}/messages`, { body });
+export const sendLeadMessage = async (id: string, body: string, mode: LeadMode = 'admin'): Promise<LeadMessage> => {
+  const res = await apiClient.post(`${leadBase(mode)}/${id}/messages`, { body });
   return unwrap<LeadMessage>(res);
 };
-export const autoAnswerLead = async (id: string): Promise<LeadMessage> => {
-  const res = await apiClient.post(`/ads/leads/${id}/auto-answer`);
+export const autoAnswerLead = async (id: string, mode: LeadMode = 'admin'): Promise<LeadMessage> => {
+  const res = await apiClient.post(`${leadBase(mode)}/${id}/auto-answer`);
   return unwrap<LeadMessage>(res);
 };
 
@@ -372,7 +474,7 @@ export const autoAnswerLead = async (id: string): Promise<LeadMessage> => {
 // Submit a lead from a public landing-page form (UTM-attributed). No auth.
 export const submitWebformLead = async (payload: {
   campaignId?: string; name?: string; phone?: string; email?: string;
-  utm?: Record<string, string>; clickId?: string;
+  utm?: Record<string, string>; clickId?: string; gclid?: string;
 }): Promise<{ deduped: boolean }> => {
   const res = await apiClient.post('/ads/leads/webform', { ...payload, consentToContact: true });
   return unwrap<{ deduped: boolean }>(res);
@@ -383,7 +485,21 @@ export const submitWebformLead = async (payload: {
 // campaign creation admin-only; this just signals interest + sets the plan on approve.
 
 export type EnrollmentStatus = 'pending' | 'approved' | 'declined';
-export type CampaignGoal = 'more_bookings' | 'awareness' | 'promote_service';
+export type CampaignGoal = 'more_bookings' | 'leads' | 'awareness' | 'promote_service';
+
+// Multi-channel foundation (Google Ads plan, Slice 2). A campaign runs on one platform.
+export type AdChannel = 'meta' | 'google';
+
+export interface AdChannelEligibility {
+  meta: { eligible: boolean; connected: boolean; reason: 'ok' | 'not_connected' };
+  google: { eligible: boolean; connected: boolean; reason: 'ok' | 'tier_locked' | 'not_connected' };
+}
+
+// Which ad channels this shop can use (tier + connection). Drives the brief channel picker.
+export const getAdChannelEligibility = async () => {
+  const res = await apiClient.get('/ads/shop/ad-channels');
+  return unwrap<AdChannelEligibility>(res);
+};
 
 /** Optional campaign brief — what the shop wants advertised. */
 export interface CampaignBrief {
@@ -392,6 +508,9 @@ export interface CampaignBrief {
   offer?: string | null;
   targetRadiusMiles?: number | null;
   goal?: CampaignGoal | null;
+  /** Which channel to run on. Persisting it to the campaign's `platform` is the next step
+   *  (needs a request-table column); today it's captured for the picker. */
+  channel?: AdChannel;
 }
 
 export interface AdEnrollment {
@@ -408,10 +527,12 @@ export interface AdEnrollment {
   createdAt: string;
 }
 
+// Goals are OUTCOMES (what the shop wants), not what to advertise (the service picker covers that).
+// v1 offers two lead-driving outcomes. 'awareness' + 'promote_service' are kept in the type for
+// legacy rows but dropped from the picker — see ads-v1-gaps-and-next-steps.md.
 export const CAMPAIGN_GOALS: { value: CampaignGoal; label: string }[] = [
   { value: 'more_bookings', label: 'More bookings' },
-  { value: 'awareness', label: 'Brand awareness' },
-  { value: 'promote_service', label: 'Promote a specific service' },
+  { value: 'leads', label: 'More leads / inquiries' },
 ];
 
 export interface ShopCapacity {
@@ -535,16 +656,159 @@ export const declineCampaignRequest = async (id: string, declineReason?: string)
 };
 // Stage-4 push P5 — review/edit a PAUSED Meta draft, then take it live (Option B).
 export interface CampaignDraftEdit {
-  dailyBudgetCents?: number; radiusMiles?: number; headline?: string; primaryText?: string; regenerateImage?: boolean;
+  dailyBudgetCents?: number; radiusMiles?: number; headline?: string; primaryText?: string;
+  regenerateImage?: boolean;
+  /** Admin description for a prompt-driven image regenerate (implies regenerateImage). */
+  imagePrompt?: string;
+  /** A manually-uploaded designer image (public URL) to use instead of AI generation. */
+  manualImageUrl?: string;
+  /** Meta objective picker (pre-push only): OUTCOME_TRAFFIC | OUTCOME_AWARENESS. */
+  objective?: string;
+  /** Opt into Meta Advantage+ creative enhancements (applies on the next creative push). */
+  allowMetaEnhancements?: boolean;
+  /** Safeguard 4 — start at a reduced test budget (pre-push only). */
+  isTestBudget?: boolean;
 }
 export const updateCampaignDraft = async (id: string, edits: CampaignDraftEdit): Promise<AdCampaign> => {
   // Regenerating the image runs gpt-image-1 → allow up to 4 min.
   const res = await apiClient.patch(`/ads/campaigns/${id}/draft`, edits, { timeout: 240000 });
   return unwrap<AdCampaign>(res);
 };
+/** Regenerate the campaign's AI ad image from an admin description (re-arms review → pending). */
+export const regenerateAdImage = async (campaignId: string, imagePrompt: string): Promise<AdCampaign> =>
+  updateCampaignDraft(campaignId, { regenerateImage: true, imagePrompt });
+
+/** Upload a designer-made image for the campaign creative → returns its public URL. */
+export const uploadAdCreativeImage = async (campaignId: string, file: File): Promise<string> => {
+  const fd = new FormData();
+  fd.append('image', file);
+  const res = await apiClient.post(`/ads/campaigns/${campaignId}/creative-image`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000,
+  });
+  return unwrap<{ url: string }>(res).url;
+};
+/** Use a manually-uploaded image as the campaign creative (re-arms review → pending). */
+export const useManualAdImage = async (campaignId: string, manualImageUrl: string): Promise<AdCampaign> =>
+  updateCampaignDraft(campaignId, { manualImageUrl });
+/** Prepare→push: kick off creation of the PAUSED Meta objects from a reviewed local draft.
+ *  ASYNC — the backend returns 202 immediately and creates the Meta objects in the background
+ *  (the multi-call Graph sequence was exceeding the gateway timeout → 504). Poll listCampaigns
+ *  for the campaign flipping to `paused` to confirm success. */
+export const pushCampaignToMeta = async (id: string): Promise<{ campaignId: string; status: string }> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/push`, {});
+  return unwrap<{ campaignId: string; status: string }>(res);
+};
 export const goLiveCampaign = async (id: string): Promise<{ campaignId: string; status: string }> => {
   const res = await apiClient.post(`/ads/campaigns/${id}/go-live`, {});
   return unwrap(res);
+};
+/** Safeguard 4 — scale a test-budget campaign up to its full daily budget. */
+export const scaleCampaignBudget = async (id: string): Promise<AdCampaign> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/scale-to-full`, {});
+  return unwrap<AdCampaign>(res);
+};
+
+/** Two-way config sync — pull this campaign's budget/status back FROM Meta into our DB
+ *  (Meta is source-of-truth for live). Returns the fresh campaign + which fields changed
+ *  (empty when already in sync, the feature is off, or the campaign isn't pushed). */
+export type SyncFromMetaStatus = 'disabled' | 'skipped' | 'synced' | 'in_sync' | 'diverged' | 'error';
+export interface SyncFromMetaResult {
+  campaign: AdCampaign;
+  status: SyncFromMetaStatus;
+  changes: Record<string, unknown>;
+  reason?: 'not_pushed' | 'disconnected' | 'meta_archived' | 'meta_deleted';
+  error?: string;
+}
+export const syncCampaignFromMeta = async (id: string): Promise<SyncFromMetaResult> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/sync-from-meta`, {});
+  return unwrap<SyncFromMetaResult>(res);
+};
+
+/** Two-way config sync for a Google campaign — pull the current budget/status back from Google
+ *  (source-of-truth for live). Returns the fresh campaign + which fields changed (empty when in
+ *  sync, the feature is off, or the campaign isn't pushed). Mirrors syncCampaignFromMeta. */
+export type SyncFromGoogleStatus = 'disabled' | 'skipped' | 'synced' | 'in_sync' | 'diverged' | 'error';
+export interface SyncFromGoogleResult {
+  campaign: AdCampaign;
+  status: SyncFromGoogleStatus;
+  changes: Record<string, unknown>;
+  reason?: 'not_pushed' | 'disconnected' | 'google_removed';
+  error?: string;
+}
+export const syncCampaignFromGoogle = async (id: string): Promise<SyncFromGoogleResult> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/sync-from-google`, {});
+  return unwrap<SyncFromGoogleResult>(res);
+};
+
+// Google Search composer — edit budget / RSA copy / keywords on a pushed Google draft, synced to
+// Google. Any provided field is applied; `regenerate` re-runs the AI copy first. Returns the campaign.
+export interface GoogleAdContent {
+  headlines: string[];
+  descriptions: string[];
+  keywords: string[];
+  finalUrl?: string | null;
+}
+export const updateGoogleDraft = async (
+  id: string,
+  edits: { dailyBudgetCents?: number; radiusMiles?: number; headlines?: string[]; descriptions?: string[]; keywords?: string[]; regenerate?: boolean }
+): Promise<AdCampaign> => {
+  const res = await apiClient.patch(`/ads/campaigns/${id}/google-draft`, edits);
+  return unwrap<AdCampaign>(res);
+};
+
+// Load a Google draft's content — backfills headlines/descriptions/keywords FROM Google when we
+// don't have them locally (built before the composer, or first open). refresh=true forces a re-read.
+export const getGoogleDraftContent = async (id: string, refresh = false): Promise<AdCampaign> => {
+  const res = await apiClient.get(`/ads/campaigns/${id}/google-draft${refresh ? "?refresh=1" : ""}`);
+  return unwrap<AdCampaign>(res);
+};
+
+// Admin: import Google spend/impressions/clicks now (also runs nightly). Returns { synced }.
+export const syncGoogleInsights = async (): Promise<{ synced: number }> => {
+  const res = await apiClient.post(`/ads/google/sync-insights`, {});
+  return unwrap<{ synced: number }>(res);
+};
+
+// Admin: run the conversion-attribution backfill now — contact-match paid orders → leads, advance
+// to paid, and upload offline conversions to Google for gclid leads. Returns { scanned, linked }.
+export const runAttributionBackfill = async (shopId?: string): Promise<{ scanned: number; linked: number }> => {
+  const res = await apiClient.post(`/ads/attribution/backfill${shopId ? `?shopId=${encodeURIComponent(shopId)}` : ""}`, {});
+  return unwrap<{ scanned: number; linked: number }>(res);
+};
+
+// Landing-page magnet overrides (Phase 2). All optional — anything unset auto-composes.
+export interface LandingConfig {
+  headline?: string;
+  subhead?: string;
+  urgencyText?: string;
+  benefitBullets?: string[];
+  ctaLabel?: string;
+  showRating?: boolean;
+  callNowEnabled?: boolean;
+}
+export const getLandingConfig = async (campaignId: string): Promise<LandingConfig> => {
+  const res = await apiClient.get(`/ads/campaigns/${campaignId}/landing-config`);
+  return unwrap<LandingConfig>(res);
+};
+export const updateLandingConfig = async (campaignId: string, config: LandingConfig): Promise<LandingConfig> => {
+  const res = await apiClient.put(`/ads/campaigns/${campaignId}/landing-config`, config);
+  return unwrap<LandingConfig>(res);
+};
+
+// The connected ad account's currency + minimum daily budget — so the budget field is shown in
+// the account's own currency (no $/PHP ambiguity) and validated against the minimum.
+export interface ShopMetaAccount {
+  connected: boolean;
+  currency?: string | null;
+  minDailyBudgetCents?: number | null;
+  accountActive?: boolean;
+  hasFunding?: boolean;
+  /** Two-way config-sync feature flag — gates the admin "Refresh from Meta" button. */
+  configSyncEnabled?: boolean;
+}
+export const getShopMetaAccount = async (shopId: string): Promise<ShopMetaAccount> => {
+  const res = await apiClient.get(`/ads/shops/${shopId}/meta-account`);
+  return unwrap<ShopMetaAccount>(res);
 };
 // §9.6 — admin marks a shop's ad account connected/disconnected (build precondition).
 export const setShopAdsAccount = async (shopId: string, connected: boolean) => {
@@ -590,6 +854,7 @@ export interface MetaConnection {
   hasToken: boolean;      // OAuth done but no account/Page picked yet
   adAccountId: string | null;
   pageId: string | null;
+  currency?: string | null; // the connected ad account's currency (ISO code) — for the shop budget label
   leadgenTosAccepted?: boolean | null; // has the Page accepted Meta's Lead Gen ToS? (null = unknown)
 }
 export interface MetaAdAccount { id: string; accountId: string; name: string; status?: number; }
@@ -615,6 +880,35 @@ export const disconnectMeta = async (): Promise<void> => {
   await apiClient.post('/ads/shop/meta/disconnect', {});
 };
 
+/* ----------------------- Connect Google (Google plan, Slice 1) ----------------------- */
+export interface GoogleConnection {
+  enabled: boolean;       // ADS_GOOGLE_CONNECT_ENABLED + a configured Google app
+  connected: boolean;     // a customer account is selected
+  hasToken: boolean;      // OAuth done but no customer picked yet
+  customerId: string | null;
+}
+export interface GoogleCustomerLite { customerId: string; name: string; managerId?: string | null; }
+
+export const getGoogleConnection = async (): Promise<GoogleConnection> => {
+  const res = await apiClient.get('/ads/shop/google/connection');
+  return unwrap<GoogleConnection>(res);
+};
+export const getGoogleConnectUrl = async (): Promise<string> => {
+  const res = await apiClient.get('/ads/shop/google/connect');
+  return unwrap<{ authUrl: string }>(res).authUrl;
+};
+export const getGoogleAccounts = async (): Promise<{ accounts: GoogleCustomerLite[] }> => {
+  const res = await apiClient.get('/ads/shop/google/accounts');
+  return unwrap(res);
+};
+export const selectGoogleAccount = async (customerId: string) => {
+  const res = await apiClient.post('/ads/shop/google/select', { customerId });
+  return unwrap<{ customerId: string; connected: boolean }>(res);
+};
+export const disconnectGoogle = async (): Promise<void> => {
+  await apiClient.post('/ads/shop/google/disconnect', {});
+};
+
 /* --------------------------------- Shop ---------------------------------- */
 
 export const listShopCampaigns = async (params?: { status?: CampaignStatus }) => {
@@ -625,6 +919,49 @@ export const listShopCampaigns = async (params?: { status?: CampaignStatus }) =>
 export const getShopCampaignPerformance = async (id: string) => {
   const res = await apiClient.get(`/ads/shop/campaigns/${id}/performance`);
   return unwrap<CampaignPerformance>(res);
+};
+
+// Part B — set the AI first-contact mode for an owned campaign ('off' | 'draft' | 'auto').
+export const setShopCampaignOutreachMode = async (id: string, mode: 'off' | 'draft' | 'auto') => {
+  const res = await apiClient.patch(`/ads/shop/campaigns/${id}/outreach-mode`, { mode });
+  return unwrap<{ id: string; aiOutreachMode: 'off' | 'draft' | 'auto' }>(res);
+};
+
+// Part B redesign (P2) — conversation inbox: leads as conversation rows with a derived state.
+export type ConversationState = 'awaiting_ai' | 'ai_engaged' | 'needs_human' | 'dormant' | 'quiet';
+export interface LeadConversationItem {
+  id: string;
+  campaignId: string;
+  campaignName: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  leadStatus: string;
+  hasChatChannel: boolean;
+  channel?: LeadChannel;
+  lastDirection: 'inbound' | 'outbound' | null;
+  lastAuthor: 'lead' | 'ai' | 'admin' | null;
+  lastBody: string | null;
+  lastAt: string | null;
+  messageCount: number;
+  conversationState: ConversationState;
+  needsHuman: boolean;
+  aiPaused: boolean;
+  escalated: boolean;
+  createdAt: string;
+}
+export const getShopConversations = async (campaignId?: string) => {
+  const res = await apiClient.get('/ads/shop/conversations', { params: campaignId ? { campaignId } : {} });
+  return unwrap<LeadConversationItem[]>(res);
+};
+export const getLeadConversations = async (params?: { campaignId?: string; shopId?: string }) => {
+  const res = await apiClient.get('/ads/leads/conversations', { params: params ?? {} });
+  return unwrap<LeadConversationItem[]>(res);
+};
+// Take-over (P3) — pause/resume the AI for a lead. Mode-aware (shop → ownership-gated base).
+export const setLeadAiPaused = async (id: string, paused: boolean, mode: LeadMode = 'admin') => {
+  const res = await apiClient.patch(`${leadBase(mode)}/${id}/ai-paused`, { paused });
+  return unwrap<{ id: string; aiPaused: boolean }>(res);
 };
 
 export const listShopLeads = async (params?: { campaignId?: string; status?: LeadStatus }) => {
@@ -646,6 +983,22 @@ export const listShopAwaitingLeads = async (): Promise<AdLead[]> => {
 
 export const fmtUsd = (cents: number | null | undefined): string =>
   cents == null ? '—' : `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+// SHOP ad money (budget / spend / revenue / CPL / CPB) shown in the connected ad account's
+// own currency — avoids the "$ vs PHP" ambiguity. Falls back to USD when currency is unknown
+// (legacy rows / not connected). Use fmtUsd for FixFlow's OWN fees/COGS, which are always USD.
+export const fmtMoney = (cents: number | null | undefined, currency?: string | null): string => {
+  if (cents == null) return '—';
+  const ccy = (currency || 'USD').toUpperCase();
+  try {
+    return (cents / 100).toLocaleString(undefined, {
+      style: 'currency', currency: ccy, minimumFractionDigits: 0, maximumFractionDigits: 0,
+    });
+  } catch {
+    // Unknown/invalid ISO code → plain number + code suffix.
+    return `${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${ccy}`;
+  }
+};
 
 export const fmtRoi = (roi: number | null): string =>
   roi == null ? '—' : `${(roi * 100).toFixed(0)}%`;

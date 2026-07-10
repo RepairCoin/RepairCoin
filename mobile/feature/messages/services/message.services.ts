@@ -72,11 +72,12 @@ class MessageApi {
   async getMessages(
     conversationId: string,
     page: number = 1,
-    limit: number = 50
+    limit: number = 50,
+    sort: "asc" | "desc" = "asc"
   ): Promise<GetMessagesResponse> {
     try {
       return await apiClient.get<GetMessagesResponse>(
-        `/messages/conversations/${conversationId}/messages?page=${page}&limit=${limit}`
+        `/messages/conversations/${conversationId}/messages?page=${page}&limit=${limit}&sort=${sort}`
       );
     } catch (error) {
       console.error("Failed to get messages:", error);
@@ -160,6 +161,18 @@ class MessageApi {
       );
     } catch (error) {
       console.error("Failed to mark message as read:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a single message (soft delete, sender only)
+   */
+  async deleteMessage(messageId: string): Promise<{ success: boolean }> {
+    try {
+      return await apiClient.delete<{ success: boolean }>(`/messages/${messageId}`);
+    } catch (error) {
+      console.error("Failed to delete message:", error);
       throw error;
     }
   }

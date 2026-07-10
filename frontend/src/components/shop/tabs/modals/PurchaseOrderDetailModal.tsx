@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { inventoryApi } from "@/services/api/inventory";
+import { getLocations, type ShopLocation } from "@/services/api/locations";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import type { PurchaseOrder, PurchaseOrderStatus, InventoryVendor } from "@/types/inventory";
-import { X, Package, Calendar, Truck, FileText, DollarSign, CheckCircle, Clock, Download, Send, Ban, Pencil, PackageCheck } from "lucide-react";
+import { X, Package, Calendar, Truck, FileText, DollarSign, CheckCircle, Clock, Download, Send, Ban, Pencil, PackageCheck, MapPin } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { toast } from "react-hot-toast";
 import { ReceiveItemsModal } from "./ReceiveItemsModal";
@@ -21,7 +23,9 @@ export function PurchaseOrderDetailModal({
   vendors,
   onClose,
 }: PurchaseOrderDetailModalProps) {
+  const { multiLocationActive } = useFeatureAccess();
   const [po, setPo] = useState<PurchaseOrder>(purchaseOrder);
+  const [locations, setLocations] = useState<ShopLocation[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -33,10 +37,27 @@ export function PurchaseOrderDetailModal({
     expectedDeliveryDate: toDateInput(purchaseOrder.expectedDeliveryDate),
     trackingNumber: purchaseOrder.trackingNumber || "",
     notes: purchaseOrder.notes || "",
+    locationId: purchaseOrder.locationId || "",
   });
 
   const isLocked = po.status === "received" || po.status === "cancelled";
   const canCancel = po.status === "draft" || po.status === "sent" || po.status === "confirmed";
+  const canEditBranch = canCancel;
+
+  useEffect(() => {
+    if (!multiLocationActive) return;
+    getLocations()
+      .then((l) => setLocations(Array.isArray(l) ? l.filter((loc) => loc.active) : []))
+      .catch(() => setLocations([]));
+  }, [multiLocationActive]);
+
+  useEffect(() => {
+    if (form.locationId || locations.length === 0) return;
+    const primary = locations.find((l) => l.isPrimary) || locations[0];
+    if (primary) setForm((prev) => ({ ...prev, locationId: primary.id }));
+  }, [locations, form.locationId]);
+
+  const showBranchSelector = multiLocationActive && locations.length >= 2 && canEditBranch;
   const canReceive = po.status === "confirmed" || po.status === "partially_received";
   const advance =
     po.status === "draft"
@@ -84,6 +105,7 @@ export function PurchaseOrderDetailModal({
       expectedDeliveryDate: toDateInput(updated.expectedDeliveryDate),
       trackingNumber: updated.trackingNumber || "",
       notes: updated.notes || "",
+      locationId: updated.locationId || "",
     });
     setChanged(true);
   };
@@ -144,6 +166,7 @@ export function PurchaseOrderDetailModal({
         expectedDeliveryDate: form.expectedDeliveryDate || undefined,
         trackingNumber: form.trackingNumber || undefined,
         notes: form.notes || undefined,
+        ...(showBranchSelector ? { locationId: form.locationId || null } : {}),
       });
       applyUpdate(updated);
       setIsEditing(false);
@@ -162,6 +185,7 @@ export function PurchaseOrderDetailModal({
       expectedDeliveryDate: toDateInput(po.expectedDeliveryDate),
       trackingNumber: po.trackingNumber || "",
       notes: po.notes || "",
+      locationId: po.locationId || "",
     });
     setIsEditing(false);
   };
@@ -218,6 +242,11 @@ export function PurchaseOrderDetailModal({
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(`Vendor: ${po.vendorName || "N/A"}`, 15, yPos);
+
+      if (po.locationName) {
+        yPos += 6;
+        doc.text(`Receiving Branch: ${po.locationName}`, 15, yPos);
+      }
 
       yPos += 6;
       doc.text(`Order Date: ${po.orderDate ? new Date(po.orderDate).toLocaleDateString() : new Date(po.createdAt).toLocaleDateString()}`, 15, yPos);
@@ -422,6 +451,30 @@ export function PurchaseOrderDetailModal({
                 <p className="text-base font-medium text-white">{po.vendorName || "N/A"}</p>
               )}
             </div>
+
+            {(showBranchSelector && isEditing) || po.locationName ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Receiving Branch
+                </label>
+                {showBranchSelector && isEditing ? (
+                  <select
+                    value={form.locationId}
+                    onChange={(e) => setForm({ ...form, locationId: e.target.value })}
+                    className={inputClass}
+                  >
+                    {locations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.isPrimary ? `${location.name} (Primary)` : location.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-base font-medium text-white">{po.locationName}</p>
+                )}
+              </div>
+            ) : null}
 
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">

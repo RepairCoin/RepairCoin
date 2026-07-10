@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar, Loader2 } from 'lucide-react';
 import { appointmentsApi, CalendarBooking, RescheduleRequest } from '@/services/api/appointments';
+import { ListSkeleton } from '@/components/ui/skeleton';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { formatLocalDate } from '@/utils/dateUtils';
@@ -182,12 +183,7 @@ export const AppointmentsTab: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FFCC00]" />
-        <span className="ml-3 text-gray-400">Loading appointments...</span>
-      </div>
-    );
+    return <ListSkeleton rows={4} />;
   }
 
   return (

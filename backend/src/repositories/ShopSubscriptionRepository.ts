@@ -1,12 +1,13 @@
 import { BaseRepository } from './BaseRepository';
 import { logger } from '../utils/logger';
+import { getPlanByPriceId } from '../config/subscriptionPlans';
 
 export interface ShopSubscription {
   id?: number;
   shopId: string;
   status: 'pending' | 'active' | 'cancelled' | 'paused' | 'defaulted';
   monthlyAmount: number;
-  subscriptionType: 'standard' | 'premium' | 'custom' | 'trial';
+  subscriptionType: 'standard' | 'premium' | 'custom' | 'trial' | 'starter' | 'growth' | 'business';
   billingMethod?: 'credit_card' | 'ach' | 'wire' | 'crypto';
   billingReference?: string;
   paymentsMade: number;
@@ -210,6 +211,72 @@ export class ShopSubscriptionRepository extends BaseRepository {
     }
   }
 
+  // Idempotent via the ledger PK; next_payment_date is left to the Stripe date sync.
+  async recordInvoicePayment(params: {
+    stripeInvoiceId: string;
+    stripeSubscriptionId: string;
+    shopId?: string;
+    amount: number;
+    billingReason?: string | null;
+    paidAt?: Date;
+  }): Promise<{ recorded: boolean; reason?: string }> {
+    const paymentDate = params.paidAt ?? new Date();
+    const amountCents = Math.round((params.amount ?? 0) * 100);
+
+    return this.withTransaction(async (client) => {
+      const subResult = await client.query(
+        `SELECT id, shop_id FROM shop_subscriptions
+         WHERE billing_reference = $1
+         ORDER BY id DESC LIMIT 1`,
+        [params.stripeSubscriptionId]
+      );
+
+      if (subResult.rows.length === 0) {
+        logger.warn('recordInvoicePayment: no shop_subscription for Stripe subscription', {
+          stripeSubscriptionId: params.stripeSubscriptionId,
+          stripeInvoiceId: params.stripeInvoiceId,
+        });
+        return { recorded: false, reason: 'subscription_not_found' };
+      }
+
+      const subId = subResult.rows[0].id;
+      const shopId = subResult.rows[0].shop_id ?? params.shopId ?? 'unknown';
+
+      const ledgerInsert = await client.query(
+        `INSERT INTO subscription_payment_ledger (
+           stripe_invoice_id, shop_subscription_id, shop_id,
+           stripe_subscription_id, amount_cents, billing_reason, processed_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (stripe_invoice_id) DO NOTHING
+         RETURNING stripe_invoice_id`,
+        [
+          params.stripeInvoiceId,
+          subId,
+          shopId,
+          params.stripeSubscriptionId,
+          amountCents,
+          params.billingReason ?? null,
+          paymentDate,
+        ]
+      );
+
+      if (ledgerInsert.rowCount === 0) {
+        return { recorded: false, reason: 'duplicate' };
+      }
+
+      await client.query(
+        `UPDATE shop_subscriptions
+         SET payments_made = payments_made + 1,
+             total_paid = total_paid + $1,
+             last_payment_date = $2
+         WHERE id = $3`,
+        [params.amount, paymentDate, subId]
+      );
+
+      return { recorded: true };
+    });
+  }
+
   async getPendingSubscriptions(): Promise<ShopSubscription[]> {
     try {
       const query = `
@@ -376,12 +443,17 @@ export class ShopSubscriptionRepository extends BaseRepository {
     shopId: string,
     stripeSubscriptionId: string,
     status: 'active' | 'past_due' | 'unpaid' | 'canceled',
-    currentPeriodEnd: Date
+    currentPeriodEnd: Date,
+    stripePriceId?: string
   ): Promise<void> {
     try {
       // Map Stripe status to shop_subscriptions status
       const shopSubStatus = status === 'canceled' ? 'cancelled' : 'active';
       const isActive = status !== 'canceled';
+
+      const plan = getPlanByPriceId(stripePriceId);
+      const monthlyAmount = plan?.amount ?? 500;
+      const subscriptionType = plan?.tier ?? 'standard';
 
       // Check if a record exists for this shop
       const existingQuery = `
@@ -397,6 +469,8 @@ export class ShopSubscriptionRepository extends BaseRepository {
               billing_reference = $2,
               next_payment_date = $3,
               is_active = $4,
+              monthly_amount = CASE WHEN $6::text IS NOT NULL THEN $6::numeric ELSE monthly_amount END,
+              subscription_type = COALESCE($7, subscription_type),
               activated_at = CASE WHEN $4 = true AND activated_at IS NULL THEN NOW() ELSE activated_at END,
               cancelled_at = CASE WHEN $4 = false THEN NOW() ELSE NULL END,
               updated_at = CURRENT_TIMESTAMP
@@ -407,7 +481,9 @@ export class ShopSubscriptionRepository extends BaseRepository {
           stripeSubscriptionId,
           currentPeriodEnd,
           isActive,
-          shopId
+          shopId,
+          plan ? monthlyAmount : null,
+          plan ? subscriptionType : null
         ]);
       } else {
         // Create new record
@@ -416,14 +492,16 @@ export class ShopSubscriptionRepository extends BaseRepository {
             shop_id, status, monthly_amount, subscription_type,
             billing_method, billing_reference, payments_made, total_paid,
             next_payment_date, is_active, enrolled_at, activated_at
-          ) VALUES ($1, $2, 500, 'standard', 'credit_card', $3, 0, 0, $4, $5, NOW(), NOW())
+          ) VALUES ($1, $2, $6, $7, 'credit_card', $3, 0, 0, $4, $5, NOW(), NOW())
         `;
         await this.pool.query(insertQuery, [
           shopId,
           shopSubStatus,
           stripeSubscriptionId,
           currentPeriodEnd,
-          isActive
+          isActive,
+          monthlyAmount,
+          subscriptionType
         ]);
       }
 

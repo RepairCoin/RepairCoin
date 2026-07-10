@@ -15,7 +15,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { appointmentApi, CustomerSearchResult, ManualBookingData } from "@/feature/services/services/service.services";
 import { serviceApi } from "@/feature/services/services/service.services";
-import { TimeSlot, ShopAvailability } from "@/feature/services/services/service.interface";
+import { TimeSlot, ShopAvailability, DateOverride } from "@/feature/services/services/service.interface";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import CustomerSearchInput from "./CustomerSearchInput";
 import { useManualBookingMutation } from "../hooks";
@@ -26,13 +26,14 @@ interface ManualBookingModalProps {
   shopId: string;
 }
 
-type PaymentStatus = "paid" | "pending" | "unpaid";
+type PaymentStatus = "paid" | "unpaid" | "qr_code" | "send_link";
 type Step = "customer" | "service" | "datetime" | "confirm";
 
 const PAYMENT_OPTIONS: { value: PaymentStatus; label: string; description: string }[] = [
   { value: "paid", label: "Paid", description: "Customer has already paid" },
-  { value: "pending", label: "Pending", description: "Payment will be collected later" },
   { value: "unpaid", label: "Unpaid", description: "No payment required" },
+  { value: "qr_code", label: "QR Code", description: "Walk-in scan & pay" },
+  { value: "send_link", label: "Send Link", description: "Email a payment link to the customer" },
 ];
 
 export default function ManualBookingModal({
@@ -50,7 +51,7 @@ export default function ManualBookingModal({
   const [selectedService, setSelectedService] = useState<ServiceData | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("pending");
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("unpaid");
   const [notes, setNotes] = useState("");
 
   // Mutation
@@ -68,7 +69,7 @@ export default function ManualBookingModal({
       setSelectedService(null);
       setSelectedDate("");
       setSelectedTime("");
-      setPaymentStatus("pending");
+      setPaymentStatus("unpaid");
       setNotes("");
     }
   }, [visible]);
@@ -88,6 +89,25 @@ export default function ManualBookingModal({
     queryFn: () => appointmentApi.getShopAvailability(shopId),
     enabled: visible && !!shopId,
   });
+
+  // Fetch the shop's date overrides (holidays/closures) so closed dates are
+  // greyed out in the manual-booking calendar too.
+  const { data: dateOverrides } = useQuery<DateOverride[]>({
+    queryKey: ["shop-date-overrides", shopId],
+    queryFn: () => appointmentApi.getShopDateOverrides(shopId),
+    enabled: visible && !!shopId,
+  });
+
+  // Set of dates the shop marked fully closed (YYYY-MM-DD).
+  const closedDates = useMemo(() => {
+    const set = new Set<string>();
+    (dateOverrides || []).forEach((o) => {
+      if (o.isClosed && o.overrideDate) {
+        set.add(o.overrideDate.split("T")[0].split(" ")[0]);
+      }
+    });
+    return set;
+  }, [dateOverrides]);
 
   // Fetch time slots
   const { data: timeSlots, isLoading: isLoadingSlots } = useQuery<TimeSlot[]>({
@@ -121,19 +141,20 @@ export default function ManualBookingModal({
         selectedTextColor: "#000000",
       };
     }
-    if (shopAvailability) {
+    if (shopAvailability || closedDates.size) {
       const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30);
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const dateString = d.toISOString().split("T")[0];
-        if (!isDateAvailable(d)) {
+        // Disable closed operating days AND holiday overrides.
+        if (!isDateAvailable(d) || closedDates.has(dateString)) {
           marks[dateString] = { ...marks[dateString], disabled: true, disableTouchEvent: true };
         }
       }
     }
     return marks;
-  }, [selectedDate, shopAvailability]);
+  }, [selectedDate, shopAvailability, closedDates]);
 
   // Helpers
   const formatTime12Hour = (time: string) => {

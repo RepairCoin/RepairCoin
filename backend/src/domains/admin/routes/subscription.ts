@@ -7,6 +7,7 @@ import { DatabaseService } from '../../../services/DatabaseService';
 import { logger } from '../../../utils/logger';
 import { EmailService } from '../../../services/EmailService';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
+import { isValidTier } from '../../../config/subscriptionPlans';
 
 const router = Router();
 const subscriptionService = new SubscriptionService();
@@ -145,6 +146,7 @@ router.get('/subscriptions/stats', async (req: Request, res: Response) => {
         COUNT(*) FILTER (WHERE status = 'paused') as paused_count,
         COUNT(*) FILTER (WHERE status = 'defaulted') as defaulted_count,
         COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
+        COUNT(*) FILTER (WHERE status = 'active' AND next_payment_date IS NOT NULL AND next_payment_date < NOW()) as overdue_count,
         COUNT(*) as total_count,
         COALESCE(SUM(CASE WHEN status = 'active' THEN monthly_amount ELSE 0 END), 0) as monthly_revenue,
         COALESCE(SUM(total_paid), 0) as total_revenue
@@ -162,6 +164,7 @@ router.get('/subscriptions/stats', async (req: Request, res: Response) => {
         paused: parseInt(stats.paused_count),
         defaulted: parseInt(stats.defaulted_count),
         pending: parseInt(stats.pending_count),
+        overdue: parseInt(stats.overdue_count),
         total: parseInt(stats.total_count),
         monthlyRevenue: parseFloat(stats.monthly_revenue),
         yearlyRevenue: parseFloat(stats.monthly_revenue) * 12,
@@ -1165,6 +1168,120 @@ router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, re
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to reactivate subscription'
+    });
+  }
+});
+
+// Change a subscription's plan (tier)
+router.post('/subscriptions/:subscriptionId/change-plan', async (req: Request, res: Response) => {
+  try {
+    const { subscriptionId } = req.params;
+    const { tier } = req.body;
+
+    if (!isValidTier(tier)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid subscription tier. Must be one of: starter, growth, business'
+      });
+    }
+
+    const subQuery = await db.query(
+      'SELECT shop_id FROM shop_subscriptions WHERE id = $1',
+      [subscriptionId]
+    );
+
+    if (subQuery.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subscription not found'
+      });
+    }
+
+    const shopId = subQuery.rows[0].shop_id;
+
+    logger.info('Admin changing subscription plan', { subscriptionId, shopId, tier });
+
+    const result = await subscriptionService.changeSubscriptionTier(shopId, tier);
+
+    res.json({
+      success: true,
+      message: result.isUpgrade
+        ? 'Plan upgraded. The prorated difference was charged to the shop.'
+        : 'Plan will change at the next renewal.',
+      data: result
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to change subscription plan';
+    logger.error('Error changing subscription plan:', message);
+
+    const clientErrors = [
+      'No active subscription found',
+      'Shop is already subscribed to this plan',
+      'Subscription is scheduled for cancellation. Reactivate it before changing plans.'
+    ];
+    const status = clientErrors.includes(message) ? 400 : 500;
+
+    res.status(status).json({
+      success: false,
+      error: status === 400 ? message : 'Failed to change subscription plan'
+    });
+  }
+});
+
+// End a DB-only free trial (no Stripe involved)
+router.post('/subscriptions/:subscriptionId/end-trial', async (req: Request, res: Response) => {
+  try {
+    const { subscriptionId } = req.params;
+
+    const subQuery = await db.query(
+      'SELECT id, shop_id, subscription_type, status FROM shop_subscriptions WHERE id = $1',
+      [subscriptionId]
+    );
+
+    if (subQuery.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Subscription not found' });
+    }
+
+    const sub = subQuery.rows[0];
+    if (sub.subscription_type !== 'trial') {
+      return res.status(400).json({ success: false, error: 'This subscription is not a free trial' });
+    }
+    if (sub.status !== 'active') {
+      return res.status(400).json({ success: false, error: 'Trial is not active' });
+    }
+
+    const shopId = sub.shop_id;
+
+    await db.query(
+      `UPDATE shop_subscriptions
+       SET status = 'cancelled', is_active = false, cancelled_at = NOW(),
+           cancellation_reason = 'Trial ended by admin', updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [subscriptionId]
+    );
+
+    const shopRes = await db.query(
+      'SELECT rcg_balance, operational_status FROM shops WHERE shop_id = $1',
+      [shopId]
+    );
+    const rcgBalance = shopRes.rows[0]?.rcg_balance || 0;
+    const opStatus = shopRes.rows[0]?.operational_status;
+    if (opStatus !== 'paused') {
+      const newStatus = rcgBalance >= 10000 ? 'rcg_qualified' : 'not_qualified';
+      await db.query(
+        'UPDATE shops SET operational_status = $1, updated_at = NOW() WHERE shop_id = $2',
+        [newStatus, shopId]
+      );
+    }
+
+    logger.info('Admin ended free trial', { subscriptionId, shopId });
+
+    res.json({ success: true, message: 'Free trial ended' });
+  } catch (error) {
+    logger.error('Error ending trial:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to end trial'
     });
   }
 });

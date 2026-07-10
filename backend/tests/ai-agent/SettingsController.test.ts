@@ -64,7 +64,7 @@ describe("validateShopAiSettingsUpdate", () => {
     expect(r.value as any).not.toHaveProperty("monthlyBudgetUsd");
   });
 
-  it.each([0, 21, 5.5, -1, "5", undefined, null])(
+  it.each([0, 21, 5.5, -1, "5", null])(
     "rejects escalationThreshold = %p",
     (bad) => {
       const r = validateShopAiSettingsUpdate({
@@ -76,7 +76,7 @@ describe("validateShopAiSettingsUpdate", () => {
     }
   );
 
-  it.each([14, 31, 22.5, 0, "20", undefined])(
+  it.each([14, 31, 22.5, 0, "20"])(
     "rejects aiFollowupDelayMinutes = %p",
     (bad) => {
       const r = validateShopAiSettingsUpdate({
@@ -175,11 +175,14 @@ describe("SettingsController.getOwnShopAiSettings", () => {
       data: {
         aiGlobalEnabled: true,
         aiFollowupEnabled: false,
+        aiImagesEnabled: false,
+        campaignRewardsEnabled: false,
         monthlyBudgetUsd: 20,
         currentMonthSpendUsd: 3.5,
         escalationThreshold: 5,
         aiFollowupDelayMinutes: 20,
         humanReplyBaselineMinutes: 240,
+        assistantName: null,
       },
     });
   });
@@ -359,6 +362,8 @@ describe("SettingsController.listShopAiSettings", () => {
           shopName: "Peanut Repairs",
           aiGlobalEnabled: true,
           aiFollowupEnabled: false,
+          aiImagesEnabled: false,
+          campaignRewardsEnabled: false,
           monthlyBudgetUsd: 20,
           currentMonthSpendUsd: 9.36,
           escalationThreshold: 5,

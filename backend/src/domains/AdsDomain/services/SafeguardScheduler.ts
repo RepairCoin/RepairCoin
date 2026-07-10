@@ -9,11 +9,17 @@ import { logger } from '../../../utils/logger';
 import { SafeguardEvaluator } from './SafeguardEvaluator';
 import { PerformanceRepository } from '../repositories/PerformanceRepository';
 import { LeadRepository } from '../repositories/LeadRepository';
+import { NotificationRepository } from '../../../repositories/NotificationRepository';
+import { shopRepository } from '../../../repositories';
 import { AdBillingService } from './AdBillingService';
 import { SubscriptionService } from './SubscriptionService';
 import { MetaConnectionService } from './MetaConnectionService';
 import { MetaInsightsService } from './MetaInsightsService';
+import { GoogleInsightsService } from './GoogleInsightsService';
+import { MetaConfigSyncService } from './MetaConfigSyncService';
+import { GoogleConfigSyncService } from './GoogleConfigSyncService';
 import { metaPushService } from './MetaPushService';
+import { googlePushService } from './GooglePushService';
 
 // Q9: unconverted leads are retained 180 days, then hard-deleted nightly.
 const LEAD_RETENTION_DAYS = 180;
@@ -28,7 +34,11 @@ export class SafeguardScheduler {
     private readonly billing = new AdBillingService(),
     private readonly subscriptions = new SubscriptionService(),
     private readonly metaConnections = new MetaConnectionService(),
-    private readonly metaInsights = new MetaInsightsService()
+    private readonly metaInsights = new MetaInsightsService(),
+    private readonly googleInsights = new GoogleInsightsService(),
+    private readonly metaConfigSync = new MetaConfigSyncService(),
+    private readonly googleConfigSync = new GoogleConfigSyncService(),
+    private readonly notifications = new NotificationRepository()
   ) {}
 
   start(): void {
@@ -60,15 +70,50 @@ export class SafeguardScheduler {
       // fresh spend (no-op unless ADS_META_PUSH_ENABLED + a configured Meta App).
       const insightsSynced = await this.metaInsights.syncAll();
       if (insightsSynced > 0) logger.info(`Ads Meta insights: synced ${insightsSynced} campaign(s)`);
+      // Slice 4: import Google spend/impressions/clicks (no-op unless ADS_GOOGLE_PUSH_ENABLED + a
+      // configured Google app). Same partial-upsert contract as Meta insights.
+      const googleSynced = await this.googleInsights.syncAll();
+      if (googleSynced > 0) logger.info(`Ads Google insights: synced ${googleSynced} campaign(s)`);
+      // Two-way config sync: pull budget/status back FROM Meta so the dashboard reflects manual
+      // Ads-Manager edits (no-op unless ADS_META_CONFIG_SYNC + a configured Meta App).
+      const configReconciled = await this.metaConfigSync.reconcileAll();
+      if (configReconciled > 0) logger.info(`Ads Meta config sync: reconciled ${configReconciled} campaign(s)`);
+      // Slice 5: pull budget/status back FROM Google (no-op unless ADS_GOOGLE_CONFIG_SYNC + a
+      // configured Google app), so the dashboard reflects manual Google-Ads edits.
+      const googleReconciled = await this.googleConfigSync.reconcileAll();
+      if (googleReconciled > 0) logger.info(`Ads Google config sync: reconciled ${googleReconciled} campaign(s)`);
       const decisions = await this.evaluator.runNightly();
       const acted = decisions.filter((d) => d.action !== 'none').length;
       if (acted > 0) logger.info(`Ads safeguard scheduler: acted on ${acted} campaign(s)`);
-      // Push P4 — mirror safeguard hard-pauses to Meta so spend actually stops (best-effort).
+      // Push P4 — mirror safeguard hard-pauses to the ad platform so spend actually stops
+      // (best-effort). Each pushStatus no-ops for a campaign that isn't on that platform, so
+      // calling both is safe and platform-correct (Meta OR Google).
       for (const d of decisions) {
         if (d.action === 'hard_pause') {
           await metaPushService.pushStatus(d.campaignId, 'PAUSED')
             .catch((e: any) => logger.warn(`Safeguard Meta pause failed for ${d.campaignId}: ${e?.message || e}`));
+          await googlePushService.pushStatus(d.campaignId, 'PAUSED')
+            .catch((e: any) => logger.warn(`Safeguard Google pause failed for ${d.campaignId}: ${e?.message || e}`));
         }
+      }
+
+      // P3 dormant sweep: nudge the shop about conversations that JUST went quiet (once, as they cross
+      // the 7-day window), so a warm lead gets a follow-up instead of being forgotten.
+      try {
+        const dormant = await this.leads.listJustDormant(7, 24);
+        for (const d of dormant) {
+          const shop = await shopRepository.getShop(d.shopId).catch(() => null);
+          const receiver = (shop as any)?.walletAddress || (shop as any)?.wallet_address;
+          if (!receiver) continue;
+          await this.notifications.create({
+            senderAddress: 'system', receiverAddress: receiver, notificationType: 'ad_lead_dormant',
+            message: `${d.name || 'A lead'} went quiet — a quick follow-up could win it back.`,
+            metadata: { leadId: d.id },
+          }).catch(() => undefined);
+        }
+        if (dormant.length) logger.info(`Ads dormant sweep: nudged ${dormant.length} conversation(s)`);
+      } catch (e) {
+        logger.warn('Ads dormant sweep failed:', e);
       }
 
       // Q9 retention: purge unconverted leads past the retention window.

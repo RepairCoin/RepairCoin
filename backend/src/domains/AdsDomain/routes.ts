@@ -5,24 +5,32 @@
 // Per Stage-0 scope: super_admin/ads_manager collapse to 'admin'; no 'employee' in v1.
 
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
 import { authMiddleware, requireRole } from '../../middleware/auth';
+import { requireShopPermission } from '../../middleware/permissions';
 import {
   createCampaign, listCampaigns, getCampaign, updateCampaign, deleteCampaign,
-  listShopCampaigns, getShopCapacity,
+  listShopCampaigns, getShopCapacity, setShopCampaignOutreachMode,
 } from './controllers/CampaignController';
 import {
   createCreative, listCreatives, updateCreative, reviewCreative, deleteCreative,
 } from './controllers/CreativeController';
 import {
-  listLeads, createManualLead, updateLeadStatus, listShopLeads, webformLead, draftLeadReply,
+  listLeads, createManualLead, updateLeadStatus, updateShopLeadStatus, listShopLeads, webformLead, draftLeadReply,
   listAwaitingLeads, listShopAwaitingLeads,
-  getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage,
+  getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage, triggerAttributionBackfill, payRedirect,
+  getLeadActivities, logLeadActivity, emailLead,
+  getShopLeadActivities, logShopLeadActivity, emailShopLead,
+  getShopLeadThread, postShopLeadMessage, autoAnswerShopLead, draftShopLeadReply,
+  getShopConversations, getLeadConversations, setLeadAiPaused, setShopLeadAiPaused,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
   getIndustryAnalytics, getCampaignMargin, getMarginSummary,
 } from './controllers/PerformanceController';
 import { verifyMetaWebhook, receiveMetaWebhook } from './controllers/MetaWebhookController';
+import { receiveResendWebhook } from './controllers/ResendWebhookController';
+import { receiveResendInbound } from './controllers/ResendInboundController';
 import {
   createExperiment, listExperiments, getExperimentReport, setExperimentWinner,
 } from './controllers/ExperimentController';
@@ -32,13 +40,19 @@ import {
 import {
   requestAds, getMyEnrollment, listEnrollments, decideEnrollment,
 } from './controllers/EnrollmentController';
+import { getAdChannels } from './controllers/AdChannelController';
+import {
+  getGoogleConnectUrl, handleGoogleOauthCallback, listMyGoogleAccounts,
+  selectMyGoogleAccount, getMyGoogleConnection, disconnectMyGoogle, triggerGoogleInsightsSync,
+} from './controllers/GoogleConnectController';
 import {
   getMyMessages, postMyMessage, listShopMessages, postAdminMessage, getMessageInbox,
 } from './controllers/MessageController';
 import {
   submitCampaignRequest, listMyCampaignRequests, listCampaignRequests,
   buildCampaignFromRequest, declineCampaignRequest, setAdsAccountConnected,
-  goLiveCampaign, updateCampaignDraft,
+  pushCampaignToMeta, goLiveCampaign, updateCampaignDraft, updateGoogleDraft, getGoogleDraft, uploadCreativeImage, scaleCampaignBudget,
+  syncCampaignFromMeta, syncCampaignFromGoogle,
 } from './controllers/CampaignRequestController';
 import {
   getMySubscription, changeMyTier, cancelMySubscription,
@@ -46,19 +60,34 @@ import {
 import {
   getMetaConnectUrl, handleMetaOauthCallback, listMyMetaAccounts, selectMyMetaAccount,
   getMyMetaConnection, disconnectMyMeta, handleMetaDeauthorize, handleMetaDataDeletion,
-  triggerMetaInsightsSync,
+  triggerMetaInsightsSync, getShopMetaAccount,
 } from './controllers/MetaConnectController';
+import { getCampaignLanding, getLandingConfig, updateLandingConfig } from './controllers/LandingController';
 import { taxonomyFor } from './services/industryTaxonomies';
 
 export function initializeRoutes(): Router {
   const router = Router();
   const admin = [authMiddleware, requireRole(['admin'])];
-  const shop = [authMiddleware, requireRole(['shop'])];
+  const shop = [authMiddleware, requireRole(['shop']), requireShopPermission('marketing:manage')];
+  // Multipart for the designer-image upload on a campaign creative (memory → DO Spaces).
+  const creativeUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
+    fileFilter: (_req, file, cb) =>
+      cb(null, ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)),
+  });
 
   // Health — confirms the domain is registered.
   router.get('/health', (_req: Request, res: Response) => {
     res.json({ domain: 'ads', status: 'live', stage: '2' });
   });
+
+  // PUBLIC — ad landing-page data (shop + offer + promoted services) for /l/:campaignId.
+  router.get('/landing/:campaignId', getCampaignLanding);
+
+  // PUBLIC — Messenger-safe pay link: 302 → live Stripe checkout URL (the raw URL's #fragment
+  // doesn't survive Facebook's link wrapper, so we hand out this short redirect instead).
+  router.get('/pay/:orderId', payRedirect);
 
   // PUBLIC — landing-page lead webform (UTM-attributed). No auth: attribution is
   // by campaign id / utm params in the body. (Stage 2.)
@@ -73,9 +102,20 @@ export function initializeRoutes(): Router {
   router.get('/webhooks/meta/leads', verifyMetaWebhook);
   router.post('/webhooks/meta/leads', receiveMetaWebhook);
 
+  // PUBLIC — Resend email webhook (lead follow-up Phase 4). Svix-signed delivery/open/click/bounce
+  // events; raw body parsed in app.ts for the signature check.
+  router.post('/webhooks/resend', receiveResendWebhook);
+
+  // PUBLIC — Resend INBOUND email webhook (lead replies → app). Svix-signed; raw body in app.ts.
+  // Resolves the lead by reply-token, cleans the reply, hands to the auto-answer loop.
+  router.post('/webhooks/resend-inbound', receiveResendInbound);
+
   // PUBLIC — Meta OAuth callback (browser redirect from Facebook). shopId is read from the
   // signed `state`, never a param; on success stores the token and bounces to the picker.
   router.get('/meta/oauth/callback', handleMetaOauthCallback);
+
+  // PUBLIC — Google OAuth callback (browser redirect from Google). shopId from the signed state.
+  router.get('/google/oauth/callback', handleGoogleOauthCallback);
 
   // PUBLIC — Meta signed_request callbacks (app removed / data-deletion request). The service
   // verifies the signature; both map the Meta user id → shop and clear the connection.
@@ -108,9 +148,19 @@ export function initializeRoutes(): Router {
   router.get('/campaign-requests', ...admin, listCampaignRequests);     // build queue (Phase 3)
   router.post('/campaign-requests/:id/build', ...admin, buildCampaignFromRequest);
   router.post('/campaign-requests/:id/decline', ...admin, declineCampaignRequest);
+  router.post('/campaigns/:id/creative-image', ...admin, creativeUpload.single('image'), uploadCreativeImage); // manual designer image → public URL
+  router.post('/campaigns/:id/push', ...admin, pushCampaignToMeta);             // prepare→push: create PAUSED Meta objects from a reviewed draft
   router.post('/campaigns/:id/go-live', ...admin, goLiveCampaign);              // push P5: activate a PAUSED draft
-  router.patch('/campaigns/:id/draft', ...admin, updateCampaignDraft);          // push P5: edit budget/radius/creative
+  router.post('/campaigns/:id/scale-to-full', ...admin, scaleCampaignBudget);   // Safeguard 4: test budget → full
+  router.post('/campaigns/:id/sync-from-meta', ...admin, syncCampaignFromMeta); // two-way config sync: pull budget/status from Meta
+  router.post('/campaigns/:id/sync-from-google', ...admin, syncCampaignFromGoogle); // Slice 5: pull budget/status from Google
+  router.patch('/campaigns/:id/draft', ...admin, updateCampaignDraft);          // push P5: edit budget/radius/creative (draft or paused)
+  router.get('/campaigns/:id/google-draft', ...admin, getGoogleDraft);           // Google composer: load content (backfill from Google if empty)
+  router.patch('/campaigns/:id/google-draft', ...admin, updateGoogleDraft);      // Google composer: edit budget/RSA copy/keywords, synced to Google
+  router.get('/campaigns/:id/landing-config', ...admin, getLandingConfig);       // landing magnet overrides (editor)
+  router.put('/campaigns/:id/landing-config', ...admin, updateLandingConfig);    // save landing magnet overrides
   router.post('/shops/:shopId/ads-account', ...admin, setAdsAccountConnected);  // §9.6 connect gate
+  router.get('/shops/:shopId/meta-account', ...admin, getShopMetaAccount);       // account currency + min daily budget
   router.post('/meta/sync-insights', ...admin, triggerMetaInsightsSync);        // push P3: import Meta spend/impr/clicks now
 
   // ---- Admin: A/B experiments (Stage 5) ----
@@ -134,12 +184,17 @@ export function initializeRoutes(): Router {
   // ---- Admin: leads ----
   router.get('/leads', ...admin, listLeads);
   router.get('/leads/awaiting', ...admin, listAwaitingLeads);   // SLA (Stage 2)
+  router.get('/leads/conversations', ...admin, getLeadConversations); // P2: conversation inbox
   router.post('/leads/manual', ...admin, createManualLead);
   router.patch('/leads/:id/status', ...admin, updateLeadStatus);
   router.post('/leads/:id/draft-reply', ...admin, draftLeadReply);   // Stage 3: AI outreach draft
   router.get('/leads/:id/messages', ...admin, getLeadThread);        // Stage 3.5: conversation thread
   router.post('/leads/:id/messages', ...admin, postLeadMessage);     // Stage 3.5: admin manual reply
   router.post('/leads/:id/auto-answer', ...admin, autoAnswerLead);   // Stage 3.5: trigger AI reply
+  router.patch('/leads/:id/ai-paused', ...admin, setLeadAiPaused);   // P3: take over / resume AI
+  router.get('/leads/:id/activities', ...admin, getLeadActivities);  // lead-tracking P1: timeline
+  router.post('/leads/:id/activities', ...admin, logLeadActivity);   // lead-tracking P1: log note/call
+  router.post('/leads/:id/email', ...admin, emailLead);              // lead-tracking P2: tracked email send
 
   // ---- Admin: ad-program enrollment requests ----
   router.get('/enrollments', ...admin, listEnrollments);
@@ -147,10 +202,23 @@ export function initializeRoutes(): Router {
 
   // ---- Shop: own read-only + self-serve enrollment ----
   router.get('/shop/campaigns', ...shop, listShopCampaigns);
+  router.patch('/shop/campaigns/:id/outreach-mode', ...shop, setShopCampaignOutreachMode); // Part B: AI first-contact mode
   router.get('/shop/capacity', ...shop, getShopCapacity);               // tier limit vs. used (§9.5)
   router.get('/shop/campaigns/:id/performance', ...shop, getShopCampaignPerformance);
+  router.get('/shop/ad-channels', ...shop, getAdChannels);              // multi-channel: brief channel picker eligibility
   router.get('/shop/leads', ...shop, listShopLeads);
+  router.patch('/shop/leads/:id/status', ...shop, updateShopLeadStatus); // shop works its own leads
   router.get('/shop/leads/awaiting', ...shop, listShopAwaitingLeads);   // SLA (Stage 2)
+  router.get('/shop/conversations', ...shop, getShopConversations);     // P2: conversation inbox
+  // Shop lead follow-up (ownership-gated): timeline, log call/note, tracked email.
+  router.get('/shop/leads/:id/activities', ...shop, getShopLeadActivities);
+  router.post('/shop/leads/:id/activities', ...shop, logShopLeadActivity);
+  router.post('/shop/leads/:id/email', ...shop, emailShopLead);
+  router.get('/shop/leads/:id/messages', ...shop, getShopLeadThread);        // conversation thread (own leads)
+  router.post('/shop/leads/:id/messages', ...shop, postShopLeadMessage);     // shop manual reply
+  router.post('/shop/leads/:id/auto-answer', ...shop, autoAnswerShopLead);   // shop-triggered AI reply
+  router.post('/shop/leads/:id/draft-reply', ...shop, draftShopLeadReply);   // shop-side AI draft
+  router.patch('/shop/leads/:id/ai-paused', ...shop, setShopLeadAiPaused);   // P3: take over / resume AI
   router.get('/shop/enrollment', ...shop, getMyEnrollment);             // "Request ads" status
   router.post('/shop/enrollment', ...shop, requestAds);                 // "Request ads" opt-in
   router.get('/shop/messages', ...shop, getMyMessages);                 // durable thread (Phase 2)
@@ -167,6 +235,15 @@ export function initializeRoutes(): Router {
   router.get('/shop/meta/accounts', ...shop, listMyMetaAccounts);        // ad accounts + Pages picker
   router.post('/shop/meta/select', ...shop, selectMyMetaAccount);        // store choice + flip §9.6 gate
   router.post('/shop/meta/disconnect', ...shop, disconnectMyMeta);
+
+  // ---- Shop: Connect Google (Google plan, Slice 1) ----
+  router.get('/shop/google/connect', ...shop, getGoogleConnectUrl);       // → OAuth consent URL
+  router.get('/shop/google/connection', ...shop, getMyGoogleConnection);  // current status
+  router.get('/shop/google/accounts', ...shop, listMyGoogleAccounts);     // customer-account picker
+  router.post('/shop/google/select', ...shop, selectMyGoogleAccount);     // store choice + flip gate
+  router.post('/shop/google/disconnect', ...shop, disconnectMyGoogle);
+  router.post('/google/sync-insights', ...admin, triggerGoogleInsightsSync); // Slice 4: import Google spend/impr/clicks now
+  router.post('/attribution/backfill', ...admin, triggerAttributionBackfill); // contact-match paid orders → leads + upload conversions now
 
   return router;
 }

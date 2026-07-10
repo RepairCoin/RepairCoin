@@ -969,6 +969,98 @@ export const adminApi = {
   updateBugReport: async (id: number, data: { status?: string; admin_notes?: string }) => {
     return apiClient.patch(`/admin/bug-reports/${id}`, data);
   },
+
+  inspectBugReport: async (id: number, refresh = false) => {
+    const qs = refresh ? '?refresh=true' : '';
+    return apiClient.get(`/admin/bug-reports/${id}/ai-inspect${qs}`);
+  },
+
+  getActivityLogs: async (params: {
+    page?: number;
+    limit?: number;
+    adminAddress?: string;
+    actionType?: string;
+    entityType?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    const queryString = buildQueryString(params);
+    return apiClient.get(`/admin/analytics/activity-logs${queryString}`);
+  },
+
+  // Revenue analytics
+  getCurrentWeekRevenue: async () => {
+    return apiClient.get('/admin/revenue/current-week');
+  },
+
+  getRevenueRange: async (startDate: string, endDate: string) => {
+    return apiClient.get(`/admin/revenue/range${buildQueryString({ startDate, endDate })}`);
+  },
+
+  getRevenueByTier: async () => {
+    return apiClient.get('/admin/revenue/by-tier');
+  },
+
+  getRevenueProjections: async (monthlyVolume: number, averageTier: string) => {
+    return apiClient.get(`/admin/revenue/projections${buildQueryString({ monthlyVolume, averageTier })}`);
+  },
+
+  // Webhook monitoring
+  getWebhookLogs: async (params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    source?: string;
+    eventType?: string;
+  }) => {
+    const queryString = buildQueryString(params);
+    return apiClient.get(`/admin/webhooks/logs${queryString}`);
+  },
+
+  getWebhookHealth: async () => {
+    return apiClient.get('/admin/webhooks/health');
+  },
+
+  retryWebhookById: async (webhookId: string) => {
+    return apiClient.post(`/admin/webhooks/retry/${webhookId}`, {});
+  },
+
+  // RCG governance token management
+  getRcgDistribution: async () => {
+    return apiClient.get('/admin/rcg/distribution');
+  },
+
+  recordRcgOtcSale: async (data: {
+    shopId: string;
+    package: "standard" | "premium" | "elite";
+    paymentMethod?: string;
+    paymentReference?: string;
+  }) => {
+    return apiClient.post('/admin/rcg/otc-sale', data);
+  },
+
+  // Announcement broadcast
+  getAudienceCounts: async () => {
+    return apiClient.get('/admin/notifications/audience-counts');
+  },
+
+  sendBroadcast: async (data: {
+    audience: "shops" | "customers" | "all";
+    title?: string;
+    message: string;
+  }) => {
+    return apiClient.post('/admin/notifications/broadcast', data);
+  },
+
+  // Referral analytics
+  getReferralAnalytics: async () => {
+    return apiClient.get('/admin/referrals/analytics');
+  },
+
+  // Affiliate shop groups oversight
+  getAffiliateGroups: async () => {
+    return apiClient.get('/admin/affiliate-groups');
+  },
 } as const;
 
 // Platform Settings Types

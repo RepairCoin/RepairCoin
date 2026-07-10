@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ServiceOrderWithDetails, BookingStage } from "@/feature/services/services/service.interface";
+import TierBadge from "@/shared/components/ui/TierBadge";
 import * as Clipboard from "expo-clipboard";
 
 const BOOKING_STAGES: BookingStage[] = [
@@ -43,19 +44,6 @@ function formatTime(timeString?: string): string {
   const ampm = h >= 12 ? "PM" : "AM";
   const h12 = h % 12 || 12;
   return `${h12}:${minutes} ${ampm}`;
-}
-
-function getTierColor(tier?: string) {
-  switch (tier?.toLowerCase()) {
-    case "gold":
-      return "#FFCC00";
-    case "silver":
-      return "#9CA3AF";
-    case "bronze":
-      return "#F97316";
-    default:
-      return "#6B7280";
-  }
 }
 
 interface OrderDetailModalProps {
@@ -217,20 +205,12 @@ export default function OrderDetailModal({
                         {order.customerName || "Customer"}
                       </Text>
                       {order.customerTier && (
-                        <View
-                          className="px-2 py-0.5 rounded-full border"
-                          style={{
-                            borderColor: getTierColor(order.customerTier) + "4D",
-                            backgroundColor: getTierColor(order.customerTier) + "1A",
-                          }}
-                        >
-                          <Text
-                            className="text-[9px] uppercase font-medium"
-                            style={{ color: getTierColor(order.customerTier) }}
-                          >
-                            {order.customerTier}
-                          </Text>
-                        </View>
+                        <TierBadge
+                          tier={order.customerTier}
+                          size="sm"
+                          variant="outline"
+                          showIcon={false}
+                        />
                       )}
                     </View>
                     {order.customerPhone && (

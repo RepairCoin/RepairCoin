@@ -6,6 +6,7 @@ import { formatLocalDate } from '../utils/dateUtils';
 export interface ShopAvailability {
   availabilityId: string;
   shopId: string;
+  locationId: string | null; // null = shop-level default; non-null = per-branch override
   dayOfWeek: number; // 0 = Sunday, 6 = Saturday
   isOpen: boolean;
   openTime: string | null; // HH:MM:SS format
@@ -19,6 +20,7 @@ export interface ShopAvailability {
 export interface TimeSlotConfig {
   configId: string;
   shopId: string;
+  locationId: string | null; // null = shop-level default; non-null = per-branch override
   slotDurationMinutes: number;
   bufferTimeMinutes: number;
   maxConcurrentBookings: number;
@@ -41,6 +43,7 @@ export interface ServiceDuration {
 export interface DateOverride {
   overrideId: string;
   shopId: string;
+  locationId: string | null; // null = shop-level default; non-null = per-branch override
   overrideDate: string; // YYYY-MM-DD
   isClosed: boolean;
   customOpenTime: string | null;
@@ -75,12 +78,14 @@ export interface CalendarBooking {
 export class AppointmentRepository extends BaseRepository {
   // ==================== SHOP AVAILABILITY ====================
 
-  async getShopAvailability(shopId: string): Promise<ShopAvailability[]> {
+  // Prefer the branch's own hours (per day), fall back to shop-level (location_id IS NULL).
+  async getShopAvailability(shopId: string, locationId?: string | null): Promise<ShopAvailability[]> {
     try {
       const query = `
-        SELECT
+        SELECT DISTINCT ON (day_of_week)
           availability_id as "availabilityId",
           shop_id as "shopId",
+          location_id as "locationId",
           day_of_week as "dayOfWeek",
           is_open as "isOpen",
           open_time as "openTime",
@@ -90,11 +95,11 @@ export class AppointmentRepository extends BaseRepository {
           created_at as "createdAt",
           updated_at as "updatedAt"
         FROM shop_availability
-        WHERE shop_id = $1
-        ORDER BY day_of_week
+        WHERE shop_id = $1 AND (location_id = $2::uuid OR location_id IS NULL)
+        ORDER BY day_of_week, (location_id IS NOT NULL) DESC
       `;
 
-      const result = await this.pool.query(query, [shopId]);
+      const result = await this.pool.query(query, [shopId, locationId || null]);
       return result.rows;
     } catch (error) {
       logger.error('Error getting shop availability:', error);
@@ -104,12 +109,17 @@ export class AppointmentRepository extends BaseRepository {
 
   async updateShopAvailability(availability: Partial<ShopAvailability> & { shopId: string; dayOfWeek: number }): Promise<ShopAvailability> {
     try {
+      const locationId = availability.locationId || null;
+      const conflictTarget = locationId
+        ? '(shop_id, location_id, day_of_week) WHERE location_id IS NOT NULL'
+        : '(shop_id, day_of_week) WHERE location_id IS NULL';
+
       const query = `
         INSERT INTO shop_availability (
-          shop_id, day_of_week, is_open, open_time, close_time, break_start_time, break_end_time
+          shop_id, location_id, day_of_week, is_open, open_time, close_time, break_start_time, break_end_time
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (shop_id, day_of_week)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT ${conflictTarget}
         DO UPDATE SET
           is_open = EXCLUDED.is_open,
           open_time = EXCLUDED.open_time,
@@ -120,6 +130,7 @@ export class AppointmentRepository extends BaseRepository {
         RETURNING
           availability_id as "availabilityId",
           shop_id as "shopId",
+          location_id as "locationId",
           day_of_week as "dayOfWeek",
           is_open as "isOpen",
           open_time as "openTime",
@@ -132,6 +143,7 @@ export class AppointmentRepository extends BaseRepository {
 
       const result = await this.pool.query(query, [
         availability.shopId,
+        locationId,
         availability.dayOfWeek,
         availability.isOpen ?? true,
         availability.openTime || null,
@@ -150,26 +162,35 @@ export class AppointmentRepository extends BaseRepository {
 
   // ==================== TIME SLOT CONFIG ====================
 
-  async getTimeSlotConfig(shopId: string): Promise<TimeSlotConfig | null> {
+  // Prefer the branch's own config, fall back to shop-level (location_id IS NULL).
+  // Timezone always resolves shop-level — per-location timezone is out of scope.
+  async getTimeSlotConfig(shopId: string, locationId?: string | null): Promise<TimeSlotConfig | null> {
     try {
       const query = `
         SELECT
           config_id as "configId",
           shop_id as "shopId",
+          location_id as "locationId",
           slot_duration_minutes as "slotDurationMinutes",
           buffer_time_minutes as "bufferTimeMinutes",
           max_concurrent_bookings as "maxConcurrentBookings",
           booking_advance_days as "bookingAdvanceDays",
           min_booking_hours as "minBookingHours",
           allow_weekend_booking as "allowWeekendBooking",
-          COALESCE(timezone, 'America/New_York') as "timezone",
+          COALESCE(
+            (SELECT timezone FROM shop_time_slot_config WHERE shop_id = $1 AND location_id IS NULL),
+            timezone,
+            'America/New_York'
+          ) as "timezone",
           created_at as "createdAt",
           updated_at as "updatedAt"
         FROM shop_time_slot_config
-        WHERE shop_id = $1
+        WHERE shop_id = $1 AND (location_id = $2::uuid OR location_id IS NULL)
+        ORDER BY (location_id IS NOT NULL) DESC
+        LIMIT 1
       `;
 
-      const result = await this.pool.query(query, [shopId]);
+      const result = await this.pool.query(query, [shopId, locationId || null]);
       return result.rows[0] || null;
     } catch (error) {
       logger.error('Error getting time slot config:', error);
@@ -179,13 +200,18 @@ export class AppointmentRepository extends BaseRepository {
 
   async updateTimeSlotConfig(config: Partial<TimeSlotConfig> & { shopId: string }): Promise<TimeSlotConfig> {
     try {
+      const locationId = config.locationId || null;
+      const conflictTarget = locationId
+        ? '(shop_id, location_id) WHERE location_id IS NOT NULL'
+        : '(shop_id) WHERE location_id IS NULL';
+
       const query = `
         INSERT INTO shop_time_slot_config (
-          shop_id, slot_duration_minutes, buffer_time_minutes, max_concurrent_bookings,
+          shop_id, location_id, slot_duration_minutes, buffer_time_minutes, max_concurrent_bookings,
           booking_advance_days, min_booking_hours, allow_weekend_booking, timezone
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (shop_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT ${conflictTarget}
         DO UPDATE SET
           slot_duration_minutes = EXCLUDED.slot_duration_minutes,
           buffer_time_minutes = EXCLUDED.buffer_time_minutes,
@@ -198,6 +224,7 @@ export class AppointmentRepository extends BaseRepository {
         RETURNING
           config_id as "configId",
           shop_id as "shopId",
+          location_id as "locationId",
           slot_duration_minutes as "slotDurationMinutes",
           buffer_time_minutes as "bufferTimeMinutes",
           max_concurrent_bookings as "maxConcurrentBookings",
@@ -211,6 +238,7 @@ export class AppointmentRepository extends BaseRepository {
 
       const result = await this.pool.query(query, [
         config.shopId,
+        locationId,
         config.slotDurationMinutes ?? 60,
         config.bufferTimeMinutes ?? 15,
         config.maxConcurrentBookings ?? 1,
@@ -227,10 +255,13 @@ export class AppointmentRepository extends BaseRepository {
     }
   }
 
-  async deleteTimeSlotConfig(shopId: string): Promise<void> {
+  async deleteTimeSlotConfig(shopId: string, locationId?: string | null): Promise<void> {
     try {
-      const query = `DELETE FROM shop_time_slot_config WHERE shop_id = $1`;
-      await this.pool.query(query, [shopId]);
+      const query = `
+        DELETE FROM shop_time_slot_config
+        WHERE shop_id = $1 AND location_id IS NOT DISTINCT FROM $2::uuid
+      `;
+      await this.pool.query(query, [shopId, locationId || null]);
     } catch (error) {
       logger.error('Error deleting time slot config:', error);
       throw new Error('Failed to delete time slot config');
@@ -239,35 +270,44 @@ export class AppointmentRepository extends BaseRepository {
 
   // ==================== DATE OVERRIDES ====================
 
-  async getDateOverrides(shopId: string, startDate?: string, endDate?: string): Promise<DateOverride[]> {
+  async getDateOverrides(shopId: string, startDate?: string, endDate?: string, locationId?: string | null): Promise<DateOverride[]> {
     try {
+      const params: any[] = [shopId, locationId || null];
+
       let query = `
-        SELECT
+        SELECT DISTINCT ON (override_date)
           override_id as "overrideId",
           shop_id as "shopId",
-          override_date as "overrideDate",
+          location_id as "locationId",
+          to_char(override_date, 'YYYY-MM-DD') as "overrideDate",
           is_closed as "isClosed",
           custom_open_time as "customOpenTime",
           custom_close_time as "customCloseTime",
           reason,
           created_at as "createdAt"
         FROM shop_date_overrides
-        WHERE shop_id = $1
+        WHERE shop_id = $1 AND (
+          location_id = $2::uuid
+          OR (
+            location_id IS NULL AND (
+              $2::uuid IS NULL
+              OR $2::uuid = (SELECT id FROM shop_locations WHERE shop_id = $1 AND is_primary = true LIMIT 1)
+            )
+          )
+        )
       `;
 
-      const params: any[] = [shopId];
-
       if (startDate) {
-        query += ` AND override_date >= $${params.length + 1}`;
+        query += ` AND override_date >= $${params.length + 1}::date`;
         params.push(startDate);
       }
 
       if (endDate) {
-        query += ` AND override_date <= $${params.length + 1}`;
+        query += ` AND override_date <= $${params.length + 1}::date`;
         params.push(endDate);
       }
 
-      query += ` ORDER BY override_date`;
+      query += ` ORDER BY override_date, (location_id IS NOT NULL) DESC`;
 
       const result = await this.pool.query(query, params);
       return result.rows;
@@ -277,14 +317,19 @@ export class AppointmentRepository extends BaseRepository {
     }
   }
 
-  async createDateOverride(override: Omit<DateOverride, 'overrideId' | 'createdAt'>): Promise<DateOverride> {
+  async createDateOverride(override: Omit<DateOverride, 'overrideId' | 'createdAt' | 'locationId'> & { locationId?: string | null }): Promise<DateOverride> {
     try {
+      const locationId = override.locationId || null;
+      const conflictTarget = locationId
+        ? '(shop_id, location_id, override_date) WHERE location_id IS NOT NULL'
+        : '(shop_id, override_date) WHERE location_id IS NULL';
+
       const query = `
         INSERT INTO shop_date_overrides (
-          shop_id, override_date, is_closed, custom_open_time, custom_close_time, reason
+          shop_id, location_id, override_date, is_closed, custom_open_time, custom_close_time, reason
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (shop_id, override_date)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT ${conflictTarget}
         DO UPDATE SET
           is_closed = EXCLUDED.is_closed,
           custom_open_time = EXCLUDED.custom_open_time,
@@ -293,7 +338,8 @@ export class AppointmentRepository extends BaseRepository {
         RETURNING
           override_id as "overrideId",
           shop_id as "shopId",
-          override_date as "overrideDate",
+          location_id as "locationId",
+          to_char(override_date, 'YYYY-MM-DD') as "overrideDate",
           is_closed as "isClosed",
           custom_open_time as "customOpenTime",
           custom_close_time as "customCloseTime",
@@ -303,6 +349,7 @@ export class AppointmentRepository extends BaseRepository {
 
       const result = await this.pool.query(query, [
         override.shopId,
+        locationId,
         override.overrideDate,
         override.isClosed ?? true,
         override.customOpenTime || null,
@@ -317,15 +364,16 @@ export class AppointmentRepository extends BaseRepository {
     }
   }
 
-  async deleteDateOverride(shopId: string, overrideDate: string): Promise<boolean> {
+  async deleteDateOverride(shopId: string, overrideDate: string, locationId?: string | null): Promise<boolean> {
     try {
       const query = `
         DELETE FROM shop_date_overrides
-        WHERE shop_id = $1 AND override_date = $2
+        WHERE shop_id = $1 AND override_date = $2::date
+          AND location_id IS NOT DISTINCT FROM $3::uuid
       `;
 
-      await this.pool.query(query, [shopId, overrideDate]);
-      return true;
+      const result = await this.pool.query(query, [shopId, overrideDate, locationId || null]);
+      return (result.rowCount ?? 0) > 0;
     } catch (error) {
       logger.error('Error deleting date override:', error);
       throw new Error('Failed to delete date override');
@@ -382,7 +430,7 @@ export class AppointmentRepository extends BaseRepository {
 
   // ==================== AVAILABLE TIME SLOTS ====================
 
-  async getBookedSlots(shopId: string, date: string): Promise<{ timeSlot: string; count: number }[]> {
+  async getBookedSlots(shopId: string, date: string, locationId?: string | null): Promise<{ timeSlot: string; count: number }[]> {
     try {
       // CRITICAL FIX: Use DATE() cast for proper date comparison
       // The booking_date column stores full timestamps (e.g., '2025-12-30T00:00:00.000Z')
@@ -397,11 +445,12 @@ export class AppointmentRepository extends BaseRepository {
           AND DATE(booking_date) = DATE($2)
           AND (booking_time_slot IS NOT NULL OR booking_time IS NOT NULL)
           AND status NOT IN ('cancelled', 'refunded')
+          AND ($3::uuid IS NULL OR location_id = $3::uuid)
         GROUP BY COALESCE(booking_time_slot, booking_time)
         ORDER BY COALESCE(booking_time_slot, booking_time)
       `;
 
-      const result = await this.pool.query(query, [shopId, date]);
+      const result = await this.pool.query(query, [shopId, date, locationId || null]);
       return result.rows.map(row => ({
         timeSlot: row.timeSlot,
         count: parseInt(row.count)
@@ -414,7 +463,7 @@ export class AppointmentRepository extends BaseRepository {
 
   // ==================== SHOP CALENDAR ====================
 
-  async getShopCalendar(shopId: string, startDate: string, endDate: string): Promise<CalendarBooking[]> {
+  async getShopCalendar(shopId: string, startDate: string, endDate: string, locationId?: string): Promise<CalendarBooking[]> {
     try {
       // Use direct query instead of view for better reliability
       const query = `
@@ -439,10 +488,11 @@ export class AppointmentRepository extends BaseRepository {
           AND o.booking_date IS NOT NULL
           AND o.booking_date >= $2::date
           AND o.booking_date <= $3::date
+          AND ($4::uuid IS NULL OR o.location_id = $4::uuid)
         ORDER BY o.booking_date, o.booking_time_slot
       `;
 
-      const result = await this.pool.query(query, [shopId, startDate, endDate]);
+      const result = await this.pool.query(query, [shopId, startDate, endDate, locationId || null]);
 
       // Transform results: convert totalAmount and format bookingDate to avoid timezone issues
       return result.rows.map(row => ({

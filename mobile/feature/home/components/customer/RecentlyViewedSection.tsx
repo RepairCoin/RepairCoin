@@ -31,7 +31,7 @@ export default function RecentlyViewedSection({
   }, [favoritesData]);
 
   const handleViewAll = () => {
-    router.push("/customer/tabs/service");
+    router.navigate("/customer/tabs/service");
   };
 
   return (

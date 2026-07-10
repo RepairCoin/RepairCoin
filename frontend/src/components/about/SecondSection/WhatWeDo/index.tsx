@@ -19,7 +19,7 @@ const WhatWeDo: React.FC<any> = () => {
             alt="Repair shop owner working"
             className="w-full object-cover"
           />
-          <p className="text-white text-xs md:text-base font-light tracking-wide px-2">RepairCoin is a crypto-based rewards system built for the tech repair industry.</p>
+          <p className="text-white text-xs md:text-base font-light tracking-wide px-2">RepairCoin is a digital rewards system built for the tech repair industry.</p>
         </div>
         <div className="rounded-2xl items-center overflow-hidden flex-1 flex flex-col gap-6">
           <img

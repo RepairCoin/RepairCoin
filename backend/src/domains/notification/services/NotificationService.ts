@@ -60,6 +60,7 @@ const NOTIFICATION_PREFERENCE_MAP: Record<string, keyof GeneralNotificationPrefe
 
   // Shop notifications
   service_booking_received: 'newOrders',
+  service_booking_cancelled: 'newOrders',
   reschedule_request_created: 'newOrders',
   upcoming_appointment: 'newOrders',
   redemption_approved: 'newOrders',
@@ -209,10 +210,17 @@ export class NotificationService {
     return builder(data);
   }
 
-  async createNotification(params: CreateNotificationParams): Promise<Notification> {
+  async createNotification(
+    params: CreateNotificationParams,
+    options?: { bypassPreferences?: boolean }
+  ): Promise<Notification> {
     try {
-      // Check if this notification type is preference-gated
-      const prefField = NOTIFICATION_PREFERENCE_MAP[params.notificationType];
+      // Check if this notification type is preference-gated. Transactional
+      // notifications (e.g. a cancellation + refund) pass bypassPreferences so
+      // they always reach the user regardless of their general toggles.
+      const prefField = options?.bypassPreferences
+        ? undefined
+        : NOTIFICATION_PREFERENCE_MAP[params.notificationType];
       if (prefField) {
         const prefs = await generalNotificationPreferencesRepository.getPreferencesByAddress(
           params.receiverAddress

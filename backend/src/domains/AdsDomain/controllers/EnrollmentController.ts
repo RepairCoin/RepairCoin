@@ -55,8 +55,8 @@ export async function requestAds(req: Request, res: Response): Promise<void> {
   if (b.targetRadiusMiles != null && (!Number.isInteger(b.targetRadiusMiles) || b.targetRadiusMiles < 1 || b.targetRadiusMiles > 100)) {
     res.status(400).json({ success: false, error: 'brief.targetRadiusMiles must be an integer 1–100' }); return;
   }
-  if (b.goal != null && !['more_bookings', 'awareness', 'promote_service'].includes(b.goal)) {
-    res.status(400).json({ success: false, error: "brief.goal must be 'more_bookings', 'awareness' or 'promote_service'" }); return;
+  if (b.goal != null && !['more_bookings', 'leads', 'awareness', 'promote_service'].includes(b.goal)) {
+    res.status(400).json({ success: false, error: "brief.goal must be 'more_bookings', 'leads', 'awareness' or 'promote_service'" }); return;
   }
   const brief: CampaignBrief = {
     promoteServiceIds: Array.isArray(b.promoteServiceIds) ? b.promoteServiceIds.map(String).slice(0, 20) : [],

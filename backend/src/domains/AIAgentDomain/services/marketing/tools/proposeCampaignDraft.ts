@@ -32,6 +32,7 @@ import {
 import { MarketingService } from "../../../../../services/MarketingService";
 import { logger } from "../../../../../utils/logger";
 import { estimateCampaignRevenue } from "../estimateCampaignRevenue";
+import { isWelcomeRcnEnabled, resolveWelcomeRcnAmount } from "../../../../../config/welcomeRcn";
 
 const NAME = "propose_campaign_draft";
 const MAX_SUBJECT_LENGTH = 200;
@@ -42,7 +43,8 @@ type ResolvedAudienceType =
   | "top_spenders"
   | "frequent_visitors"
   | "active_customers"
-  | "custom";
+  | "custom"
+  | "imported_winback";
 
 export const proposeCampaignDraft: MarketingTool = {
   name: NAME,
@@ -72,10 +74,13 @@ export const proposeCampaignDraft: MarketingTool = {
           "frequent_visitors",
           "active_customers",
           "custom",
+          "imported_winback",
         ],
         description:
           "Resolved audience type from a previous lookup_audience_count " +
-          "call. Use exactly the audience_type returned there.",
+          "call. Use exactly the audience_type returned there. " +
+          "'imported_winback' = migrated/Square customers — draft migration " +
+          "copy (claim your account, history preserved), not lapsed copy.",
       },
       audience_filters: {
         type: "object",
@@ -233,8 +238,9 @@ export const proposeCampaignDraft: MarketingTool = {
     const audienceType = a.audience_type as ResolvedAudienceType;
     const audienceFilters = (a.audience_filters as Record<string, unknown>) ?? {};
     const audienceLabel = String(a.audience_label ?? "").trim();
-    const subject = String(a.subject ?? "").trim();
-    const body = String(a.body ?? "").trim();
+    // `let` because the welcome-RCN guard below may rewrite the figures (see normalizeWelcomeRcnFigures).
+    let subject = String(a.subject ?? "").trim();
+    let body = String(a.body ?? "").trim();
     const campaignName = String(a.campaign_name ?? "").trim();
     const providedImageUrl =
       typeof a.image_url === "string" ? a.image_url.trim() : "";
@@ -267,6 +273,46 @@ export const proposeCampaignDraft: MarketingTool = {
       throw new Error(
         `${NAME}: subject, body, campaign_name, and audience_label are all required`
       );
+    }
+
+    // Welcome-RCN guard — the single deterministic chokepoint that makes the welcome reward
+    // appear correctly in EVERY imported_winback draft, regardless of which panel/prompt produced
+    // it. This tool is shared by both the Marketing panel (which has the welcome context) and the
+    // unified assistant (which does NOT), and the model sometimes rounds the amount or omits it
+    // entirely — so we don't rely on the prompt here. For imported_winback drafts with an ACTIVE
+    // welcome reward we: (1) rewrite any RCN/dollar figures to the real numbers, then (2) inject a
+    // reward line if the body doesn't mention RCN at all. Scoped to imported_winback so other
+    // campaign types' numbers are never touched.
+    // Welcome-RCN amount actually in play for this draft (0 = none). Surfaced in the tool result
+    // (so the assistant's prose can state it) and the display (so the card shows a reward chip).
+    let welcomeRewardRcn = 0;
+    if (audienceType === "imported_winback") {
+      const welcomeAmount = await resolveActiveWelcomeAmount(ctx.pool, ctx.shopId);
+      if (welcomeAmount && welcomeAmount > 0) {
+        welcomeRewardRcn = welcomeAmount;
+        subject = normalizeWelcomeRcnFigures(subject, welcomeAmount);
+        let fixedBody = normalizeWelcomeRcnFigures(body, welcomeAmount);
+        // Inject unless the body already states a NUMERIC RCN amount. Checking for the bare word
+        // "RCN" isn't enough — the model often writes "earn RCN rewards" with no number, which
+        // would leave the email advertising a reward with no value. Require "<number> RCN".
+        if (!/\d[\d,]*(?:\.\d+)?\s*RCN\b/i.test(fixedBody)) {
+          // No concrete amount in the copy — inject the real one so the email always states it.
+          fixedBody = injectWelcomeRcnLine(fixedBody, welcomeAmount);
+          logger.info("propose_campaign_draft: injected missing welcome-RCN line", {
+            shopId: ctx.shopId,
+            welcomeAmount,
+          });
+        } else if (fixedBody !== body) {
+          logger.info("propose_campaign_draft: corrected welcome-RCN figures to the real amount", {
+            shopId: ctx.shopId,
+            welcomeAmount,
+          });
+        }
+        body = fixedBody;
+      }
+      // Strip the model's fake bracketed CTA (e.g. "[Claim Your Account]") — it renders as dead
+      // literal text. A real claim button block is appended to the email below.
+      body = stripBracketCtas(body);
     }
 
     // Resolve an optional banner image to embed at the top of the email. Only
@@ -312,6 +358,19 @@ export const proposeCampaignDraft: MarketingTool = {
         type: "image",
         src: bannerImageUrl,
         style: { maxWidth: "100%" },
+      });
+    }
+    // Imported-customer win-back: append a REAL claim CTA button. The model only writes text, so
+    // its "[Claim Your Account]" is dead literal text (already stripped from the body above) — here
+    // we add an actual button block linking to the customer dashboard, where the account-claim
+    // banner prompts after the customer logs in / signs up with the matching email/phone. Without
+    // this the receiver has no way to act on "claim your account".
+    if (audienceType === "imported_winback") {
+      blocks.push({
+        type: "button",
+        content: "Claim Your Account",
+        url: "/customer",
+        style: { backgroundColor: "#eab308", textColor: "#000" },
       });
     }
     const designContent = {
@@ -435,6 +494,11 @@ export const proposeCampaignDraft: MarketingTool = {
         // True when the shop asked for a reward/coupon but campaign rewards aren't
         // enabled for them — tell the owner it was drafted without it.
         reward_unavailable: rewardUnavailable,
+        // Welcome-on-claim RCN baked into this win-back draft (0 = none). When >0, TELL THE OWNER
+        // in your reply that the campaign offers this welcome reward (e.g. "it offers a 30 RCN
+        // welcome reward when they claim"). This is the migration incentive, separate from any
+        // campaign send-reward above.
+        welcome_reward_rcn: welcomeRewardRcn || null,
       },
       display: {
         kind: "campaign_draft",
@@ -460,6 +524,12 @@ export const proposeCampaignDraft: MarketingTool = {
         coupon: coupon
           ? { code: coupon.code, bonusRcn: coupon.bonusRcn, expiresAt: coupon.expiresAt }
           : undefined,
+        // Welcome-on-claim reward baked into this win-back draft (omitted when none) — the card
+        // renders a chip so the owner sees the incentive without reading the full body.
+        welcomeRewardRcn: welcomeRewardRcn > 0 ? welcomeRewardRcn : undefined,
+        // Label of the real CTA button appended to imported_winback emails — so the preview shows
+        // it (the preview renders text only, not the designContent button block).
+        claimCtaLabel: audienceType === "imported_winback" ? "Claim Your Account" : undefined,
       },
     };
   },
@@ -510,6 +580,77 @@ function bodyToBlocks(subject: string, body: string): Array<Record<string, unkno
 function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
   return `${s.slice(0, n - 1).trimEnd()}…`;
+}
+
+/**
+ * Resolve the active welcome-RCN amount for a shop (or null when the feature/flag/opt-in is off).
+ * Mirrors the claim-time resolution: platform flag → shop opt-in → per-shop override or default.
+ */
+async function resolveActiveWelcomeAmount(
+  pool: { query: (text: string, params: unknown[]) => Promise<{ rows: any[] }> },
+  shopId: string
+): Promise<number | null> {
+  if (!isWelcomeRcnEnabled()) return null;
+  try {
+    const r = await pool.query(
+      `SELECT welcome_rcn_enabled, welcome_rcn_amount FROM shops WHERE shop_id = $1`,
+      [shopId]
+    );
+    const row = r.rows[0];
+    if (!row || row.welcome_rcn_enabled !== true) return null;
+    const override = row.welcome_rcn_amount != null ? parseFloat(row.welcome_rcn_amount) : null;
+    return resolveWelcomeRcnAmount(override);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Strip the model's fake call-to-action — a line that's just a bracketed label like
+ * "[Claim Your Account]" or a markdown link "[Claim](...)" — since the email renderer shows it as
+ * dead literal text. A real button block is added separately. Only removes lines that are ENTIRELY
+ * such a token (optionally with surrounding whitespace), so prose with incidental brackets is safe.
+ * Collapses any blank-line gap the removal leaves behind.
+ */
+function stripBracketCtas(body: string): string {
+  return body
+    .split("\n")
+    .filter((line) => !/^\s*\[[^\]]+\](?:\([^)]*\))?\s*$/.test(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Inject a welcome-reward sentence when the model omitted it entirely. Placed right after the
+ * first paragraph (the greeting) so it's prominent, or appended if the body is a single block.
+ * Used only for imported_winback drafts with an active welcome reward.
+ */
+function injectWelcomeRcnLine(body: string, rcn: number): string {
+  const usd = (rcn * 0.1).toFixed(2);
+  const line = `As a welcome, claim your account and get ${rcn} RCN (≈ $${usd}) added to your balance — yours to use on your next visit.`;
+  const paras = body.split(/\n\s*\n/);
+  if (paras.length <= 1) return `${body}\n\n${line}`;
+  paras.splice(1, 0, line);
+  return paras.join("\n\n");
+}
+
+/**
+ * Force the exact welcome-RCN figure into AI copy. The model sometimes rounds the amount it was
+ * told ("25 RCN" → "50 RCN ($5)"); this rewrites RCN counts and adjacent dollar-credit figures to
+ * the real numbers (1 RCN = $0.10). Deliberately conservative on dollars — only rewrites amounts
+ * that are tagged as a credit/value/reward or sit in a bare parenthetical — to avoid clobbering an
+ * unrelated price. Run only for imported_winback drafts with an active welcome reward.
+ */
+function normalizeWelcomeRcnFigures(text: string, rcn: number): string {
+  const usd = (rcn * 0.1).toFixed(2);
+  return text
+    // "<number> RCN" → "<rcn> RCN"
+    .replace(/\d[\d,]*(?:\.\d+)?\s*RCN\b/gi, `${rcn} RCN`)
+    // "$<number> credit|value|reward|in RCN" → "$<usd> <word>"
+    .replace(/\$\s?\d[\d,]*(?:\.\d+)?(\s*(?:credit|value|reward|in RCN))/gi, `$${usd}$1`)
+    // bare parenthetical "($<number>)" → "($<usd>)"
+    .replace(/\(\s*\$\s?\d[\d,]*(?:\.\d+)?\s*\)/g, `($${usd})`);
 }
 
 /** Human-readable one-liner for the reward shown on the draft card. */

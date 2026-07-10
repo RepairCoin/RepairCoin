@@ -4,46 +4,18 @@ import {
   Text,
   View,
   TouchableOpacity,
-  Platform,
   Image,
 } from "react-native";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useCustomer } from "../hooks/useCustomer";
-import TierProgressCard from "@/shared/components/shared/TierProgressCard";
-
-const COLORS = {
-  primary: "#FFCC00",
-  success: "#22C55E",
-  error: "#EF4444",
-  background: "#09090b",
-  card: "#18181b",
-  
-  border: "#27272a",
-};
-
-const TIER_CONFIG = {
-  bronze: {
-    color: "#CD7F32",
-    gradient: ["#CD7F32", "#8B4513"],
-    icon: "shield-outline" as const,
-  },
-  silver: {
-    color: "#C0C0C0",
-    gradient: ["#C0C0C0", "#808080"],
-    icon: "shield-half-outline" as const,
-  },
-  gold: {
-    color: "#FFD700",
-    gradient: ["#FFD700", "#FFA500"],
-    icon: "shield-checkmark" as const,
-  },
-};
+import TierBadge from "@/shared/components/ui/TierBadge";
+import StatsRow from "@/shared/components/ui/StatsRow";
+import MenuRow from "@/shared/components/ui/MenuRow";
+import GradientHeader from "@/shared/components/ui/GradientHeader";
 
 export default function CustomerAccountScreen() {
-  const insets = useSafeAreaInsets();
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
 
@@ -52,13 +24,6 @@ export default function CustomerAccountScreen() {
   );
 
   const customer = customerData?.customer;
-
-  const getTierConfig = (tier: string) => {
-    const tierLower = tier?.toLowerCase() || "bronze";
-    return TIER_CONFIG[tierLower as keyof typeof TIER_CONFIG] || TIER_CONFIG.bronze;
-  };
-
-  const tierConfig = getTierConfig(customer?.tier || "bronze");
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -75,41 +40,40 @@ export default function CustomerAccountScreen() {
     return name.substring(0, 2).toUpperCase();
   };
 
+  const memberSince = customer?.joinDate
+    ? new Date(customer.joinDate).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+
   return (
     <View className="flex-1 bg-zinc-950">
+      <GradientHeader
+        title="My Account"
+        right={
+          <TouchableOpacity
+            onPress={() => router.push("/customer/settings")}
+            className="w-10 h-10 rounded-full bg-[#FFCC00] items-center justify-center"
+            activeOpacity={0.8}
+          >
+            <Ionicons name="settings-outline" size={22} color="#000" />
+          </TouchableOpacity>
+        }
+      />
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={{ paddingTop: Platform.OS === 'ios' ? insets.top + 8 : 48 }} className="px-4 pb-4">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-white text-lg font-bold">My Account</Text>
-            <View className="flex-row gap-2">
-              <TouchableOpacity
-                onPress={() => router.push("/customer/profile/edit-profile")}
-                className="w-10 h-10 rounded-full bg-zinc-800 items-center justify-center"
-              >
-                <Feather name="edit-2" size={18} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => router.push("/customer/settings")}
-                className="w-10 h-10 rounded-full bg-zinc-800 items-center justify-center"
-              >
-                <Ionicons name="settings-outline" size={22} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
         {/* Profile Info Section */}
-        <View className="px-4">
+        <View className="px-4 pt-6">
           <View className="flex-row items-center">
-            {/* Avatar */}
+            {/* Avatar with tier-gold ring */}
             <TouchableOpacity
               onPress={() => router.push("/customer/profile/edit-profile")}
               activeOpacity={0.8}
             >
               <View
-                className="w-24 h-24 rounded-full overflow-hidden items-center justify-center"
-                style={{ backgroundColor: `${tierConfig.color}20` }}
+                className="w-24 h-24 rounded-full overflow-hidden items-center justify-center bg-zinc-800"
+                style={{ borderWidth: 3, borderColor: "#FFCC00" }}
               >
                 {customer?.profileImageUrl ? (
                   <Image
@@ -118,183 +82,93 @@ export default function CustomerAccountScreen() {
                     resizeMode="cover"
                   />
                 ) : (
-                  <Text
-                    className="text-3xl font-bold"
-                    style={{ color: tierConfig.color }}
-                  >
+                  <Text className="text-3xl font-bold text-[#FFCC00]">
                     {getInitials(customer?.name || "User")}
                   </Text>
                 )}
               </View>
             </TouchableOpacity>
 
-            {/* Name & Tier Badge */}
+            {/* Name, Tier Badge & Member Since */}
             <View className="flex-1 ml-4">
-              <Text className="text-white text-xl font-bold" numberOfLines={1}>
+              <Text
+                className="text-white text-2xl font-bold"
+                numberOfLines={1}
+              >
                 {customer?.name || "User"}
               </Text>
 
-              {/* Tier Badge */}
               <TouchableOpacity
                 onPress={() => router.push("/customer/tier-info")}
-                className="flex-row items-center mt-2"
+                activeOpacity={0.8}
+                className="mt-2 self-start"
               >
-                <View
-                  className="flex-row items-center px-3 py-1.5 rounded-full"
-                  style={{ backgroundColor: `${tierConfig.color}20` }}
-                >
-                  <Ionicons
-                    name={tierConfig.icon}
-                    size={16}
-                    color={tierConfig.color}
-                  />
-                  <Text
-                    className="text-xs font-semibold capitalize ml-1.5"
-                    style={{ color: tierConfig.color }}
-                  >
-                    {customer?.tier || "Bronze"} Member
-                  </Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={14}
-                    color={tierConfig.color}
-                    style={{ marginLeft: 4 }}
-                  />
-                </View>
+                <TierBadge tier={customer?.tier} size="md" variant="soft" />
               </TouchableOpacity>
+
+              {memberSince && (
+                <Text className="text-zinc-400 text-xs mt-2">
+                  Member Since: {memberSince}
+                </Text>
+              )}
             </View>
           </View>
         </View>
 
-        {/* Stats Section */}
-        <View className="flex-row mx-4 mt-4 bg-zinc-900 rounded-2xl p-4">
-          <View className="flex-1 items-center">
-            <Text className="text-white text-xl font-bold">
-              {formatNumber(customer?.lifetimeEarnings || 0)}
-            </Text>
-            <Text className="text-zinc-500 text-xs mt-1">Earned</Text>
-          </View>
-          <View className="w-px bg-zinc-800" />
-          <View className="flex-1 items-center">
-            <Text className="text-white text-xl font-bold">
-              {formatNumber(customer?.totalRedemptions || 0)}
-            </Text>
-            <Text className="text-zinc-500 text-xs mt-1">Redeemed</Text>
-          </View>
-          <View className="w-px bg-zinc-800" />
-          <View className="flex-1 items-center">
-            <Text className="text-white text-xl font-bold">
-              {customer?.totalRepairs || 0}
-            </Text>
-            <Text className="text-zinc-500 text-xs mt-1">Repairs</Text>
-          </View>
-          <View className="w-px bg-zinc-800" />
-          <View className="flex-1 items-center">
-            <Text className="text-white text-xl font-bold">
-              {customer?.referralCount || 0}
-            </Text>
-            <Text className="text-zinc-500 text-xs mt-1">Referrals</Text>
-          </View>
+        {/* Stats Section (V2) */}
+        <View className="mt-6">
+          <StatsRow
+            items={[
+              {
+                value: formatNumber(customer?.currentRcnBalance || 0),
+                label: "Rewards Balance",
+              },
+              {
+                value: customer?.totalRepairs || 0,
+                label: "Successful Bookings",
+              },
+              {
+                value: customer?.referralCount || 0,
+                label: "Referred Friends",
+              },
+              // TODO(wire-later): backend has no reviewsSubmitted count yet.
+              { value: 0, label: "Reviews Submitted" },
+            ]}
+          />
         </View>
 
-        {/* Quick Actions */}
-        <View className="flex-row mx-4 mt-4 gap-3">
-          <TouchableOpacity
-            onPress={() => router.push("/customer/referral")}
-            className="flex-1 bg-[#FFCC00] rounded-xl py-3 flex-row items-center justify-center"
-          >
-            <Ionicons name="people" size={18} color="#000" />
-            <Text className="text-black font-semibold ml-2">Refer Friends</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+        {/* Menu Section (V2) */}
+        <View className="mx-4 mt-6 bg-zinc-900 rounded-2xl overflow-hidden">
+          <MenuRow
+            icon="trophy-outline"
+            label="Tier Progress"
+            onPress={() => router.push("/customer/tier-info")}
+          />
+          <MenuRow
+            icon="qr-code-outline"
+            label="My Qr Code"
             onPress={() => router.push("/customer/qrcode")}
-            className="flex-1 bg-zinc-800 rounded-xl py-3 flex-row items-center justify-center"
-          >
-            <Ionicons name="qr-code" size={18} color="#fff" />
-            <Text className="text-white font-semibold ml-2">My QR</Text>
-          </TouchableOpacity>
+          />
+          <MenuRow
+            icon="person-add-outline"
+            label="Refer a Friend"
+            onPress={() => router.push("/customer/referral")}
+          />
+
+          {/*<MenuRow
+            icon="storefront-outline"
+            label="Refer a Shop"
+            // TODO(wire-later): dedicated refer-a-shop flow; reuse referral for now.
+            onPress={() => router.push("/customer/referral")}
+          />
+          <MenuRow
+            icon="help-circle-outline"
+            label="Support"
+            isLast
+            // TODO(wire-later): dedicated support screen; route to messages for now.
+            onPress={() => router.push("/customer/messages")}
+          /> */}
         </View>
-
-        {/* Tier Progress Card */}
-        <TierProgressCard
-          currentTier={customer?.tier || "bronze"}
-          lifetimeEarnings={customer?.lifetimeEarnings || 0}
-        />
-
-        {/* Account Details Section */}
-        <View className="mx-4 mt-4 bg-zinc-900 rounded-2xl overflow-hidden">
-          <Text className="text-zinc-500 text-xs font-semibold px-4 pt-4 pb-2">
-            ACCOUNT DETAILS
-          </Text>
-
-          {/* Email */}
-          {customer?.email && (
-            <View className="flex-row items-center px-4 py-3 border-b border-zinc-800">
-              <View className="w-9 h-9 rounded-full bg-zinc-800 items-center justify-center">
-                <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
-              </View>
-              <View className="flex-1 ml-3">
-                <Text className="text-zinc-500 text-xs">Email</Text>
-                <Text className="text-white text-sm mt-0.5">{customer.email}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Phone */}
-          {customer?.phone && (
-            <View className="flex-row items-center px-4 py-3 border-b border-zinc-800">
-              <View className="w-9 h-9 rounded-full bg-zinc-800 items-center justify-center">
-                <Ionicons name="call-outline" size={18} color={COLORS.primary} />
-              </View>
-              <View className="flex-1 ml-3">
-                <Text className="text-zinc-500 text-xs">Phone</Text>
-                <Text className="text-white text-sm mt-0.5">{customer.phone}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Referral Code */}
-          {customer?.referralCode && (
-            <View className="flex-row items-center px-4 py-3">
-              <View className="w-9 h-9 rounded-full bg-zinc-800 items-center justify-center">
-                <Ionicons name="gift-outline" size={18} color={COLORS.primary} />
-              </View>
-              <View className="flex-1 ml-3">
-                <Text className="text-zinc-500 text-xs">Referral Code</Text>
-                <Text className="text-[#FFCC00] text-sm font-semibold mt-0.5">
-                  {customer.referralCode}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => router.push("/customer/referral")}
-                className="bg-zinc-800 px-3 py-1.5 rounded-lg"
-              >
-                <Text className="text-white text-xs font-medium">Share</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Member Since */}
-        {customer?.joinDate && (
-          <View className="mx-4 mt-4 bg-zinc-900 rounded-2xl px-4 py-3">
-            <View className="flex-row items-center">
-              <View className="w-9 h-9 rounded-full bg-zinc-800 items-center justify-center">
-                <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
-              </View>
-              <View className="flex-1 ml-3">
-                <Text className="text-zinc-500 text-xs">Member Since</Text>
-                <Text className="text-white text-sm mt-0.5">
-                  {new Date(customer.joinDate).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* Bottom Padding */}
         <View className="h-8" />

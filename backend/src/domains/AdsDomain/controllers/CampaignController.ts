@@ -11,6 +11,7 @@ import { CampaignRepository } from '../repositories/CampaignRepository';
 import { SafeguardRepository } from '../repositories/SafeguardRepository';
 import { AdBillingService } from '../services/AdBillingService';
 import { metaPushService } from '../services/MetaPushService';
+import { googlePushService } from '../services/GooglePushService';
 
 const campaigns = new CampaignRepository();
 const adBilling = new AdBillingService();
@@ -99,6 +100,18 @@ export async function updateCampaign(req: Request, res: Response): Promise<void>
           return;
         }
       }
+      // SAFETY: a campaign pushed to Meta but never gone live (no started_at) can only be
+      // activated through the GATED Go Live flow (funding + creative-approved + account-active
+      // checks, and a confirmation). Blocking it here stops the list "Activate" toggle from
+      // starting real ad spend with no safeguards (it previously pushed ACTIVE via pushStatus,
+      // bypassing every go-live gate). Re-activating a previously-live campaign is still allowed.
+      if ((target.metaCampaignId || target.googleCampaignId) && !target.startedAt) {
+        res.status(409).json({
+          success: false, error: 'use_go_live',
+          message: 'This campaign hasn’t gone live yet — use “Go Live”, which runs the funding & creative checks before any spend.',
+        });
+        return;
+      }
     }
 
     const campaign = await campaigns.update(req.params.id, req.body || {});
@@ -109,6 +122,11 @@ export async function updateCampaign(req: Request, res: Response): Promise<void>
     if ((req.body?.status === 'active' || req.body?.status === 'paused') && campaign.metaCampaignId) {
       void metaPushService.pushStatus(campaign.id, req.body.status === 'active' ? 'ACTIVE' : 'PAUSED')
         .catch((e: any) => logger.warn(`Meta status push failed for ${campaign.id}: ${e?.message || e}`));
+    }
+    // Same mirror for a Google campaign (ENABLED|PAUSED). Best-effort — the DB is source-of-truth.
+    if ((req.body?.status === 'active' || req.body?.status === 'paused') && campaign.googleCampaignId) {
+      void googlePushService.pushStatus(campaign.id, req.body.status === 'active' ? 'ENABLED' : 'PAUSED')
+        .catch((e: any) => logger.warn(`Google status push failed for ${campaign.id}: ${e?.message || e}`));
     }
 
     res.json({ success: true, data: campaign });
@@ -145,6 +163,27 @@ export async function listShopCampaigns(req: Request, res: Response): Promise<vo
   } catch (err) {
     logger.error('CampaignController.listShopCampaigns failed', err);
     res.status(500).json({ success: false, error: 'Failed to list campaigns' });
+  }
+}
+
+// PATCH /shop/campaigns/:id/outreach-mode (shop) — set the AI first-contact mode ('off'|'draft'|'auto')
+// for an OWNED campaign (Part B). Ownership via campaign.shopId === the caller's shop; never a param.
+export async function setShopCampaignOutreachMode(req: Request, res: Response): Promise<void> {
+  const shopId = shopIdOf(req);
+  const mode = req.body?.mode;
+  if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
+  if (mode !== 'off' && mode !== 'draft' && mode !== 'auto') {
+    res.status(400).json({ success: false, error: "mode must be 'off', 'draft', or 'auto'" });
+    return;
+  }
+  try {
+    const campaign = await campaigns.findById(req.params.id);
+    if (!campaign || campaign.shopId !== shopId) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    const updated = await campaigns.update(req.params.id, { aiOutreachMode: mode });
+    res.json({ success: true, data: { id: updated.id, aiOutreachMode: updated.aiOutreachMode } });
+  } catch (err) {
+    logger.error('CampaignController.setShopCampaignOutreachMode failed', err);
+    res.status(500).json({ success: false, error: 'Failed to update outreach mode' });
   }
 }
 

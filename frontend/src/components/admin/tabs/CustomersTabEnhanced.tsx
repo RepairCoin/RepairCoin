@@ -47,6 +47,9 @@ interface Customer {
   joinDate?: string;
   referralCode?: string;
   referralCount?: number;
+  // Migration origin: importSource set = came from another platform; isPlaceholder = unclaimed wallet
+  importSource?: string | null;
+  isPlaceholder?: boolean;
   // Suspension fields
   suspended_at?: string;
   suspension_reason?: string;
@@ -161,9 +164,19 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       accessor: (customer) => (
         <div className="flex items-center gap-3">
           <div>
-            <p className="text-sm font-semibold text-white">
-              {customer.name || "Anonymous"}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-white">
+                {customer.name || "Anonymous"}
+              </p>
+              {customer.importSource && (
+                <span
+                  title={`Imported from ${customer.importSource}${customer.isPlaceholder ? " · account not yet claimed" : ""}`}
+                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                >
+                  Imported{customer.importSource && customer.importSource !== "import" ? ` · ${customer.importSource}` : ""}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-400 font-mono">
               {formatAddress(customer.address)}
             </p>
@@ -1492,8 +1505,14 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                       // Reload the customer data
                       await loadCustomersData();
                     } else {
-                      // For reject, we might need a separate API endpoint
-                      toast.success("Unsuspend request rejected");
+                      // Reject via the real endpoint (needs the request id).
+                      const requestId = customer?.unsuspendRequest?.id;
+                      if (!requestId) {
+                        toast.error("No unsuspend request found for this customer");
+                        return;
+                      }
+                      // processUnsuspendRequest handles the API call, toast, and reload.
+                      await processUnsuspendRequest(requestId, "reject", unsuspendNotes);
                     }
 
                     setUnsuspendReviewModal({

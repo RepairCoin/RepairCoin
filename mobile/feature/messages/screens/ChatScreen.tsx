@@ -1,9 +1,10 @@
 import { useState, useCallback } from "react";
-import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Modal, Pressable, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useChat } from "../hooks";
+import { useChat, useConversationPresence } from "../hooks";
 import { useUnlockSession } from "../hooks/useUnlockSession";
 import { useAppToast } from "@/shared/hooks";
+import { useEndBootWhenReady } from "@/shared/hooks/useEndBootWhenReady";
 import {
   ChatHeader,
   DateDivider,
@@ -20,9 +21,12 @@ import { messageApi } from "../services/message.services";
 
 export default function ChatScreen() {
   const {
+    conversationId,
     messages,
     conversation,
     isLoading,
+    isLoadingMore,
+    hasMore,
     isSending,
     messageText,
     setMessageText,
@@ -31,15 +35,27 @@ export default function ChatScreen() {
     otherPartyName,
     handleSend,
     handleGoBack,
-    scrollToEnd,
+    loadMore,
     refetchConversation,
+    removeMessage,
   } = useChat();
+
+  // Tell the backend we're viewing this thread (over the shared WebSocket) so it
+  // suppresses push + email notifications for messages that land while we're
+  // looking. Mirrors the web chat's conversation:open/close presence signals.
+  useConversationPresence(conversationId);
+
+  // Lift the cold-start boot splash once the conversation has loaded — this is
+  // the screen a "new_message" push deep-links to.
+  useEndBootWhenReady(!isLoading);
 
   const { showSuccess, showError } = useAppToast();
   const unlockSession = useUnlockSession();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [unlockMessage, setUnlockMessage] = useState<Message | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState<Message | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [, forceUpdate] = useState(0);
 
   const handleTextChange = useCallback(
@@ -48,6 +64,21 @@ export default function ChatScreen() {
     },
     [setMessageText]
   );
+
+  const handleConfirmDelete = async () => {
+    if (!deleteMessage) return;
+    setIsDeleting(true);
+    try {
+      await messageApi.deleteMessage(deleteMessage.messageId);
+      removeMessage(deleteMessage.messageId);
+      showSuccess("Message deleted.");
+    } catch {
+      showError("Failed to delete message. Please try again.");
+    } finally {
+      setIsDeleting(false);
+      setDeleteMessage(null);
+    }
+  };
 
   const handleArchive = async () => {
     if (!conversation) return;
@@ -126,7 +157,9 @@ export default function ChatScreen() {
   };
 
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
-    const previousMessage = index > 0 ? messages[index - 1] : undefined;
+    // Inverted list: the chronologically earlier message is the next index. Show
+    // a date divider above the first (oldest) message of each day.
+    const previousMessage = messages[index + 1];
     const showDateDivider = shouldShowDateDivider(item, previousMessage);
     const isOwnMessage = item.senderType === (isCustomer ? "customer" : "shop");
     const isSystemMessage = item.messageType === "system";
@@ -145,6 +178,7 @@ export default function ChatScreen() {
             isCustomer={isCustomer}
             unlockSession={unlockSession}
             onRequestUnlock={(msg) => setUnlockMessage(msg)}
+            onLongPress={(msg) => setDeleteMessage(msg)}
           />
         )}
       </View>
@@ -183,6 +217,10 @@ export default function ChatScreen() {
 
         <FlatList
           ref={flatListRef}
+          // Inverted so newest messages sit at the bottom and the view opens
+          // pinned there — no manual scroll-to-end. Data is newest-first.
+          // Skipped when empty so EmptyChat isn't rendered upside down.
+          inverted={messages.length > 0}
           data={messages}
           keyExtractor={(item) => item.messageId}
           renderItem={renderMessage}
@@ -191,9 +229,20 @@ export default function ChatScreen() {
             paddingVertical: 16,
           }}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={scrollToEnd}
+          // On an inverted list onEndReached fires at the TOP — load older
+          // messages. loadMore self-guards against overlap.
+          onEndReached={hasMore ? loadMore : undefined}
+          onEndReachedThreshold={0.3}
+          // Footer renders at the top of an inverted list — the older-messages
+          // loading spinner.
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View className="py-3 items-center">
+                <ActivityIndicator size="small" color="#FFCC00" />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={EmptyChat}
-          ListFooterComponent={null}
         />
 
         <MessageInput
@@ -233,6 +282,47 @@ export default function ChatScreen() {
         isCustomer={isCustomer}
         messageCount={messages.length}
       />
+
+      {/* Delete Message Modal */}
+      <Modal
+        visible={!!deleteMessage}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setDeleteMessage(null)}
+      >
+        <Pressable
+          className="flex-1 bg-black/70 justify-center px-6"
+          onPress={() => setDeleteMessage(null)}
+        >
+          <Pressable
+            onPress={() => {}}
+            className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800"
+          >
+            <Text className="text-white text-lg font-bold mb-1">Delete message?</Text>
+            <Text className="text-zinc-400 text-sm mb-6">
+              This message and its attachments will be permanently removed.
+            </Text>
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={() => setDeleteMessage(null)}
+                className="flex-1 py-3 rounded-xl bg-zinc-800 items-center"
+              >
+                <Text className="text-zinc-300 font-semibold">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleConfirmDelete}
+                disabled={isDeleting}
+                className={`flex-1 py-3 rounded-xl items-center ${isDeleting ? "bg-red-900" : "bg-red-500"}`}
+              >
+                <Text className="text-white font-semibold">
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Unlock Message Modal — outside KeyboardAvoidingView */}
       <UnlockModal

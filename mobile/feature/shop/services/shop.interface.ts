@@ -85,6 +85,42 @@ export interface ShopResponseData {
   shops: ShopData[];
 }
 
+/**
+ * Shop shape returned by `GET /shops/map` — includes service-derived
+ * categories, ratings, and (when coords are supplied) distance.
+ */
+export interface MapShop {
+  shopId: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  location: {
+    lat: number;
+    lng: number;
+    city: string | null;
+    state: string | null;
+  };
+  verified: boolean;
+  logoUrl: string | null;
+  category: string | null;
+  /** Distinct categories aggregated from the shop's active services. */
+  serviceCategories: string[];
+  serviceCount: number;
+  avgRating: number;
+  totalReviews: number;
+  distanceMiles: number | null;
+}
+
+export interface MapShopsResponse extends BaseResponse<MapShop[]> {}
+
+export interface MapShopsQuery {
+  lat?: number;
+  lng?: number;
+  radius?: number;
+  limit?: number;
+}
+
 export interface ShopCustomerData {
   currentPage: number;
   customers: CustomerData[];
@@ -389,3 +425,91 @@ export interface ShopCustomersResponse extends BaseResponse<ShopCustomerData> {}
 export interface ShopCustomerGrowthResponse extends BaseResponse<CustomerGrowthData> {}
 export interface ShopResponse extends BaseResponse<ShopResponseData> {}
 export interface RewardResponse extends BaseResponse<RewardData> {}
+
+// ==================== Moderation: Issue Reports ====================
+export type IssueReportCategory =
+  | "spam"
+  | "fraud"
+  | "harassment"
+  | "inappropriate_review"
+  | "other";
+
+export type IssueReportSeverity = "low" | "medium" | "high";
+
+export type IssueReportStatus =
+  | "pending"
+  | "investigating"
+  | "resolved"
+  | "dismissed";
+
+export interface SubmitIssueReportRequest {
+  category: IssueReportCategory;
+  description: string;
+  severity: IssueReportSeverity;
+  relatedEntityType?: "customer" | "review" | "order";
+  relatedEntityId?: string;
+}
+
+export interface ShopReport {
+  id: string;
+  shopId: string;
+  category: IssueReportCategory;
+  description: string;
+  severity: IssueReportSeverity;
+  status: IssueReportStatus;
+  relatedEntityType?: "customer" | "review" | "order";
+  relatedEntityId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubmitIssueReportResponse extends BaseResponse<ShopReport> {}
+export interface ShopReportsResponse extends BaseResponse<ShopReport[]> {}
+
+// ==================== Moderation: Flagged Reviews ====================
+export interface FlaggedReview {
+  id: string;
+  reviewId: string;
+  shopId: string;
+  reason: string;
+  status: "pending" | "approved" | "removed";
+  flaggedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FlagReviewRequest {
+  reviewId: string;
+  reason: string;
+}
+
+export interface FlagReviewResponse extends BaseResponse<FlaggedReview> {}
+
+// ==================== Moderation: Blocked Customers ====================
+export interface BlockedCustomer {
+  id: string;
+  shopId: string;
+  customerWalletAddress: string;
+  customerName?: string;
+  customerEmail?: string;
+  reason: string;
+  blockedAt: string;
+  blockedBy: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlockCustomerRequest {
+  customerWalletAddress: string;
+  reason: string;
+}
+
+export interface BlockCustomerResponse extends BaseResponse<BlockedCustomer> {}
+export interface BlockedCustomersResponse extends BaseResponse<BlockedCustomer[]> {}
+export interface CustomerBlockStatusResponse
+  extends BaseResponse<{
+    isBlocked: boolean;
+    walletAddress: string;
+    shopId: string;
+  }> {}

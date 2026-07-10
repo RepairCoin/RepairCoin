@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Constants from "expo-constants";
 import { Linking, Share, Alert } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
@@ -12,7 +13,7 @@ import { messageApi } from "@/feature/messages/services/message.services";
 import { serviceApi } from "@/feature/services/services/service.services";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { queryKeys } from "@/shared/config/queryClient";
-import { TIER_CONFIG, REWARD_RATE, COPY_FEEDBACK_DURATION, FULL_DAYS } from "@/shared/constants/services";
+import { TIER_CONFIG, COPY_FEEDBACK_DURATION, FULL_DAYS } from "@/shared/constants/services";
 import { TierInfo, RewardCalculation } from "@/feature/services/services/service.interface";
 import { useShopAvailabilityWithConfigQuery } from "@/feature/services/services-main/services-tab/hooks/useServicesTabQuery";
 import { useServiceNavigation } from "./useServiceNavigation";
@@ -108,7 +109,8 @@ export function useUnifiedServiceDetail() {
   const calculateReward = (): RewardCalculation => {
     if (!serviceData?.priceUsd) return { base: 0, bonus: 0, total: 0 };
     const tierInfo = getTierInfo();
-    const baseReward = Math.floor(serviceData.priceUsd / REWARD_RATE);
+    const price = serviceData.priceUsd;
+    const baseReward = price >= 100 ? 25 : price >= 50 ? 10 : 0;
     const bonusReward = tierInfo.tierBonus;
     return {
       base: baseReward,
@@ -118,7 +120,12 @@ export function useUnifiedServiceDetail() {
   };
 
   // Share functionality
-  const getShareUrl = () => `https://repaircoin.app/service/${id}`;
+  const appEnv = Constants.expoConfig?.extra?.appEnv;
+  const webBaseUrl =
+    appEnv === "staging"
+      ? "https://staging.repaircoin.ai"
+      : "https://repaircoin.ai";
+  const getShareUrl = () => `${webBaseUrl}/services/${id}`;
 
   const getShareMessage = () => {
     if (!serviceData) return "";

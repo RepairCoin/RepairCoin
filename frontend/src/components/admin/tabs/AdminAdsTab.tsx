@@ -4,24 +4,28 @@
 // create + per-campaign performance (ROI computed-at-read) + manual daily-metric
 // entry. Admin-only; reads/writes /api/ads. Gated by ADS_DASHBOARD_ENABLED upstream.
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw, ChevronDown, ChevronUp, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { LeadKanban } from "@/components/ads/LeadKanban";
+import { ChannelBreakdown } from "@/components/ads/ChannelBreakdown";
+import { ConversationInbox } from "@/components/ads/ConversationInbox";
 import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import { IndustryAnalytics } from "@/components/ads/IndustryAnalytics";
-import { ExperimentsPanel } from "@/components/ads/ExperimentsPanel";
-import { CreativesPanel } from "@/components/ads/CreativesPanel";
 import { MarginPanel } from "@/components/ads/MarginPanel";
-import { BillingPanel } from "@/components/ads/BillingPanel";
+import { MetaCampaignPanel } from "@/components/ads/MetaCampaignPanel";
+import { GoogleCampaignPanel } from "@/components/ads/GoogleCampaignPanel";
 import { CampaignRequestsQueue } from "@/components/ads/CampaignRequestsQueue";
 import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
-import { MetaDraftReview } from "@/components/ads/MetaDraftReview";
+import { DraftComposer } from "@/components/ads/DraftComposer";
+import { GoogleDraftPanel } from "@/components/ads/GoogleDraftPanel";
+import { LandingPageSettings } from "@/components/ads/LandingPageSettings";
 import {
-  listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
-  enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
-  type AdCampaign, type CampaignPerformance, type AllShopsSummary,
+  listCampaigns, createCampaign, updateCampaign, goLiveCampaign, getCampaignPerformance,
+  enterDailyMetrics, getAllShopsSummary, regenerateAdImage, scaleCampaignBudget, syncCampaignFromMeta, syncCampaignFromGoogle,
+  getShopMetaAccount, fmtUsd, fmtMoney, fmtRoi,
+  type AdCampaign, type CampaignPerformance, type AllShopsSummary, type ShopMetaAccount,
 } from "@/services/api/ads";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -31,14 +35,104 @@ export const AdminAdsTab: React.FC = () => {
   const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [leadView, setLeadView] = useState<"inbox" | "pipeline">("inbox");
   const [perf, setPerf] = useState<CampaignPerformance | null>(null);
+  const [metaAccount, setMetaAccount] = useState<ShopMetaAccount | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [savingMetrics, setSavingMetrics] = useState(false);
+  const [showMetrics, setShowMetrics] = useState(false); // manual-metrics override (Live mode)
+  const [refreshingCreative, setRefreshingCreative] = useState(false);
+
+  // Safeguard 5 — free creative swap on an underperforming live campaign.
+  const refreshCreative = async (c: AdCampaign) => {
+    setRefreshingCreative(true);
+    try {
+      await regenerateAdImage(c.id, ""); // empty prompt → auto-derive a fresh creative
+      toast.success("New creative generated — free of charge.");
+      await load();
+      if (selectedId === c.id) await select(c.id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't refresh the creative.");
+    } finally { setRefreshingCreative(false); }
+  };
+
+  // Safeguard 4 — scale a test-budget campaign up to its full daily budget.
+  const [scaling, setScaling] = useState(false);
+  const scaleBudget = async (c: AdCampaign) => {
+    setScaling(true);
+    try {
+      await scaleCampaignBudget(c.id);
+      toast.success("Scaled to full budget.");
+      await load();
+      if (selectedId === c.id) await select(c.id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't scale the budget.");
+    } finally { setScaling(false); }
+  };
+
+  // Two-way config sync — pull budget/status back from Meta for this campaign.
+  const [syncing, setSyncing] = useState(false);
+  const syncFromMeta = async (c: AdCampaign) => {
+    setSyncing(true);
+    try {
+      const r = await syncCampaignFromMeta(c.id);
+      if (r.status === "synced") {
+        const n = Object.keys(r.changes || {}).length;
+        toast.success(`Synced from Meta — updated ${n} field${n > 1 ? "s" : ""}.`);
+        await load();
+        if (selectedId === c.id) await select(c.id);
+      } else if (r.status === "in_sync") {
+        toast.success("Already in sync with Meta.");
+      } else if (r.status === "diverged") {
+        toast.error(r.reason === "meta_deleted"
+          ? "This campaign was deleted in Ads Manager — marked archived. It can't go live again."
+          : "This campaign was archived in Ads Manager — marked archived here.");
+        await load();
+        if (selectedId === c.id) await select(c.id);
+      } else if (r.status === "skipped") {
+        toast(r.reason === "disconnected" ? "Reconnect the shop's Meta account to sync." : "This campaign isn't on Meta yet.");
+      } else if (r.status === "error") {
+        toast.error("Couldn't reach Meta — please try again.");
+      } else {
+        toast("Meta config sync isn't enabled.");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't sync from Meta.");
+    } finally { setSyncing(false); }
+  };
+
+  // Two-way config sync — pull budget/status back from Google for this campaign (Slice 5).
+  const syncFromGoogle = async (c: AdCampaign) => {
+    setSyncing(true);
+    try {
+      const r = await syncCampaignFromGoogle(c.id);
+      if (r.status === "synced") {
+        const n = Object.keys(r.changes || {}).length;
+        toast.success(`Synced from Google — updated ${n} field${n > 1 ? "s" : ""}.`);
+        await load();
+        if (selectedId === c.id) await select(c.id);
+      } else if (r.status === "in_sync") {
+        toast.success("Already in sync with Google.");
+      } else if (r.status === "diverged") {
+        toast.error("This campaign was removed in Google Ads — marked archived here. It can't go live again.");
+        await load();
+        if (selectedId === c.id) await select(c.id);
+      } else if (r.status === "skipped") {
+        toast(r.reason === "disconnected" ? "Reconnect the shop's Google account to sync." : "This campaign isn't on Google yet.");
+      } else if (r.status === "error") {
+        toast.error("Couldn't reach Google — please try again.");
+      } else {
+        toast("Google config sync isn't enabled.");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't sync from Google.");
+    } finally { setSyncing(false); }
+  };
 
   const [form, setForm] = useState({ shopId: "", name: "", dailyBudget: "", notes: "" });
   const [metrics, setMetrics] = useState({
-    date: todayStr(), spend: "", impressions: "", clicks: "", leads: "", bookings: "", revenue: "",
+    date: todayStr(), spend: "", impressions: "", clicks: "",
   });
 
   const load = useCallback(async () => {
@@ -57,12 +151,66 @@ export const AdminAdsTab: React.FC = () => {
 
   useEffect(() => { void load(); }, [load]);
 
-  const select = async (id: string) => {
+  // Keep ?campaign=<id> in the URL so the detail view is deep-linkable + browser Back works.
+  // Preserves other params (tab=ads). Uses pushState — NOT a reload — so it never triggers the
+  // auth-bounce that drops query params (see the shop tab-refresh fix).
+  const syncCampaignUrl = (id: string | null) => {
+    try {
+      const url = new URL(window.location.href);
+      if (id) url.searchParams.set("campaign", id);
+      else url.searchParams.delete("campaign");
+      window.history.pushState({}, "", url);
+    } catch { /* SSR */ }
+  };
+
+  const select = async (id: string, pushUrl = true) => {
     setSelectedId(id);
     setPerf(null);
+    setMetaAccount(null);
+    if (pushUrl) syncCampaignUrl(id);
+    // Swap to the detail view — scroll to top so it's obvious a campaign opened (the old inline
+    // panel appeared below the fold and read as "nothing happened").
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* SSR */ }
     try { setPerf(await getCampaignPerformance(id)); }
     catch (e: any) { toast.error(e?.message || "Couldn't load performance."); }
+    // Best-effort: learn the shop's Meta-account state (incl. the config-sync flag) so the
+    // "Refresh from Meta" button only shows when the feature is on. Never blocks the view.
+    const shopId = campaigns.find((c) => c.id === id)?.shopId;
+    if (shopId) getShopMetaAccount(shopId).then(setMetaAccount).catch(() => setMetaAccount(null));
   };
+
+  const backToList = () => {
+    setSelectedId(null);
+    setPerf(null);
+    syncCampaignUrl(null);
+    try { window.scrollTo({ top: 0 }); } catch { /* SSR */ }
+  };
+
+  // Deep-link: open the campaign named in ?campaign=<id> once the list has loaded (shared link /
+  // in-session refresh). Runs once; a stale/unknown id is cleared from the URL.
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (deepLinkDone.current || loading) return;
+    const id = new URLSearchParams(window.location.search).get("campaign");
+    if (id && campaigns.some((c) => c.id === id)) {
+      deepLinkDone.current = true;
+      void select(id, false); // URL already carries it → don't push a duplicate history entry
+    } else if (id && campaigns.length) {
+      deepLinkDone.current = true;
+      syncCampaignUrl(null);
+    }
+  }, [loading, campaigns]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Browser Back/Forward: reflect the URL's ?campaign into the open detail (close on Back to list).
+  useEffect(() => {
+    const onPop = () => {
+      const id = new URLSearchParams(window.location.search).get("campaign");
+      if (id) void select(id, false);
+      else { setSelectedId(null); setPerf(null); }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleAiAgent = async (c: AdCampaign) => {
     try {
@@ -99,13 +247,34 @@ export const AdminAdsTab: React.FC = () => {
   };
 
   const toggleStatus = async (c: AdCampaign) => {
-    const next = c.status === "active" ? "paused" : "active";
     try {
-      await updateCampaign(c.id, { status: next });
+      if (c.status === "active") {
+        // Pausing is always safe.
+        await updateCampaign(c.id, { status: "paused" });
+      } else if ((c.metaCampaignId || c.googleCampaignId) && !c.startedAt) {
+        // First-time go-live: must run the GATED flow (funding + creative/conversion checks) with an
+        // explicit confirmation — NOT a silent raw activate that starts real ad spend. The backend
+        // also enforces this (409 use_go_live) for both Meta and Google.
+        const platform = c.googleCampaignId ? "Google" : "Meta";
+        if (!window.confirm(`Take "${c.name}" live? Your ad account will start spending on ${platform}.`)) return;
+        await goLiveCampaign(c.id);
+        if (c.googleCampaignId) {
+          // Google go-live runs in the background (avoids the gateway timeout) — the result (live, or
+          // "needs a payment method / conversion action") lands in the message feed shortly.
+          toast.success("Taking it live on Google — we'll confirm shortly. If the account needs a payment method or conversion action, you'll see it in Messages.");
+        } else {
+          toast.success("Campaign is live!");
+        }
+      } else {
+        // Re-activating a previously-live campaign — already vetted at first go-live.
+        await updateCampaign(c.id, { status: "active" });
+      }
       await load();
       if (selectedId === c.id) await select(c.id);
+      // Async Google go-live: re-check a few seconds later to reflect the background result.
+      if (c.googleCampaignId && !c.startedAt) setTimeout(() => { void load(); if (selectedId === c.id) void select(c.id); }, 6000);
     } catch (e: any) {
-      // 409 = reactivation blocked by tier capacity (§9.5) — surface the upsell.
+      // 409 = tier capacity (§9.5) or use_go_live; otherwise a go-live gate (funding/creative).
       toast.error(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Couldn't update status.");
     }
   };
@@ -115,14 +284,12 @@ export const AdminAdsTab: React.FC = () => {
     const num = (v: string) => (v ? parseInt(v, 10) : 0);
     setSavingMetrics(true);
     try {
+      // Spend/impressions/clicks only — leads/bookings/revenue are pipeline-derived.
       const updated = await enterDailyMetrics(selectedId, {
         date: metrics.date,
         spendCents: metrics.spend ? Math.round(parseFloat(metrics.spend) * 100) : 0,
         impressions: num(metrics.impressions),
         clicks: num(metrics.clicks),
-        leadsCaptured: num(metrics.leads),
-        bookingsCreated: num(metrics.bookings),
-        revenueCents: metrics.revenue ? Math.round(parseFloat(metrics.revenue) * 100) : 0,
       });
       setPerf(updated);
       await load(); // refresh summary
@@ -139,18 +306,33 @@ export const AdminAdsTab: React.FC = () => {
   }
 
   const selected = campaigns.find((c) => c.id === selectedId) || null;
+  // Pre-live (drafting) vs launched (operating): a campaign that has gone live at least once
+  // (startedAt) or is active shows the metrics view; otherwise the review/push view.
+  const launched = !!selected && (selected.status === "active" || !!selected.startedAt);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-          <Megaphone className="w-5 h-5 text-[#FFCC00]" /> Ads
-        </h2>
-        <Button onClick={() => setShowCreate((v) => !v)} className="bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
-          <Plus className="w-4 h-4" /> New Campaign
-        </Button>
+        {selected ? (
+          <button onClick={backToList} className="inline-flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white">
+            <ArrowLeft className="w-4 h-4" /> Back to campaigns
+          </button>
+        ) : (
+          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-[#FFCC00]" /> Ads
+          </h2>
+        )}
+        {!selected && (
+          <Button onClick={() => setShowCreate((v) => !v)} className="bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
+            <Plus className="w-4 h-4" /> New Campaign
+          </Button>
+        )}
       </div>
 
+      {/* ── LIST MODE ── the dashboard (inbox + requests + summary + list) shows only when no
+          campaign is open; selecting one swaps to the focused detail view below (no off-screen panel). */}
+      {!selected && (
+        <>
       {/* Shop messages inbox (#2) — reachable in any lifecycle state, flags shops awaiting a reply */}
       <AdMessagesInbox />
 
@@ -179,7 +361,7 @@ export const AdminAdsTab: React.FC = () => {
         <div className="rounded-xl border border-[#FFCC00]/30 bg-[#1A1A1A] p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Shop ID"><input className={inputCls} value={form.shopId} onChange={(e) => setForm({ ...form, shopId: e.target.value })} placeholder="e.g. tcoy" /></Field>
           <Field label="Campaign name"><input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Spring promo" /></Field>
-          <Field label="Daily budget ($)"><input className={inputCls} type="number" value={form.dailyBudget} onChange={(e) => setForm({ ...form, dailyBudget: e.target.value })} placeholder="25" /></Field>
+          <Field label="Daily budget (account currency)"><input className={inputCls} type="number" value={form.dailyBudget} onChange={(e) => setForm({ ...form, dailyBudget: e.target.value })} placeholder="25" /></Field>
           <Field label="Notes"><input className={inputCls} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
           <div className="sm:col-span-2">
             <Button onClick={submitCreate} disabled={creating} className="bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
@@ -210,7 +392,7 @@ export const AdminAdsTab: React.FC = () => {
                 <td className="px-4 py-2.5 text-white">{c.name}</td>
                 <td className="px-4 py-2.5 text-gray-300">{c.shopId}</td>
                 <td className="px-4 py-2.5"><StatusBadge status={c.status} /></td>
-                <td className="px-4 py-2.5 text-right text-gray-300">{fmtUsd(c.dailyBudgetCents)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-300">{fmtMoney(c.dailyBudgetCents, c.currency)}</td>
                 <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                   <button onClick={() => toggleStatus(c)} className="text-gray-400 hover:text-white" title={c.status === "active" ? "Pause" : "Activate"}>
                     {c.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -221,8 +403,11 @@ export const AdminAdsTab: React.FC = () => {
           </tbody>
         </table>
       </div>
+        </>
+      )}
 
-      {/* Selected campaign — performance + metric entry */}
+      {/* ── DETAIL MODE ── the selected campaign, shown in place of the list (with a Back button in
+          the header above). Performance + composer/panel + metric entry. */}
       {selected && (
         <div className="rounded-xl border border-white/10 bg-[#141414] p-5 space-y-5">
           <div className="flex items-center justify-between">
@@ -244,39 +429,83 @@ export const AdminAdsTab: React.FC = () => {
             </div>
           </div>
 
-          {/* Push P5 — review/edit + Go-live for a PAUSED Meta draft (renders only for drafts) */}
-          <MetaDraftReview campaign={selected} onChanged={load} />
-
-          {!perf ? (
+          {!launched ? (
+            /* ─── DRAFTING ─── a Google campaign (RSA copy + keywords live on Google, not our
+               creative table; no image / "Push to Meta") gets the lighter Google review→go-live
+               card; a Meta campaign gets the full creative composer. Gate on PLATFORM, not on
+               googleCampaignId, so a Google campaign whose objects are still being created never
+               shows the Meta-only creative UI. */
+            selected.platform === "google" ? (
+              <GoogleDraftPanel campaign={selected} onGoLive={() => toggleStatus(selected)} onChanged={load} />
+            ) : (
+              <DraftComposer campaign={selected} onChanged={load} />
+            )
+          ) : !perf ? (
             <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading performance…</div>
           ) : (
+            /* ─── LIVE / OPERATING ─── shared metrics + a per-platform panel (Meta vs Google) so
+               each platform's element set is self-contained, no per-element guards. */
             <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Stat label="Spend" value={fmtUsd(perf.roi.totalSpendCents)} />
-                <Stat label="Revenue" value={fmtUsd(perf.roi.totalRevenueCents)} />
+                <Stat label="Spend" value={fmtMoney(perf.roi.totalSpendCents, selected.currency)} />
+                <Stat label="Revenue" value={fmtMoney(perf.roi.totalRevenueCents, selected.currency)} />
                 <Stat label="ROI" value={fmtRoi(perf.roi.roi)} accent />
                 <Stat label="Bookings" value={String(perf.roi.totalBookings)} />
                 <Stat label="Leads" value={String(perf.roi.totalLeads)} />
-                <Stat label="Cost / Lead" value={fmtUsd(perf.roi.cplCents)} />
-                <Stat label="Cost / Booking" value={fmtUsd(perf.roi.cpbCents)} />
+                <Stat label="Cost / Lead" value={fmtMoney(perf.roi.cplCents, selected.currency)} />
+                <Stat label="Cost / Booking" value={fmtMoney(perf.roi.cpbCents, selected.currency)} />
                 <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
               </div>
 
-              {/* Daily metric entry */}
-              <div className="rounded-lg border border-white/10 bg-[#1A1A1A] p-4">
-                <p className="text-sm font-medium text-gray-300 mb-3">Enter daily metrics</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                  <Field label="Date"><input className={inputCls} type="date" value={metrics.date} onChange={(e) => setMetrics({ ...metrics, date: e.target.value })} /></Field>
-                  <Field label="Spend $"><input className={inputCls} type="number" value={metrics.spend} onChange={(e) => setMetrics({ ...metrics, spend: e.target.value })} /></Field>
-                  <Field label="Impr."><input className={inputCls} type="number" value={metrics.impressions} onChange={(e) => setMetrics({ ...metrics, impressions: e.target.value })} /></Field>
-                  <Field label="Clicks"><input className={inputCls} type="number" value={metrics.clicks} onChange={(e) => setMetrics({ ...metrics, clicks: e.target.value })} /></Field>
-                  <Field label="Leads"><input className={inputCls} type="number" value={metrics.leads} onChange={(e) => setMetrics({ ...metrics, leads: e.target.value })} /></Field>
-                  <Field label="Bookings"><input className={inputCls} type="number" value={metrics.bookings} onChange={(e) => setMetrics({ ...metrics, bookings: e.target.value })} /></Field>
-                  <Field label="Revenue $"><input className={inputCls} type="number" value={metrics.revenue} onChange={(e) => setMetrics({ ...metrics, revenue: e.target.value })} /></Field>
+              <ChannelBreakdown channels={perf.channels} currency={selected.currency} />
+
+              {/* True margin (Q6) — admin only. Shared (cost/revenue based). */}
+              <MarginPanel campaignId={selected.id} />
+
+              {/* Platform-specific operating panel — one component per platform, no per-element
+                  guards. Google's ad copy/keywords live in Google Ads (small panel); Meta carries
+                  the image creative + safeguards. */}
+              {selected.platform === "google" ? (
+                <GoogleCampaignPanel
+                  campaign={selected}
+                  syncing={syncing}
+                  onSync={() => syncFromGoogle(selected)}
+                />
+              ) : (
+                <MetaCampaignPanel
+                  campaign={selected}
+                  configSyncEnabled={!!(selected.metaCampaignId && metaAccount?.configSyncEnabled)}
+                  syncing={syncing}
+                  onSync={() => syncFromMeta(selected)}
+                  scaling={scaling}
+                  onScale={() => scaleBudget(selected)}
+                  refreshing={refreshingCreative}
+                  onRefreshCreative={() => refreshCreative(selected)}
+                />
+              )}
+
+              {/* Leads — Conversation Inbox (primary) vs. Pipeline Kanban */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-300">Leads</p>
+                  <div className="inline-flex rounded-md border border-white/10 overflow-hidden">
+                    {([
+                      { v: "inbox", label: "Conversations" },
+                      { v: "pipeline", label: "Pipeline" },
+                    ] as const).map(({ v, label }) => (
+                      <button
+                        key={v}
+                        onClick={() => setLeadView(v)}
+                        className={`px-3 py-1 text-xs font-medium transition-colors border-r border-white/10 last:border-r-0 ${leadView === v ? "bg-[#FFCC00] text-black" : "bg-transparent text-gray-300 hover:bg-white/5"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <Button onClick={saveMetrics} disabled={savingMetrics} className="mt-3 bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
-                  {savingMetrics ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save metrics
-                </Button>
+                {leadView === "inbox"
+                  ? <ConversationInbox mode="admin" campaignId={selected.id} />
+                  : <LeadKanban mode="admin" campaignId={selected.id} />}
               </div>
 
               {/* 30-day rows */}
@@ -290,10 +519,10 @@ export const AdminAdsTab: React.FC = () => {
                       {perf.dailyRows.map((r) => (
                         <tr key={r.date} className="border-t border-white/5">
                           <td className="px-3 py-1.5 text-gray-300">{r.date}</td>
-                          <td className="px-3 py-1.5 text-right text-gray-300">{fmtUsd(r.spendCents)}</td>
+                          <td className="px-3 py-1.5 text-right text-gray-300">{fmtMoney(r.spendCents, selected.currency)}</td>
                           <td className="px-3 py-1.5 text-right text-gray-300">{r.leadsCaptured}</td>
                           <td className="px-3 py-1.5 text-right text-gray-300">{r.bookingsCreated}</td>
-                          <td className="px-3 py-1.5 text-right text-gray-300">{fmtUsd(r.revenueCents)}</td>
+                          <td className="px-3 py-1.5 text-right text-gray-300">{fmtMoney(r.revenueCents, selected.currency)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -301,25 +530,32 @@ export const AdminAdsTab: React.FC = () => {
                 </div>
               )}
 
-              {/* True margin (Q6) — admin only */}
-              <MarginPanel campaignId={selected.id} />
-
-              {/* Ad-management billing (Q4/Q7) — admin only, per shop */}
-              <BillingPanel shopId={selected.shopId} />
-
-              {/* Creatives + Q8 review */}
-              <CreativesPanel campaignId={selected.id} />
-
-              {/* Lead pipeline (Stage 2) */}
-              <div>
-                <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
-                <LeadKanban mode="admin" campaignId={selected.id} />
+              {/* Manual metrics — collapsed override (Meta auto-syncs spend/impressions/clicks). */}
+              <div className="rounded-lg border border-white/10 bg-[#1A1A1A]">
+                <button onClick={() => setShowMetrics((v) => !v)} className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-400 hover:text-white">
+                  <span>Enter metrics manually (override)</span>
+                  {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {showMetrics && (
+                  <div className="px-4 pb-4">
+                    <p className="text-xs text-gray-500 mb-3">Meta syncs spend, impressions &amp; clicks automatically — use this only to correct or backfill. Leads, bookings &amp; revenue are derived from real activity and can&apos;t be hand-set.</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <Field label="Date"><input className={inputCls} type="date" value={metrics.date} onChange={(e) => setMetrics({ ...metrics, date: e.target.value })} /></Field>
+                      <Field label={`Spend (${selected.currency || "USD"})`}><input className={inputCls} type="number" value={metrics.spend} onChange={(e) => setMetrics({ ...metrics, spend: e.target.value })} /></Field>
+                      <Field label="Impr."><input className={inputCls} type="number" value={metrics.impressions} onChange={(e) => setMetrics({ ...metrics, impressions: e.target.value })} /></Field>
+                      <Field label="Clicks"><input className={inputCls} type="number" value={metrics.clicks} onChange={(e) => setMetrics({ ...metrics, clicks: e.target.value })} /></Field>
+                    </div>
+                    <Button onClick={saveMetrics} disabled={savingMetrics} className="mt-3 bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
+                      {savingMetrics ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save metrics
+                    </Button>
+                  </div>
+                )}
               </div>
-
-              {/* A/B experiments (Stage 5) */}
-              <ExperimentsPanel campaignId={selected.id} />
             </>
           )}
+
+          {/* Landing-page magnet editor — available for both draft and live campaigns */}
+          <LandingPageSettings campaign={selected} />
         </div>
       )}
     </div>

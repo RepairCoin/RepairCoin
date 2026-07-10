@@ -19,6 +19,11 @@ process.env.DO_SPACES_KEY = process.env.DO_SPACES_KEY || 'test-spaces-key';
 process.env.DO_SPACES_SECRET = process.env.DO_SPACES_SECRET || 'test-spaces-secret';
 process.env.DO_SPACES_ENDPOINT = process.env.DO_SPACES_ENDPOINT || 'https://nyc3.digitaloceanspaces.com';
 process.env.DO_SPACES_REGION = process.env.DO_SPACES_REGION || 'nyc3';
+// AnthropicClient throws on construction without a key; some services build one at import time.
+process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || 'test-anthropic-key';
+// Repositories fire a background DB health-check ping in their constructor. Skip it so the
+// unit run isn't polluted with ECONNREFUSED noise; real queries in DB/integration suites still run.
+process.env.SKIP_DB_CONNECTION_TESTS = process.env.SKIP_DB_CONNECTION_TESTS || 'true';
 
 // Mock console methods to reduce noise in tests
 global.console = {
@@ -53,8 +58,15 @@ global.testUtils = {
   sleep: (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 };
 
+// Snapshot the per-file baseline env so a suite's beforeAll mutations
+// (JWT_SECRET, ADMIN_ADDRESSES, etc.) can't leak into the next test file.
+const envSnapshot = { ...process.env };
+
 // Clean up after all tests
 afterAll(async () => {
-  // Close any open handles
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Restore process.env to the per-file baseline so suites don't pollute each other.
+  for (const key of Object.keys(process.env)) {
+    if (!(key in envSnapshot)) delete process.env[key];
+  }
+  Object.assign(process.env, envSnapshot);
 });

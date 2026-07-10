@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
-import { getApiBaseUrl } from '@/utils/apiUrl';
+import apiClient from '@/services/api/client';
 
 interface CreateAdminTabProps {}
 
 export function CreateAdminTab({}: CreateAdminTabProps) {
-  const { account,  setError: onError, loadDashboardData: onSuccess } = useAdminDashboard();
+  const { setError: onError, loadDashboardData: onSuccess } = useAdminDashboard();
   const [formData, setFormData] = useState({
     walletAddress: '',
     name: '',
@@ -21,27 +21,15 @@ export function CreateAdminTab({}: CreateAdminTabProps) {
     setSuccess(null);
 
     try {
-      // Cookies sent automatically with apiClient
-      if (!adminToken) {
-        onError('Failed to authenticate as admin');
-        return;
-      }
-
-      const response = await fetch(`${getApiBaseUrl()}/admin/create-admin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
-        },
-        body: JSON.stringify(formData),
+      // apiClient sends the auth cookie automatically; the backend
+      // /admin/create-admin route requires super-admin and name + permissions.
+      await apiClient.post('/admin/create-admin', {
+        walletAddress: formData.walletAddress,
+        name: formData.name || 'Administrator',
+        email: formData.email || undefined,
+        permissions: formData.permissions,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create admin');
-      }
-
-      const result = await response.json();
       setSuccess('Admin created successfully!');
       setFormData({
         walletAddress: '',
@@ -49,7 +37,7 @@ export function CreateAdminTab({}: CreateAdminTabProps) {
         email: '',
         permissions: ['manage_customers', 'manage_shops', 'view_analytics']
       });
-      
+
       setTimeout(() => {
         onSuccess();
         setSuccess(null);
@@ -57,7 +45,11 @@ export function CreateAdminTab({}: CreateAdminTabProps) {
 
     } catch (err) {
       console.error('Error creating admin:', err);
-      onError(err instanceof Error ? err.message : 'Failed to create admin');
+      const apiMessage =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+          : undefined;
+      onError(apiMessage || (err instanceof Error ? err.message : 'Failed to create admin'));
     } finally {
       setLoading(false);
     }

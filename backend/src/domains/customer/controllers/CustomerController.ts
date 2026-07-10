@@ -370,7 +370,8 @@ export class CustomerController {
         canBook: status.canBook,
         requiresDeposit: status.requiresDeposit,
         minimumAdvanceHours: status.minimumAdvanceHours,
-        restrictions: status.restrictions
+        restrictions: status.restrictions,
+        recentReduction: status.recentReduction
       });
     } catch (error: any) {
       if (error.message === 'Customer not found') {

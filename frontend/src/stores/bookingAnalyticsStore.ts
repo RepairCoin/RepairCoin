@@ -4,14 +4,17 @@ import { serviceAnalyticsApi, BookingAnalytics } from '@/services/api/serviceAna
 
 const STALE_TIME = 5 * 60 * 1000;
 
+// Cache is keyed by trend window + branch so switching locations never shows another branch's data.
+const cacheKey = (trendDays: number, locationId?: string | null) => `${trendDays}:${locationId ?? 'all'}`;
+
 interface CachedData {
   analytics: BookingAnalytics;
   lastFetched: number;
 }
 
 interface BookingAnalyticsState {
-  // Per trendDays cached data
-  dataByDays: Record<number, CachedData>;
+  // Cached data keyed by `${trendDays}:${locationId}`
+  dataByDays: Record<string, CachedData>;
 
   // UI state
   isRefreshing: boolean;
@@ -20,9 +23,9 @@ interface BookingAnalyticsState {
 
   // Actions
   setTrendDays: (days: number) => void;
-  fetchAnalytics: (trendDays: number, force?: boolean) => Promise<void>;
-  getData: (trendDays: number) => BookingAnalytics | undefined;
-  isDataStale: (trendDays: number) => boolean;
+  fetchAnalytics: (trendDays: number, locationId?: string | null, force?: boolean) => Promise<void>;
+  getData: (trendDays: number, locationId?: string | null) => BookingAnalytics | undefined;
+  isDataStale: (trendDays: number, locationId?: string | null) => boolean;
   clearAllData: () => void;
 }
 
@@ -39,19 +42,20 @@ export const useBookingAnalyticsStore = create<BookingAnalyticsState>()(
           set({ trendDays: days });
         },
 
-        getData: (trendDays: number) => {
-          return get().dataByDays[trendDays]?.analytics;
+        getData: (trendDays: number, locationId?: string | null) => {
+          return get().dataByDays[cacheKey(trendDays, locationId)]?.analytics;
         },
 
-        isDataStale: (trendDays: number) => {
-          const cached = get().dataByDays[trendDays];
+        isDataStale: (trendDays: number, locationId?: string | null) => {
+          const cached = get().dataByDays[cacheKey(trendDays, locationId)];
           if (!cached) return true;
           return Date.now() - cached.lastFetched >= STALE_TIME;
         },
 
-        fetchAnalytics: async (trendDays: number, force: boolean = false) => {
+        fetchAnalytics: async (trendDays: number, locationId?: string | null, force: boolean = false) => {
           const state = get();
-          const cached = state.dataByDays[trendDays];
+          const key = cacheKey(trendDays, locationId);
+          const cached = state.dataByDays[key];
 
           if (cached && !force && Date.now() - cached.lastFetched < STALE_TIME) {
             return;
@@ -62,12 +66,12 @@ export const useBookingAnalyticsStore = create<BookingAnalyticsState>()(
           set({ isRefreshing: true, error: null });
 
           try {
-            const analytics = await serviceAnalyticsApi.getBookingAnalytics(trendDays);
+            const analytics = await serviceAnalyticsApi.getBookingAnalytics(trendDays, locationId ?? undefined);
 
             set((state) => ({
               dataByDays: {
                 ...state.dataByDays,
-                [trendDays]: {
+                [key]: {
                   analytics,
                   lastFetched: Date.now(),
                 },

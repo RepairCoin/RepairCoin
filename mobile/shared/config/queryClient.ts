@@ -54,9 +54,14 @@ export const queryKeys = {
   shop: (id: string) => [...queryKeys.shops(), 'detail', id] as const,
   shopProfile: (id: string) => [...queryKeys.shop(id), 'profile'] as const,
   shopTransactions: (id: string) => [...queryKeys.shop(id), 'transactions'] as const,
+  shopRedemptions: (id: string) => [...queryKeys.shop(id), 'redemptions'] as const,
   shopCustomerGrowth: (id: string) => [...queryKeys.shop(id), 'customerGrowth'] as const,
   shopCustomers: (id: string) => [...queryKeys.shop(id), 'customers'] as const,
   shopPromoCodes: (shopId: string) => [...queryKeys.shops(), 'promoCodes', shopId] as const,
+  blockedCustomers: () => [...queryKeys.shops(), 'blockedCustomers'] as const,
+  shopReports: () => [...queryKeys.shops(), 'reports'] as const,
+  customerBlockStatus: (walletAddress: string) =>
+    [...queryKeys.shops(), 'blockStatus', walletAddress] as const,
   shopAnalytics: (shopId: string, timeRange: string) =>
     [...queryKeys.shops(), 'analytics', shopId, timeRange] as const,
   nearbyShops: (coordinates: { lat: number; lng: number }) =>

@@ -221,6 +221,8 @@ const Header: React.FC = () => {
                       isActive: userData.active,
                       shopId: userData.shopId,
                       registrationDate: userData.createdAt,
+                      permissions: userData.permissions,
+                      isTeamMember: userData.isTeamMember,
                     });
                     console.log('🟦 [Header] Auth store updated with shop profile');
                   }
@@ -371,7 +373,7 @@ const Header: React.FC = () => {
               {/* Desktop Navigation - Centered */}
               <nav className="hidden lg:flex items-center absolute left-1/2 transform -translate-x-1/2">
                 <ul className="flex space-x-6">
-                  {["Home", "Features", "Rewards", "About"].map((item) => {
+                  {["Home", "Features", "Rewards", "Pricing", "About"].map((item) => {
                     const href =
                       item === "Home" ? "/" : `/${item.toLowerCase()}`;
                     const isActive =
@@ -434,7 +436,7 @@ const Header: React.FC = () => {
                 <div className="px-4 py-4 space-y-4">
                   {/* Navigation Links */}
                   <nav className="flex flex-col items-center space-y-3">
-                    {["Home", "Features", "Rewards", "About"].map((item) => {
+                    {["Home", "Features", "Rewards", "Pricing", "About"].map((item) => {
                       const href =
                         item === "Home" ? "/" : `/${item.toLowerCase()}`;
                       const isActive =

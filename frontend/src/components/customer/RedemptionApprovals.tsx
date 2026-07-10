@@ -11,6 +11,7 @@ import QRCode from "qrcode";
 import Tooltip from "../ui/tooltip";
 import apiClient from '@/services/api/client';
 import { useAuthStore } from "@/stores/authStore";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import { useCustomerStore } from "@/stores/customerStore";
 import { SuspendedActionModal } from "./SuspendedActionModal";
 
@@ -31,6 +32,9 @@ export function RedemptionApprovals() {
   const account = useActiveAccount();
   const wallet = useActiveWallet();
   const { userProfile } = useAuthStore();
+  const blockchainEnabled = useBlockchainEnabled();
+  // The address is the redemption identity; drop the crypto framing when off.
+  const idLabel = blockchainEnabled ? "wallet address" : "RepairCoin ID";
   const { balanceData, fetchCustomerData } = useCustomer();
   const [sessions, setSessions] = useState<RedemptionSession[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -427,7 +431,7 @@ export function RedemptionApprovals() {
                     <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                       <span className="text-xs font-bold text-blue-400">1</span>
                     </div>
-                    <span className="text-gray-300">Generate your personal QR code containing your wallet address</span>
+                    <span className="text-gray-300">Generate your personal QR code containing your {idLabel}</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -439,7 +443,7 @@ export function RedemptionApprovals() {
                     <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                       <span className="text-xs font-bold text-blue-400">3</span>
                     </div>
-                    <span className="text-gray-300">Shop scans your QR code for instant wallet address lookup</span>
+                    <span className="text-gray-300">Shop scans your QR code for instant {idLabel} lookup</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -454,7 +458,7 @@ export function RedemptionApprovals() {
           <p className="text-gray-400 text-sm mb-6 text-center">
             Show this QR code to the shop for faster redemption.
             <br />
-            It contains your wallet address for easy lookup.
+            It contains your {idLabel} for easy lookup.
           </p>
           <div className="text-center">
             <button
@@ -586,7 +590,7 @@ export function RedemptionApprovals() {
 
                   <div className="flex gap-3 justify-center">
                     <button
-                      onClick={() => copyToClipboard(account?.address || "", "Wallet address")}
+                      onClick={() => copyToClipboard(account?.address || "", idLabel)}
                       className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
                     >
                       Copy Address
@@ -601,7 +605,7 @@ export function RedemptionApprovals() {
                   </div>
 
                   <p className="text-xs text-gray-400 mt-4">
-                    Show this QR code to shops for instant wallet address lookup during redemption
+                    Show this QR code to shops for instant {idLabel} lookup during redemption
                   </p>
                 </div>
               )}

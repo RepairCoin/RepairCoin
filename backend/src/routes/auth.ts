@@ -1,7 +1,7 @@
 // backend/src/routes/auth.ts
 import { Router, Response, Request } from 'express';
 import rateLimit from 'express-rate-limit';
-import { customerRepository, shopRepository, adminRepository, refreshTokenRepository } from '../repositories';
+import { customerRepository, shopRepository, adminRepository, refreshTokenRepository, shopTeamRepository } from '../repositories';
 import { logger } from '../utils/logger';
 import { generateToken, generateAccessToken, generateRefreshToken, authMiddleware } from '../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -97,7 +97,7 @@ const setAuthCookie = (res: Response, token: string) => {
 const generateAndSetTokens = async (
   res: Response,
   req: Request,
-  payload: { address: string; role: 'admin' | 'shop' | 'customer'; shopId?: string }
+  payload: { address: string; role: 'admin' | 'shop' | 'customer'; shopId?: string; permissions?: string[]; teamMemberId?: string }
 ): Promise<{ accessToken: string; refreshToken: string; tokenId: string }> => {
   // Generate unique token ID for refresh token
   const tokenId = uuidv4();
@@ -187,6 +187,70 @@ const generateAndSetTokens = async (
   return { accessToken, refreshToken, tokenId };
 };
 
+interface ResolvedShopUser {
+  shop: any;
+  shopId: string;
+  permissions: string[];
+  teamMemberId?: string;
+  isOwner: boolean;
+  linkedByEmail: boolean;
+  /** The team member's own name (staff only); owners fall back to the shop name. */
+  memberName?: string | null;
+  /** Wallet to stamp on the token: original shop wallet for email-linked owners, else the connecting wallet. */
+  walletForToken: string;
+}
+
+/**
+ * Resolve a shop login to either the owner or an active team member, with email
+ * fallback — the single source of truth shared by /token and /shop (see
+ * docs/TEAM_MANAGEMENT_PLAN.md §5.1). Returns null for non-shop addresses.
+ */
+const resolveShopUser = async (address: string, email?: string): Promise<ResolvedShopUser | null> => {
+  const normalized = address.toLowerCase();
+
+  const ownerShop = await shopRepository.getShopByWallet(normalized);
+  if (ownerShop) {
+    return { shop: ownerShop, shopId: ownerShop.shopId, permissions: ['*'], isOwner: true, linkedByEmail: false, walletForToken: normalized };
+  }
+
+  const memberByWallet = await shopTeamRepository.getActiveMemberByWallet(normalized);
+  if (memberByWallet) {
+    const shop = await shopRepository.getShop(memberByWallet.shopId);
+    if (shop) {
+      const isOwner = memberByWallet.role === 'owner';
+      return {
+        shop, shopId: shop.shopId,
+        permissions: isOwner ? ['*'] : memberByWallet.permissions,
+        teamMemberId: isOwner ? undefined : memberByWallet.id,
+        memberName: isOwner ? undefined : memberByWallet.name,
+        isOwner, linkedByEmail: false, walletForToken: normalized,
+      };
+    }
+  }
+
+  if (email && typeof email === 'string' && email.includes('@')) {
+    const ownerByEmail = await shopRepository.getShopByEmail(email);
+    if (ownerByEmail) {
+      return { shop: ownerByEmail, shopId: ownerByEmail.shopId, permissions: ['*'], isOwner: true, linkedByEmail: true, walletForToken: ownerByEmail.walletAddress };
+    }
+    const memberByEmail = await shopTeamRepository.getActiveMemberByEmail(email);
+    if (memberByEmail) {
+      const shop = await shopRepository.getShop(memberByEmail.shopId);
+      if (shop) {
+        const isOwner = memberByEmail.role === 'owner';
+        return {
+          shop, shopId: shop.shopId,
+          permissions: isOwner ? ['*'] : memberByEmail.permissions,
+          teamMemberId: isOwner ? undefined : memberByEmail.id,
+          memberName: isOwner ? undefined : memberByEmail.name,
+          isOwner, linkedByEmail: true, walletForToken: normalized,
+        };
+      }
+    }
+  }
+  return null;
+};
+
 /**
  * Generate JWT token for authenticated users
  * POST /api/auth/token
@@ -230,46 +294,30 @@ router.post('/token', async (req, res) => {
       }
 
       if (!userType) {
-        // Check if user is a shop by wallet
+        // Resolve shop owner or active team member (wallet, then email fallback)
         try {
-          const shop = await shopRepository.getShopByWallet(normalizedAddress);
-
-          if (shop) {
+          const resolved = await resolveShopUser(normalizedAddress, email);
+          if (resolved) {
             userType = 'shop';
             userData = {
-              address: shop.walletAddress,
-              shopId: shop.shopId,
-              role: 'shop'
-            };
-          }
-        } catch (error) {
-          // Shop not found by wallet
-        }
-      }
-
-      // EMAIL FALLBACK: If still no user found and email provided, try to find shop by email
-      // This allows shops registered with MetaMask to login via Google/social login
-      if (!userType && email && typeof email === 'string' && email.includes('@')) {
-        try {
-          const shopByEmail = await shopRepository.getShopByEmail(email);
-          if (shopByEmail) {
-            logger.info('Shop authenticated via email fallback', {
-              email,
-              shopId: shopByEmail.shopId,
-              originalWallet: shopByEmail.walletAddress,
-              connectedWallet: normalizedAddress
-            });
-            userType = 'shop';
-            userData = {
-              address: shopByEmail.walletAddress, // Use original wallet for reference
-              shopId: shopByEmail.shopId,
+              address: resolved.walletForToken,
+              shopId: resolved.shopId,
               role: 'shop',
-              linkedByEmail: true,
-              connectedWallet: normalizedAddress // Track the wallet they're using now
+              // Owners omit permissions ⇒ middleware treats them as '*' (token unchanged)
+              ...(resolved.isOwner ? {} : { permissions: resolved.permissions, teamMemberId: resolved.teamMemberId }),
+              ...(resolved.linkedByEmail ? { linkedByEmail: true, connectedWallet: normalizedAddress } : {})
             };
+            if (resolved.linkedByEmail) {
+              logger.info('Shop authenticated via email fallback', {
+                email,
+                shopId: resolved.shopId,
+                isTeamMember: !resolved.isOwner,
+                connectedWallet: normalizedAddress
+              });
+            }
           }
         } catch (error) {
-          // Shop not found by email either
+          logger.debug('Shop resolution failed in /token', { address: normalizedAddress });
         }
       }
     }
@@ -553,6 +601,43 @@ router.post('/check-user', async (req, res) => {
       email: email || 'none',
       emailType: typeof email
     });
+
+    // TEAM MEMBER: recognize an active staff member (by wallet, then email).
+    // Owners are handled by the shop checks above/below; staff land here.
+    try {
+      const staff = await shopTeamRepository.getActiveMemberByWallet(normalizedAddress)
+        || (email && typeof email === 'string' && email.includes('@')
+            ? await shopTeamRepository.getActiveMemberByEmail(email)
+            : null);
+      if (staff && staff.role !== 'owner') {
+        const staffShop = await shopRepository.getShop(staff.shopId);
+        if (staffShop) {
+          return res.json({
+            exists: true,
+            type: 'shop',
+            isTeamMember: true,
+            user: {
+              id: staffShop.shopId,
+              shopId: staffShop.shopId,
+              address: normalizedAddress,
+              walletAddress: normalizedAddress,
+              name: staff.name || staffShop.name,
+              shopName: staffShop.name,
+              email: staff.email,
+              role: 'shop',
+              permissions: staff.permissions,
+              active: staffShop.active,
+              isActive: staffShop.active,
+              verified: staffShop.verified,
+              logoUrl: staffShop.logoUrl,
+              createdAt: staffShop.joinDate,
+            }
+          });
+        }
+      }
+    } catch (error) {
+      logger.debug('Team member check failed in check-user', { address: normalizedAddress });
+    }
 
     if (email && typeof email === 'string' && email.includes('@')) {
       try {
@@ -958,6 +1043,8 @@ router.get('/session', authMiddleware, async (req, res) => {
           logoUrl: shop.logoUrl,
           active: shop.active,
           shopId: shop.shopId,
+          permissions: req.user.permissions ?? ['*'],
+          isTeamMember: !!req.user.teamMemberId,
           createdAt: shop.joinDate,
           created_at: shop.joinDate
         };
@@ -1023,6 +1110,7 @@ router.post('/admin', authLimiter, async (req, res) => {
 
     if (!address) {
       return res.status(400).json({
+        success: false,
         error: 'Wallet address is required'
       });
     }
@@ -1074,6 +1162,7 @@ router.post('/admin', authLimiter, async (req, res) => {
     // Check if user is authorized
     if (!adminData && !isSuperAdminFromEnv) {
       return res.status(403).json({
+        success: false,
         error: 'Address not authorized as admin'
       });
     }
@@ -1269,28 +1358,24 @@ router.post('/shop', authLimiter, async (req, res) => {
     const normalizedAddress = address.toLowerCase();
     let linkedByEmail = false;
 
-    // Check if address belongs to a shop
+    // Check if address belongs to a shop owner or active team member
     try {
-      let shop = await shopRepository.getShopByWallet(normalizedAddress);
+      const resolved = await resolveShopUser(normalizedAddress, email);
 
-      // EMAIL FALLBACK: If shop not found by wallet and email provided, try email lookup
-      // This allows shops registered with MetaMask to also login via Google/social login
-      if (!shop && email && typeof email === 'string' && email.includes('@')) {
-        shop = await shopRepository.getShopByEmail(email);
-        if (shop) {
-          linkedByEmail = true;
-          logger.info('Shop authenticated via email fallback (social login)', {
-            email,
-            shopId: shop.shopId,
-            originalWallet: shop.walletAddress,
-            connectedWallet: normalizedAddress
-          });
-        }
-      }
-
-      if (!shop) {
+      if (!resolved) {
         return res.status(403).json({
           error: 'Address not associated with a shop'
+        });
+      }
+
+      const shop = resolved.shop;
+      linkedByEmail = resolved.linkedByEmail;
+      if (linkedByEmail) {
+        logger.info('Shop authenticated via email fallback (social login)', {
+          email,
+          shopId: shop.shopId,
+          isTeamMember: !resolved.isOwner,
+          connectedWallet: normalizedAddress
         });
       }
 
@@ -1316,7 +1401,9 @@ router.post('/shop', authLimiter, async (req, res) => {
       const { accessToken } = await generateAndSetTokens(res, req, {
         address: normalizedAddress,
         role: 'shop',
-        shopId: shop.shopId
+        shopId: resolved.shopId,
+        // Owners omit permissions ⇒ middleware treats them as '*' (token unchanged)
+        ...(resolved.isOwner ? {} : { permissions: resolved.permissions, teamMemberId: resolved.teamMemberId })
       });
 
       res.json({
@@ -1329,10 +1416,13 @@ router.post('/shop', authLimiter, async (req, res) => {
           address: shop.walletAddress, // Original registered wallet (has RCG tokens)
           walletAddress: shop.walletAddress,
           connectedWallet: linkedByEmail ? normalizedAddress : shop.walletAddress, // Current session wallet
-          name: shop.name,
+          // Staff are greeted by their own name, but keep the shop logo as the avatar.
+          name: resolved.memberName || shop.name,
           email: shop.email,
           logoUrl: shop.logoUrl,
           role: 'shop',
+          permissions: resolved.permissions,
+          isTeamMember: !resolved.isOwner,
           active: shop.active,
           verified: shop.verified,
           createdAt: shop.joinDate,
@@ -1687,13 +1777,34 @@ const getDemoAccounts = (platform: DemoPlatform) =>
     : { address: IOS_DEMO_ADDRESS, shopAddress: IOS_DEMO_SHOP_ADDRESS, shopId: IOS_DEMO_SHOP_ID };
 
 /**
- * Check if demo mode is enabled for a given platform
- * GET /api/auth/demo/status?platform=ios|android
+ * Check if demo mode is enabled per platform.
+ * Returns both flags so the client picks the right one using its own Platform.OS,
+ * avoiding server-side platform parsing that could silently fall back to 'ios'.
+ *
+ * Android version gating: if DEMO_ANDROID_MIN_VERSION is set, only builds at or
+ * above that version receive android: true. This lets you enable demo for a new
+ * review build (e.g. 1.0.2) without showing the demo button to existing live
+ * users still running the old version (e.g. 1.0.1).
+ *
+ * GET /api/auth/demo/status
  */
 router.get('/demo/status', (req, res) => {
-  const platform = parsePlatform(req.query.platform);
-  return res.json({ enabled: isDemoEnabled(platform) });
+  const androidEnabled = process.env.DEMO_ENABLE_ANDROID === 'true';
+  const minVersion = process.env.DEMO_ANDROID_MIN_VERSION;
+
+  let androidDemo = androidEnabled;
+  if (androidEnabled && minVersion) {
+    const appVersion = (req.headers['x-app-version'] as string) ?? '0.0.0';
+    // Protect the live version: only show demo to versions that are NOT the live version
+    androidDemo = appVersion !== minVersion;
+  }
+
+  return res.json({
+    android: androidDemo,
+    ios: process.env.DEMO_ENABLE_IOS === 'true',
+  });
 });
+
 
 /**
  * Demo customer login

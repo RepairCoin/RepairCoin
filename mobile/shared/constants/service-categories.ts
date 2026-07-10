@@ -12,6 +12,41 @@ export type ServiceCategory =
   | "food_beverage"
   | "other_local_services";
 
+import type { Ionicons } from "@expo/vector-icons";
+
+/** Default Ionicons glyph per service category (used for icon fallbacks). */
+export const CATEGORY_ICONS: Record<
+  ServiceCategory,
+  keyof typeof Ionicons.glyphMap
+> = {
+  repairs: "construct",
+  beauty_personal_care: "sparkles",
+  health_wellness: "heart",
+  fitness_gyms: "barbell",
+  automotive_services: "car-sport",
+  home_cleaning_services: "home",
+  pets_animal_care: "paw",
+  professional_services: "briefcase",
+  education_classes: "school",
+  tech_it_services: "hardware-chip",
+  food_beverage: "restaurant",
+  other_local_services: "grid",
+};
+
+/** Fallback icon for unknown/missing categories. */
+export const DEFAULT_CATEGORY_ICON: keyof typeof Ionicons.glyphMap =
+  "storefront";
+
+/** Resolve a category string to its icon, falling back to a safe default. */
+export function getCategoryIcon(
+  category?: string | null
+): keyof typeof Ionicons.glyphMap {
+  if (category && category in CATEGORY_ICONS) {
+    return CATEGORY_ICONS[category as ServiceCategory];
+  }
+  return DEFAULT_CATEGORY_ICON;
+}
+
 export const SERVICE_CATEGORIES: Array<{
   value: ServiceCategory;
   label: string;

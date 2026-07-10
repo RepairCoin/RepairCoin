@@ -3,19 +3,24 @@
 
 import React, { useEffect, useState } from 'react';
 import { serviceAnalyticsApi, ShopAnalyticsSummary } from '@/services/api/serviceAnalytics';
+import { getCategoryLabel } from '@/services/api/services';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, TrendingUp, DollarSign, Package, Star, ShoppingCart, Gift, Percent } from 'lucide-react';
 import { GroupPerformanceSection } from '../GroupPerformanceSection';
 import { SectionHeader } from '@/components/ui/SectionHeader';
+import { LocationSwitcher } from '../LocationSwitcher';
+import { useLocationStore } from '@/stores/locationStore';
 
 export function ServiceAnalyticsTab() {
   const [analytics, setAnalytics] = useState<ShopAnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [trendDays, setTrendDays] = useState(30);
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
 
   useEffect(() => {
     loadAnalytics();
-  }, [trendDays]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trendDays, activeLocationId]);
 
   const loadAnalytics = async () => {
     try {
@@ -23,7 +28,8 @@ export function ServiceAnalyticsTab() {
       console.log('Fetching shop analytics...');
       const data = await serviceAnalyticsApi.getShopAnalytics({
         topServicesLimit: 5,
-        trendDays
+        trendDays,
+        ...(activeLocationId ? { locationId: activeLocationId } : {})
       });
       console.log('Analytics data loaded successfully:', data);
       setAnalytics(data);
@@ -84,6 +90,7 @@ export function ServiceAnalyticsTab() {
         subtitle="Track your service performance and revenue"
         action={
           <div className="flex items-center gap-2">
+            <LocationSwitcher />
             {[7, 30, 90].map((days) => (
               <button
                 key={days}
@@ -218,7 +225,7 @@ export function ServiceAnalyticsTab() {
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-white truncate">{service.serviceName}</h4>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-gray-400 mt-1">
-                        <span className="capitalize">{service.category}</span>
+                        <span>{getCategoryLabel(service.category)}</span>
                         <span>•</span>
                         <span>${service.priceUsd.toFixed(2)}</span>
                         <span>•</span>
@@ -264,7 +271,7 @@ export function ServiceAnalyticsTab() {
               {categoryBreakdown.map((category) => (
                 <div key={category.category} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 bg-[#2A2A2A] border border-gray-800 rounded-lg">
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium capitalize text-white truncate">{category.category}</div>
+                    <div className="font-medium text-white truncate">{getCategoryLabel(category.category)}</div>
                     <div className="text-xs sm:text-sm text-gray-400">
                       {category.serviceCount} services • Avg ${category.averagePrice.toFixed(2)}
                     </div>

@@ -377,16 +377,22 @@ export class RefreshTokenRepository extends BaseRepository {
       const countResult = await this.pool.query(countQuery, values);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get sessions with user/shop names
+      // Get sessions with user/shop names. Use LIMIT-1 scalar subqueries instead
+      // of LEFT JOINs: the name tables can contain duplicate wallet_address rows
+      // (e.g. duplicate admin records), and a JOIN would fan out — producing
+      // multiple rows with the same rt.id and breaking unique React keys/paging.
+      // Subqueries guarantee exactly one row per refresh token. Case-insensitive
+      // for robustness against mixed-case stored addresses.
       const query = `
         SELECT
           rt.*,
-          COALESCE(c.name, s.name, a.name) as user_name,
-          s.name as shop_name
+          COALESCE(
+            (SELECT name FROM customers WHERE LOWER(wallet_address) = LOWER(rt.user_address) LIMIT 1),
+            (SELECT name FROM shops     WHERE LOWER(wallet_address) = LOWER(rt.user_address) LIMIT 1),
+            (SELECT name FROM admins    WHERE LOWER(wallet_address) = LOWER(rt.user_address) LIMIT 1)
+          ) as user_name,
+          (SELECT name FROM shops WHERE LOWER(wallet_address) = LOWER(rt.user_address) LIMIT 1) as shop_name
         FROM refresh_tokens rt
-        LEFT JOIN customers c ON rt.user_address = c.wallet_address AND rt.user_role = 'customer'
-        LEFT JOIN shops s ON rt.user_address = s.wallet_address AND rt.user_role = 'shop'
-        LEFT JOIN admins a ON rt.user_address = a.wallet_address AND rt.user_role = 'admin'
         ${whereClause}
         ORDER BY rt.last_used_at DESC NULLS LAST, rt.created_at DESC
         LIMIT $${paramIndex++} OFFSET $${paramIndex++}

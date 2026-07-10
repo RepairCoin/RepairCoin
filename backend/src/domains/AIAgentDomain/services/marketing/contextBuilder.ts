@@ -16,6 +16,8 @@ import { logger } from "../../../../utils/logger";
 import { ShopRepository } from "../../../../repositories/ShopRepository";
 import { ServiceRepository } from "../../../../repositories/ServiceRepository";
 import { MarketingCampaignRepository } from "../../../../repositories/MarketingCampaignRepository";
+import { getSharedPool } from "../../../../utils/database-pool";
+import { isWelcomeRcnEnabled, resolveWelcomeRcnAmount } from "../../../../config/welcomeRcn";
 import { MarketingShopContext } from "./promptBuilder";
 
 const MAX_SERVICES = 10;
@@ -31,6 +33,7 @@ export async function buildMarketingShopContext(
   let shopName = "the shop";
   let services: MarketingShopContext["services"] = [];
   let recentCampaignSubjects: string[] = [];
+  let welcomeRcn: MarketingShopContext["welcomeRcn"] = undefined;
 
   try {
     const shop = await shopRepo.getShop(shopId);
@@ -79,9 +82,32 @@ export async function buildMarketingShopContext(
     });
   }
 
+  // Welcome-RCN-on-claim config, so migration/win-back drafts use the real amount. Direct query
+  // (the new columns aren't in the ShopRepository mapping); the platform flag gates "active".
+  try {
+    const result = await getSharedPool().query(
+      `SELECT welcome_rcn_enabled, welcome_rcn_amount FROM shops WHERE shop_id = $1`,
+      [shopId]
+    );
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      const override = row.welcome_rcn_amount != null ? parseFloat(row.welcome_rcn_amount) : null;
+      welcomeRcn = {
+        active: isWelcomeRcnEnabled() && row.welcome_rcn_enabled === true,
+        amount: resolveWelcomeRcnAmount(override),
+      };
+    }
+  } catch (err) {
+    logger.warn("marketing contextBuilder: welcome-RCN lookup failed", {
+      shopId,
+      error: (err as Error)?.message,
+    });
+  }
+
   return {
     shopName,
     services,
     recentCampaignSubjects,
+    welcomeRcn,
   };
 }

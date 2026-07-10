@@ -16,6 +16,7 @@ import { AdMessageRepository } from '../repositories/AdMessageRepository';
 import { metaConnectionService } from '../services/MetaConnectionService';
 import { metaInsightsService } from '../services/MetaInsightsService';
 import { metaPushService } from '../services/MetaPushService';
+import { isConfigSyncEnabled } from '../services/MetaConfigSyncService';
 
 const connections = new MetaConnectionRepository();
 const campaigns = new CampaignRepository();
@@ -121,11 +122,56 @@ export async function selectMyMetaAccount(req: Request, res: Response): Promise<
     const page = pages.find((p) => p.id === pageId);
     if (!page) { res.status(400).json({ success: false, error: 'unknown_page' }); return; }
     await connections.saveSelection(shopId, adAccountId, pageId, encryptToken(page.accessToken));
+    // Resolve (or create) the ad account's Meta Pixel so the landing page can fire a "Lead"
+    // conversion attributed to this account. Best-effort — never block connection on it.
+    metaService.ensureAdPixel(adAccountId, userToken)
+      .then((pixelId) => connections.savePixelId(shopId, pixelId))
+      .catch((e) => logger.warn(`Meta pixel setup skipped for ${shopId}: ${e?.message || e}`));
+    // Capture the account's currency so ad money displays in the right currency. Best-effort.
+    metaService.getAccountStatus(adAccountId, userToken)
+      .then((s) => s.currency && connections.saveCurrency(shopId, s.currency))
+      .catch((e) => logger.warn(`Meta currency capture skipped for ${shopId}: ${e?.message || e}`));
     void postEvent(shopId, 'Ad account connected — campaigns can now go live.');
     res.json({ success: true, data: { adAccountId, pageId, connected: true } });
   } catch (err) {
     logger.error('MetaConnectController.selectMyMetaAccount failed', err);
     res.status(502).json({ success: false, error: 'Failed to save Meta selection' });
+  }
+}
+
+// GET /ads/shops/:shopId/meta-account (admin) — the connected ad account's CURRENCY + minimum
+// daily budget, so the admin enters/reviews a campaign budget in the account's own currency
+// (no "is 30 = $30 or PHP30?" ambiguity). Best-effort; returns connected:false if not set up.
+export async function getShopMetaAccount(req: Request, res: Response): Promise<void> {
+  const shopId = req.params.shopId;
+  try {
+    const conn = await connections.getConnection(shopId);
+    if (!conn?.userTokenEnc || !conn.adAccountId) { res.json({ success: true, data: { connected: false } }); return; }
+    const token = decryptToken(conn.userTokenEnc);
+    const status = await metaService.getAccountStatus(conn.adAccountId, token);
+    // Self-heal: shops connected before the currency column existed have a NULL meta_currency,
+    // so the campaign list/perf (which read the joined column) would fall back to USD. Persist it
+    // the first time the account is viewed. Best-effort — never block the response.
+    if (!conn.currency && status.currency) {
+      connections.saveCurrency(shopId, status.currency)
+        .catch((e) => logger.warn(`Meta currency backfill skipped for ${shopId}: ${e?.message || e}`));
+    }
+    res.json({
+      success: true,
+      data: {
+        connected: true,
+        currency: status.currency,
+        minDailyBudgetCents: status.minDailyBudget,
+        accountActive: status.accountStatus === 1,
+        hasFunding: status.hasFunding,
+        // Two-way config sync feature flag — lets the admin UI show the "Refresh from Meta"
+        // button only when the feature is actually on.
+        configSyncEnabled: isConfigSyncEnabled(),
+      },
+    });
+  } catch (err) {
+    logger.warn('MetaConnectController.getShopMetaAccount failed', err);
+    res.json({ success: true, data: { connected: false } }); // soft — the field just falls back to a generic label
   }
 }
 
@@ -141,6 +187,14 @@ export async function getMyMetaConnection(req: Request, res: Response): Promise<
       try { leadgenTosAccepted = await metaService.getPageLeadgenTosAccepted(conn.pageId, decryptToken(conn.pageTokenEnc)); }
       catch { leadgenTosAccepted = null; }
     }
+    // Self-heal currency for shops connected before the column existed (mirrors getShopMetaAccount).
+    let currency = conn?.currency ?? null;
+    if (!currency && conn?.connected && conn.adAccountId && conn.userTokenEnc) {
+      try {
+        const s = await metaService.getAccountStatus(conn.adAccountId, decryptToken(conn.userTokenEnc));
+        if (s.currency) { currency = s.currency; void connections.saveCurrency(shopId, s.currency).catch(() => {}); }
+      } catch { /* best-effort — falls back to USD label */ }
+    }
     res.json({
       success: true,
       data: {
@@ -149,6 +203,7 @@ export async function getMyMetaConnection(req: Request, res: Response): Promise<
         hasToken: !!conn?.userTokenEnc,
         adAccountId: conn?.adAccountId ?? null,
         pageId: conn?.pageId ?? null,
+        currency,
         leadgenTosAccepted,
       },
     });

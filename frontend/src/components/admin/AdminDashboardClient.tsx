@@ -12,6 +12,9 @@ import AdminsTab from "@/components/admin/tabs/AdminsTab";
 import { CustomersTabEnhanced } from "@/components/admin/tabs/CustomersTabEnhanced";
 import { ShopsManagementTab } from "@/components/admin/tabs/ShopsManagementTab";
 import { AdvancedTreasuryTab } from "@/components/admin/tabs/AdvancedTreasuryTab";
+import { AdminFraudTab } from "@/components/admin/tabs/AdminFraudTab";
+import { PlatformCopilotPanel } from "@/components/admin/PlatformCopilotPanel";
+import { AdminContentModerationTab } from "@/components/admin/tabs/AdminContentModerationTab";
 import { AnalyticsTab } from "@/components/admin/tabs/AnalyticsTab";
 import SubscriptionManagementTab from "@/components/admin/tabs/SubscriptionManagementTab";
 import PromoCodesAnalyticsTab from "@/components/admin/tabs/PromoCodesAnalyticsTab";
@@ -23,7 +26,16 @@ import AdminDisputeTab from "@/components/admin/tabs/AdminDisputeTab";
 import AdminAdsTab from "@/components/admin/tabs/AdminAdsTab";
 import { AdminSettingsTab } from "@/components/admin/tabs/AdminSettingsTab";
 import { BugReportsTab } from "@/components/admin/tabs/BugReportsTab";
+import { AuditLogTab } from "@/components/admin/tabs/AuditLogTab";
+import { RevenueAnalyticsTab } from "@/components/admin/tabs/RevenueAnalyticsTab";
+import { WebhookMonitorTab } from "@/components/admin/tabs/WebhookMonitorTab";
+import { RcgManagementTab } from "@/components/admin/tabs/RcgManagementTab";
+import { AnnouncementsTab } from "@/components/admin/tabs/AnnouncementsTab";
+import { ReferralAnalyticsTab } from "@/components/admin/tabs/ReferralAnalyticsTab";
+import ServiceMarketplaceAnalyticsSection from "@/components/admin/ServiceMarketplaceAnalyticsSection";
+import { AffiliateGroupsTab } from "@/components/admin/tabs/AffiliateGroupsTab";
 import { AdminAISettingsTab } from "@/components/admin/tabs/AdminAISettingsTab";
+import { SmartCommandBar } from "@/components/admin/SmartCommandBar";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
 
@@ -315,6 +327,8 @@ export default function AdminDashboardClient() {
       isSuperAdmin={isSuperAdmin}
       adminRole={adminRole}
     >
+      {/* ⌘K / Ctrl+K command palette — navigation + AI query */}
+      <SmartCommandBar />
       <div
         className="min-h-screen py-8 bg-[#0D0D0D]"
         style={{
@@ -364,6 +378,24 @@ export default function AdminDashboardClient() {
           {activeTab === "treasury" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "treasury"}>
                 <AdvancedTreasuryTab />
+              </LazyTabWrapper>
+            )}
+
+          {activeTab === "fraud" && hasAdminAccess && (
+              <LazyTabWrapper isActive={activeTab === "fraud"}>
+                <AdminFraudTab />
+              </LazyTabWrapper>
+            )}
+
+          {activeTab === "copilot" && hasAdminAccess && (
+              <LazyTabWrapper isActive={activeTab === "copilot"}>
+                <PlatformCopilotPanel />
+              </LazyTabWrapper>
+            )}
+
+          {activeTab === "content-moderation" && hasAdminAccess && (
+              <LazyTabWrapper isActive={activeTab === "content-moderation"}>
+                <AdminContentModerationTab />
               </LazyTabWrapper>
             )}
 
@@ -427,6 +459,62 @@ export default function AdminDashboardClient() {
           {activeTab === "bug-reports" && (
             <LazyTabWrapper isActive={activeTab === "bug-reports"}>
               <BugReportsTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Audit Log Tab */}
+          {activeTab === "audit-log" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "audit-log"}>
+              <AuditLogTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Revenue Analytics Tab */}
+          {activeTab === "revenue" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "revenue"}>
+              <RevenueAnalyticsTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Webhook Monitor Tab */}
+          {activeTab === "webhooks" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "webhooks"}>
+              <WebhookMonitorTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* RCG Management Tab */}
+          {activeTab === "rcg" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "rcg"}>
+              <RcgManagementTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Announcements Tab */}
+          {activeTab === "announcements" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "announcements"}>
+              <AnnouncementsTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Referral Analytics Tab */}
+          {activeTab === "referrals" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "referrals"}>
+              <ReferralAnalyticsTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Service Marketplace Analytics Tab */}
+          {activeTab === "marketplace" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "marketplace"}>
+              <ServiceMarketplaceAnalyticsSection />
+            </LazyTabWrapper>
+          )}
+
+          {/* Affiliate Groups Tab */}
+          {activeTab === "affiliate-groups" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "affiliate-groups"}>
+              <AffiliateGroupsTab />
             </LazyTabWrapper>
           )}
 

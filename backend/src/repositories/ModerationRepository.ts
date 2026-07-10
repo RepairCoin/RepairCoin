@@ -452,4 +452,90 @@ export class ModerationRepository extends BaseRepository {
       throw new Error('Failed to update report status');
     }
   }
+
+  // Admin: all flagged reviews across shops, joined with the review + shop for context.
+  async getAllFlaggedReviews(
+    status?: 'pending' | 'approved' | 'removed'
+  ): Promise<any[]> {
+    try {
+      let query = `
+        SELECT
+          fr.id,
+          fr.review_id,
+          fr.shop_id,
+          fr.reason,
+          fr.status,
+          fr.reviewed_by,
+          fr.reviewed_at,
+          fr.admin_notes,
+          fr.flagged_at,
+          fr.created_at,
+          fr.updated_at,
+          sr.rating       AS review_rating,
+          sr.comment      AS review_comment,
+          sr.customer_address AS review_customer_address,
+          s.name          AS shop_name
+        FROM flagged_reviews fr
+        LEFT JOIN service_reviews sr ON sr.review_id = fr.review_id
+        LEFT JOIN shops s ON s.shop_id = fr.shop_id
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+
+      if (status) {
+        params.push(status);
+        query += ` AND fr.status = $${params.length}`;
+      }
+
+      query += ` ORDER BY fr.flagged_at DESC`;
+
+      const result = await this.pool.query(query, params);
+
+      return result.rows.map(row => ({
+        id: row.id,
+        reviewId: row.review_id,
+        shopId: row.shop_id,
+        shopName: row.shop_name,
+        reason: row.reason,
+        status: row.status,
+        reviewedBy: row.reviewed_by,
+        reviewedAt: row.reviewed_at,
+        adminNotes: row.admin_notes,
+        flaggedAt: row.flagged_at,
+        reviewRating: row.review_rating,
+        reviewComment: row.review_comment,
+        reviewCustomerAddress: row.review_customer_address,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    } catch (error) {
+      logger.error('Error fetching all flagged reviews:', error);
+      throw new Error('Failed to fetch all flagged reviews');
+    }
+  }
+
+  async updateFlaggedReviewStatus(
+    flagId: string,
+    status: 'pending' | 'approved' | 'removed',
+    adminWallet: string,
+    adminNotes?: string
+  ): Promise<void> {
+    try {
+      const query = `
+        UPDATE flagged_reviews
+        SET
+          status = $1,
+          admin_notes = COALESCE($2, admin_notes),
+          reviewed_by = CASE WHEN $1 IN ('approved', 'removed') THEN $3 ELSE reviewed_by END,
+          reviewed_at = CASE WHEN $1 IN ('approved', 'removed') THEN CURRENT_TIMESTAMP ELSE reviewed_at END,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $4
+      `;
+
+      await this.pool.query(query, [status, adminNotes, adminWallet, flagId]);
+    } catch (error) {
+      logger.error('Error updating flagged review status:', error);
+      throw new Error('Failed to update flagged review status');
+    }
+  }
 }

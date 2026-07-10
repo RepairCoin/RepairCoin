@@ -3,6 +3,8 @@ import {
   ShopFormData,
   ShopByWalletAddressResponse,
   ShopResponse,
+  MapShopsResponse,
+  MapShopsQuery,
   ShopCustomersResponse,
   ShopCustomerGrowthResponse,
   TransactionsResponse,
@@ -15,6 +17,15 @@ import {
   PromoCodeValidateResponse,
   RewardRequest,
   RewardResponse,
+  SubmitIssueReportRequest,
+  SubmitIssueReportResponse,
+  ShopReportsResponse,
+  BlockCustomerRequest,
+  BlockCustomerResponse,
+  BlockedCustomersResponse,
+  CustomerBlockStatusResponse,
+  FlagReviewRequest,
+  FlagReviewResponse,
 } from "./shop.interface";
 import {
   PurchaseHistoryResponse,
@@ -53,6 +64,24 @@ class ShopApi {
       return await apiClient.get<ShopResponse>("/shops");
     } catch (error: any) {
       console.error("Failed to list shops:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Discovery/nearby shops with service-derived categories, ratings, and
+   * distance. Pass the user's coords to get distance + proximity sorting.
+   */
+  async listShopsForMap(query?: MapShopsQuery): Promise<MapShopsResponse> {
+    try {
+      const params: Record<string, number> = {};
+      if (query?.lat != null) params.lat = query.lat;
+      if (query?.lng != null) params.lng = query.lng;
+      if (query?.radius != null) params.radius = query.radius;
+      if (query?.limit != null) params.limit = query.limit;
+      return await apiClient.get<MapShopsResponse>("/shops/map", { params });
+    } catch (error: any) {
+      console.error("Failed to list shops for map:", error.message);
       throw error;
     }
   }
@@ -176,6 +205,87 @@ class ShopApi {
     }
   }
 
+  // ==================== Moderation: Blocked Customers ====================
+  // Backend derives the shop from the auth token; shopId is not in the path.
+  async blockCustomer(
+    data: BlockCustomerRequest,
+  ): Promise<BlockCustomerResponse> {
+    try {
+      return await apiClient.post(`/shops/moderation/block-customer`, data);
+    } catch (error: any) {
+      console.error("Failed to block customer:", error.message);
+      throw error;
+    }
+  }
+
+  async unblockCustomer(
+    walletAddress: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.delete(
+        `/shops/moderation/blocked-customers/${walletAddress}`,
+      );
+    } catch (error: any) {
+      console.error("Failed to unblock customer:", error.message);
+      throw error;
+    }
+  }
+
+  async getBlockedCustomers(): Promise<BlockedCustomersResponse> {
+    try {
+      return await apiClient.get(`/shops/moderation/blocked-customers`);
+    } catch (error: any) {
+      console.error("Failed to get blocked customers:", error.message);
+      throw error;
+    }
+  }
+
+  async getCustomerBlockStatus(
+    walletAddress: string,
+  ): Promise<CustomerBlockStatusResponse> {
+    try {
+      return await apiClient.get(
+        `/shops/moderation/blocked-customers/${walletAddress}/status`,
+      );
+    } catch (error: any) {
+      console.error("Failed to get block status:", error.message);
+      throw error;
+    }
+  }
+
+  // Submit a moderation issue report (spam / fraud / harassment / etc.).
+  // The backend derives the shop from the auth token; shopId is not in the path.
+  async submitIssueReport(
+    data: SubmitIssueReportRequest,
+  ): Promise<SubmitIssueReportResponse> {
+    try {
+      return await apiClient.post(`/shops/moderation/reports`, data);
+    } catch (error: any) {
+      console.error("Failed to submit issue report:", error.message);
+      throw error;
+    }
+  }
+
+  // Flag a customer review as inappropriate (sends to admin moderation).
+  async flagReview(data: FlagReviewRequest): Promise<FlagReviewResponse> {
+    try {
+      return await apiClient.post(`/shops/moderation/flag-review`, data);
+    } catch (error: any) {
+      console.error("Failed to flag review:", error.message);
+      throw error;
+    }
+  }
+
+  // List the shop's submitted moderation reports.
+  async getShopReports(): Promise<ShopReportsResponse> {
+    try {
+      return await apiClient.get(`/shops/moderation/reports`);
+    } catch (error: any) {
+      console.error("Failed to get shop reports:", error.message);
+      throw error;
+    }
+  }
+
   async getRewardHistory(shopId: string, limit: number = 5): Promise<any> {
     try {
       return await apiClient.get(
@@ -293,6 +403,15 @@ class ShopApi {
       return await apiClient.get(`/shops/purchase/history/${shopId}`);
     } catch (error: any) {
       console.error("Failed to get purchase history:", error.message);
+      throw error;
+    }
+  }
+
+  async cancelPurchase(purchaseId: string): Promise<any> {
+    try {
+      return await apiClient.post(`/shops/purchase/${purchaseId}/cancel`);
+    } catch (error: any) {
+      console.error("Failed to cancel purchase:", error.message);
       throw error;
     }
   }

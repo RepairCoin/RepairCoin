@@ -19,6 +19,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { getCustomerOrders, ServiceOrderWithDetails, servicesApi, OrderStatus } from "@/services/api/services";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { WriteReviewModal } from "./WriteReviewModal";
 import { BookingDetailsModal } from "./BookingDetailsModal";
 import { BookingCard } from "./BookingCard";
@@ -440,14 +441,7 @@ export const ServiceOrdersTab: React.FC = () => {
   const summary = getSummary();
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#FFCC00] animate-spin mx-auto mb-4" />
-          <p className="text-white">Loading your bookings...</p>
-        </div>
-      </div>
-    );
+    return <ListSkeleton rows={5} />;
   }
 
   const filterPills = [

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -456,12 +457,7 @@ export function FindShop() {
 
               {/* Shop List */}
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full">
-                {loading && (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FFCC00]"></div>
-                    <span className="ml-3 text-gray-400">Loading shops...</span>
-                  </div>
-                )}
+                {loading && <ListSkeleton rows={4} />}
 
                 {!loading && filteredShops.map((shop) => (
                   <div
@@ -734,10 +730,7 @@ export function FindShop() {
                     {activeDetailTab === "services" && (
                       <div className="space-y-2 max-h-[240px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full">
                         {loadingServices ? (
-                          <div className="flex items-center justify-center py-6">
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#FFCC00]"></div>
-                            <span className="ml-2 text-gray-400 text-sm">Loading services...</span>
-                          </div>
+                          <ListSkeleton rows={3} />
                         ) : shopServices.length > 0 ? (
                           [...shopServices]
                             .sort((a, b) => {

@@ -14,7 +14,9 @@ const parseUnits = (value: string, decimals: number): bigint => {
 };
 
 const client = createThirdwebClient({
-  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "",
+  clientId:
+    process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
+    "1969ac335e07ba13ad0f8d1a1de4f6ab",
 });
 
 // Base Sepolia testnet addresses

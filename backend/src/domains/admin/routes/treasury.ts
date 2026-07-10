@@ -56,9 +56,12 @@ router.get('/treasury', async (req: Request, res: Response) => {
             logger.warn('shop_rcn_purchases table not found, using default values:', error);
         }
         
-        // Get actual circulating supply from blockchain
+        // Circulating RCN supply.
+        // - Blockchain mode: authoritative on-chain total supply.
+        // - Database-only mode: derive from the ledger (minted minus redeemed),
+        //   which is the true amount of RCN currently held across all wallets.
         let circulatingSupply = 0;
-        
+
         if (blockchainEnabled()) {
             try {
                 const contractStats = await (await getTokenMinter()).getContractStats();
@@ -69,8 +72,23 @@ router.get('/treasury', async (req: Request, res: Response) => {
             } catch (error) {
                 logger.warn('Could not fetch contract stats, using database value:', error);
             }
+        } else {
+            try {
+                const supplyResult = await treasuryRepo.query(`
+                    SELECT COALESCE(SUM(
+                        CASE WHEN type = 'mint' THEN amount
+                             WHEN type = 'redeem' THEN -amount
+                             ELSE 0 END
+                    ), 0) AS circulating
+                    FROM transactions
+                    WHERE status = 'confirmed'
+                `);
+                circulatingSupply = Math.max(0, parseFloat(supplyResult.rows[0]?.circulating || '0'));
+            } catch (error) {
+                logger.warn('Could not compute circulating supply from ledger:', error);
+            }
         }
-        
+
         // Get top RCN buyers (shops with most purchases)
         let topBuyers = [];
         try {

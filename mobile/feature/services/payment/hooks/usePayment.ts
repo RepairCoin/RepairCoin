@@ -8,6 +8,7 @@ import { useModalStore } from "@/shared/store/common.store";
 import { useAppToast } from "@/shared/hooks";
 import { PaymentParams } from "@/feature/services/services/service.interface";
 import { DEFAULT_SUBSCRIPTION_AMOUNT } from "@/shared/constants/booking";
+import { shopApi } from "@/feature/shop/services/shop.services";
 
 export function usePayment() {
   const router = useRouter();
@@ -105,7 +106,14 @@ export function usePayment() {
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    if (isTokenPurchase && purchaseId) {
+      try {
+        await shopApi.cancelPurchase(purchaseId);
+      } catch {
+        // Silently ignore — pending record will be auto-cleaned by server after 5 min
+      }
+    }
     router.back();
   };
 

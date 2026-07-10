@@ -1,5 +1,4 @@
 export const BOOKING_STATUS_COLORS: Record<string, string> = {
-  pending: "#FFCC00",
   paid: "#3b82f6",
   approved: "#3b82f6",
   scheduled: "#3b82f6",
@@ -12,7 +11,6 @@ export const BOOKING_STATUS_COLORS: Record<string, string> = {
 };
 
 export const BOOKING_STATUS_LEGEND = [
-  { label: "Pending", color: "#FFCC00" },
   { label: "Paid", color: "#3b82f6" },
   { label: "In Progress", color: "#a855f7" },
   { label: "Completed", color: "#22c55e" },

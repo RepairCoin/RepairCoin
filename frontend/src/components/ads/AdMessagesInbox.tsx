@@ -11,6 +11,7 @@ import { Loader2, Inbox, RefreshCw, ChevronDown, ChevronRight, Link2, CheckCircl
 import toast from "react-hot-toast";
 import { getAdMessageInbox, setShopAdsAccount, type AdInboxEntry } from "@/services/api/ads";
 import { AdMessageThread } from "@/components/ads/AdMessageThread";
+import { BillingPanel } from "@/components/ads/BillingPanel";
 
 const timeAgo = (iso: string): string => {
   const then = new Date(iso).getTime();
@@ -113,6 +114,10 @@ export const AdMessagesInbox: React.FC = () => {
                       {busy === e.shopId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5" />}
                       {e.adsAccountConnected ? "Disconnect" : "Connect"}
                     </button>
+                  </div>
+                  {/* Ads add-on plan (Q4/Q7) — per shop, admin only. Lives here (not per campaign). */}
+                  <div className="rounded-lg border border-white/10 bg-[#141414] p-3">
+                    <BillingPanel shopId={e.shopId} />
                   </div>
                   <AdMessageThread mode="admin" shopId={e.shopId} />
                 </div>

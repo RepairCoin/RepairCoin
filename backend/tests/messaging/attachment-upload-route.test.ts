@@ -55,8 +55,8 @@ describe('Attachment Upload Route - Step 1 Configuration', () => {
       expect(routeSource).toContain('multer.memoryStorage()');
     });
 
-    it('sets file size limit to 5MB', () => {
-      expect(routeSource).toMatch(/fileSize:\s*5\s*\*\s*1024\s*\*\s*1024/);
+    it('sets file size limit to 10MB', () => {
+      expect(routeSource).toMatch(/fileSize:\s*10\s*\*\s*1024\s*\*\s*1024/);
     });
 
     it('accepts up to 5 files', () => {

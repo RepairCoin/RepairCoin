@@ -22,7 +22,7 @@ export function useFavoritesTab() {
   }, [refetch]);
 
   const navigateToServices = useCallback(() => {
-    router.push("/customer/tabs/service");
+    router.navigate("/customer/tabs/service");
   }, []);
 
   const favorites = favoritesData || [];

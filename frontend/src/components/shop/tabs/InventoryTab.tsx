@@ -39,8 +39,12 @@ import { AdjustmentHistoryModal } from '../modals/AdjustmentHistoryModal';
 import { BulkActionsBar } from './BulkActionsBar';
 import { BulkUpdateModal } from '../modals/BulkUpdateModal';
 import { POSuggestionsCard } from '../inventory/POSuggestionsCard';
+import { InventoryAILauncher } from '../inventory/InventoryAILauncher';
 import { BarcodeScannerModal } from '../modals/BarcodeScannerModal';
 import { BatchStockCountModal } from '../modals/BatchStockCountModal';
+import { useAuthStore } from '@/stores/authStore';
+import { useLocationStore } from '@/stores/locationStore';
+import { LocationSwitcher } from '../LocationSwitcher';
 
 interface InventoryTabProps {
   shopId: string;
@@ -49,6 +53,16 @@ interface InventoryTabProps {
 const ITEMS_PER_PAGE = 20;
 
 export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
+  // PO suggestions are a purchase-orders feature; only members with pos:view see them.
+  // Subscribe to userProfile so this re-evaluates once permissions load.
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canViewPO = !!userProfile && hasPermission('pos:view');
+  // Manage actions (add/edit/delete/adjust) require inventory:manage; view-only
+  // members (inventory:view) see the list but not the action buttons.
+  const canManage = !!userProfile && hasPermission('inventory:manage');
+  // Active branch (shared, persisted). null = all locations / shop-total.
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
   // State
   const [items, setItems] = useState<InventoryItemWithDetails[]>([]);
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
@@ -92,12 +106,14 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
     loadCategories();
     loadVendors();
     loadStats();
-  }, [page, searchQuery, selectedCategory, selectedVendor, selectedStatus, showLowStock, showOutOfStock, sortBy, productType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, searchQuery, selectedCategory, selectedVendor, selectedStatus, showLowStock, showOutOfStock, sortBy, productType, activeLocationId]);
 
   const loadInventory = async () => {
     try {
       setLoading(true);
       const filters: InventoryFilters = {
+        locationId: activeLocationId || undefined,
         search: searchQuery || undefined,
         categoryId: selectedCategory || undefined,
         vendorId: selectedVendor || undefined,
@@ -138,7 +154,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
 
   const loadStats = async () => {
     try {
-      const statistics = await inventoryApi.getStats();
+      const statistics = await inventoryApi.getStats(activeLocationId);
       setStats(statistics);
     } catch (error) {
       console.error('Failed to load stats:', error);
@@ -295,28 +311,36 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
   return (
     <div className="space-y-6">
       {/* Header with Stats */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Inventory Management</h2>
-          <p className="text-gray-400 mt-1">
-            Manage your inventory items and track stock levels
-          </p>
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Inventory Management</h2>
+            <p className="text-gray-400 mt-1">
+              Manage your inventory items and track stock levels
+            </p>
+          </div>
+          <LocationSwitcher />
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <button
-            onClick={() => setShowCategoryModal(true)}
-            className="px-4 py-2 bg-[#101010] border border-gray-700 text-gray-300 rounded-lg hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors flex items-center gap-2"
-          >
-            <Filter className="w-4 h-4" />
-            Categories
-          </button>
-          <button
-            onClick={() => setShowVendorModal(true)}
-            className="px-4 py-2 bg-[#101010] border border-gray-700 text-gray-300 rounded-lg hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors flex items-center gap-2"
-          >
-            <Package className="w-4 h-4" />
-            Vendors
-          </button>
+          <InventoryAILauncher />
+          {canManage && (
+            <>
+              <button
+                onClick={() => setShowCategoryModal(true)}
+                className="px-4 py-2 bg-[#101010] border border-gray-700 text-gray-300 rounded-lg hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors flex items-center gap-2"
+              >
+                <Filter className="w-4 h-4" />
+                Categories
+              </button>
+              <button
+                onClick={() => setShowVendorModal(true)}
+                className="px-4 py-2 bg-[#101010] border border-gray-700 text-gray-300 rounded-lg hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors flex items-center gap-2"
+              >
+                <Package className="w-4 h-4" />
+                Vendors
+              </button>
+            </>
+          )}
           <button
             onClick={exportToCSV}
             disabled={items.length === 0}
@@ -334,21 +358,25 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
             <Camera className="w-5 h-5" />
             Scan Barcode
           </button>
-          <button
-            onClick={() => setShowBatchScannerModal(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 font-medium"
-            title="Batch scan for inventory count"
-          >
-            <BarChart3 className="w-5 h-5" />
-            Batch Scan
-          </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-2 font-medium"
-          >
-            <Plus className="w-5 h-5" />
-            Add Item
-          </button>
+          {canManage && (
+            <>
+              <button
+                onClick={() => setShowBatchScannerModal(true)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 font-medium"
+                title="Batch scan for inventory count"
+              >
+                <BarChart3 className="w-5 h-5" />
+                Batch Scan
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-2 font-medium"
+              >
+                <Plus className="w-5 h-5" />
+                Add Item
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -415,8 +443,10 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
         </div>
       )}
 
-      {/* PO Suggestions Card (v2.1) */}
-      <POSuggestionsCard shopId={shopId} onSuggestionActioned={() => { loadInventory(); loadStats(); }} />
+      {/* PO Suggestions Card (v2.1) — requires pos:view */}
+      {canViewPO && (
+        <POSuggestionsCard shopId={shopId} onSuggestionActioned={() => { loadInventory(); loadStats(); }} />
+      )}
 
       {/* Product Type Tabs */}
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-2">
@@ -600,23 +630,27 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
               ? 'Try adjusting your filters'
               : 'Start by adding your first inventory item'}
           </p>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-6 py-3 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-2 font-medium"
-          >
-            <Plus className="w-5 h-5" />
-            Add Your First Item
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-6 py-3 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-2 font-medium"
+            >
+              <Plus className="w-5 h-5" />
+              Add Your First Item
+            </button>
+          )}
         </div>
       ) : (
         <>
           {/* Bulk Actions Bar */}
-          <BulkActionsBar
-            selectedCount={selectedItems.size}
-            onClearSelection={clearSelection}
-            onBulkDelete={() => setShowBulkDeleteModal(true)}
-            onBulkUpdateStatus={() => setShowBulkUpdateModal(true)}
-          />
+          {canManage && (
+            <BulkActionsBar
+              selectedCount={selectedItems.size}
+              onClearSelection={clearSelection}
+              onBulkDelete={() => setShowBulkDeleteModal(true)}
+              onBulkUpdateStatus={() => setShowBulkUpdateModal(true)}
+            />
+          )}
 
           {/* Table */}
           <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg overflow-hidden">
@@ -727,16 +761,18 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
                       </td>
                       <td className="px-4 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedItem(item);
-                              setShowAdjustStockModal(true);
-                            }}
-                            className="p-2 text-gray-400 hover:text-green-400 hover:bg-gray-800 rounded transition-colors"
-                            title="Adjust Stock"
-                          >
-                            <TrendingUp className="w-4 h-4" />
-                          </button>
+                          {canManage && (
+                            <button
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setShowAdjustStockModal(true);
+                              }}
+                              className="p-2 text-gray-400 hover:text-green-400 hover:bg-gray-800 rounded transition-colors"
+                              title="Adjust Stock"
+                            >
+                              <TrendingUp className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setSelectedItem(item);
@@ -747,26 +783,30 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
                           >
                             <History className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => {
-                              setSelectedItem(item);
-                              setShowEditModal(true);
-                            }}
-                            className="p-2 text-gray-400 hover:text-[#FFCC00] hover:bg-gray-800 rounded transition-colors"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedItem(item);
-                              setShowDeleteModal(true);
-                            }}
-                            className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {canManage && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setSelectedItem(item);
+                                  setShowEditModal(true);
+                                }}
+                                className="p-2 text-gray-400 hover:text-[#FFCC00] hover:bg-gray-800 rounded transition-colors"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedItem(item);
+                                  setShowDeleteModal(true);
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

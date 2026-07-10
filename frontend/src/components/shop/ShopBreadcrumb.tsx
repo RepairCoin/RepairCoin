@@ -124,6 +124,11 @@ const TAB_CONFIG: Record<string, {
     icon: <UsersIcon className="w-5 h-5" />,
     description: "Your complete overview of customers, their tiers, and lifetime RCN performance.",
   },
+  team: {
+    title: "Team Management",
+    icon: <UsersIcon className="w-5 h-5" />,
+    description: "Invite staff and assign roles with granular permissions.",
+  },
   lookup: {
     title: "Lookup",
     icon: <Search className="w-5 h-5" />,
@@ -134,10 +139,10 @@ const TAB_CONFIG: Record<string, {
     icon: <TagIcon className="w-5 h-5" />,
     description: "Create and manage promotional codes",
   },
-  "shop-location": {
-    title: "Shop Location",
+  locations: {
+    title: "Locations",
     icon: <MapPinnedIcon className="w-5 h-5" />,
-    description: "Set your shop's location for accurate delivery and customer navigation",
+    description: "Manage your business locations and set your primary address",
   },
   staking: {
     title: "Stake RCG",
@@ -214,6 +219,7 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
   onTabChange,
 }) => {
   const name = useAuthStore((s) => s.userProfile?.name);
+  const profileFirstName = useAuthStore((s) => s.userProfile?.firstName);
   const avatarUrl = useAuthStore((s) => s.userProfile?.avatarUrl);
   const shopId = useAuthStore((s) => s.userProfile?.shopId);
   const { rcgInfo } = useRCGBalance(shopId);
@@ -221,7 +227,10 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
 
   const tabConfig = TAB_CONFIG[activeTab] || DEFAULT_TAB;
   const isHome = activeTab === "overview";
-  const firstName = (name || "there").split(" ")[0];
+  // Greet the person, not the shop: owners carry firstName/lastName; team members
+  // carry their own name. Fall back to the shop name, then "there".
+  const personName = profileFirstName || name;
+  const firstName = (personName || "there").split(" ")[0];
   const tier =
     rcgInfo?.tier && rcgInfo.tier !== "none" ? capitalize(rcgInfo.tier) : null;
   const showAvatar = avatarUrl && !avatarError;

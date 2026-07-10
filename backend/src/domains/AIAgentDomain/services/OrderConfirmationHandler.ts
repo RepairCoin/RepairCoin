@@ -168,7 +168,7 @@ export class OrderConfirmationHandler {
       // Shop's IANA timezone is on shop_time_slot_config, not on the shop row.
       // Default to America/New_York to match AppointmentService's fallback.
       this.pool.query<{ timezone: string | null }>(
-        `SELECT timezone FROM shop_time_slot_config WHERE shop_id = $1`,
+        `SELECT timezone FROM shop_time_slot_config WHERE shop_id = $1 AND location_id IS NULL`,
         [shopId]
       ),
     ]);

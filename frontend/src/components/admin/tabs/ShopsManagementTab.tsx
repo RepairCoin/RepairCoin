@@ -25,6 +25,7 @@ import {
   Plus,
   Grid,
   List,
+  Users,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -32,6 +33,7 @@ import { FilterTabs } from "@/components/ui/FilterTabs";
 import { EditShopModal } from "./EditShopModal";
 import { ShopReviewModal } from "./ShopReviewModal";
 import { AddShopModal } from "./AddShopModal";
+import { ShopTeamModal } from "./ShopTeamModal";
 import { useAdminDashboard } from "@/hooks/useAdminDashboard";
 
 interface Shop {
@@ -92,7 +94,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     pendingShops,
     rejectedShops,
     shopActions,
-    generateAdminToken,
     loading,
     loadDashboardData,
   } = useAdminDashboard();
@@ -113,6 +114,10 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     isOpen: boolean;
     shop: Shop | null;
   }>({ isOpen: false, shop: null });
+  const [teamModal, setTeamModal] = useState<{
+    isOpen: boolean;
+    shop: Shop | null;
+  }>({ isOpen: false, shop: null });
   const [reviewModal, setReviewModal] = useState<{
     isOpen: boolean;
     shop: Shop | null;
@@ -130,29 +135,20 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     useState(false);
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
-    type: "suspend" | "reconsider" | null;
+    type: "suspend" | "reconsider" | "unsuspend" | null;
     shop: Shop | null;
   }>({ isOpen: false, type: null, shop: null });
   const [displayMode, setDisplayMode] = useState<"table" | "grid">("table");
 
   // Fetch unsuspend requests for shops
   const fetchShopUnsuspendRequests = async () => {
-    if (!generateAdminToken) return;
-
     setUnsuspendRequestsLoading(true);
     try {
-      // Cookies sent automatically with apiClient
-      if (!adminToken) {
-        toast.error("Failed to authenticate as admin");
-        return;
-      }
-
+      // Auth cookie is sent automatically.
       const response = await fetch(
         `${getApiBaseUrl()}/admin/unsuspend-requests?status=pending&entityType=shop`,
         {
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-          },
+          credentials: "include",
         }
       );
 
@@ -182,15 +178,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     action: "approve" | "reject",
     notes: string = ""
   ) => {
-    if (!generateAdminToken) return;
-
     try {
-      // Cookies sent automatically with apiClient
-      if (!adminToken) {
-        toast.error("Failed to authenticate as admin");
-        return;
-      }
-
       const endpoint =
         action === "approve"
           ? `/admin/unsuspend-requests/${requestId}/approve`
@@ -200,9 +188,9 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
         `${getApiBaseUrl()}${endpoint}`,
         {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
           },
           body: JSON.stringify({ notes }),
         }
@@ -235,14 +223,23 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     }
   }, [filterStatus]);
 
-  // Combine all shops for unified view
-  const allShops = [
-    ...activeShops.map((s) => ({ ...s, status: "active" as const })),
-    ...pendingShops.map((s) => ({ ...s, status: "pending" as const })),
-    ...rejectedShops.map((s) => ({
-      ...s,
-      status: ((s.suspended_at || s.suspendedAt) ? "suspended" : "rejected") as const
-    })),
+  // Combine all shops for unified view. The dashboard hook's shop shape is a
+  // superset of what we read here but typed loosely, so cast to the local Shop.
+  type CombinedShop = Shop & {
+    status: "active" | "pending" | "suspended" | "rejected";
+  };
+  const allShops: CombinedShop[] = [
+    ...activeShops.map((s) => ({ ...(s as unknown as Shop), status: "active" as const })),
+    ...pendingShops.map((s) => ({ ...(s as unknown as Shop), status: "pending" as const })),
+    ...rejectedShops.map((s) => {
+      const shop = s as unknown as Shop;
+      return {
+        ...shop,
+        status: (shop.suspended_at || shop.suspendedAt ? "suspended" : "rejected") as
+          | "suspended"
+          | "rejected",
+      };
+    }),
   ];
 
   // Filter shops based on filter status and search
@@ -552,6 +549,16 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                 >
                   <Edit className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTeamModal({ isOpen: true, shop });
+                  }}
+                  className="p-1 md:p-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-colors"
+                  title="Manage Team"
+                >
+                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </button>
                 {!shop.verified && (
                   <button
                     onClick={(e) => {
@@ -649,6 +656,16 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   title="Edit"
                 >
                   <Edit className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTeamModal({ isOpen: true, shop });
+                  }}
+                  className="p-1 md:p-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-colors"
+                  title="Manage Team"
+                >
+                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </button>
                 {shop.unsuspendRequest &&
                   shop.unsuspendRequest.status === "pending" ? (
@@ -860,10 +877,9 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           )}
 
         {/* Additional Actions */}
-        <div className={`flex flex-wrap gap-2 ${shop.status === "active" && shop.pendingMintAmount && shop.pendingMintAmount > 0 && onMintBalance ? "" : "hidden"}`}>
+        <div className={`flex flex-wrap gap-2 ${shop.status === "active" && shop.pendingMintAmount && shop.pendingMintAmount > 0 ? "" : "hidden"}`}>
           {shop.status === "active" &&
-            shop.pendingMintAmount && shop.pendingMintAmount > 0 &&
-            onMintBalance && (
+            shop.pendingMintAmount && shop.pendingMintAmount > 0 && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1024,8 +1040,8 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     total: allShops.length,
     active: activeShops.filter((s) => s.active && s.verified).length,
     pending: pendingShops.length,
-    suspended: rejectedShops.filter((s) => s.suspended_at || s.suspendedAt).length,
-    rejected: rejectedShops.filter((s) => !s.suspended_at && !s.suspendedAt).length,
+    suspended: rejectedShops.filter((s) => s.suspended_at || (s as unknown as Shop).suspendedAt).length,
+    rejected: rejectedShops.filter((s) => !s.suspended_at && !(s as unknown as Shop).suspendedAt).length,
     verified: activeShops.filter((s) => s.verified).length,
     totalTokensIssued: activeShops.reduce(
       (sum, s) => sum + (s.totalTokensIssued || 0),
@@ -1295,6 +1311,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               shops={filteredShops}
               getStatusBadge={getStatusBadge}
               onEdit={(shop) => setEditModal({ isOpen: true, shop })}
+              onTeam={(shop) => setTeamModal({ isOpen: true, shop })}
               onSuspend={(shop) =>
                 setConfirmationModal({ isOpen: true, type: "suspend", shop })
               }
@@ -1337,6 +1354,15 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
             }
             setReviewModal({ isOpen: false, shop: null });
           }}
+        />
+      )}
+
+      {teamModal.shop && (
+        <ShopTeamModal
+          isOpen={teamModal.isOpen}
+          onClose={() => setTeamModal({ isOpen: false, shop: null })}
+          shopId={teamModal.shop.shopId || teamModal.shop.shop_id || ""}
+          shopName={teamModal.shop.name}
         />
       )}
 
@@ -1433,9 +1459,13 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                       "Unsuspend request approved"
                     );
                   } else {
-                    // For reject, we might need a separate API endpoint
-                    // For now, just close the modal
-                    toast.success("Unsuspend request rejected");
+                    // Reject via the real endpoint (needs the request id).
+                    const requestId = shop?.unsuspendRequest?.id;
+                    if (!requestId) {
+                      toast.error("No unsuspend request found for this shop");
+                      return;
+                    }
+                    await processShopUnsuspendRequest(requestId, "reject", unsuspendNotes);
                   }
 
                   setUnsuspendReviewModal({
@@ -1602,9 +1632,10 @@ const ShopGrid: React.FC<{
   shops: (Shop & { status: string })[];
   getStatusBadge: (shop: Shop & { status: string }) => React.ReactNode;
   onEdit: (shop: Shop) => void;
+  onTeam: (shop: Shop) => void;
   onSuspend: (shop: Shop) => void;
   onUnsuspend: (shop: Shop) => void;
-}> = ({ shops, getStatusBadge, onEdit, onSuspend, onUnsuspend }) => {
+}> = ({ shops, getStatusBadge, onEdit, onTeam, onSuspend, onUnsuspend }) => {
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
@@ -1689,6 +1720,13 @@ const ShopGrid: React.FC<{
               >
                 <Edit className="w-4 h-4" />
                 <span>Edit</span>
+              </button>
+              <button
+                onClick={() => onTeam(shop)}
+                className="px-3 py-2 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-colors text-sm flex items-center justify-center"
+                title="Manage Team"
+              >
+                <Users className="w-4 h-4" />
               </button>
               {isSuspended ? (
                 <button

@@ -4,11 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { getApiBaseUrl } from "@/utils/apiUrl";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
+import { FadeSlideIn } from "@/components/ui/motion";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
+import { SHOP_TAB_PERMISSIONS } from "@/config/shopTabPermissions";
 import DashboardLayout from "@/components/ui/DashboardLayout";
+import TrialBanner from "./TrialBanner";
 import ThirdwebPayment from "../ThirdwebPayment";
 import "@/styles/animations.css";
 import { toast } from "react-hot-toast";
@@ -25,7 +28,6 @@ import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
 import { WalletPayoutsTab } from "@/components/shop/tabs/WalletPayoutsTab";
 import { SupportTab } from "@/components/shop/tabs/SupportTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
-import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
 import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
@@ -36,8 +38,12 @@ import { LowStockAlertsTab } from "@/components/shop/tabs/LowStockAlertsTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
+import { TeamTab } from "@/components/shop/tabs/TeamTab";
+import { LocationsTab } from "@/components/shop/tabs/LocationsTab";
+import { LocationSwitcher } from "@/components/shop/LocationSwitcher";
 import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
 import { ShopPlansBillingTab } from "@/components/shop/tabs/ShopPlansBillingTab";
+import { resolvePlanLabel } from "@/config/subscriptionPlans";
 import { PaymentMethodsTab } from "@/components/shop/tabs/PaymentMethodsTab";
 import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
@@ -53,9 +59,12 @@ import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { BrandingStudio } from "@/components/shop/branding-studio/BrandingStudio";
 import { BrandSetupCard } from "@/components/shop/branding-studio/BrandSetupCard";
 import { getBrandKit } from "@/services/api/aiBrandKit";
+import { getMetaConnection, getGoogleConnection } from "@/services/api/ads";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
 import { CancelledSubscriptionModal } from "@/components/shop/CancelledSubscriptionModal";
 import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
+import { TierGate } from "@/components/shop/TierGate";
+import { refreshFeatureAccess } from "@/hooks/useFeatureAccess";
 import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
 import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
 import { CoinsIcon } from 'lucide-react';
@@ -147,6 +156,25 @@ function clearCachedShopData(): void {
   }
 }
 
+function describeSubscriptionPlan(sub: any): {
+  label: string;
+  amount: number | null;
+} {
+  const rawAmount = sub?.monthlyAmount;
+  const amount =
+    rawAmount === undefined || rawAmount === null || isNaN(Number(rawAmount))
+      ? null
+      : Number(rawAmount);
+
+  const label = resolvePlanLabel({
+    planLabel: sub?.planLabel,
+    tier: sub?.tier,
+    subscriptionType: sub?.subscriptionType,
+    monthlyAmount: amount,
+  });
+  return { label, amount };
+}
+
 export interface ShopData {
   shopId: string;
   name: string;
@@ -161,6 +189,8 @@ export interface ShopData {
   subscriptionStatus?: string | null;
   subscriptionCancelledAt?: string | null;
   subscriptionEndsAt?: string | null; // When subscription access ends (period end for cancelled subs)
+  subscriptionPlanLabel?: string | null; // e.g. "Business AI — $599/mo", derived from the live subscription
+  subscriptionMonthlyAmount?: number | null;
   category?: string;
   totalTokensIssued: number;
   totalRedemptions: number;
@@ -208,6 +238,11 @@ interface TierBonusStats {
   averageBonusPerTransaction: number;
 }
 
+// Remembers the shop's last active tab across a page load. Needed because on staging the edge
+// auth cookie is frequently absent on refresh, so the middleware bounces protected routes through
+// '/' and drops the ?tab= query — this lets us restore the tab instead of falling to overview.
+const LAST_TAB_KEY = "shop:lastTab";
+
 export default function ShopDashboardClient() {
   const router = useRouter();
   const account = useActiveAccount();
@@ -215,6 +250,7 @@ export default function ShopDashboardClient() {
   const blockchainEnabled = useBlockchainEnabled();
   const searchParams = useSearchParams();
   const { isAuthenticated, userType, isLoading: authLoading, authInitialized, userProfile } = useAuthStore();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
   const { existingApplication } = useShopRegistration();
 
   // shopData starts null - loaded via useEffect to avoid SSR hydration mismatch
@@ -347,17 +383,30 @@ export default function ShopDashboardClient() {
 
   useEffect(() => {
     // Set active tab from URL query param
-    const tab = searchParams.get("tab");
-    const payment = searchParams.get("payment");
-    const purchaseId = searchParams.get("purchase_id");
-    const shouldReload = searchParams.get("reload");
+    // Read from the LIVE browser URL, not only the useSearchParams() hook (which can be
+    // momentarily empty during hydration). The Meta-connect deep-link landing is handled
+    // robustly by the connection-state effect below (not via the URL, which a cross-domain
+    // auth bounce can drop).
+    const liveParams = new URLSearchParams(window.location.search);
+    const tab = liveParams.get("tab") ?? searchParams.get("tab");
+    const payment = liveParams.get("payment") ?? searchParams.get("payment");
+    const purchaseId = liveParams.get("purchase_id") ?? searchParams.get("purchase_id");
+    const shouldReload = liveParams.get("reload") ?? searchParams.get("reload");
 
     if (tab) {
       setActiveTab(tab);
+      try { sessionStorage.setItem(LAST_TAB_KEY, tab); } catch { /* ignore */ }
     } else {
-      // If no tab specified, set URL to default tab (overview/dashboard)
+      // No tab in the URL. On staging the edge auth cookie is often absent on refresh, so the
+      // middleware bounces protected routes through '/' and drops the ?tab= query. Rather than
+      // hard-defaulting to overview (which strands the shop off whatever tab they were on — the
+      // Ads-tab-after-disconnect complaint), restore the last tab we remembered this session.
+      // Falls back to overview for a genuinely fresh landing.
+      let restore = "overview";
+      try { restore = sessionStorage.getItem(LAST_TAB_KEY) || "overview"; } catch { /* ignore */ }
+      setActiveTab(restore);
       const url = new URL(window.location.href);
-      url.searchParams.set("tab", "overview");
+      url.searchParams.set("tab", restore);
       window.history.replaceState({}, "", url);
     }
 
@@ -369,6 +418,7 @@ export default function ShopDashboardClient() {
       
       // Clear cached data and force reload
       localStorage.removeItem('shopData');
+      refreshFeatureAccess();
       if (account?.address) {
         loadShopData();
       }
@@ -705,6 +755,77 @@ export default function ShopDashboardClient() {
     }
   }, [shopData?.shopId]);
 
+  // Permission guard: a team member who navigates directly to a tab they lack
+  // permission for (e.g. via ?tab=) is bounced to Overview. Owners/admins pass.
+  // Must stay above the early returns below so the hook order is stable.
+  useEffect(() => {
+    if (!userProfile || userType !== "shop") return;
+    const required = SHOP_TAB_PERMISSIONS[activeTab];
+    if (required && !hasPermission(required)) {
+      toast.error("You don't have access to that section");
+      setActiveTab("overview");
+    }
+  }, [activeTab, userProfile, userType, hasPermission]);
+
+  // Meta-connect landing (robust, connection-state driven). After OAuth the shop has a token
+  // but no ad account picked yet (mid-connect). The post-OAuth ?tab=ads&meta=select deep link is
+  // unreliable on staging — a cross-domain auth bounce (window.location.href='/') can drop it —
+  // so instead of trusting the URL we read the connection state from the server and pull the shop
+  // to the Ads tab to finish. Works identically on local and staging; fires once per page load.
+  const metaAutoNavDoneRef = useRef(false);
+  useEffect(() => {
+    if (metaAutoNavDoneRef.current) return;
+    if (!userProfile || userType !== "shop") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const conn = await getMetaConnection();
+        if (cancelled || metaAutoNavDoneRef.current) return;
+        // enabled + token stored + no Page selected = OAuth done, picker not finished.
+        if (conn?.enabled && conn.hasToken && !conn.connected) {
+          metaAutoNavDoneRef.current = true;
+          setActiveTab("ads");
+          // Sync the URL too — the cross-domain OAuth bounce left it on ?tab=overview.
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", "ads");
+          window.history.replaceState({}, "", url);
+        }
+      } catch {
+        /* not a Meta-enabled shop / not connected — ignore */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userProfile, userType]);
+
+  // Google-connect landing — same connection-state auto-nav as Meta above (the post-OAuth
+  // ?tab=ads&google=select deep link is dropped by the cross-domain auth bounce). Only runs when
+  // the Google rollout flag is on. Fires once per page load.
+  const googleAutoNavDoneRef = useRef(false);
+  useEffect(() => {
+    if (googleAutoNavDoneRef.current) return;
+    if (!userProfile || userType !== "shop") return;
+    if (process.env.NEXT_PUBLIC_ADS_GOOGLE_ENABLED !== "true") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const conn = await getGoogleConnection();
+        if (cancelled || googleAutoNavDoneRef.current) return;
+        // enabled + token stored + no customer selected = OAuth done, picker not finished.
+        if (conn?.enabled && conn.hasToken && !conn.connected) {
+          googleAutoNavDoneRef.current = true;
+          setActiveTab("ads");
+          // Sync the URL too — the cross-domain OAuth bounce left it on ?tab=overview.
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", "ads");
+          window.history.replaceState({}, "", url);
+        }
+      } catch {
+        /* not a Google-enabled shop / not connected — ignore */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userProfile, userType]);
+
   const loadShopData = async (forceRefresh = false) => {
     // Get shopId from multiple sources (priority order)
     const shopIdFromSession = userProfile?.shopId;
@@ -769,11 +890,14 @@ export default function ShopDashboardClient() {
               // Determine actual status - if cancelAtPeriodEnd is true, treat as cancelled
               const actualStatus = sub.cancelAtPeriodEnd ? 'cancelled' : sub.status;
 
+              const plan = describeSubscriptionPlan(sub);
               enhancedShopData = {
                 ...enhancedShopData,
                 subscriptionStatus: actualStatus,
                 subscriptionCancelledAt: sub.cancelledAt || (sub.cancelAtPeriodEnd ? new Date().toISOString() : null),
                 subscriptionEndsAt: sub.currentPeriodEnd || sub.nextPaymentDate || sub.activatedAt, // Use Stripe's currentPeriodEnd
+                subscriptionMonthlyAmount: plan.amount,
+                subscriptionPlanLabel: plan.amount != null ? `${plan.label} — $${plan.amount}/mo` : plan.label,
               };
 
               console.log('📋 Subscription details loaded:', {
@@ -855,11 +979,14 @@ export default function ShopDashboardClient() {
             if (subResult.success && subResult.data?.currentSubscription) {
               const sub = subResult.data.currentSubscription;
               const actualStatus = sub.cancelAtPeriodEnd ? 'cancelled' : sub.status;
+              const plan = describeSubscriptionPlan(sub);
               enhancedShopData = {
                 ...enhancedShopData,
                 subscriptionStatus: actualStatus,
                 subscriptionCancelledAt: sub.cancelledAt || (sub.cancelAtPeriodEnd ? new Date().toISOString() : null),
                 subscriptionEndsAt: sub.currentPeriodEnd || sub.nextPaymentDate || sub.activatedAt,
+                subscriptionMonthlyAmount: plan.amount,
+                subscriptionPlanLabel: plan.amount != null ? `${plan.label} — $${plan.amount}/mo` : plan.label,
               };
             }
           } catch (subErr) {
@@ -1260,6 +1387,9 @@ export default function ShopDashboardClient() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    // Remember the tab so a refresh that gets bounced through the auth redirect (which strips
+    // ?tab=) restores it instead of dropping the shop back on overview.
+    try { sessionStorage.setItem(LAST_TAB_KEY, tab); } catch { /* ignore */ }
 
     // Update URL
     const url = new URL(window.location.href);
@@ -1300,6 +1430,10 @@ export default function ShopDashboardClient() {
             isMessagesFullHeight ? "flex-1 flex flex-col overflow-hidden min-h-0" : ""
           }`}
         >
+          {/* Free-trial countdown — persistent across tabs (not on messages, and
+              not on the subscription tab where the full trial card already shows). */}
+          {!isMessagesTab && activeTab !== "subscription" && <TrialBanner />}
+
           {/* Warning Banner for Non-Operational Shops.
               Hidden on messages tab — same call as customer-side alert
               banners. The shop owner sees this on every other tab they
@@ -1367,7 +1501,17 @@ export default function ShopDashboardClient() {
             </div>
           )}
 
-          {/* Tab Content */}
+          {isMessagesFullHeight && shopData && (
+            <SubscriptionGuard shopData={shopData} showOverlay={false}>
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                <MessagesTab shopId={shopData.shopId} compact />
+              </div>
+            </SubscriptionGuard>
+          )}
+
+          {/* Tab Content — keyed wrapper so each tab fades + slides in on switch */}
+          {!isMessagesFullHeight && (
+          <FadeSlideIn key={activeTab}>
           {/* Optional brand-setup nudge for skippers (operational + kit not set up). */}
           {activeTab === "overview" &&
             isOperational &&
@@ -1404,30 +1548,41 @@ export default function ShopDashboardClient() {
 
           {activeTab === "inventory" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <InventoryTab shopId={shopData.shopId} />
+              <TierGate feature="inventoryManagement">
+                <InventoryTab shopId={shopData.shopId} />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
           {activeTab === "purchase-orders" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <PurchaseOrdersTab shopId={shopData.shopId} />
+              <TierGate feature="inventoryManagement">
+                <PurchaseOrdersTab shopId={shopData.shopId} />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
           {activeTab === "inventory-analytics" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <InventoryAnalyticsTab shopId={shopData.shopId} />
+              <TierGate feature="inventoryManagement">
+                <InventoryAnalyticsTab shopId={shopData.shopId} />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
           {activeTab === "low-stock-alerts" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <LowStockAlertsTab shopId={shopData.shopId} />
+              <TierGate feature="inventoryManagement">
+                <LowStockAlertsTab shopId={shopData.shopId} />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
           {activeTab === "bookings" && shopData && (
             <SubscriptionGuard shopData={shopData}>
+              <div className="flex justify-end mb-4">
+                <LocationSwitcher />
+              </div>
               <BookingsTabV2
                 shopId={shopData.shopId}
                 isBlocked={isBlocked}
@@ -1437,11 +1592,16 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "service-analytics" && shopData && (
-            <ServiceAnalyticsTab />
+            <TierGate feature="advancedReports">
+              <ServiceAnalyticsTab />
+            </TierGate>
           )}
 
           {activeTab === "appointments" && shopData && (
             <SubscriptionGuard shopData={shopData}>
+              <div className="flex justify-end mb-4">
+                <LocationSwitcher />
+              </div>
               <AppointmentsTab />
             </SubscriptionGuard>
           )}
@@ -1452,7 +1612,7 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
           {activeTab === "messages" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
+            <SubscriptionGuard shopData={shopData} showOverlay={false}>
               {isMessagesFullHeight ? (
                 <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                   <MessagesTab shopId={shopData.shopId} compact />
@@ -1504,7 +1664,7 @@ export default function ShopDashboardClient() {
                 shopData={shopData}
                 onRewardIssued={loadShopData}
                 onRedemptionComplete={loadShopData}
-                isOperational={isOperational}
+                isOperational={!!isOperational}
                 isBlocked={isBlocked}
                 blockReason={getBlockReason()}
                 setShowOnboardingModal={setShowOnboardingModal}
@@ -1518,16 +1678,6 @@ export default function ShopDashboardClient() {
 
           {activeTab === "lookup" && shopData && (
             <CustomerLookupTab shopId={shopData.shopId} />
-          )}
-
-          {activeTab === "shop-location" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
-              <ShopLocationTab
-                shopId={shopData.shopId}
-                shopData={shopData}
-                onLocationUpdate={loadShopData}
-              />
-            </SubscriptionGuard>
           )}
 
           {activeTab === "subscription" && shopData && (
@@ -1544,7 +1694,23 @@ export default function ShopDashboardClient() {
 
           {activeTab === "marketing" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
+              <TierGate feature="campaignBuilder">
+                <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
+              </TierGate>
+            </SubscriptionGuard>
+          )}
+
+          {activeTab === "team" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <TierGate feature="teamManagement">
+                <TeamTab shopId={shopData.shopId} />
+              </TierGate>
+            </SubscriptionGuard>
+          )}
+
+          {activeTab === "locations" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <LocationsTab shopId={shopData.shopId} />
             </SubscriptionGuard>
           )}
 
@@ -1555,7 +1721,7 @@ export default function ShopDashboardClient() {
 
           {activeTab === "plans" && shopData && (
             <ShopPlansBillingTab
-              planLabel={shopData.subscriptionActive ? "Standard — $500/mo" : undefined}
+              planLabel={shopData.subscriptionActive ? (shopData.subscriptionPlanLabel ?? undefined) : undefined}
               subscriptionActive={shopData.subscriptionActive}
               subscriptionStatus={shopData.subscriptionStatus}
               subscriptionEndsAt={shopData.subscriptionEndsAt}
@@ -1584,8 +1750,8 @@ export default function ShopDashboardClient() {
             />
           )}
 
-          {/* Wallet & Payouts Tab */}
-          {activeTab === "wallet-payouts" && shopData && (
+          {/* Wallet & Payouts Tab (blockchain-only; hidden in database-only mode) */}
+          {activeTab === "wallet-payouts" && shopData && blockchainEnabled && (
             <WalletPayoutsTab />
           )}
 
@@ -1613,6 +1779,8 @@ export default function ShopDashboardClient() {
                 subscriptionActive={isOperational || isCancelledButActive || false}
               />
             </SubscriptionGuard>
+          )}
+          </FadeSlideIn>
           )}
 
           {/* Payment Modal (crypto/Thirdweb path; blockchain-only) */}

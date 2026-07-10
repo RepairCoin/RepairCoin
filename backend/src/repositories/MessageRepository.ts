@@ -874,6 +874,27 @@ export class MessageRepository extends BaseRepository {
   }
 
   /**
+   * Soft-delete a single message. Only the original sender may delete it.
+   * Returns true if a row was updated, false if not found / not the sender.
+   */
+  async deleteMessage(messageId: string, senderAddress: string): Promise<boolean> {
+    try {
+      const query = `
+        UPDATE messages
+        SET is_deleted = TRUE, updated_at = NOW()
+        WHERE message_id = $1
+          AND sender_address = $2
+          AND is_deleted = FALSE
+      `;
+      const result = await this.pool.query(query, [messageId, senderAddress]);
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      logger.error('Error in deleteMessage:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Soft delete a conversation for a user (archive it)
    */
   async deleteConversation(

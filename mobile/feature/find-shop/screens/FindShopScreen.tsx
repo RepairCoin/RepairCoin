@@ -7,8 +7,7 @@ import { useFindShop } from "../hooks";
 import { ShopWithLocation } from "../types";
 import {
   ShopCard,
-  ShopPopupMinimized,
-  ShopPopupExpanded,
+  ShopBottomSheet,
   DirectionsPanelMinimized,
   DirectionsPanelExpanded,
   RadiusControl,
@@ -42,9 +41,9 @@ export default function FindShopScreen() {
     routeDuration,
     isDirectionsPanelMinimized,
     setIsDirectionsPanelMinimized,
-    isShopPopupMinimized,
-    setIsShopPopupMinimized,
     radiusMiles,
+    selectedShopServices,
+    isLoadingShopServices,
     selectedCategory,
     setSelectedCategory,
     handleMarkerPress,
@@ -265,23 +264,16 @@ export default function FindShopScreen() {
             />
           )}
 
-          {/* Shop Popup */}
-          {selectedShop && !showDirections && (
-            isShopPopupMinimized ? (
-              <ShopPopupMinimized
-                shop={selectedShop}
-                onExpand={() => setIsShopPopupMinimized(false)}
-              />
-            ) : (
-              <ShopPopupExpanded
-                shop={selectedShop}
-                onMinimize={() => setIsShopPopupMinimized(true)}
-                onClose={clearSelectedShop}
-                onViewShop={() => viewShop(selectedShop)}
-                onDirections={() => openDirections(selectedShop)}
-              />
-            )
-          )}
+          {/* Shop Bottom Sheet */}
+          <ShopBottomSheet
+            visible={!!(selectedShop && !showDirections)}
+            shop={selectedShop}
+            services={selectedShopServices}
+            isLoadingServices={isLoadingShopServices}
+            onClose={clearSelectedShop}
+            onViewShop={() => selectedShop && viewShop(selectedShop)}
+            onDirections={() => selectedShop && openDirections(selectedShop)}
+          />
 
           <RadiusControl
             radiusMiles={radiusMiles}

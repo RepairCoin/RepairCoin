@@ -171,7 +171,7 @@ export function useCompleteOrderMutation() {
   };
 }
 
-export function useCancelOrderMutation() {
+export function useCancelOrderMutation(options?: { suppressErrorToast?: boolean }) {
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useAppToast();
 
@@ -202,6 +202,9 @@ export function useCancelOrderMutation() {
     },
     onError: (error: any) => {
       console.error("Failed to cancel order:", error);
+      // Callers that surface the error themselves (e.g. a native Alert for the
+      // hard-stop 24-hour rule) pass suppressErrorToast to avoid a double toast.
+      if (options?.suppressErrorToast) return;
       const message =
         error.response?.data?.error ||
         error.message ||
@@ -262,9 +265,24 @@ export function useMarkNoShowMutation() {
       return serviceApi.markOrderAsNoShow(orderId, notes);
     },
     onSuccess: () => {
+      // Mirror cancelOrder's invalidation set. "shopBookings" is a separate cache
+      // read by the bookings/calendar screen, and refetchType "all" is required
+      // because that screen is unmounted (inactive) while the detail screen is
+      // open — the global refetchOnMount:false would otherwise serve it stale.
+      const refetchType = "all" as const;
       queryClient.invalidateQueries({
         queryKey: ["repaircoin", "bookings", "shop"],
+        refetchType,
       });
+      queryClient.invalidateQueries({
+        queryKey: ["repaircoin", "bookings", "customer"],
+        refetchType,
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["repaircoin", "appointments"],
+        refetchType,
+      });
+      queryClient.invalidateQueries({ queryKey: ["shopBookings"], refetchType });
       showSuccess("Marked as no-show. Customer's record updated.");
     },
     onError: (error: any) => {

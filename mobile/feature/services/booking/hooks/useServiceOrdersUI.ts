@@ -6,7 +6,6 @@ import { OrderFilterType, ServiceOrderWithDetails, OrderStats } from "@/feature/
 
 const FILTERS: { key: OrderFilterType; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "pending", label: "Pending" },
   { key: "paid", label: "Paid" },
   { key: "completed", label: "Completed" },
   { key: "cancelled", label: "Cancelled" },
@@ -23,7 +22,6 @@ export function useServiceOrdersUI() {
   const filteredOrders = useMemo(() => {
     return (orders as ServiceOrderWithDetails[]).filter((order) => {
       // Status filter
-      if (filter === "pending" && !(order.status === "paid" && !order.shopApproved)) return false;
       if (filter === "paid" && !(order.status === "paid" && order.shopApproved)) return false;
       if (filter === "completed" && order.status !== "completed") return false;
       if (filter === "cancelled" && order.status !== "cancelled") return false;

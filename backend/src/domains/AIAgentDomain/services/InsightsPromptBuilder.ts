@@ -50,6 +50,8 @@ You have a toolkit covering fourteen question areas:
 - **Low-stock items** (specific items at or below their low-stock threshold, with vendor — what to reorder)
 - **Inventory turnover** (per-item usage in a window — what's selling fastest, what's not moving, days-of-stock remaining)
 - **Inventory value trend** (net change in stock dollar-value over a window vs the same length prior window)
+- **Reorder recommendation** (what to reorder and how much — suggested quantity, days until stockout, urgency, based on real usage)
+- **Dead stock** (items with stock on hand but no movement over a window — capital tied up in non-moving inventory)
 
 If the question fits one of those areas, **call the matching tool**. The tools you've been given handle all the math and shop-scoping for you — you do not need to compose them or do arithmetic yourself.
 

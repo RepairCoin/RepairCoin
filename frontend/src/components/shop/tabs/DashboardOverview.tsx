@@ -18,6 +18,9 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
+import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
+import { unlockAudioPlayback } from "@/lib/audioUnlock";
 import { appointmentsApi, CalendarBooking } from "@/services/api/appointments";
 import { getShopServices } from "@/services/api/services";
 import {
@@ -34,6 +37,15 @@ import {
  * Wallet figures use real `shopData`; the agenda and recent activity are wired to
  * live APIs. The stats and AI sections still use temporary MOCK data (marked below).
  */
+
+// Rotating examples for the "Ask AI Anything" card (animated slideshow).
+const ASK_AI_EXAMPLES = [
+  "Create a campaign for slow days",
+  "How did we do this month?",
+  "Win back customers who've gone quiet",
+  "What's running low in inventory?",
+  "Show me revenue this week",
+];
 
 interface ShopData {
   shopId: string;
@@ -342,6 +354,25 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onNavigate,
 }) => {
   const userName = useAuthStore((s) => s.userProfile?.name);
+  // RCG is on-chain; hide its balance in database-only mode (RCG is admin-set).
+  const blockchainEnabled = useBlockchainEnabled();
+  // Opens the single Unified Assistant panel + auto-starts its mic (same as the
+  // floating VoiceCommandPill on the Profile tab).
+  const openWithMic = useUnifiedAssistantStore((s) => s.openWithMic);
+  const askAi = () => {
+    unlockAudioPlayback(); // unlock audio in the tap gesture so the spoken greeting can play
+    openWithMic();
+  };
+  // Rotating example prompts (animated slideshow) so the owner sees the breadth
+  // of what they can ask — mirrors the VoiceCommandPill.
+  const [exampleIndex, setExampleIndex] = useState(0);
+  useEffect(() => {
+    const id = setInterval(
+      () => setExampleIndex((i) => (i + 1) % ASK_AI_EXAMPLES.length),
+      3500
+    );
+    return () => clearInterval(id);
+  }, []);
   const [mascotError, setMascotError] = useState(false);
   const [aiFilter, setAiFilter] = useState("All");
 
@@ -508,20 +539,23 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               })}
         </div>
 
-        {/* Ask AI Anything (MOCK) */}
+        {/* Ask AI Anything — opens the Unified Assistant + starts the mic */}
         <div className={`${cardDark} p-5`}>
           <SectionHeading title="Ask AI Anything" />
-          <button className="w-full flex items-center gap-3 rounded-xl bg-[#FFCC00] px-3 py-3 text-left transition-opacity hover:opacity-90">
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-black">
+          <button onClick={askAi} className="w-full flex items-center gap-3 rounded-xl bg-gradient-to-br from-blue-600 to-purple-700 px-3 py-3 text-left transition-all hover:from-blue-500 hover:to-purple-600 shadow-[0_0_18px_rgba(147,51,234,0.45)]">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-black/30 ring-1 ring-white/20">
               <Mic className="w-5 h-5 text-white" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-[#101010]">Ask AI Anything</span>
-              <span className="block text-xs text-[#101010]/70 truncate">
-                Example: Create a campaign for slow days..
+              <span className="block text-sm font-semibold text-white">Ask AI Anything</span>
+              <span className="block text-xs text-purple-100/80 truncate h-4 overflow-hidden">
+                Example:{" "}
+                <span key={exampleIndex} className="animate-fadeIn inline-block align-bottom">
+                  {ASK_AI_EXAMPLES[exampleIndex]}
+                </span>
               </span>
             </span>
-            <span className="text-[11px] font-bold tracking-wide text-[#101010]">TAP TO TALK</span>
+            <span className="text-[11px] font-bold tracking-wide text-purple-200/80">TAP TO TALK</span>
           </button>
         </div>
 
@@ -617,7 +651,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {[
               { label: "Total Purchased", value: fmt(wallet.totalPurchased), icon: ShoppingCart },
               { label: "Tokens Issued", value: fmt(wallet.tokensIssued), icon: Coins },
-              { label: "RCG Balance", value: fmt(wallet.rcgBalance), icon: Gem },
+              ...(blockchainEnabled
+                ? [{ label: "RCG Balance", value: fmt(wallet.rcgBalance), icon: Gem }]
+                : []),
             ].map((row) => {
               const Icon = row.icon;
               return (

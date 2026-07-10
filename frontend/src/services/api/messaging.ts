@@ -199,6 +199,13 @@ export const markConversationAsRead = async (conversationId: string): Promise<vo
 };
 
 /**
+ * Delete a single message (soft delete, sender only)
+ */
+export const deleteMessage = async (messageId: string): Promise<void> => {
+  await apiClient.delete(`/messages/${messageId}`);
+};
+
+/**
  * Archive (resolve) or reopen a conversation
  */
 export const archiveConversation = async (conversationId: string, archived: boolean): Promise<void> => {

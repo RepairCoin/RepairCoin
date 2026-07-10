@@ -1,9 +1,10 @@
 import {
   View,
   Text,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,10 +29,12 @@ export default function ServiceReviewsScreen() {
     refreshing,
     isLoading,
     error,
+    isFetchingNextPage,
     handleFilterChange,
     handleGoBack,
     onRefresh,
     refetch,
+    loadMore,
   } = useServiceReviews();
 
   return (
@@ -55,9 +58,14 @@ export default function ServiceReviewsScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView
+        <FlatList
           className="flex-1 mt-6"
+          data={reviews}
+          keyExtractor={(item) => item.reviewId}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -66,40 +74,46 @@ export default function ServiceReviewsScreen() {
               colors={["#FFCC00"]}
             />
           }
-        >
-          {/* Rating Summary */}
-          {stats && stats.totalReviews > 0 && <RatingSummary stats={stats} />}
+          ListHeaderComponent={
+            <>
+              {/* Rating Summary */}
+              {stats && stats.totalReviews > 0 && (
+                <RatingSummary stats={stats} />
+              )}
 
-          {/* Rating Filter */}
-          {hasReviews && (
-            <View className="px-4 gap-4 mb-4">
-              <RatingFilter
-                selectedRating={ratingFilter}
-                onSelect={handleFilterChange}
-              />
-              <Text className="text-gray-400 text-sm">
-                {reviews.length} review{reviews.length !== 1 ? "s" : ""}
-              </Text>
-            </View>
+              {/* Rating Filter */}
+              {hasReviews && (
+                <View className="px-4 gap-4 mb-4">
+                  <RatingFilter
+                    selectedRating={ratingFilter}
+                    onSelect={handleFilterChange}
+                  />
+                  <Text className="text-gray-400 text-sm">
+                    {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+                  </Text>
+                </View>
+              )}
+            </>
+          }
+          renderItem={({ item }) => (
+            <ReviewCard
+              review={item}
+              isShopOwner={isShopOwner}
+              currentUserAddress={currentUserAddress}
+              onReviewUpdated={refetch}
+            />
           )}
-
-          {/* Reviews List */}
-          {reviews.length === 0 ? (
+          ListEmptyComponent={
             <EmptyReviewsState hasFilter={ratingFilter !== null} />
-          ) : (
-            <View className="pb-6">
-              {reviews.map((review) => (
-                <ReviewCard
-                  key={review.reviewId}
-                  review={review}
-                  isShopOwner={isShopOwner}
-                  currentUserAddress={currentUserAddress}
-                  onReviewUpdated={refetch}
-                />
-              ))}
-            </View>
-          )}
-        </ScrollView>
+          }
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View className="py-4">
+                <ActivityIndicator size="small" color="#FFCC00" />
+              </View>
+            ) : null
+          }
+        />
       )}
     </SafeAreaView>
   );

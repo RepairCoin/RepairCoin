@@ -6,11 +6,13 @@ import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { ServiceCategory } from "@/shared/constants/service-categories";
 import { CustomerServiceStatusFilter, ServiceSortOption, PriceRange } from "@/feature/services/services/service.interface";
 
-export function useServicesTab() {
+export function useServicesTab(initialCategory?: string) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    initialCategory ? [initialCategory] : []
+  );
   const [priceRange, setPriceRange] = useState<PriceRange>({ min: null, max: null });
 
   // Debounce search input

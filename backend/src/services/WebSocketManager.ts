@@ -9,6 +9,10 @@ type WebSocketClient = WebSocket & {
   walletAddress?: string;
   isAlive?: boolean;
   authTimeout?: NodeJS.Timeout;
+  // Conversations THIS socket announced via conversation:open. Tracked per
+  // socket so a disconnect can clear exactly what it opened — see
+  // handleDisconnection for why per-address clearing alone leaks presence.
+  openConversations?: Set<string>;
 }
 
 interface AuthenticatedMessage {
@@ -130,8 +134,11 @@ export class WebSocketManager {
           return;
         }
         if (message.type === 'conversation:open') {
+          if (!ws.openConversations) ws.openConversations = new Set();
+          ws.openConversations.add(conversationId);
           conversationPresenceService.markOpen(ws.walletAddress, conversationId);
         } else {
+          ws.openConversations?.delete(conversationId);
           conversationPresenceService.markClosed(ws.walletAddress, conversationId);
         }
         break;
@@ -310,9 +317,32 @@ export class WebSocketManager {
         addressClients.delete(ws);
         if (addressClients.size === 0) {
           this.clients.delete(ws.walletAddress);
-          conversationPresenceService.clearAddress(ws.walletAddress);
         }
       }
+
+      // Clear presence for conversations THIS socket had open. Gating only on
+      // "last socket gone" (clearAddress) leaked presence: mobile reconnects
+      // leave overlapping/zombie sockets, so a dropped socket's fire-and-forget
+      // conversation:close is lost AND clearAddress never runs — the wallet
+      // stays "viewing" forever, permanently suppressing message push (it skips
+      // sending when isViewing) until a full logout drops every socket at once.
+      // Re-check the remaining live sockets so a conversation another tab/device
+      // still has open isn't cleared out from under it.
+      const opened = ws.openConversations;
+      if (opened && opened.size > 0) {
+        const remaining = this.clients.get(ws.walletAddress);
+        for (const conversationId of opened) {
+          const stillOpenElsewhere =
+            !!remaining &&
+            [...remaining].some((client) =>
+              client.openConversations?.has(conversationId)
+            );
+          if (!stillOpenElsewhere) {
+            conversationPresenceService.markClosed(ws.walletAddress, conversationId);
+          }
+        }
+      }
+
       logger.info(`WebSocket disconnected for wallet: ${ws.walletAddress}`);
     } else {
       logger.debug('Unauthenticated WebSocket disconnected'); // Changed to debug to reduce log noise
@@ -504,4 +534,19 @@ export class WebSocketManager {
       }
     }, 60000); // Clean up every minute
   }
+}
+
+// Module-level accessor so per-request services (e.g. PaymentService, which is
+// constructed per-route rather than as a singleton) can broadcast in-app
+// notifications without threading the manager through every constructor.
+// Mirrors the getPushNotificationDispatcher() singleton pattern. The instance
+// is registered once during app startup, after the WebSocket server is created.
+let wsManagerInstance: WebSocketManager | null = null;
+
+export function setWebSocketManagerInstance(manager: WebSocketManager): void {
+  wsManagerInstance = manager;
+}
+
+export function getWebSocketManager(): WebSocketManager | null {
+  return wsManagerInstance;
 }

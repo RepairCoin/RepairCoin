@@ -7,10 +7,11 @@ import {
   CustomerDetailsSection,
   RedemptionAmountSection,
   RedemptionSummary,
+  RedemptionHistory,
   HowItWorksModal,
   ProcessingStatusModal,
 } from "../components";
-import { useRedeemToken } from "../../hooks";
+import { useRedeemToken, useRedemptionHistory } from "../../hooks";
 
 export default function RedeemTokenScreen() {
   const {
@@ -52,6 +53,16 @@ export default function RedeemTokenScreen() {
     goBack,
   } = useRedeemToken();
 
+  const {
+    data: redemptionHistory = [],
+    isLoading: isLoadingHistory,
+    refetch: refetchHistory,
+  } = useRedemptionHistory();
+
+  const onRefresh = async () => {
+    await Promise.all([handleRefresh(), refetchHistory()]);
+  };
+
   return (
     <ThemedView className="flex-1 bg-black">
       <RedeemTokenHeader
@@ -66,7 +77,7 @@ export default function RedeemTokenScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={handleRefresh}
+            onRefresh={onRefresh}
             tintColor="#FFCC00"
           />
         }
@@ -88,19 +99,26 @@ export default function RedeemTokenScreen() {
           hasInsufficientBalance={hasInsufficientBalance}
           exceedsCrossShopLimit={exceedsCrossShopLimit}
         />
-      </ScrollView>
 
-      {/* Bottom Process Redemption Button - Hide when session is active */}
-      {sessionStatus === "idle" && (
-        <RedemptionSummary
-          redemptionAmount={redemptionAmount}
-          customerAddress={customerAddress}
-          customerData={customerData}
-          canProcessRedemption={canProcessRedemption}
-          isCreatingSession={isCreatingSession}
-          onProcessRedemption={handleProcessRedemption}
+        {/* Redemption Summary Card - Hide when session is active */}
+        {sessionStatus === "idle" && (
+          <RedemptionSummary
+            redemptionAmount={redemptionAmount}
+            customerAddress={customerAddress}
+            customerData={customerData}
+            canProcessRedemption={canProcessRedemption}
+            isCreatingSession={isCreatingSession}
+            isLoadingCustomer={isLoadingCustomer}
+            onProcessRedemption={handleProcessRedemption}
+          />
+        )}
+
+        {/* Redemption History */}
+        <RedemptionHistory
+          transactions={redemptionHistory}
+          isLoading={isLoadingHistory}
         />
-      )}
+      </ScrollView>
 
       {/* How It Works Modal */}
       <HowItWorksModal

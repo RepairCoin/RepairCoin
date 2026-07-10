@@ -16,6 +16,8 @@ export interface MetaConnection {
   pageId: string | null;
   pageTokenEnc: string | null;
   businessId: string | null;
+  pixelId: string | null;
+  currency: string | null;
   connected: boolean;
 }
 
@@ -60,10 +62,20 @@ export class MetaConnectionRepository extends BaseRepository {
     );
   }
 
+  /** Store the shop's Meta Pixel id (resolved/created at account selection). */
+  async savePixelId(shopId: string, pixelId: string): Promise<void> {
+    await this.pool.query(`UPDATE shops SET meta_pixel_id = $2 WHERE shop_id = $1`, [shopId, pixelId]);
+  }
+
+  /** Store the ad account's currency (ISO code) so ad money displays in the right currency. */
+  async saveCurrency(shopId: string, currency: string): Promise<void> {
+    await this.pool.query(`UPDATE shops SET meta_currency = $2 WHERE shop_id = $1`, [shopId, currency]);
+  }
+
   async getConnection(shopId: string): Promise<MetaConnection | null> {
     const res = await this.pool.query(
       `SELECT meta_oauth_token, meta_oauth_refresh_token, meta_oauth_expires_at,
-              meta_ad_account_id, meta_page_id, meta_page_token, meta_business_id, ads_account_connected
+              meta_ad_account_id, meta_page_id, meta_page_token, meta_business_id, meta_pixel_id, meta_currency, ads_account_connected
          FROM shops WHERE shop_id = $1`,
       [shopId]
     );
@@ -78,8 +90,16 @@ export class MetaConnectionRepository extends BaseRepository {
       pageId: r.meta_page_id ?? null,
       pageTokenEnc: r.meta_page_token ?? null,
       businessId: r.meta_business_id ?? null,
+      pixelId: r.meta_pixel_id ?? null,
+      currency: r.meta_currency ?? null,
       connected: r.ads_account_connected === true,
     };
+  }
+
+  /** Messenger (P1): resolve the shop that owns a connected Page — a Messenger webhook targets a page. */
+  async getShopIdByPageId(pageId: string): Promise<string | null> {
+    const res = await this.pool.query(`SELECT shop_id FROM shops WHERE meta_page_id = $1 LIMIT 1`, [pageId]);
+    return res.rows[0]?.shop_id ?? null;
   }
 
   /** Clear all Meta connection state + drop the gate flag (disconnect / deauthorize). */
@@ -88,7 +108,7 @@ export class MetaConnectionRepository extends BaseRepository {
       `UPDATE shops
           SET meta_oauth_token = NULL, meta_oauth_refresh_token = NULL, meta_oauth_expires_at = NULL,
               meta_ad_account_id = NULL, meta_page_id = NULL, meta_page_token = NULL,
-              meta_business_id = NULL, ads_account_connected = false
+              meta_business_id = NULL, meta_pixel_id = NULL, ads_account_connected = false
         WHERE shop_id = $1`,
       [shopId]
     );

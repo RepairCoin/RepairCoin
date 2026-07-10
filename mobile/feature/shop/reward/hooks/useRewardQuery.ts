@@ -67,6 +67,10 @@ export function useIssueReward(resetInputs?: () => void) {
           queryKey: queryKeys.shopByWalletAddress(shopWalletAddress),
         });
       }
+
+      rqClient.invalidateQueries({
+        queryKey: ["recentRewards", shopId],
+      });
     },
     onError: (error: any) => {
       console.error("Failed to issue reward:", error);

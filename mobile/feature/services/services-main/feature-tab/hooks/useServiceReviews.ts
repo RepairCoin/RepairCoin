@@ -1,11 +1,13 @@
 import { useState, useCallback, useMemo } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { serviceApi } from "@/feature/services/services/service.services";
 import { queryKeys } from "@/shared/config/queryClient";
 import { ReviewData } from "@/feature/services/services/service.interface";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
+
+const PAGE_SIZE = 20;
 
 export function useServiceReviews() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -18,13 +20,26 @@ export function useServiceReviews() {
     isLoading,
     error,
     refetch,
-  } = useQuery({
-    queryKey: queryKeys.serviceReviews(id!),
-    queryFn: () =>
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    // Distinct key from the regular useQuery consumers of serviceReviews
+    // (service detail + feature tab). An infinite query stores { pages },
+    // a regular query stores { data } — sharing one key collides the shapes
+    // and crashes. Prefix-based invalidation still matches this longer key.
+    queryKey: [...queryKeys.serviceReviews(id!), "infinite"],
+    queryFn: ({ pageParam }) =>
       serviceApi.getServiceReviews(id!, {
-        limit: 50,
+        page: pageParam,
+        limit: PAGE_SIZE,
       }),
     enabled: !!id,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination?.hasMore
+        ? lastPage.pagination.page + 1
+        : undefined,
     staleTime: 0,
     refetchOnMount: true,
   });
@@ -32,11 +47,20 @@ export function useServiceReviews() {
   const isShopOwner = !!userProfile?.shopId;
   const currentUserAddress: string | undefined = userProfile?.address;
 
-  const allReviews = data?.data || [];
+  const allReviews = useMemo(
+    () => data?.pages.flatMap((p) => p.data || []) ?? [],
+    [data]
+  );
   const hasReviews = allReviews.length > 0;
 
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   // Compute stats from reviews if not provided by API
-  const stats = data?.stats || (hasReviews ? {
+  const stats = data?.pages?.[0]?.stats || (hasReviews ? {
     totalReviews: allReviews.length,
     averageRating: allReviews.reduce((sum: number, r: ReviewData) => sum + r.rating, 0) / allReviews.length,
     ratingDistribution: {
@@ -94,11 +118,14 @@ export function useServiceReviews() {
     refreshing,
     isLoading,
     error,
+    hasNextPage,
+    isFetchingNextPage,
 
     // Handlers
     handleFilterChange,
     handleGoBack,
     onRefresh,
     refetch,
+    loadMore,
   };
 }

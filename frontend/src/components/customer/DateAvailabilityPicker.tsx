@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Loader2 } from 'lucide-react';
-import { appointmentsApi, ShopAvailability } from '@/services/api/appointments';
+import { appointmentsApi, ShopAvailability, DateOverride } from '@/services/api/appointments';
+import { formatLocalDate } from '@/utils/dateUtils';
 
 interface DateAvailabilityPickerProps {
   shopId: string;
@@ -13,6 +14,7 @@ interface DateAvailabilityPickerProps {
   maxAdvanceDays?: number;
   minBookingHours?: number;
   allowWeekendBooking?: boolean;
+  locationId?: string; // selected branch, for per-location open days
 }
 
 export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
@@ -22,21 +24,30 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
   minDate = new Date(),
   maxAdvanceDays = 60,
   minBookingHours = 0,
-  allowWeekendBooking = true
+  allowWeekendBooking = true,
+  locationId
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [shopAvailability, setShopAvailability] = useState<ShopAvailability[]>([]);
+  const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadShopAvailability();
-  }, [shopId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId, locationId]);
 
   const loadShopAvailability = async () => {
     try {
       setLoading(true);
-      const availability = await appointmentsApi.getShopAvailability(shopId);
+      const [availability, overrides] = await Promise.all([
+        appointmentsApi.getShopAvailability(shopId, locationId),
+        appointmentsApi.getShopDateOverrides(shopId, undefined, undefined, locationId).catch(() => [] as DateOverride[])
+      ]);
       setShopAvailability(availability);
+      setClosedDates(
+        new Set(overrides.filter(o => o.isClosed).map(o => o.overrideDate))
+      );
     } catch (error) {
       console.error('Error loading shop availability:', error);
     } finally {
@@ -77,6 +88,9 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
       const hoursLeftToday = 24 - now.getHours() - (now.getMinutes() / 60);
       if (hoursLeftToday < minBookingHours) return false;
     }
+
+    // Check for a shop closure override (holiday/special closed date)
+    if (closedDates.has(formatLocalDate(date))) return false;
 
     // Check if shop is open on this day
     return isDateAvailable(date);

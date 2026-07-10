@@ -301,6 +301,14 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
     [setMessages],
   );
 
+  const handleDeleteMessage = useCallback(
+    async (messageId: string) => {
+      await messagingApi.deleteMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    },
+    [setMessages],
+  );
+
   return (
     <MessagesLayout
       userType={userType}
@@ -321,6 +329,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
       onLoadMore={loadMore}
       onRetryMessage={handleRetryMessage}
       onDiscardMessage={handleDiscardMessage}
+      onDeleteMessage={handleDeleteMessage}
       {...(userType === "shop" && {
         onArchiveConversation: handleArchiveConversation,
       })}

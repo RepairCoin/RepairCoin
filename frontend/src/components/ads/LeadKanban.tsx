@@ -6,13 +6,26 @@
 // /ads/shop/leads). One-click status change (not drag-drop — simpler + reliable).
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, ChevronRight, Phone, Mail, Sparkles, Copy, MessageSquare } from "lucide-react";
+import { Loader2, ChevronRight, Phone, Mail, Sparkles, Copy, Clock } from "lucide-react";
 import toast from "react-hot-toast";
 import {
-  listLeads, listShopLeads, updateLeadStatus, draftLeadReply,
+  listLeads, listShopLeads, updateLeadStatus, updateShopLeadStatus, draftLeadReply,
   type AdLead, type LeadStatus,
 } from "@/services/api/ads";
+import { ChannelBadge, replyAction } from "@/components/ads/channelMeta";
 import { LeadConversation } from "@/components/ads/LeadConversation";
+import { LeadCallLogger } from "@/components/ads/LeadCallLogger";
+
+// "Last contacted" line for a card. Compact relative-ish label off first_response_at.
+const contactedLabel = (iso?: string | null): string => {
+  if (!iso) return "Not contacted yet";
+  const then = new Date(iso).getTime();
+  const days = Math.floor((Date.now() - then) / 86400000);
+  if (days <= 0) return "Contacted today";
+  if (days === 1) return "Contacted yesterday";
+  if (days < 7) return `Contacted ${days}d ago`;
+  return `Contacted ${new Date(iso).toLocaleDateString()}`;
+};
 
 const COLUMNS: { status: LeadStatus; label: string }[] = [
   { status: "new", label: "New" },
@@ -40,7 +53,10 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [convoLead, setConvoLead] = useState<AdLead | null>(null);
-  const editable = mode === "admin";
+  const [callLead, setCallLead] = useState<AdLead | null>(null);
+  const isAdmin = mode === "admin";
+  // Both admin and shop can work a lead (advance status, call/email) — the shop owns the
+  // customer relationship. Chat / AI-draft stay admin-only (and chat-channel-only).
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,7 +74,8 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const move = async (lead: AdLead, status: LeadStatus) => {
     setBusyId(lead.id);
     try {
-      const updated = await updateLeadStatus(lead.id, status);
+      const fn = isAdmin ? updateLeadStatus : updateShopLeadStatus;
+      const updated = await fn(lead.id, status);
       setLeads((prev) => prev.map((l) => (l.id === lead.id ? updated : l)));
     } catch (e: any) {
       toast.error(e?.message || "Couldn't update lead.");
@@ -70,7 +87,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const draft = async (lead: AdLead) => {
     setDraftingId(lead.id);
     try {
-      const text = await draftLeadReply(lead.id);
+      const text = await draftLeadReply(lead.id, mode);
       setDrafts((prev) => ({ ...prev, [lead.id]: text }));
     } catch (e: any) {
       toast.error(e?.message || "Couldn't draft a reply.");
@@ -115,11 +132,15 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                       {lead.phone && <p className="text-xs text-gray-400 flex items-center gap-1.5"><Phone className="w-3 h-3" /> {lead.phone}</p>}
                       {lead.email && <p className="text-xs text-gray-400 flex items-center gap-1.5 truncate"><Mail className="w-3 h-3 shrink-0" /> {lead.email}</p>}
                     </div>
-                    <p className="text-[11px] text-gray-600 mt-1.5">
-                      {lead.attributionMethod} · {new Date(lead.createdAt).toLocaleDateString()}
+                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                      <ChannelBadge channel={lead.channel} />
+                      <span className="text-[11px] text-gray-600">{new Date(lead.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className={`text-[11px] mt-0.5 flex items-center gap-1 ${lead.firstResponseAt ? "text-gray-400" : "text-amber-500/80"}`}>
+                      <Clock className="w-3 h-3 shrink-0" /> {contactedLabel(lead.firstResponseAt)}
                     </p>
-                    {editable && (
-                      <div className="mt-2 flex items-center gap-2">
+                    {(
+                      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
                         {NEXT[col.status] && (
                           <button
                             onClick={() => move(lead, NEXT[col.status]!)}
@@ -139,18 +160,29 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                             Lost
                           </button>
                         )}
-                        <button
-                          onClick={() => setConvoLead(lead)}
-                          className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00] ml-auto"
-                          title="Open conversation"
-                        >
-                          <MessageSquare className="w-3 h-3" /> Chat
-                        </button>
+                        {/* Contact actions consolidated into ONE messaging surface: Conversation opens the
+                            thread (Messages + Activity tabs + formatted-email option) for any lead with a 2-way
+                            channel — email or Messenger/WhatsApp — on shop and admin. Call is for phone leads. */}
+                        <div className="flex flex-wrap items-center gap-2 ml-auto">
+                          {lead.phone && (
+                            <button onClick={() => setCallLead(lead)} title="Call and log the outcome" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
+                              <Phone className="w-3 h-3" /> Call
+                            </button>
+                          )}
+                          {(lead.hasChatChannel || lead.email) && (() => {
+                            const act = replyAction(lead.channel);
+                            return (
+                              <button onClick={() => setConvoLead(lead)} title={`Open the conversation — replies are ${act.verb}`} className="inline-flex items-center gap-1 text-[11px] font-medium text-[#FFCC00]/90 hover:text-[#FFCC00]">
+                                <act.Icon className="w-3 h-3" /> {act.short}
+                              </button>
+                            );
+                          })()}
+                        </div>
                       </div>
                     )}
 
-                    {/* AI-drafted outreach (Stage 3, Option C) — new/contacted only */}
-                    {editable && (col.status === "new" || col.status === "contacted") && (
+                    {/* AI reply drafting — admin-only, chat-channel leads (Messenger/WhatsApp), new/contacted */}
+                    {isAdmin && lead.hasChatChannel && (col.status === "new" || col.status === "contacted") && (
                       <div className="mt-2">
                         {!drafts[lead.id] ? (
                           <button
@@ -185,8 +217,21 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
         <LeadConversation
           leadId={convoLead.id}
           leadName={convoLead.name}
+          channel={convoLead.channel}
           open={!!convoLead}
           onClose={() => setConvoLead(null)}
+          mode={mode}
+          initialAiPaused={convoLead.aiPaused}
+        />
+      )}
+
+      {callLead && (
+        <LeadCallLogger
+          lead={callLead}
+          open={!!callLead}
+          onClose={() => setCallLead(null)}
+          onLogged={() => { void load(); }}
+          mode={mode}
         />
       )}
     </div>

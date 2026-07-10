@@ -8,7 +8,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: "FixFlow",
     slug: "repaircoin-app",
     owner: "repaircoin",
-    version: "1.0.1",
+    version: "1.0.2",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "repaircoin",
@@ -72,7 +72,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#ffffff",
+          // Brand dark, matching the in-app Screen background (bg-black). White
+          // here is what makes a cold start (esp. opening from a push) flash a
+          // blank white screen before content is ready.
+          backgroundColor: "#000000",
         },
       ],
       "expo-secure-store",
@@ -124,6 +127,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           color: "#FFCC00",
         },
       ],
+      [
+        "expo-media-library",
+        {
+          photosPermission: "FixFlow needs access to your photo library to save your wallet QR code image.",
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
@@ -133,6 +142,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         projectId: "ac220b86-d08f-403e-a3bb-d1657b30f245",
       },
       router: {},
+      appEnv: ENV,
     },
     updates: {
       enabled: true,

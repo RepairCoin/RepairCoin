@@ -23,6 +23,7 @@ export interface TierDistribution {
 export interface RCGMetrics {
   totalSupply: string;
   circulatingSupply: string;
+  holders: number;
   allocations: {
     team: string;
     investors: string;
@@ -219,20 +220,48 @@ export class RCGService extends BaseRepository {
     }
   }
 
+  /**
+   * Real RCG distribution from the database (admin-managed shop balances).
+   * In database-only mode there is no on-chain holder registry, so "circulating"
+   * RCG = total RCG currently allocated to shops, and "holders" = shops holding any.
+   */
+  private async getRcgDistributionFromDb(): Promise<{ circulatingSupply: string; holders: number }> {
+    try {
+      const { rows } = await this.pool.query(`
+        SELECT
+          COALESCE(SUM(rcg_balance), 0) AS circulating,
+          COUNT(*) FILTER (WHERE rcg_balance > 0) AS holders
+        FROM shops
+        WHERE active = true
+      `);
+      return {
+        circulatingSupply: String(Math.round(parseFloat(rows[0]?.circulating || '0'))),
+        holders: parseInt(rows[0]?.holders || '0', 10)
+      };
+    } catch (error) {
+      logger.error('Failed to compute RCG distribution from DB:', error);
+      return { circulatingSupply: '0', holders: 0 };
+    }
+  }
+
   async getRCGMetrics(): Promise<RCGMetrics> {
     try {
-      const [stats, tierDistribution, revenueByTier] = await Promise.all([
+      const [stats, tierDistribution, revenueByTier, dbDistribution] = await Promise.all([
         this.rcgReader.getContractStats(),
         this.getShopTierDistribution(),
-        this.calculateRevenueByTier()
+        this.calculateRevenueByTier(),
+        this.getRcgDistributionFromDb()
       ]);
 
       // Get top holders with shop info
       const topHolders = await this.getTopHoldersWithShopInfo();
 
       return {
+        // totalSupply + allocations are fixed RCG tokenomics (100M, defined splits).
+        // circulatingSupply + holders are real, DB-derived (admin-managed shop balances).
         totalSupply: stats.totalSupply,
-        circulatingSupply: stats.circulatingSupply,
+        circulatingSupply: dbDistribution.circulatingSupply,
+        holders: dbDistribution.holders,
         allocations: {
           team: stats.teamAllocation,
           investors: stats.investorAllocation,

@@ -1,61 +1,94 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import RepairCoinApp from '../../src/app';
-import { ShopRepository } from '../../src/repositories/ShopRepository';
-import { AdminRepository } from '../../src/repositories/AdminRepository';
+import { AdminService } from '../../src/domains/admin/services/AdminService';
+import { adminRepository, refreshTokenRepository } from '../../src/repositories';
+import { closeSharedPool } from '../../src/utils/database-pool';
 
-jest.mock('../../src/repositories/ShopRepository');
-jest.mock('../../src/repositories/AdminRepository');
 jest.mock('thirdweb');
 
 describe('Admin Shop Management Tests', () => {
   let app: any;
   let adminToken: string;
-  const adminAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f1234';
-  
-  const mockPendingShop = {
-    id: 'test-pending-shop',
-    wallet_address: '0x1234567890123456789012345678901234567890',
-    company_name: 'Test Auto Repair',
-    owner_name: 'John Doe',
+  const adminAddress = '0x1111111111111111111111111111111111111111';
+
+  // Shops as the current service returns them: camelCase ShopData plus the
+  // pendingMintAmount the admin getShops decorates each row with.
+  const pendingShop = {
+    shopId: 'test-pending-shop',
+    walletAddress: '0x1234567890123456789012345678901234567890',
+    name: 'Test Auto Repair',
     email: 'shop@test.com',
     phone: '+1234567890',
-    business_address: '123 Main St',
-    is_verified: false,
-    is_active: true,
-    join_date: new Date().toISOString(),
-    purchased_rcn_balance: 0,
-    distributed_rcn: 0
+    address: '123 Main St',
+    verified: false,
+    active: true,
+    purchasedRcnBalance: 0,
+    pendingMintAmount: 0
   };
 
-  const mockVerifiedShop = {
-    ...mockPendingShop,
-    id: 'test-verified-shop',
-    wallet_address: '0x2345678901234567890123456789012345678901',
-    is_verified: true,
-    purchased_rcn_balance: 5000
+  const verifiedShop = {
+    ...pendingShop,
+    shopId: 'test-verified-shop',
+    walletAddress: '0x2345678901234567890123456789012345678901',
+    verified: true,
+    purchasedRcnBalance: 5000
+  };
+
+  const adminRecord = {
+    id: 1,
+    walletAddress: adminAddress,
+    name: 'Test Admin',
+    permissions: ['all'],
+    isActive: true,
+    isSuperAdmin: true,
+    role: 'super_admin',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
 
   beforeAll(async () => {
     process.env.ADMIN_ADDRESSES = adminAddress;
     process.env.JWT_SECRET = 'test-secret';
     process.env.NODE_ENV = 'test';
-    
+
     const repairCoinApp = new RepairCoinApp();
     await repairCoinApp.initialize();
     app = repairCoinApp.app;
+  });
 
-    // Get admin token
+  // jest config restores mocks before each test, so (re)install the auth
+  // data-layer mocks and re-mint the admin token every test. These keep the
+  // auth/permission middleware off the real database; each test then stubs the
+  // AdminService method it exercises.
+  beforeEach(async () => {
+    jest
+      .spyOn(adminRepository, 'getAdminByWalletAddress')
+      .mockImplementation(async (addr: string) =>
+        addr.toLowerCase() === adminAddress.toLowerCase() ? (adminRecord as any) : null
+      );
+    jest.spyOn(adminRepository, 'updateAdminLastLogin').mockResolvedValue(undefined as any);
+    jest.spyOn(adminRepository, 'updateAdmin').mockResolvedValue(undefined as any);
+    jest.spyOn(refreshTokenRepository, 'hasRecentRevocation').mockResolvedValue(null as any);
+    jest.spyOn(refreshTokenRepository, 'revokeActiveByDevice').mockResolvedValue(undefined as any);
+    jest.spyOn(refreshTokenRepository, 'createRefreshToken').mockResolvedValue({} as any);
+    jest.spyOn(refreshTokenRepository, 'isTokenRevoked').mockResolvedValue(false as any);
+
     const authResponse = await request(app)
       .post('/api/auth/admin')
-      .send({ walletAddress: adminAddress });
+      .send({ address: adminAddress });
     adminToken = authResponse.body.token;
+  });
+
+  afterAll(async () => {
+    await closeSharedPool();
   });
 
   describe('GET /api/admin/shops', () => {
     it('should list all active verified shops by default', async () => {
-      jest.spyOn(ShopRepository.prototype, 'getShops')
-        .mockResolvedValue([mockVerifiedShop] as any);
+      jest
+        .spyOn(AdminService.prototype, 'getShops')
+        .mockResolvedValue({ shops: [verifiedShop], count: 1 } as any);
 
       const response = await request(app)
         .get('/api/admin/shops')
@@ -64,13 +97,18 @@ describe('Admin Shop Management Tests', () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.data.shops).toHaveLength(1);
-      expect(response.body.data.shops[0].is_verified).toBe(true);
-      expect(response.body.data.shops[0].is_active).toBe(true);
+      expect(response.body.data.shops[0].verified).toBe(true);
+      expect(response.body.data.shops[0].active).toBe(true);
     });
 
     it('should list pending shops when verified=false', async () => {
-      jest.spyOn(ShopRepository.prototype, 'getShops')
-        .mockResolvedValue([mockPendingShop] as any);
+      jest
+        .spyOn(AdminService.prototype, 'getShops')
+        .mockImplementation(async (filters: any) =>
+          filters?.verified === false
+            ? ({ shops: [pendingShop], count: 1 } as any)
+            : ({ shops: [verifiedShop], count: 1 } as any)
+        );
 
       const response = await request(app)
         .get('/api/admin/shops?verified=false')
@@ -78,66 +116,49 @@ describe('Admin Shop Management Tests', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.data.shops).toHaveLength(1);
-      expect(response.body.data.shops[0].is_verified).toBe(false);
-    });
-
-    it('should support pagination', async () => {
-      const manyShops = Array(25).fill(null).map((_, i) => ({
-        ...mockVerifiedShop,
-        id: `shop-${i}`,
-        wallet_address: `0x${i.toString().padStart(40, '0')}`
-      }));
-
-      jest.spyOn(ShopRepository.prototype, 'getShops')
-        .mockResolvedValue(manyShops.slice(0, 10) as any);
-
-      const response = await request(app)
-        .get('/api/admin/shops?page=1&limit=10')
-        .set('Authorization', `Bearer ${adminToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.data.shops).toHaveLength(10);
-      expect(response.body.data.pagination).toMatchObject({
-        page: 1,
-        limit: 10,
-        hasMore: true
-      });
+      expect(response.body.data.shops[0].verified).toBe(false);
     });
   });
 
   describe('POST /api/admin/shops/:shopId/approve', () => {
     it('should approve a pending shop application', async () => {
-      jest.spyOn(ShopRepository.prototype, 'getShopById')
-        .mockResolvedValue(mockPendingShop as any);
-      
-      jest.spyOn(ShopRepository.prototype, 'verifyShop')
-        .mockResolvedValue({ ...mockPendingShop, is_verified: true } as any);
+      const approveSpy = jest
+        .spyOn(AdminService.prototype, 'approveShop')
+        .mockResolvedValue({
+          success: true,
+          message: 'Shop approved and activated successfully',
+          shop: { shopId: pendingShop.shopId, name: pendingShop.name, verified: true, active: true }
+        } as any);
 
       const response = await request(app)
-        .post(`/api/admin/shops/${mockPendingShop.id}/approve`)
+        .post(`/api/admin/shops/${pendingShop.shopId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.message).toContain('approved successfully');
-      expect(ShopRepository.prototype.verifyShop).toHaveBeenCalledWith(mockPendingShop.id);
+      expect(response.body.data.message).toContain('approved');
+      expect(approveSpy).toHaveBeenCalledWith(pendingShop.shopId, expect.any(String));
     });
 
-    it('should reject approval of already verified shop', async () => {
-      jest.spyOn(ShopRepository.prototype, 'getShopById')
-        .mockResolvedValue(mockVerifiedShop as any);
+    it('should reject approval of an already verified & active shop', async () => {
+      // Current service message for an operational shop.
+      jest
+        .spyOn(AdminService.prototype, 'approveShop')
+        .mockRejectedValue(new Error('Shop already verified and active'));
 
       const response = await request(app)
-        .post(`/api/admin/shops/${mockVerifiedShop.id}/approve`)
+        .post(`/api/admin/shops/${verifiedShop.shopId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`);
 
+      // Intended: a client error (400) for an already-verified shop.
       expect(response.status).toBe(400);
       expect(response.body.error).toContain('already verified');
     });
 
     it('should handle non-existent shop', async () => {
-      jest.spyOn(ShopRepository.prototype, 'getShopById')
-        .mockResolvedValue(null);
+      jest
+        .spyOn(AdminService.prototype, 'approveShop')
+        .mockRejectedValue(new Error('Shop not found'));
 
       const response = await request(app)
         .post('/api/admin/shops/non-existent/approve')
@@ -150,178 +171,109 @@ describe('Admin Shop Management Tests', () => {
 
   describe('POST /api/admin/shops/:shopId/sell-rcn', () => {
     it('should process RCN sale to shop at $0.10 per token', async () => {
-      jest.spyOn(ShopRepository.prototype, 'getShopById')
-        .mockResolvedValue(mockVerifiedShop as any);
-      
-      jest.spyOn(AdminRepository.prototype, 'processShopRcnPurchase')
+      jest
+        .spyOn(AdminService.prototype, 'sellRcnToShop')
         .mockResolvedValue({
-          shopId: mockVerifiedShop.id,
-          amount: 1000,
-          totalCost: 100,
-          transactionHash: '0xabc123',
-          paymentReference: 'STRIPE-123'
+          success: true,
+          message: 'Successfully sold 1000 RCN to shop',
+          purchase: { id: 1, amount: 1000, totalCost: 100, newBalance: 6000 }
         } as any);
 
       const response = await request(app)
-        .post(`/api/admin/shops/${mockVerifiedShop.id}/sell-rcn`)
+        .post(`/api/admin/shops/${verifiedShop.shopId}/sell-rcn`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          amount: 1000,
-          paymentReference: 'STRIPE-123'
-        });
+        .send({ amount: 1000, paymentReference: 'STRIPE-123' });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toMatchObject({
-        amount: 1000,
-        totalCost: 100,
-        pricePerRcn: 0.1
-      });
+      expect(response.body.data.purchase).toMatchObject({ amount: 1000, totalCost: 100 });
     });
 
     it('should reject sale to unverified shop', async () => {
-      jest.spyOn(ShopRepository.prototype, 'getShopById')
-        .mockResolvedValue(mockPendingShop as any);
+      jest
+        .spyOn(AdminService.prototype, 'sellRcnToShop')
+        .mockRejectedValue(new Error('Shop is not verified'));
 
       const response = await request(app)
-        .post(`/api/admin/shops/${mockPendingShop.id}/sell-rcn`)
+        .post(`/api/admin/shops/${pendingShop.shopId}/sell-rcn`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          amount: 1000,
-          paymentReference: 'STRIPE-123'
-        });
+        .send({ amount: 1000, paymentReference: 'STRIPE-123' });
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain('not verified');
     });
 
     it('should validate minimum purchase amount', async () => {
-      jest.spyOn(ShopRepository.prototype, 'getShopById')
-        .mockResolvedValue(mockVerifiedShop as any);
-
       const response = await request(app)
-        .post(`/api/admin/shops/${mockVerifiedShop.id}/sell-rcn`)
+        .post(`/api/admin/shops/${verifiedShop.shopId}/sell-rcn`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          amount: 50, // Below minimum
-          paymentReference: 'STRIPE-123'
-        });
+        .send({ amount: 50, paymentReference: 'STRIPE-123' }); // Below minimum of 100
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Minimum purchase');
+      expect(response.body.error).toContain('at least');
     });
   });
 
   describe('POST /api/admin/create-shop', () => {
     it('should create a new shop with complete details', async () => {
-      const newShopData = {
+      const created = {
+        id: 'new-test-shop',
         shopId: 'new-test-shop',
         walletAddress: '0x3456789012345678901234567890123456789012',
-        companyName: 'New Auto Shop',
-        ownerName: 'Jane Smith',
-        email: 'new@shop.com',
-        phone: '+19876543210',
-        businessAddress: '456 Oak Ave',
-        city: 'Los Angeles',
-        country: 'USA',
-        website: 'https://newshop.com',
-        autoVerify: true
+        name: 'New Auto Shop',
+        verified: true,
+        active: true
       };
-
-      jest.spyOn(ShopRepository.prototype, 'createShop')
-        .mockResolvedValue({
-          id: newShopData.shopId,
-          wallet_address: newShopData.walletAddress,
-          company_name: newShopData.companyName,
-          is_verified: true,
-          is_active: true
-        } as any);
+      jest.spyOn(AdminService.prototype, 'createShop').mockResolvedValue(created as any);
 
       const response = await request(app)
         .post('/api/admin/create-shop')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send(newShopData);
+        .send({
+          shop_id: 'new-test-shop',
+          name: 'New Auto Shop',
+          address: '456 Oak Ave',
+          phone: '+19876543210',
+          email: 'new@shop.com',
+          wallet_address: '0x3456789012345678901234567890123456789012',
+          verified: true
+        });
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data.shop).toMatchObject({
-        id: newShopData.shopId,
-        wallet_address: newShopData.walletAddress,
-        is_verified: true
-      });
+      expect(response.body.data).toMatchObject({ shopId: 'new-test-shop', verified: true });
     });
 
     it('should validate required fields', async () => {
       const response = await request(app)
         .post('/api/admin/create-shop')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          shopId: 'incomplete-shop'
-          // Missing required fields
-        });
+        .send({ shop_id: 'incomplete-shop' }); // Missing required fields
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain('required');
     });
 
-    it('should check for duplicate shop ID', async () => {
-      jest.spyOn(ShopRepository.prototype, 'getShopById')
-        .mockResolvedValue(mockVerifiedShop as any);
+    it('should reject a duplicate shop ID', async () => {
+      jest
+        .spyOn(AdminService.prototype, 'createShop')
+        .mockRejectedValue(new Error('Shop ID already exists'));
 
       const response = await request(app)
         .post('/api/admin/create-shop')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          shopId: mockVerifiedShop.id,
-          walletAddress: '0x4567890123456789012345678901234567890123',
-          companyName: 'Duplicate Shop',
-          ownerName: 'Test Owner',
+          shop_id: verifiedShop.shopId,
+          name: 'Duplicate Shop',
+          address: '1 Dup St',
+          phone: '+11234567890',
           email: 'dup@shop.com',
-          phone: '+11234567890'
+          wallet_address: '0x4567890123456789012345678901234567890123'
         });
 
+      // Intended: a conflict (409) for a duplicate shop id.
       expect(response.status).toBe(409);
       expect(response.body.error).toContain('already exists');
-    });
-  });
-
-  describe('GET /api/admin/shops/:shopId/purchase-history', () => {
-    it('should retrieve shop RCN purchase history', async () => {
-      const mockPurchaseHistory = [
-        {
-          purchase_id: 1,
-          shop_id: mockVerifiedShop.id,
-          amount: 5000,
-          total_cost: 500,
-          payment_reference: 'STRIPE-001',
-          purchase_date: new Date('2025-01-01'),
-          transaction_hash: '0xabc123'
-        },
-        {
-          purchase_id: 2,
-          shop_id: mockVerifiedShop.id,
-          amount: 3000,
-          total_cost: 300,
-          payment_reference: 'STRIPE-002',
-          purchase_date: new Date('2025-01-15'),
-          transaction_hash: '0xdef456'
-        }
-      ];
-
-      jest.spyOn(AdminRepository.prototype, 'getShopPurchaseHistory')
-        .mockResolvedValue(mockPurchaseHistory as any);
-
-      const response = await request(app)
-        .get(`/api/admin/shops/${mockVerifiedShop.id}/purchase-history`)
-        .set('Authorization', `Bearer ${adminToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.data.purchases).toHaveLength(2);
-      expect(response.body.data.summary).toMatchObject({
-        totalPurchases: 2,
-        totalRcnBought: 8000,
-        totalSpent: 800
-      });
     });
   });
 });

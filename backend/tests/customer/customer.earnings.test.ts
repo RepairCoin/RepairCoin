@@ -610,10 +610,12 @@ describe("Customer Earnings and Redemption Tests", () => {
         .spyOn(CustomerRepository.prototype, "createCustomer")
         .mockResolvedValue(newCustomer as any);
 
-      // Mock referral code lookup (used by CustomerService via this.customerRepository instance)
+      // Mock referral code lookup (used by CustomerService via this.customerRepository instance).
+      // Only the referrer lookup should match; the later generateUniqueReferralCode()
+      // lookup must return no match (undefined) so a unique code can be issued.
       jest
         .spyOn(CustomerRepository.prototype, "getCustomerByReferralCode")
-        .mockResolvedValue(mockCustomer as any);
+        .mockResolvedValueOnce(mockCustomer as any);
 
       const response = await request(app).post("/api/customers/register").send({
         walletAddress: "0x5555555555555555555555555555555555555555",

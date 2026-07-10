@@ -299,6 +299,7 @@ export class CalendarRepository extends BaseRepository {
           so.booking_date,
           so.booking_time_slot,
           so.booking_end_time,
+          so.location_id,
           ss.service_name,
           ss.service_description,
           c.customer_name,

@@ -53,7 +53,7 @@ import { bookingCleanupService } from './services/BookingCleanupService';
 // WebSocket imports
 import { Server as WebSocketServer } from 'ws';
 import { Server as HTTPServer } from 'http';
-import { WebSocketManager } from './services/WebSocketManager';
+import { WebSocketManager, setWebSocketManagerInstance } from './services/WebSocketManager';
 
 // Your existing route imports (for non-domain routes)
 import healthRoutes from './routes/health';
@@ -295,6 +295,13 @@ class RepairCoinApp {
     // Raw body for the Meta Lead Ads webhook (X-Hub-Signature-256 HMAC needs the
     // exact bytes). MUST be before JSON parsing. (Ads System Stage 4.)
     this.app.use('/api/ads/webhooks/meta/leads', express.raw({ type: '*/*' }));
+
+    // Raw body for the Resend email webhook (Svix HMAC needs the exact bytes).
+    // MUST be before JSON parsing. (Lead follow-up Phase 4.)
+    this.app.use('/api/ads/webhooks/resend', express.raw({ type: '*/*' }));
+
+    // Raw body for the Resend INBOUND email webhook (Svix HMAC). MUST be before JSON parsing.
+    this.app.use('/api/ads/webhooks/resend-inbound', express.raw({ type: '*/*' }));
 
     // JSON parsing for all other routes
     this.app.use(express.json({ limit: '10mb' }));
@@ -729,6 +736,10 @@ class RepairCoinApp {
     const wss = new WebSocketServer({ server: this.server });
     this.wsManager = new WebSocketManager(wss);
 
+    // Register the singleton accessor so per-request services (PaymentService,
+    // constructed per-route) can broadcast in-app notifications.
+    setWebSocketManagerInstance(this.wsManager);
+
     // Attach WebSocket manager to NotificationDomain
     const notificationDomain = domainRegistry.getAllDomains().find(
       d => d.name === 'notifications'
@@ -759,6 +770,10 @@ class RepairCoinApp {
       aiAgentDomain.setWebSocketManager(this.wsManager);
       logger.info('✅ WebSocket manager attached to AIAgentDomain');
     }
+
+    // AppointmentReminderService now emits through NotificationGateway, which
+    // broadcasts over the WebSocket singleton (setWebSocketManagerInstance
+    // above) — no per-service WS injection needed.
 
     this.server.listen(port, () => {
       console.log('\n==============================================');
@@ -805,7 +820,7 @@ class RepairCoinApp {
         cleanupService.scheduleCleanup(24, {
           enableTransactionArchiving: false
         });
-        logger.info('🧹 Cleanup service scheduled (daily, webhook cleanup only)');
+        logger.info('🧹 Cleanup service scheduled (daily: webhook logs, refresh tokens, push tokens)');
 
         // Start appointment reminder service - runs every hour for 2h reminder accuracy
         appointmentReminderService.scheduleReminders(1);
@@ -893,6 +908,29 @@ class RepairCoinApp {
           }
         }, 5 * 60 * 1000); // 5 minutes
         logger.info('📊 Platform statistics refresh scheduled (every 5 minutes)');
+
+        // Fraud & Abuse Detection — nightly scan over the ledger + reviews.
+        // Surfaces suspicious patterns into fraud_findings for admin review.
+        // See docs/FRAUD_DETECTION_SPEC.md.
+        setInterval(async () => {
+          try {
+            const { getFraudScanService } = await import('./services/FraudScanService');
+            await getFraudScanService().runScan();
+          } catch (error) {
+            logger.error('Fraud scan error:', error);
+          }
+        }, 24 * 60 * 60 * 1000); // daily
+        // Also run once shortly after boot so a fresh deploy populates findings
+        // (the 24h interval alone would never fire on frequently-restarted hosts).
+        setTimeout(async () => {
+          try {
+            const { getFraudScanService } = await import('./services/FraudScanService');
+            await getFraudScanService().runScan();
+          } catch (error) {
+            logger.error('Initial fraud scan error:', error);
+          }
+        }, 60 * 1000); // 60s after boot
+        logger.info('🛡️ Fraud detection scan scheduled (daily + once on boot)');
 
         // Start error monitoring
         monitorErrors();

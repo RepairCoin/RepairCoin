@@ -112,6 +112,9 @@ export default function UnlockModal({
             placeholderTextColor="#71717A"
             secureTextEntry
             autoFocus
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
             className="text-white text-base bg-zinc-800 rounded-xl px-4 py-3 border border-zinc-700 mb-2"
           />
 

@@ -1,7 +1,8 @@
 import React from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
-import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { getTierConfig } from "@/shared/utilities/getTier";
+import TierBadge from "@/shared/components/ui/TierBadge";
 import { CustomerCardProps } from "../../services/shop.interface";
 
 const getInitials = (name: string) => {
@@ -119,22 +120,7 @@ function CustomerCard({
               {/* Tier Badge & Last Activity */}
               <View className="flex-row items-center gap-2">
                 {/* Tier Badge */}
-                <View
-                  className="flex-row items-center px-2.5 py-1 rounded-full"
-                  style={{ backgroundColor: tierConfig.bgColor }}
-                >
-                  <MaterialCommunityIcons
-                    name={tierConfig.icon as any}
-                    size={12}
-                    color={tierConfig.color}
-                  />
-                  <Text
-                    className="text-xs font-semibold ml-1"
-                    style={{ color: tierConfig.color }}
-                  >
-                    {tier?.toUpperCase() || "BRONZE"}
-                  </Text>
-                </View>
+                <TierBadge tier={tier} />
 
                 {/* Suspended Badge */}
                 {isSuspended && (

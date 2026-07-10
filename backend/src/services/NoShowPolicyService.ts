@@ -56,6 +56,16 @@ export interface CustomerNoShowStatus {
   restrictions: string[];
   isHomeShop?: boolean;
   maxRcnRedemptionPercent?: number;
+  // Set when the customer was recently de-escalated a tier (e.g. deposit_required
+  // → caution) by completing enough successful appointments. Lets the UI confirm
+  // the completion "counted" even though successfulAppointmentsSinceTier3 resets
+  // to 0 after each reduction.
+  recentReduction?: {
+    previousTier: NoShowTier;
+    newTier: NoShowTier;
+    at: Date;
+    fullReset: boolean;
+  };
 }
 
 export interface NoShowHistoryEntry {
@@ -297,6 +307,11 @@ export class NoShowPolicyService {
       restrictions.push(`After suspension: Must book at least ${defaultPolicy.depositAdvanceBookingHours} hours in advance`);
     }
 
+    const recentReduction = await this.getRecentReduction(
+      customerAddress,
+      customer.lastNoShowAt ? new Date(customer.lastNoShowAt) : undefined
+    );
+
     return {
       customerAddress: customer.customerAddress,
       noShowCount: customer.noShowCount || 0,
@@ -308,8 +323,63 @@ export class NoShowPolicyService {
       canBook,
       requiresDeposit: customer.depositRequired || false,
       minimumAdvanceHours,
-      restrictions
+      restrictions,
+      recentReduction
     };
+  }
+
+  /**
+   * Look up the customer's most recent tier de-escalation (from a `tier_restored`
+   * notification) so the UI can confirm a just-completed appointment counted.
+   * Only returns a reduction that is recent (within the window) and that happened
+   * after the customer's last no-show — otherwise the celebratory banner would be
+   * stale or contradicted by a more recent penalty.
+   */
+  private async getRecentReduction(
+    customerAddress: string,
+    lastNoShowAt?: Date
+  ): Promise<CustomerNoShowStatus['recentReduction']> {
+    const WINDOW_DAYS = 7;
+    try {
+      const query = `
+        SELECT metadata, created_at
+        FROM notifications
+        WHERE receiver_address = $1
+          AND notification_type = 'tier_restored'
+          AND created_at >= NOW() - INTERVAL '${WINDOW_DAYS} days'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `;
+      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+
+      const row = result.rows[0];
+      const at = new Date(row.created_at);
+
+      // A no-show after the reduction means the customer has since regressed —
+      // don't show a "restrictions reduced" message that's no longer true.
+      if (lastNoShowAt && lastNoShowAt > at) {
+        return undefined;
+      }
+
+      const metadata = row.metadata || {};
+      if (!metadata.previousTier || !metadata.newTier) {
+        return undefined;
+      }
+
+      return {
+        previousTier: metadata.previousTier,
+        newTier: metadata.newTier,
+        at,
+        fullReset: metadata.fullReset === true
+      };
+    } catch (error) {
+      // Non-fatal: the celebratory banner is a nicety, never block status.
+      logger.error('Failed to load recent tier reduction (non-fatal):', error);
+      return undefined;
+    }
   }
 
   /**

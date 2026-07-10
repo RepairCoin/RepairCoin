@@ -6,7 +6,7 @@
 // falls back to the passive status note (the admin sets connection up manually). Dark raw-
 // tailwind to match the sibling ads panels.
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Plug, CheckCircle2, Link2 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -62,6 +62,19 @@ export const MetaConnectCard: React.FC<{ onChanged?: () => void }> = ({ onChange
     const qs = params.toString();
     window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
   }, [openPicker]);
+
+  // Auto-open the picker when the shop authorized Meta but hasn't picked an account yet
+  // (mid-connect). This is the connection-state fallback for the unreliable ?meta=select deep
+  // link: however the shop reaches this card (the ShopDashboard connection-state effect lands
+  // them on the Ads tab), the picker opens so they can finish in one step. Fires once.
+  const pickerAutoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (pickerAutoOpenedRef.current) return;
+    if (conn?.enabled && conn.hasToken && !conn.connected && !picking) {
+      pickerAutoOpenedRef.current = true;
+      void openPicker();
+    }
+  }, [conn, picking, openPicker]);
 
   const connect = async () => {
     setBusy(true);

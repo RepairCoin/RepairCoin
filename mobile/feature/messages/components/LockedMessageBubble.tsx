@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ type LockedMessageBubbleProps = {
   isCustomer: boolean;
   unlockSession?: UnlockSession;
   onRequestUnlock?: (message: Message) => void;
+  onLongPress?: (message: Message) => void;
 };
 
 export default function LockedMessageBubble({
@@ -30,12 +31,14 @@ export default function LockedMessageBubble({
   isCustomer,
   unlockSession,
   onRequestUnlock,
+  onLongPress,
 }: LockedMessageBubbleProps) {
   const cached = unlockSession?.getUnlocked(message.messageId);
 
   const [isUnlocked, setIsUnlocked] = useState(!!cached);
   const [decryptedText, setDecryptedText] = useState<string | null>(cached?.text ?? null);
   const [decryptedAttachmentUrls, setDecryptedAttachmentUrls] = useState<string[]>(cached?.attachmentUrls ?? []);
+  const manuallyLocked = useRef(false);
 
   const senderInitial = isCustomer
     ? conversation?.shopName?.charAt(0).toUpperCase()
@@ -45,15 +48,19 @@ export default function LockedMessageBubble({
   const hint = encryption?.hint as string | undefined;
 
   const handleLock = () => {
+    manuallyLocked.current = true;
     setIsUnlocked(false);
     setDecryptedText(null);
     setDecryptedAttachmentUrls([]);
   };
 
-  // Called from ChatScreen after successful unlock
-  // Check session cache on each render in case it was unlocked via modal
-  if (!isUnlocked && cached) {
-    // Session was populated by the modal — sync local state
+  const handleUnlockPress = () => {
+    manuallyLocked.current = false;
+    onRequestUnlock?.(message);
+  };
+
+  // Sync from session cache when unlocked via modal (but not after user manually re-locked)
+  if (!isUnlocked && cached && !manuallyLocked.current) {
     setIsUnlocked(true);
     setDecryptedText(cached.text);
     setDecryptedAttachmentUrls(cached.attachmentUrls);
@@ -70,7 +77,10 @@ export default function LockedMessageBubble({
         )}
 
         <View className={`max-w-[70%] ${isOwnMessage ? "items-end" : "items-start"}`}>
-          <View
+          <Pressable
+            onPress={() => {}}
+            onLongPress={() => isOwnMessage && onLongPress?.(message)}
+            delayLongPress={400}
             className={`rounded-2xl px-4 py-2 border ${
               isOwnMessage
                 ? "bg-amber-500/20 border-amber-500/30"
@@ -109,7 +119,7 @@ export default function LockedMessageBubble({
             {decryptedText && (
               <Text className="text-sm text-white">{decryptedText}</Text>
             )}
-          </View>
+          </Pressable>
 
           <View className="flex-row items-center mt-1">
             <Text className="text-xs text-zinc-500">{formatMessageTime(message.createdAt)}</Text>
@@ -138,7 +148,9 @@ export default function LockedMessageBubble({
 
       <View className={`max-w-[70%] ${isOwnMessage ? "items-end" : "items-start"}`}>
         <Pressable
-          onPress={() => onRequestUnlock?.(message)}
+          onPress={handleUnlockPress}
+          onLongPress={() => isOwnMessage && onLongPress?.(message)}
+          delayLongPress={400}
           className={`rounded-2xl px-4 py-3 border ${
             isOwnMessage
               ? "bg-amber-500/10 border-amber-500/30"

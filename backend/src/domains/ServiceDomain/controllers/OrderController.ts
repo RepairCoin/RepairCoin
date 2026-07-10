@@ -14,6 +14,7 @@ import noShowPolicyService from '../../../services/NoShowPolicyService';
 import { EmailService } from '../../../services/EmailService';
 import { getExpiredOrderService } from '../../../services/ExpiredOrderService';
 import { getStripeService } from '../../../services/StripeService';
+import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
 
 export class OrderController {
   private paymentService: PaymentService;
@@ -22,6 +23,7 @@ export class OrderController {
   private serviceRepository: ServiceRepository;
   private groupService: AffiliateShopGroupService;
   private emailService: EmailService;
+  private googleCalendarService: GoogleCalendarService;
 
   constructor(paymentService: PaymentService) {
     this.paymentService = paymentService;
@@ -30,6 +32,7 @@ export class OrderController {
     this.serviceRepository = new ServiceRepository();
     this.groupService = new AffiliateShopGroupService();
     this.emailService = new EmailService();
+    this.googleCalendarService = new GoogleCalendarService();
   }
 
   /**
@@ -43,7 +46,7 @@ export class OrderController {
         return res.status(401).json({ success: false, error: 'Customer authentication required' });
       }
 
-      const { serviceId, bookingDate, bookingTime, rcnToRedeem, notes, conversationId } = req.body;
+      const { serviceId, bookingDate, bookingTime, rcnToRedeem, notes, conversationId, locationId } = req.body;
 
       if (!serviceId) {
         return res.status(400).json({ success: false, error: 'Service ID is required' });
@@ -65,6 +68,7 @@ export class OrderController {
         bookingTime,
         rcnToRedeem: rcnToRedeem ? parseFloat(rcnToRedeem) : undefined,
         notes,
+        locationId: typeof locationId === 'string' && locationId ? locationId : undefined,
         // Optional — present only when the booking came from an AI chat card.
         conversationId: typeof conversationId === 'string' && conversationId ? conversationId : undefined
       });
@@ -94,7 +98,7 @@ export class OrderController {
         return res.status(401).json({ success: false, error: 'Customer authentication required' });
       }
 
-      const { serviceId, bookingDate, bookingTime, rcnToRedeem, notes } = req.body;
+      const { serviceId, bookingDate, bookingTime, rcnToRedeem, notes, locationId } = req.body;
 
       if (!serviceId) {
         return res.status(400).json({ success: false, error: 'Service ID is required' });
@@ -106,7 +110,8 @@ export class OrderController {
         bookingDate: bookingDate ? new Date(bookingDate) : undefined,
         bookingTime,
         rcnToRedeem: rcnToRedeem ? parseFloat(rcnToRedeem) : undefined,
-        notes
+        notes,
+        locationId: typeof locationId === 'string' && locationId ? locationId : undefined
       });
 
       res.status(201).json({
@@ -216,7 +221,9 @@ export class OrderController {
         status: statusValues && statusValues.length === 1 ? statusValues[0] : statusValues,
         startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
         endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
-        customerAddress: req.query.customerAddress as string | undefined
+        customerAddress: req.query.customerAddress as string | undefined,
+        // Optional location scope from the shop's location switcher (omitted = all locations).
+        locationId: req.query.locationId as string | undefined
       };
 
       const options = {
@@ -251,7 +258,10 @@ export class OrderController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const counts = await this.orderRepository.getOrderCountsByShop(shopId);
+      const counts = await this.orderRepository.getOrderCountsByShop(
+        shopId,
+        (req.query.locationId as string) || undefined
+      );
 
       res.json({
         success: true,
@@ -907,6 +917,9 @@ export class OrderController {
 
       // Mark as no-show in orders table
       await this.orderRepository.markAsNoShow(id, notes);
+
+      // Relabel the calendar event as a no-show (no-op if not synced)
+      await this.googleCalendarService.markEventNoShow(id, shopId);
 
       // Record in no-show history and update customer tier
       try {

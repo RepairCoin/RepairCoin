@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { BaseSidebar, SectionMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem, SidebarSection } from "./useSidebar";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
 interface CustomerSidebarProps {
   isOpen?: boolean;
@@ -55,6 +56,8 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     onCollapseChange,
     defaultExpandedSections: ["dashboard", "services", "rewards", "discovery", "account"],
   });
+
+  const blockchainEnabled = useBlockchainEnabled();
 
   // Customer sections definition - organized to match Figma design
   const customerSections: SidebarSection[] = [
@@ -107,12 +110,15 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
           icon: <UserPlus className="w-5 h-5" />,
           tabId: "referrals",
         },
-        {
-          title: "Gift Tokens",
-          href: "/customer?tab=gifting",
-          icon: <Gift className="w-5 h-5" />,
-          tabId: "gifting",
-        },
+        // Gift Tokens is blockchain-only (sends tokens to a wallet) — hidden in database-only mode.
+        ...(blockchainEnabled
+          ? [{
+              title: "Gift Tokens",
+              href: "/customer?tab=gifting",
+              icon: <Gift className="w-5 h-5" />,
+              tabId: "gifting",
+            }]
+          : []),
       ],
     },
     {

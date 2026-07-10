@@ -24,6 +24,9 @@ export interface CustomerData {
   referralCode?: string;
   referredBy?: string | null;
   profile_image_url?: string;
+  // Migration origin (set for customers imported from another platform; null for native signups)
+  importSource?: string | null;
+  externalRef?: string | null;
   // Enhanced balance tracking for hybrid database/blockchain system
   currentRcnBalance?: number;
   pendingMintBalance?: number;

@@ -12,9 +12,24 @@ import { getSharedPool } from '../../../utils/database-pool';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { EmailService } from '../../../services/EmailService';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
+import { eventBus, createDomainEvent } from '../../../events/EventBus';
+import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
+import { resolveBookingLocationId, getCalendarLocationLabel } from '../../../utils/multiLocationEntitlement';
+import { AppointmentService } from '../services/AppointmentService';
 import Stripe from 'stripe';
 
 const pool = getSharedPool();
+const googleCalendarService = new GoogleCalendarService();
+const appointmentService = new AppointmentService();
+
+// Add minutes to an HH:MM (or HH:MM:SS) wall time, returning HH:MM.
+const addMinutesToTime = (time: string, minutes: number): string => {
+  const [h, m] = time.split(':').map(Number);
+  const total = h * 60 + m + minutes;
+  const hh = String(Math.floor(total / 60) % 24).padStart(2, '0');
+  const mm = String(total % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+};
 const notificationService = new NotificationService();
 const emailService = new EmailService();
 
@@ -41,8 +56,9 @@ interface ManualBookingRequest {
   bookingDate: string; // YYYY-MM-DD
   bookingTimeSlot: string; // HH:MM:SS
   bookingEndTime?: string; // HH:MM:SS
-  paymentStatus: 'paid' | 'pending' | 'unpaid' | 'send_link' | 'qr_code';
+  paymentStatus: 'paid' | 'unpaid' | 'send_link' | 'qr_code';
   notes?: string;
+  locationId?: string;
   createNewCustomer?: boolean;
 }
 
@@ -93,6 +109,7 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
       bookingEndTime,
       paymentStatus,
       notes,
+      locationId,
       createNewCustomer
     }: ManualBookingRequest = req.body;
 
@@ -109,8 +126,8 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
     console.log('Step 5: Basic validation passed');
 
     // Validate payment status
-    if (!['paid', 'pending', 'unpaid', 'send_link', 'qr_code'].includes(paymentStatus)) {
-      res.status(400).json({ error: 'Invalid payment status. Must be: paid, pending, unpaid, send_link, or qr_code' });
+    if (!['paid', 'unpaid', 'send_link', 'qr_code'].includes(paymentStatus)) {
+      res.status(400).json({ error: 'Invalid payment status. Must be: paid, unpaid, send_link, or qr_code' });
       return;
     }
 
@@ -197,14 +214,19 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
 
     const customerData = customer.rows[0];
 
-    // Check for time slot conflicts
+    // Resolve which location this booking belongs to (falls back to primary; ignores the
+    // requested location for shops without the paid multi-location entitlement).
+    const resolvedLocationId = await resolveBookingLocationId(shopId, locationId);
+
+    // Check for time slot conflicts within the same branch
     const conflictCheck = await pool.query(
       `SELECT order_id FROM service_orders
        WHERE shop_id = $1
        AND booking_date = $2
        AND booking_time_slot = $3
-       AND status NOT IN ('cancelled', 'refunded')`,
-      [shopId, bookingDate, bookingTimeSlot]
+       AND status NOT IN ('cancelled', 'refunded')
+       AND ($4::uuid IS NULL OR location_id = $4::uuid)`,
+      [shopId, bookingDate, bookingTimeSlot, resolvedLocationId]
     );
 
     if (conflictCheck.rows.length > 0) {
@@ -215,15 +237,25 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Check shop availability configuration (optional - can be added later)
-    // For now, we'll allow any time slot booking
+    // Reject times outside the branch's operating hours (closed day/holiday, outside open–close,
+    // during a break, or a blocked weekend). Scoped to the booking's location.
+    const withinHours = await appointmentService.isWithinOperatingHours(
+      shopId, bookingDate, bookingTimeSlot, resolvedLocationId
+    );
+    if (!withinHours) {
+      res.status(400).json({
+        error: 'Outside operating hours',
+        message: 'The selected time is outside this location\'s operating hours. Please choose a time within business hours.'
+      });
+      return;
+    }
 
     // Determine order status based on payment status
-    // 'send_link' and 'qr_code' create order in 'pending' status until customer pays
+    // All manual bookings are created as 'paid' (confirmed by shop); payment_status tracks actual payment method
     // Note: Valid statuses are: pending, paid, completed, cancelled, refunded, no_show, expired
     const requiresPayment = paymentStatus === 'send_link' || paymentStatus === 'qr_code';
-    const orderStatus = paymentStatus === 'paid' ? 'paid' : 'pending';
-    const dbPaymentStatus = requiresPayment ? 'pending' : paymentStatus;
+    const orderStatus = 'paid';
+    const dbPaymentStatus = requiresPayment ? 'unpaid' : paymentStatus;
     console.log('Step 10: Order status will be:', orderStatus, ', dbPaymentStatus:', dbPaymentStatus);
 
     // Create the manual booking
@@ -243,10 +275,11 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
         booked_by,
         payment_status,
         notes,
+        location_id,
         created_at
       ) VALUES (
         gen_random_uuid(),
-        $1, $2, $3, $4, $5, $6, $7, $8, 'manual', $9, $10, $11, NOW()
+        $1, $2, $3, $4, $5, $6, $7, $8, 'manual', $9, $10, $11, $12, NOW()
       ) RETURNING order_id, total_amount, created_at`,
       [
         customerData.address,
@@ -259,12 +292,60 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
         bookingEndTime || null,
         shopAdminAddress,
         dbPaymentStatus,
-        notes || null
+        notes || null,
+        resolvedLocationId
       ]
     );
 
     const order = orderResult.rows[0];
     console.log('Step 12: Order created:', order.order_id);
+
+    // Ads conversion attribution: a manual booking is the "booked" (pending) or "paid" moment for
+    // an ad lead. Publish order_created so AdsDomain can contact-match + auto-advance the lead's
+    // Kanban stage (no-op unless ADS_CONVERSION_ATTRIBUTION). Non-blocking — never fails the booking.
+    try {
+      await eventBus.publish(createDomainEvent(
+        'service.order_created',
+        customerData.address,
+        { orderId: order.order_id, customerAddress: customerData.address, shopId, serviceId, status: orderStatus },
+        'ServiceDomain'
+      ));
+    } catch (eventError) {
+      console.error('Error publishing order_created event (manual booking):', eventError);
+    }
+
+    // Push the booking to the shop's Google Calendar (no-op if not connected).
+    try {
+      const tzResult = await pool.query(
+        `SELECT COALESCE(timezone, 'America/New_York') AS timezone FROM shop_time_slot_config WHERE shop_id = $1 AND location_id IS NULL`,
+        [shopId]
+      );
+      const shopTimezone = tzResult.rows[0]?.timezone || 'America/New_York';
+
+      const startTime = bookingTimeSlot.substring(0, 5);
+      const endTime = bookingEndTime
+        ? bookingEndTime.substring(0, 5)
+        : addMinutesToTime(startTime, service.duration_minutes || 60);
+      const branchLabel = await getCalendarLocationLabel(resolvedLocationId);
+
+      await googleCalendarService.createEvent({
+        orderId: order.order_id,
+        shopId,
+        serviceName: service.service_name,
+        customerName: customerName || customerData.name,
+        customerEmail: customerEmail || customerData.email,
+        customerPhone: customerPhone || customerData.phone,
+        customerAddress: customerData.address,
+        bookingDate,
+        startTime,
+        endTime,
+        totalAmount: Number(service.price_usd) || 0,
+        shopTimezone,
+        ...branchLabel,
+      });
+    } catch (calendarError) {
+      console.error('Failed to sync manual booking to Google Calendar:', calendarError);
+    }
 
     // Handle payment link generation for 'send_link' or 'qr_code' options
     let paymentLinkUrl: string | null = null;

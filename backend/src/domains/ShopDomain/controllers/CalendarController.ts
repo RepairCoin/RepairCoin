@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
 import { CalendarRepository } from '../../../repositories/CalendarRepository';
+import { getCalendarLocationLabel } from '../../../utils/multiLocationEntitlement';
 import { logger } from '../../../utils/logger';
 
 export class CalendarController {
@@ -287,8 +288,10 @@ export class CalendarController {
 
       for (const order of ordersNeedingSync) {
         try {
+          const branchLabel = await getCalendarLocationLabel(order.location_id);
           await this.googleCalendarService.createEvent({
             orderId: order.order_id,
+            shopId,
             serviceName: order.service_name,
             serviceDescription: order.service_description,
             customerName: order.customer_name,
@@ -300,6 +303,7 @@ export class CalendarController {
             endTime: order.booking_end_time,
             totalAmount: parseFloat(order.total_amount),
             shopTimezone: 'America/New_York', // TODO: Get from shop settings
+            ...branchLabel,
           });
           syncedCount++;
         } catch (error) {

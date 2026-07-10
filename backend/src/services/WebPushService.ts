@@ -138,10 +138,16 @@ export class WebPushService {
    * Build JSON payload for web push, enforcing 4KB limit
    */
   private buildPayload(notification: PushNotificationPayload): string {
+    // The service worker (sw.js) renders the hero image from `data.image`, so
+    // fold imageUrl into the data object. Don't clobber an explicit data.image.
+    const data = notification.imageUrl
+      ? { image: notification.imageUrl, ...(notification.data || {}) }
+      : notification.data || {};
+
     const payload = JSON.stringify({
       title: notification.title,
       body: notification.body,
-      data: notification.data || {},
+      data,
       channelId: notification.channelId || NotificationChannels.DEFAULT,
     });
 

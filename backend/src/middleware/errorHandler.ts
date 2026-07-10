@@ -299,7 +299,8 @@ export const validateEmail = (field: string) => {
     const email = req.body[field];
 
     if (email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      // Require a real TLD (2+ letters) so "x@gmail.c" is rejected.
+      const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
       if (!emailRegex.test(email)) {
         return next(new ValidationError(`${field} must be a valid email address`));
       }

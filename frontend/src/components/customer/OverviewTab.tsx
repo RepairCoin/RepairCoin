@@ -26,6 +26,7 @@ import { ShopServiceWithShopInfo, ServiceOrderWithDetails } from "@/services/api
 import { ShopMapData } from "@/services/api/shop";
 import { useRouter } from "next/navigation";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
+import { Stagger, StaggerItem } from "@/components/ui/motion";
 
 const client = createThirdwebClient({
   clientId:
@@ -40,6 +41,40 @@ const contract = getContract({
     process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
     "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
 });
+
+/** Pulsing placeholder block in the overview's dark theme. */
+const SkeletonBlock: React.FC<{ className?: string }> = ({ className = "" }) => (
+  <div className={`animate-pulse rounded-2xl bg-[#262626] ${className}`} />
+);
+
+/**
+ * Loading skeleton that mirrors the overview layout, so the page appears to
+ * materialize (shimmer in) rather than showing a lone spinner. Fades in on
+ * mount; the real content fades in when it replaces this.
+ */
+const OverviewSkeleton: React.FC = () => (
+  <div className="max-w-[1080px] mx-auto space-y-5 animate-fade-in">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+      {/* Left column */}
+      <div className="rounded-2xl border border-[#262626] bg-[#161616] p-5 space-y-5">
+        <SkeletonBlock className="h-28 w-full" />
+        <SkeletonBlock className="h-40 w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <SkeletonBlock className="h-48 w-full" />
+          <SkeletonBlock className="h-48 w-full" />
+        </div>
+      </div>
+      {/* Right column */}
+      <div className="space-y-5">
+        <SkeletonBlock className="h-44 w-full" />
+        <SkeletonBlock className="h-32 w-full" />
+        <SkeletonBlock className="h-24 w-full" />
+      </div>
+    </div>
+    <SkeletonBlock className="h-36 w-full" />
+    <SkeletonBlock className="h-56 w-full" />
+  </div>
+);
 
 export const OverviewTab: React.FC = () => {
   const router = useRouter();
@@ -184,13 +219,9 @@ export const OverviewTab: React.FC = () => {
     router.push(`/customer?tab=marketplace&category=${category}`);
   const handleSeeMoreCategories = () => router.push(`/customer?tab=marketplace`);
 
-  // Loading state
+  // Loading state — animated skeleton mirroring the layout (materialize effect)
   if (isLoading && !customerData) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-16 w-16 border-4 border-yellow-400 border-t-transparent"></div>
-      </div>
-    );
+    return <OverviewSkeleton />;
   }
 
   // Error state
@@ -210,8 +241,8 @@ export const OverviewTab: React.FC = () => {
 
   return (
     <>
-      <div className="max-w-[1080px] mx-auto space-y-5">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+      <Stagger className="max-w-[1080px] mx-auto space-y-5">
+      <StaggerItem className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         {/* ============================= LEFT COLUMN ============================= */}
         <div className="rounded-2xl border border-[#262626] bg-[#161616] p-5">
           <div className="space-y-5">
@@ -249,18 +280,22 @@ export const OverviewTab: React.FC = () => {
             />
           )}
         </div>
-      </div>
+      </StaggerItem>
 
-        <TrustedProfessionalsCard
-          onSelectCategory={handleSelectCategory}
-          onSeeMore={handleSeeMoreCategories}
-        />
+        <StaggerItem>
+          <TrustedProfessionalsCard
+            onSelectCategory={handleSelectCategory}
+            onSeeMore={handleSeeMoreCategories}
+          />
+        </StaggerItem>
 
-        <PopularServicesCard
-          onViewService={handleViewService}
-          onSeeMore={handleSeeMoreCategories}
-        />
-      </div>
+        <StaggerItem>
+          <PopularServicesCard
+            onViewService={handleViewService}
+            onSeeMore={handleSeeMoreCategories}
+          />
+        </StaggerItem>
+      </Stagger>
 
       {/* Mint to Wallet Modal */}
       {showMintModal && (
@@ -294,7 +329,7 @@ export const OverviewTab: React.FC = () => {
                       Your tokens have been successfully minted to your wallet.
                     </p>
                   </div>
-                  {mintResult.transactionHash && (
+                  {mintResult.transactionHash && blockchainEnabled && (
                     <a
                       href={getExplorerUrl(mintResult.transactionHash)}
                       target="_blank"

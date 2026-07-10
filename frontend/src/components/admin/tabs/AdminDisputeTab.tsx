@@ -2,6 +2,7 @@
 
 // frontend/src/components/admin/tabs/AdminDisputeTab.tsx
 import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import {
   AlertTriangle,
   CheckCircle,
@@ -33,6 +34,7 @@ export default function AdminDisputeTab() {
     rejected: 0,
   });
   const [filter, setFilter] = useState<DisputeFilter>('pending');
+  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [resolveModal, setResolveModal] = useState<{
@@ -44,18 +46,33 @@ export default function AdminDisputeTab() {
   const [isResolving, setIsResolving] = useState(false);
   const [resolveError, setResolveError] = useState('');
 
+  const PER_PAGE = 20;
+
   const loadDisputes = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getAdminDisputes(filter, undefined, 50, 0);
+      const data = await getAdminDisputes(filter, undefined, PER_PAGE, (page - 1) * PER_PAGE);
       setDisputes(data.disputes);
       setStats(data.stats);
     } catch (err) {
       console.error('Failed to load admin disputes:', err);
+      toast.error('Failed to load disputes');
     } finally {
       setIsLoading(false);
     }
-  }, [filter]);
+  }, [filter, page]);
+
+  // The stats object carries per-status totals, so the active filter's total
+  // count (for pagination) is the matching stat.
+  const filterTotal =
+    filter === 'all'
+      ? stats.total
+      : filter === 'pending'
+        ? stats.pending
+        : filter === 'approved'
+          ? stats.approved
+          : stats.rejected;
+  const totalPages = Math.max(1, Math.ceil(filterTotal / PER_PAGE));
 
   useEffect(() => {
     loadDisputes();
@@ -196,7 +213,10 @@ export default function AdminDisputeTab() {
         {FILTER_TABS.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setFilter(tab.key)}
+            onClick={() => {
+              setFilter(tab.key);
+              setPage(1);
+            }}
             className={`flex-1 py-2 text-sm rounded-lg transition-colors ${
               filter === tab.key
                 ? 'bg-zinc-700 text-white font-medium'
@@ -330,6 +350,30 @@ export default function AdminDisputeTab() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!isLoading && filterTotal > PER_PAGE && (
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm disabled:opacity-50 hover:bg-zinc-700 transition-colors"
+          >
+            Previous
+          </button>
+          <span className="text-zinc-400 text-sm">
+            Page {page} of {totalPages}
+            <span className="text-zinc-600"> · {filterTotal} total</span>
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm disabled:opacity-50 hover:bg-zinc-700 transition-colors"
+          >
+            Next
+          </button>
         </div>
       )}
 

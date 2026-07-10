@@ -98,6 +98,18 @@ const AudienceSummaryCard: React.FC<{
         {d.resolvedCount === 1 ? "customer" : "customers"} match
       </p>
       <p className="text-sm text-gray-400 mt-0.5">{d.label}</p>
+      {/* Reachable-by-email ceiling. Only surface when some recipients have
+          no email (reachable < resolved) — that's the case the shop needs to
+          know about (e.g. a phone-dominant imported/Square cohort). When
+          everyone's emailable the line is noise, so hide it. */}
+      {typeof d.reachableByEmail === "number" &&
+        d.reachableByEmail < d.resolvedCount && (
+          <p className="mt-1.5 text-sm text-amber-400">
+            {d.reachableByEmail.toLocaleString()} of{" "}
+            {d.resolvedCount.toLocaleString()} reachable by email — the rest
+            have no email on file (e.g. phone-only imports).
+          </p>
+        )}
       {showSmallShopNote && (
         <p className="mt-1.5 text-sm text-amber-400">
           Your shop has {total!.toLocaleString()}{" "}
@@ -238,6 +250,15 @@ const CampaignDraftCard: React.FC<{
             </span>
           </p>
         )}
+        {typeof d.welcomeRewardRcn === "number" && d.welcomeRewardRcn > 0 && (
+          <p className="mt-1.5 text-sm text-violet-300">
+            🎁 Welcome reward:{" "}
+            <span className="font-semibold">
+              {d.welcomeRewardRcn.toLocaleString()} RCN (≈ ${(d.welcomeRewardRcn * 0.1).toFixed(2)})
+            </span>{" "}
+            <span className="text-xs text-gray-500">(when they claim their account)</span>
+          </p>
+        )}
         {d.coupon && (
           <p className="mt-1.5 text-sm text-violet-300">
             🎟️ Coupon:{" "}
@@ -300,6 +321,7 @@ const CampaignDraftCard: React.FC<{
           audienceLabel={d.audienceLabel}
           recipientCount={d.recipientCount}
           bannerImageUrl={d.imageUrl ?? undefined}
+          claimCtaLabel={d.claimCtaLabel ?? undefined}
           onSent={(result) => {
             setSentAt(new Date());
             setRecipientCount(result.emailsSent);

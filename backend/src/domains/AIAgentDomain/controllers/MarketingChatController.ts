@@ -35,6 +35,7 @@ import {
 } from "../services/marketing/promptBuilder";
 import { buildMarketingShopContext } from "../services/marketing/contextBuilder";
 import { buildDateContextBlock } from "../services/dateContext";
+import { getAiMemoryService } from "../services/AiMemoryService";
 import {
   getMarketingTools,
   getMarketingToolByName,
@@ -279,6 +280,18 @@ export function makeMarketingChatController(
             text: `The owner ATTACHED AN IMAGE to their current message (url: ${attachedImageUrl}). For "analyze / what theme fits / what colors" call analyze_brand_assets (defaults to this image). For "edit / add X to this" call propose_image_edit with this url as source_image_url. To use it as an email banner, pass it as propose_campaign_draft's image_url. Don't ask them to re-share it.`,
             cache: false,
           });
+        }
+        // AI Memory (Phase 5 shared reads): honor the owner's standing instructions
+        // in marketing drafts (e.g. "never suggest discounts"). No-op when the flag
+        // is off or nothing is saved. Hint = the latest user message.
+        const memHint =
+          [...messages].reverse().find(
+            (m: { role: string; content: unknown }) =>
+              m.role === "user" && typeof m.content === "string"
+          )?.content as string | undefined;
+        const marketingMemBlock = await getAiMemoryService().recallBlock(shopId, memHint);
+        if (marketingMemBlock) {
+          systemBlocks.push({ text: marketingMemBlock, cache: false });
         }
 
         // 4. Lazy-construct AnthropicClient.

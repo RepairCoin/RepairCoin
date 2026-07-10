@@ -1,9 +1,10 @@
 import { View, Text, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { formatDistanceToNow } from "date-fns";
 import { Notification } from "../types";
-import { getNotificationStyle, getNavigationRoute } from "@/shared/utilities/notificationHelpers";
+import {
+  getNotificationStyle,
+  getNotificationTitle,
+} from "@/shared/utilities/notificationHelpers";
 
 interface NotificationCardProps {
   notification: Notification;
@@ -11,19 +12,16 @@ interface NotificationCardProps {
 }
 
 export default function NotificationCard({ notification, onPress }: NotificationCardProps) {
-  const router = useRouter();
-  const { userType } = useAuthStore();
-  const style = getNotificationStyle(notification.notificationType);
+  const style = getNotificationStyle(notification.notificationType, notification.metadata);
+  const title = getNotificationTitle(
+    notification.notificationType,
+    notification.metadata
+  );
 
+  // Pressing opens the detail modal (handled by the parent via onPress),
+  // matching the web NotificationBell. No navigation away from the list.
   const handlePress = () => {
-    if (onPress) {
-      onPress();
-    }
-
-    const route = getNavigationRoute(notification, userType);
-    if (route) {
-      router.push(route as any);
-    }
+    onPress?.();
   };
 
   const timeAgo = formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true });
@@ -43,24 +41,34 @@ export default function NotificationCard({ notification, onPress }: Notification
       })}
     >
       {/* Icon */}
-      <View className="w-10 h-10 rounded-full bg-zinc-800 items-center justify-center mr-3">
+      <View
+        className={`w-11 h-11 rounded-full items-center justify-center mr-3 ${style.bgColor}`}
+      >
         {style.icon}
       </View>
 
       {/* Content */}
       <View className="flex-1">
+        <View className="flex-row items-start justify-between">
+          <Text
+            className="text-white text-base font-semibold flex-1 pr-2"
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <Text className="text-zinc-500 text-xs">{timeAgo}</Text>
+        </View>
         <Text
-          className={`text-white text-sm leading-5 ${!notification.isRead ? "font-semibold" : ""}`}
+          className="text-zinc-400 text-sm leading-5 mt-1"
           numberOfLines={3}
         >
           {notification.message}
         </Text>
-        <Text className="text-zinc-500 text-xs mt-1">{timeAgo}</Text>
       </View>
 
       {/* Unread indicator */}
       {!notification.isRead && (
-        <View className="w-3 h-3 rounded-full bg-red-500 mt-1" />
+        <View className="w-2.5 h-2.5 rounded-full bg-red-500 ml-2 mt-1.5" />
       )}
     </Pressable>
   );

@@ -37,6 +37,13 @@ router.use(authMiddleware);
 router.post('/send', messageController.sendMessage);
 
 /**
+ * @route DELETE /api/messages/:messageId
+ * @description Soft-delete a single message (sender only, removes text + attachments)
+ * @access Authenticated users (Customer or Shop)
+ */
+router.delete('/:messageId', messageController.deleteMessage);
+
+/**
  * @route POST /api/messages/attachments/upload
  * @description Upload message attachments (images or PDF, up to 5 files, 5MB each)
  * @access Authenticated users (Customer or Shop)

@@ -20,6 +20,7 @@ import {
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { VALID_CATEGORIES } from '../constants';
+import { serviceImportMappingService } from '../../customer/services/CustomerImportMappingService';
 import { Pool, PoolClient } from 'pg';
 import { getSharedPool } from '../../../utils/database-pool';
 import { v4 as uuidv4 } from 'uuid';
@@ -30,6 +31,8 @@ export interface ImportOptions {
   mode: 'add' | 'merge' | 'replace';
   dryRun: boolean;
   onDuplicateName?: 'skip' | 'update' | 'rename' | 'error';
+  /** Explicit column mapping (ourField → source header) from the AI-suggested + confirmed map. */
+  columnMapping?: Record<string, string>;
 }
 
 export interface ImportResult {
@@ -64,6 +67,8 @@ export interface ValidationReport {
   invalidRows: number;
   errors: ValidationError[];
   warnings: ValidationError[];
+  /** Sanitized rows that passed validation — the set actually imported. */
+  validServices: ParsedService[];
 }
 
 /**
@@ -163,56 +168,29 @@ export class ImportExportService {
       // Step 1: File-level validation
       await this.validateFile(fileBuffer, fileName, fileSize);
 
-      // Step 2: Parse file
-      const parsedServices = await parseServiceExcel(fileBuffer, fileType);
+      // Step 2: Parse file (with the confirmed AI/explicit column mapping, if provided)
+      const parsedServices = await parseServiceExcel(fileBuffer, fileType, options.columnMapping);
 
       if (parsedServices.length === 0) {
         throw new Error('File contains no valid service data');
       }
 
-      if (parsedServices.length > 1000) {
-        throw new Error('Maximum 1000 services per import. Please split into multiple files.');
+      if (parsedServices.length > 5000) {
+        throw new Error('Maximum 5000 services per import. Please split into multiple files.');
       }
 
       // Step 3: Business validation (shop qualification)
       await this.validateShopQualification(shopId);
 
-      // Step 4: Data validation
+      // Step 4: Data validation (collects valid rows; invalid ones are skipped + reported)
       const validationReport = await this.validateImportData(parsedServices, shopId);
 
-      // If validation failed, return errors
-      if (validationReport.invalidRows > 0) {
-        const result: ImportResult = {
-          success: false,
-          jobId,
-          summary: {
-            totalRows: validationReport.totalRows,
-            validRows: validationReport.validRows,
-            invalidRows: validationReport.invalidRows,
-            imported: 0,
-            updated: 0,
-            skipped: 0,
-            deleted: 0
-          },
-          errors: validationReport.errors,
-          warnings: validationReport.warnings,
-          metadata: {
-            uploadedAt: new Date().toISOString(),
-            uploadedBy,
-            shopId,
-            fileName,
-            fileSize,
-            processingTime: (Date.now() - startTime) / 1000,
-            mode: options.mode,
-            dryRun: options.dryRun
-          }
-        };
-
-        // Save import job to database
-        await this.saveImportJob(jobId, shopId, result, 'failed');
-
-        return result;
+      // Hard-fail ONLY when nothing is importable; otherwise skip the invalid rows and import the rest.
+      if (validationReport.validServices.length === 0) {
+        throw new Error('No importable rows: every row was missing a service name or a valid price.');
       }
+
+      const errorSample = validationReport.errors.slice(0, 200);
 
       // If dry run, return validation results without importing
       if (options.dryRun) {
@@ -225,11 +203,11 @@ export class ImportExportService {
             invalidRows: validationReport.invalidRows,
             imported: 0,
             updated: 0,
-            skipped: 0,
+            skipped: validationReport.invalidRows,
             deleted: 0
           },
-          errors: validationReport.errors,
-          warnings: validationReport.warnings,
+          errors: errorSample,
+          warnings: validationReport.warnings.slice(0, 200),
           metadata: {
             uploadedAt: new Date().toISOString(),
             uploadedBy,
@@ -247,8 +225,8 @@ export class ImportExportService {
         return result;
       }
 
-      // Step 5: Process import
-      const batchResult = await this.processImportBatch(parsedServices, shopId, options);
+      // Step 5: Process import (only the valid rows)
+      const batchResult = await this.processImportBatch(validationReport.validServices, shopId, options);
 
       const result: ImportResult = {
         success: true,
@@ -259,11 +237,11 @@ export class ImportExportService {
           invalidRows: validationReport.invalidRows,
           imported: batchResult.imported,
           updated: batchResult.updated,
-          skipped: batchResult.skipped,
+          skipped: batchResult.skipped + validationReport.invalidRows, // includes invalid/dup rows
           deleted: batchResult.deleted
         },
-        errors: validationReport.errors,
-        warnings: validationReport.warnings,
+        errors: errorSample,
+        warnings: validationReport.warnings.slice(0, 200),
         metadata: {
           uploadedAt: new Date().toISOString(),
           uploadedBy,
@@ -433,48 +411,71 @@ export class ImportExportService {
   ): Promise<ValidationReport> {
     const errors: ValidationError[] = [];
     const warnings: ValidationError[] = [];
-    const validRows: number[] = [];
+    const validServices: ParsedService[] = [];
+    const validCats = VALID_CATEGORIES as readonly string[];
 
-    // Track duplicate service names
-    const serviceNames = new Map<string, number>();
+    // AI-map the distinct UNRECOGNIZED categories → the fixed marketplace buckets (one Haiku call,
+    // spend-capped, non-fatal). e.g. Square "game_console_repairs" → "repairs", "accessories" →
+    // "other_local_services". Unmapped/over-budget rows fall back to the catch-all below.
+    const unknownCats = Array.from(new Set(
+      services.map((s) => (s.category || '').toLowerCase().trim()).filter((c) => c && !validCats.includes(c))
+    ));
+    let catMap: Record<string, string> = {};
+    if (unknownCats.length) {
+      try {
+        catMap = (await serviceImportMappingService.mapCategories(unknownCats, Array.from(validCats), shopId)).mapping;
+      } catch { catMap = {}; }
+    }
+
+    // Track duplicate service names (skip later repeats so a re-import stays clean).
+    const serviceNames = new Set<string>();
 
     for (const service of services) {
-      // Sanitize data (XSS prevention)
       const sanitized = sanitizeServiceData(service);
 
-      // Validate row
+      // Unrecognized/empty category → AI-mapped broad bucket if we have one, else the catch-all. Never
+      // fails the row (an external catalog's free-text categories rarely match our fixed set verbatim).
+      if (!sanitized.category || !validCats.includes(sanitized.category)) {
+        const mapped = catMap[(sanitized.category || '').toLowerCase().trim()];
+        const target = mapped || 'other_local_services';
+        warnings.push({
+          row: service.rowIndex, column: 'Category', value: sanitized.category,
+          message: mapped ? `Category mapped to "${target}"` : 'Unrecognized category — defaulted to "other_local_services"',
+          severity: 'warning', code: mapped ? 'CATEGORY_MAPPED' : 'CATEGORY_DEFAULTED'
+        });
+        sanitized.category = target;
+      }
+
       const validation = validateServiceRow(sanitized, shopId, Array.from(VALID_CATEGORIES));
+      warnings.push(...validation.warnings);
 
       if (!validation.isValid) {
         errors.push(...validation.errors);
-      } else {
-        validRows.push(service.rowIndex);
+        continue;
       }
 
-      warnings.push(...validation.warnings);
-
-      // Check for duplicates within file
-      const nameKey = sanitized.serviceName.toLowerCase();
-      if (serviceNames.has(nameKey)) {
-        warnings.push({
-          row: service.rowIndex,
-          column: 'Service Name',
-          value: sanitized.serviceName,
-          message: `Duplicate service name found in row ${serviceNames.get(nameKey)}`,
-          severity: 'warning',
-          code: 'DUPLICATE_SERVICE_NAME'
+      // Within-file duplicate → skip the later one. Key by external_ref when present (distinct catalog
+      // items can legitimately share a name, e.g. "Phone Case"); else fall back to the name.
+      const dupKey = sanitized.externalRef ? `ref:${sanitized.externalRef}` : `name:${sanitized.serviceName.toLowerCase()}`;
+      if (serviceNames.has(dupKey)) {
+        errors.push({
+          row: service.rowIndex, column: sanitized.externalRef ? 'Token' : 'Service Name', value: sanitized.externalRef || sanitized.serviceName,
+          message: 'Duplicate item earlier in the file — skipped',
+          severity: 'error', code: 'DUPLICATE_SERVICE'
         });
-      } else {
-        serviceNames.set(nameKey, service.rowIndex);
+        continue;
       }
+      serviceNames.add(dupKey);
+      validServices.push(sanitized);
     }
 
     return {
       totalRows: services.length,
-      validRows: validRows.length,
-      invalidRows: services.length - validRows.length,
+      validRows: validServices.length,
+      invalidRows: services.length - validServices.length,
       errors,
-      warnings
+      warnings,
+      validServices
     };
   }
 
@@ -509,8 +510,11 @@ export class ImportExportService {
       for (const service of services) {
         const sanitized = sanitizeServiceData(service);
 
-        // Check if service exists (by name)
-        const existing = await this.findExistingService(client, shopId, sanitized.serviceName);
+        // Match an existing service: prefer the origin id (external_ref) — stable across renames, so a
+        // re-imported catalog updates instead of duplicating — and fall back to the name.
+        const existing = sanitized.externalRef
+          ? await this.findByExternalRef(client, shopId, sanitized.externalRef)
+          : await this.findExistingService(client, shopId, sanitized.serviceName);
 
         if (existing) {
           if (options.mode === 'merge') {
@@ -559,6 +563,15 @@ export class ImportExportService {
     return result.rows.length > 0 ? result.rows[0] : null;
   }
 
+  /** Find an existing imported service by its origin id (external_ref) — stable re-import identity. */
+  private async findByExternalRef(client: PoolClient, shopId: string, externalRef: string): Promise<any> {
+    const result = await client.query(
+      'SELECT service_id FROM shop_services WHERE shop_id = $1 AND external_ref = $2 LIMIT 1',
+      [shopId, externalRef]
+    );
+    return result.rows.length > 0 ? result.rows[0] : null;
+  }
+
   /**
    * Insert new service
    */
@@ -570,8 +583,8 @@ export class ImportExportService {
     await client.query(
       `INSERT INTO shop_services (
         shop_id, service_name, description, price_usd, duration_minutes,
-        category, image_url, tags, active, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())`,
+        category, image_url, tags, active, import_source, external_ref, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
       [
         shopId,
         service.serviceName,
@@ -581,7 +594,9 @@ export class ImportExportService {
         service.category,
         service.imageUrl || null,
         service.tags || [],
-        service.active
+        service.active,
+        service.externalRef ? 'import' : null, // provenance marker for imported rows
+        service.externalRef || null
       ]
     );
   }
@@ -603,8 +618,9 @@ export class ImportExportService {
         image_url = $5,
         tags = $6,
         active = $7,
+        external_ref = COALESCE($8, external_ref),
         updated_at = NOW()
-      WHERE service_id = $8`,
+      WHERE service_id = $9`,
       [
         service.description || null,
         service.priceUsd,
@@ -613,6 +629,7 @@ export class ImportExportService {
         service.imageUrl || null,
         service.tags || [],
         service.active,
+        service.externalRef || null,
         serviceId
       ]
     );

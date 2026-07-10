@@ -59,7 +59,8 @@ export type NotificationType =
   | 'reschedule_request_rejected'
   | 'subscription_expiring'
   | 'subscription_expired'
-  | 'subscription_renewed';
+  | 'subscription_renewed'
+  | 'new_message';
 
 // Base notification data
 export interface NotificationData {
@@ -206,7 +207,7 @@ export type UpdateGeneralNotificationPreferences = Partial<
 
 // ─── Feature-specific types ─────────────────────────────────────────────────
 
-export type TabType = "unread" | "all";
+export type TabType = "all" | "ai" | "unread";
 
 export type NotificationStyle = {
   icon: React.ReactNode;

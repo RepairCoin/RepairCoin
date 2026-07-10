@@ -1,6 +1,8 @@
 // backend/src/domains/InventoryDomain/routes.ts
 import { Router } from 'express';
 import { authMiddleware, requireRole } from '../../middleware/auth';
+import { requireShopPermission } from '../../middleware/permissions';
+import { requireTier } from '../../middleware/tierGuard';
 
 // Controllers
 import * as inventoryController from './controllers/inventoryController';
@@ -17,98 +19,103 @@ import * as poSuggestionController from './controllers/poSuggestionController';
 export function initializeRoutes(): Router {
   const router = Router();
 
-  // All inventory routes require authentication and shop role
-  const shopAuth = [authMiddleware, requireRole(['shop'])];
+  // All inventory routes require authentication and shop role, plus a granular
+  // team permission: inventory:view/manage for stock, pos:view/manage for orders.
+  const base = [authMiddleware, requireRole(['shop']), requireTier('inventoryManagement')];
+  const invView = [...base, requireShopPermission('inventory:view')];
+  const posView = [...base, requireShopPermission('pos:view')];
+  const invManage = [...base, requireShopPermission('inventory:manage')];
+  const posManage = [...base, requireShopPermission('pos:manage')];
 
   // ============================================================================
   // INVENTORY ITEMS ROUTES
   // ============================================================================
 
   // Upload inventory item image
-  router.post('/upload-image', shopAuth, uploadController.uploadSingleImage, uploadController.uploadInventoryImage);
+  router.post('/upload-image', invManage, uploadController.uploadSingleImage, uploadController.uploadInventoryImage);
 
   // Get inventory statistics
-  router.get('/stats', shopAuth, inventoryController.getInventoryStats);
+  router.get('/stats', invView, inventoryController.getInventoryStats);
 
   // Get all items (with filters and pagination)
-  router.get('/items', shopAuth, inventoryController.getInventoryItems);
+  router.get('/items', invView, inventoryController.getInventoryItems);
 
   // Get single item by ID
-  router.get('/items/:itemId', shopAuth, inventoryController.getInventoryItem);
+  router.get('/items/:itemId', invView, inventoryController.getInventoryItem);
 
   // Get item by barcode (for barcode scanning)
-  router.get('/items/barcode/:barcode', shopAuth, inventoryController.getInventoryItemByBarcode);
+  router.get('/items/barcode/:barcode', invView, inventoryController.getInventoryItemByBarcode);
 
   // Create new item
-  router.post('/items', shopAuth, inventoryController.createInventoryItem);
+  router.post('/items', invManage, inventoryController.createInventoryItem);
 
   // Update item
-  router.put('/items/:itemId', shopAuth, inventoryController.updateInventoryItem);
+  router.put('/items/:itemId', invManage, inventoryController.updateInventoryItem);
 
   // Delete item
-  router.delete('/items/:itemId', shopAuth, inventoryController.deleteInventoryItem);
+  router.delete('/items/:itemId', invManage, inventoryController.deleteInventoryItem);
 
   // Bulk operations
-  router.post('/items/bulk/delete', shopAuth, inventoryController.bulkDeleteItems);
-  router.post('/items/bulk/update', shopAuth, inventoryController.bulkUpdateItems);
+  router.post('/items/bulk/delete', invManage, inventoryController.bulkDeleteItems);
+  router.post('/items/bulk/update', invManage, inventoryController.bulkUpdateItems);
 
   // ============================================================================
   // STOCK ADJUSTMENTS ROUTES
   // ============================================================================
 
   // Adjust stock for an item
-  router.post('/items/:itemId/adjust', shopAuth, adjustmentController.adjustStock);
+  router.post('/items/:itemId/adjust', invManage, adjustmentController.adjustStock);
 
   // Get adjustment history for an item
-  router.get('/items/:itemId/adjustments', shopAuth, adjustmentController.getItemAdjustments);
+  router.get('/items/:itemId/adjustments', invView, adjustmentController.getItemAdjustments);
 
   // ============================================================================
   // CATEGORIES ROUTES
   // ============================================================================
 
   // Get all categories
-  router.get('/categories', shopAuth, categoryController.getCategories);
+  router.get('/categories', invView, categoryController.getCategories);
 
   // Create category
-  router.post('/categories', shopAuth, categoryController.createCategory);
+  router.post('/categories', invManage, categoryController.createCategory);
 
   // Update category
-  router.put('/categories/:categoryId', shopAuth, categoryController.updateCategory);
+  router.put('/categories/:categoryId', invManage, categoryController.updateCategory);
 
   // Delete category
-  router.delete('/categories/:categoryId', shopAuth, categoryController.deleteCategory);
+  router.delete('/categories/:categoryId', invManage, categoryController.deleteCategory);
 
   // ============================================================================
   // VENDORS ROUTES
   // ============================================================================
 
   // Get all vendors
-  router.get('/vendors', shopAuth, vendorController.getVendors);
+  router.get('/vendors', invView, vendorController.getVendors);
 
   // Create vendor
-  router.post('/vendors', shopAuth, vendorController.createVendor);
+  router.post('/vendors', invManage, vendorController.createVendor);
 
   // Update vendor
-  router.put('/vendors/:vendorId', shopAuth, vendorController.updateVendor);
+  router.put('/vendors/:vendorId', invManage, vendorController.updateVendor);
 
   // Delete vendor
-  router.delete('/vendors/:vendorId', shopAuth, vendorController.deleteVendor);
+  router.delete('/vendors/:vendorId', invManage, vendorController.deleteVendor);
 
   // ============================================================================
   // LOW STOCK ALERTS ROUTES
   // ============================================================================
 
   // Get alert settings
-  router.get('/alerts/settings/:shopId', shopAuth, alertController.getAlertSettings);
+  router.get('/alerts/settings/:shopId', invView, alertController.getAlertSettings);
 
   // Update alert settings
-  router.put('/alerts/settings/:shopId', shopAuth, alertController.updateAlertSettings);
+  router.put('/alerts/settings/:shopId', invManage, alertController.updateAlertSettings);
 
   // Get low stock items (without sending email)
-  router.get('/alerts/low-stock/:shopId', shopAuth, alertController.getLowStockItems);
+  router.get('/alerts/low-stock/:shopId', invView, alertController.getLowStockItems);
 
   // Trigger manual alert check
-  router.post('/alerts/check/:shopId', shopAuth, alertController.triggerManualCheck);
+  router.post('/alerts/check/:shopId', invManage, alertController.triggerManualCheck);
 
   // Admin routes for scheduler management
   const adminAuth = [authMiddleware, requireRole(['admin'])];
@@ -120,51 +127,51 @@ export function initializeRoutes(): Router {
   // ============================================================================
 
   // Get purchase order statistics
-  router.get('/purchase-orders/stats/:shopId', shopAuth, purchaseOrderController.getPurchaseOrderStats);
+  router.get('/purchase-orders/stats/:shopId', posView, purchaseOrderController.getPurchaseOrderStats);
 
   // Get all purchase orders
-  router.get('/purchase-orders/:shopId', shopAuth, purchaseOrderController.getPurchaseOrders);
+  router.get('/purchase-orders/:shopId', posView, purchaseOrderController.getPurchaseOrders);
 
   // Get single purchase order
-  router.get('/purchase-orders/:shopId/:poId', shopAuth, purchaseOrderController.getPurchaseOrder);
+  router.get('/purchase-orders/:shopId/:poId', posView, purchaseOrderController.getPurchaseOrder);
 
   // Create purchase order
-  router.post('/purchase-orders/:shopId', shopAuth, purchaseOrderController.createPurchaseOrder);
+  router.post('/purchase-orders/:shopId', posManage, purchaseOrderController.createPurchaseOrder);
 
   // Update purchase order
-  router.put('/purchase-orders/:shopId/:poId', shopAuth, purchaseOrderController.updatePurchaseOrder);
+  router.put('/purchase-orders/:shopId/:poId', posManage, purchaseOrderController.updatePurchaseOrder);
 
   // Receive items
-  router.post('/purchase-orders/:shopId/:poId/receive', shopAuth, purchaseOrderController.receiveItems);
+  router.post('/purchase-orders/:shopId/:poId/receive', posManage, purchaseOrderController.receiveItems);
 
   // Cancel purchase order
-  router.post('/purchase-orders/:shopId/:poId/cancel', shopAuth, purchaseOrderController.cancelPurchaseOrder);
+  router.post('/purchase-orders/:shopId/:poId/cancel', posManage, purchaseOrderController.cancelPurchaseOrder);
 
   // Delete purchase order
-  router.delete('/purchase-orders/:shopId/:poId', shopAuth, purchaseOrderController.deletePurchaseOrder);
+  router.delete('/purchase-orders/:shopId/:poId', posManage, purchaseOrderController.deletePurchaseOrder);
 
   // ============================================================================
   // PO SUGGESTIONS ROUTES (v2.1)
   // ============================================================================
 
   // Generate PO suggestions for a shop
-  router.post('/suggestions/:shopId/generate', shopAuth, poSuggestionController.generateSuggestions);
+  router.post('/suggestions/:shopId/generate', posManage, poSuggestionController.generateSuggestions);
 
   // Get PO suggestions with optional filtering
-  router.get('/suggestions/:shopId', shopAuth, poSuggestionController.getSuggestions);
+  router.get('/suggestions/:shopId', posView, poSuggestionController.getSuggestions);
 
   // Approve a PO suggestion
-  router.post('/suggestions/:id/approve', shopAuth, poSuggestionController.approveSuggestion);
+  router.post('/suggestions/:id/approve', posManage, poSuggestionController.approveSuggestion);
 
   // Reject a PO suggestion
-  router.post('/suggestions/:id/reject', shopAuth, poSuggestionController.rejectSuggestion);
+  router.post('/suggestions/:id/reject', posManage, poSuggestionController.rejectSuggestion);
 
   // Expire old suggestions (admin/scheduler)
   router.post('/suggestions/expire', adminAuth, poSuggestionController.expireOldSuggestions);
 
   // Accuracy tracking routes (v2.1)
-  router.post('/suggestions/:id/assess-accuracy', shopAuth, poSuggestionController.assessSuggestionAccuracy);
-  router.get('/suggestions/:shopId/accuracy-metrics', shopAuth, poSuggestionController.getAccuracyMetrics);
+  router.post('/suggestions/:id/assess-accuracy', posManage, poSuggestionController.assessSuggestionAccuracy);
+  router.get('/suggestions/:shopId/accuracy-metrics', posView, poSuggestionController.getAccuracyMetrics);
   router.post('/suggestions/auto-assess-accuracy', adminAuth, poSuggestionController.autoAssessSuggestionAccuracy);
 
   // ============================================================================
@@ -172,38 +179,38 @@ export function initializeRoutes(): Router {
   // ============================================================================
 
   // Get overall inventory analytics
-  router.get('/analytics/:shopId/overview', shopAuth, analyticsController.getInventoryAnalytics);
+  router.get('/analytics/:shopId/overview', invView, analyticsController.getInventoryAnalytics);
 
   // Get inventory turnover analysis
-  router.get('/analytics/:shopId/turnover', shopAuth, analyticsController.getInventoryTurnover);
+  router.get('/analytics/:shopId/turnover', invView, analyticsController.getInventoryTurnover);
 
   // Get profit margin analysis
-  router.get('/analytics/:shopId/margins', shopAuth, analyticsController.getProfitMargins);
+  router.get('/analytics/:shopId/margins', invView, analyticsController.getProfitMargins);
 
   // Get stock level trends
-  router.get('/analytics/:shopId/trends', shopAuth, analyticsController.getStockTrends);
+  router.get('/analytics/:shopId/trends', invView, analyticsController.getStockTrends);
 
   // Get low stock forecast
-  router.get('/analytics/:shopId/forecast', shopAuth, analyticsController.getLowStockForecast);
+  router.get('/analytics/:shopId/forecast', invView, analyticsController.getLowStockForecast);
 
   // ============================================================================
   // SERVICE INTEGRATION ROUTES
   // ============================================================================
 
   // Link inventory items to a service
-  router.post('/service-integration/link/:serviceId', shopAuth, serviceIntegrationController.linkItemsToService);
+  router.post('/service-integration/link/:serviceId', invManage, serviceIntegrationController.linkItemsToService);
 
   // Get inventory items linked to a service
-  router.get('/service-integration/service/:serviceId', shopAuth, serviceIntegrationController.getServiceInventoryItems);
+  router.get('/service-integration/service/:serviceId', invView, serviceIntegrationController.getServiceInventoryItems);
 
   // Check stock availability for a service
-  router.get('/service-integration/availability/:serviceId', shopAuth, serviceIntegrationController.checkServiceStockAvailability);
+  router.get('/service-integration/availability/:serviceId', invView, serviceIntegrationController.checkServiceStockAvailability);
 
   // Remove inventory item link from service
-  router.delete('/service-integration/link/:serviceId/:linkId', shopAuth, serviceIntegrationController.unlinkItemFromService);
+  router.delete('/service-integration/link/:serviceId/:linkId', invManage, serviceIntegrationController.unlinkItemFromService);
 
   // Get all services using a specific inventory item
-  router.get('/service-integration/item/:itemId/services', shopAuth, serviceIntegrationController.getServicesUsingItem);
+  router.get('/service-integration/item/:itemId/services', invView, serviceIntegrationController.getServicesUsingItem);
 
   return router;
 }

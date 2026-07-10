@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { X, Plus, Minus, Loader2, Package, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { inventoryApi } from '@/services/api/inventory';
+import { useLocationStore } from '@/stores/locationStore';
 import { NumberInput } from '@/components/ui/NumberInput';
 import type { InventoryItemWithDetails, AdjustmentType } from '@/types/inventory';
 
@@ -29,6 +30,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ item
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const activeLocationId = useLocationStore((s) => s.activeLocationId);
 
   const newStockLevel = item.stockQuantity + quantityChange;
   const isDecrease = quantityChange < 0;
@@ -60,6 +62,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ item
         quantityChange,
         reason: reason.trim(),
         notes: notes.trim() || undefined,
+        locationId: activeLocationId || undefined,
       });
 
       toast.success(`Stock adjusted successfully: ${isIncrease ? '+' : ''}${quantityChange} units`);

@@ -8,9 +8,11 @@ import { useAuthStore } from "@/stores/authStore";
 import { ReferralDashboard } from "@/components/customer/ReferralDashboard";
 import { RedemptionApprovals } from "@/components/customer/RedemptionApprovals";
 import { OverviewTab } from "@/components/customer/OverviewTab";
+import { FadeSlideIn } from "@/components/ui/motion";
 import { SettingsTab } from "@/components/customer/SettingsTab";
 import { FindShop } from "@/components/customer/FindShop";
 import { TokenGiftingTab } from "@/components/customer/TokenGiftingTab";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import { SuspensionBanner } from "@/components/customer/SuspensionBanner";
 import NoShowWarningBanner from "@/components/customer/NoShowWarningBanner";
 import { AccountClaimBanner } from "@/components/customer/AccountClaimBanner";
@@ -35,6 +37,7 @@ export default function CustomerDashboardClient() {
   const account = useActiveAccount();
   const searchParams = useSearchParams();
   const { isAuthenticated, userType, isLoading: authLoading, userProfile, switchingAccount } = useAuthStore();
+  const blockchainEnabled = useBlockchainEnabled();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "overview" | "marketplace" | "orders" | "appointments" | "messages" | "referrals" | "approvals" | "findshop" | "gifting" | "settings" | "faq"
@@ -288,7 +291,7 @@ export default function CustomerDashboardClient() {
               </div>
             )
           ) : (
-            <>
+            <FadeSlideIn key={activeTab}>
               {activeTab === "overview" && <OverviewTab />}
 
               {/* Marketplace Tab */}
@@ -314,15 +317,15 @@ export default function CustomerDashboardClient() {
               {/* Find Shop Tab */}
               {activeTab === "findshop" && <FindShop />}
 
-              {/* Token Gifting Tab */}
-              {activeTab === "gifting" && <TokenGiftingTab />}
+              {/* Token Gifting Tab (blockchain-only; hidden in database-only mode) */}
+              {activeTab === "gifting" && blockchainEnabled && <TokenGiftingTab />}
 
               {/* Settings Tab */}
               {activeTab === "settings" && <SettingsTab />}
 
               {/* FAQ Tab */}
               {activeTab === "faq" && <CustomerFAQSection />}
-            </>
+            </FadeSlideIn>
           )}
         </div>
       </div>

@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { inventoryApi } from "@/services/api/inventory";
+import { getLocations, type ShopLocation } from "@/services/api/locations";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { useLocationStore } from "@/stores/locationStore";
 import type {
   InventoryVendor,
   InventoryItemWithDetails,
   CreatePurchaseOrderData,
 } from "@/types/inventory";
 import { toast } from "react-hot-toast";
-import { X, Plus, Trash2, Package, DollarSign, Calendar } from "lucide-react";
+import { X, Plus, Trash2, Package, DollarSign, Calendar, MapPin } from "lucide-react";
 
 interface CreatePurchaseOrderModalProps {
   shopId: string;
@@ -31,19 +34,40 @@ export function CreatePurchaseOrderModal({
   onClose,
   onSuccess,
 }: CreatePurchaseOrderModalProps) {
+  const { multiLocationActive } = useFeatureAccess();
+  const { activeLocationId } = useLocationStore();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<InventoryItemWithDetails[]>([]);
   const [poItems, setPOItems] = useState<POItem[]>([]);
+  const [locations, setLocations] = useState<ShopLocation[]>([]);
   const [formData, setFormData] = useState({
     vendorId: "",
     vendorName: "",
     expectedDeliveryDate: "",
     notes: "",
+    locationId: "",
   });
 
   useEffect(() => {
     loadInventoryItems();
   }, []);
+
+  useEffect(() => {
+    if (!multiLocationActive) return;
+    getLocations()
+      .then((l) => setLocations(Array.isArray(l) ? l.filter((loc) => loc.active) : []))
+      .catch(() => setLocations([]));
+  }, [multiLocationActive]);
+
+  // Default the receiving branch to the shop's active location, otherwise its primary.
+  useEffect(() => {
+    if (formData.locationId || locations.length === 0) return;
+    const preferred =
+      locations.find((l) => l.id === activeLocationId) ||
+      locations.find((l) => l.isPrimary) ||
+      locations[0];
+    if (preferred) setFormData((prev) => ({ ...prev, locationId: preferred.id }));
+  }, [locations, activeLocationId, formData.locationId]);
 
   const loadInventoryItems = async () => {
     try {
@@ -54,6 +78,8 @@ export function CreatePurchaseOrderModal({
       toast.error("Failed to load inventory items");
     }
   };
+
+  const showLocationSelector = multiLocationActive && locations.length >= 2;
 
   const handleVendorChange = (vendorId: string) => {
     const vendor = vendors.find((v) => v.id === vendorId);
@@ -131,6 +157,7 @@ export function CreatePurchaseOrderModal({
         vendorName: formData.vendorName,
         expectedDeliveryDate: formData.expectedDeliveryDate || undefined,
         notes: formData.notes || undefined,
+        locationId: showLocationSelector ? formData.locationId || undefined : undefined,
         items: poItems.map((item) => ({
           inventoryItemId: item.inventoryItemId,
           itemName: item.itemName,
@@ -165,6 +192,30 @@ export function CreatePurchaseOrderModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Receiving Branch */}
+          {showLocationSelector && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                Receive Into Branch
+              </label>
+              <select
+                value={formData.locationId}
+                onChange={(e) => setFormData({ ...formData, locationId: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+              >
+                {locations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.isPrimary ? `${location.name} (Primary)` : location.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Stock from this order will be received into the selected branch.
+              </p>
+            </div>
+          )}
+
           {/* Vendor Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

@@ -10,7 +10,18 @@
 import axios from 'axios';
 import { logger } from '../../../utils/logger';
 
-const GRAPH = 'https://graph.facebook.com/v19.0';
+// Graph API version. Default v19.0 — the version our creative push is PROVEN working on
+// (live creative created 2026-06-18). Bumping to v22.0 regressed adcreatives create (error
+// 2490472 "creative is invalid", even with enhancements off), so v22 stays OPT-IN via
+// META_GRAPH_VERSION for Advantage+ enhancement testing (where v22's individual-feature model
+// + auto-remove-ineligible behavior lives) — not the default until the v22 creative format is sorted.
+const GRAPH_VERSION = (process.env.META_GRAPH_VERSION || 'v19.0').trim();
+const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
+// Advantage+ individual creative_features_spec enhancements only exist on v22+. On older
+// versions sending them makes the whole creative invalid (error 2490472 "Creative Invalid for
+// Text Generation"), so we skip enhancements unless the version supports them.
+const GRAPH_MAJOR = parseInt(GRAPH_VERSION.replace(/^v/, ''), 10) || 0;
+const SUPPORTS_CREATIVE_ENHANCEMENTS = GRAPH_MAJOR >= 22;
 
 // Scopes the connect + push flow requests. `pages_manage_ads` powers page-linked ad creatives.
 // `leads_retrieval` (native instant lead forms) is EXCLUDED for now — it isn't yet enabled on
@@ -49,7 +60,15 @@ export class MetaService {
     if (!e) return err?.message || 'unknown error';
     const code = e.code ? ` (code ${e.code}${e.error_subcode ? `/${e.error_subcode}` : ''})` : '';
     const human = e.error_user_msg || e.error_user_title;
-    return `${e.message || e.type || 'graph_error'}${code}${human ? ` — ${human}` : ''}`;
+    // Surface which field Meta blamed (e.g. 2490472 "creative is invalid" puts the real reason
+    // in error_data.blame_field_specs / error_data, not in the top-level message).
+    let blame = '';
+    const ed = e.error_data;
+    if (ed) {
+      const spec = (ed && typeof ed === 'object' && ed.blame_field_specs) ? ed.blame_field_specs : ed;
+      try { const s = typeof spec === 'string' ? spec : JSON.stringify(spec); if (s && s !== '{}' && s !== '""') blame = ` [blame: ${s}]`; } catch { /* ignore */ }
+    }
+    return `${e.message || e.type || 'graph_error'}${code}${human ? ` — ${human}` : ''}${blame}`;
   }
 
   /** Build the Meta OAuth dialog URL a shop is redirected to. Real (no API call). */
@@ -61,7 +80,7 @@ export class MetaService {
       scope: SCOPES,
       response_type: 'code',
     });
-    return `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`;
+    return `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth?${params.toString()}`;
   }
 
   /** Exchange an OAuth code for a LONG-LIVED user token (short-lived → fb_exchange_token). */
@@ -144,18 +163,117 @@ export class MetaService {
 
   // --- Stage-4 PUSH: create objects on the shop's ad account (user token w/ ads_management) ---
 
-  /** Account status + whether a funding source exists. account_status 1 = ACTIVE. */
-  async getAccountStatus(adAccountId: string, userToken: string): Promise<{ accountStatus: number; hasFunding: boolean }> {
+  /** Account status + funding + currency context. account_status 1 = ACTIVE.
+   *  `currency` is the ISO code (e.g. USD, PHP); `minDailyBudget` is Meta's minimum daily
+   *  budget for THIS account, in the account-currency minor units (the same unit a budget is
+   *  sent in) — used to validate before a push so we surface a clear error, not a raw Graph one. */
+  async getAccountStatus(adAccountId: string, userToken: string): Promise<{
+    accountStatus: number; hasFunding: boolean; currency: string | null; minDailyBudget: number | null;
+  }> {
     this.requireConfig();
     try {
       const res = await axios.get(`${GRAPH}/${adAccountId}`, {
-        params: { fields: 'account_status,funding_source', access_token: userToken },
+        params: { fields: 'account_status,funding_source,currency,min_daily_budget', access_token: userToken },
         timeout: 15000,
       });
-      return { accountStatus: Number(res.data?.account_status ?? 0), hasFunding: !!res.data?.funding_source };
+      const min = res.data?.min_daily_budget;
+      return {
+        accountStatus: Number(res.data?.account_status ?? 0),
+        hasFunding: !!res.data?.funding_source,
+        currency: res.data?.currency ?? null,
+        minDailyBudget: min != null ? Number(min) : null,
+      };
     } catch (err: any) {
       logger.error('MetaService.getAccountStatus failed', { detail: err?.response?.data || err?.message });
       throw new Error(`account_status_failed: ${this.fbError(err)}`);
+    }
+  }
+
+  /** Read a campaign's current config from Meta (two-way config sync). `status` is the configured
+   *  status (ACTIVE/PAUSED/ARCHIVED/DELETED); `effectiveStatus` is the computed delivery state. */
+  async getCampaign(campaignId: string, userToken: string): Promise<{
+    objective: string | null; status: string | null; effectiveStatus: string | null; name: string | null;
+  }> {
+    this.requireConfig();
+    try {
+      const res = await axios.get(`${GRAPH}/${campaignId}`, {
+        params: { fields: 'objective,status,effective_status,name', access_token: userToken },
+        timeout: 15000,
+      });
+      return {
+        objective: res.data?.objective ?? null,
+        status: res.data?.status ?? null,
+        effectiveStatus: res.data?.effective_status ?? null,
+        name: res.data?.name ?? null,
+      };
+    } catch (err: any) {
+      logger.error('MetaService.getCampaign failed', { detail: err?.response?.data || err?.message });
+      throw new Error(`get_campaign_failed: ${this.fbError(err)}`);
+    }
+  }
+
+  /** Read an ad set's current config from Meta (two-way config sync). `dailyBudgetCents` is in the
+   *  account-currency minor units (the same unit we send). */
+  async getAdSet(adsetId: string, userToken: string): Promise<{
+    dailyBudgetCents: number | null; optimizationGoal: string | null; status: string | null; effectiveStatus: string | null;
+    targeting: any | null;
+  }> {
+    this.requireConfig();
+    try {
+      const res = await axios.get(`${GRAPH}/${adsetId}`, {
+        params: { fields: 'daily_budget,optimization_goal,status,effective_status,targeting', access_token: userToken },
+        timeout: 15000,
+      });
+      const db = res.data?.daily_budget;
+      return {
+        dailyBudgetCents: db != null && db !== '' ? Number(db) : null,
+        optimizationGoal: res.data?.optimization_goal ?? null,
+        status: res.data?.status ?? null,
+        effectiveStatus: res.data?.effective_status ?? null,
+        targeting: res.data?.targeting ?? null,
+      };
+    } catch (err: any) {
+      logger.error('MetaService.getAdSet failed', { detail: err?.response?.data || err?.message });
+      throw new Error(`get_adset_failed: ${this.fbError(err)}`);
+    }
+  }
+
+  /** Read a live ad's current status + bound creative id (two-way config sync, Phase 2). Used to
+   *  detect a creative swapped/edited directly in Ads Manager: when `creativeId` ≠ the creative id
+   *  we pushed, the creative diverged and we reflect+flag it. */
+  async getAd(adId: string, userToken: string): Promise<{ status: string | null; creativeId: string | null }> {
+    this.requireConfig();
+    try {
+      const res = await axios.get(`${GRAPH}/${adId}`, {
+        params: { fields: 'status,creative{id}', access_token: userToken },
+        timeout: 15000,
+      });
+      const cid = res.data?.creative?.id;
+      return { status: res.data?.status ?? null, creativeId: cid != null ? String(cid) : null };
+    } catch (err: any) {
+      logger.error('MetaService.getAd failed', { detail: err?.response?.data || err?.message });
+      throw new Error(`get_ad_failed: ${this.fbError(err)}`);
+    }
+  }
+
+  /** Return the ad account's existing Meta Pixel id, or CREATE one ("FixFlow Lead Tracking")
+   *  if none exists. Used so the landing page can fire a "Lead" conversion attributed to the
+   *  shop's ad account. Throws on a Graph error (caller treats as best-effort). */
+  async ensureAdPixel(adAccountId: string, userToken: string): Promise<string> {
+    this.requireConfig();
+    try {
+      const existing = await axios.get(`${GRAPH}/${adAccountId}/adspixels`, {
+        params: { fields: 'id,name', limit: 1, access_token: userToken }, timeout: 15000,
+      });
+      const found = existing.data?.data?.[0]?.id;
+      if (found) return String(found);
+      const created = await axios.post(`${GRAPH}/${adAccountId}/adspixels`, null, {
+        params: { name: 'FixFlow Lead Tracking', access_token: userToken }, timeout: 15000,
+      });
+      return String(created.data?.id);
+    } catch (err: any) {
+      logger.error('MetaService.ensureAdPixel failed', { detail: err?.response?.data || err?.message });
+      throw new Error(`pixel_failed: ${this.fbError(err)}`);
     }
   }
 
@@ -175,6 +293,11 @@ export class MetaService {
   async createAdSet(adAccountId: string, userToken: string, opts: {
     name: string; campaignId: string; dailyBudgetCents: number; optimizationGoal: string;
     billingEvent: string; targeting: Record<string, any>; promotedPageId?: string;
+    /** When optimizing for a pixel conversion (OFFSITE_CONVERSIONS), the ad set's promoted_object
+     *  must name the pixel + the standard event to optimize toward. Takes precedence over page. */
+    conversionPixelId?: string; customEventType?: string;
+    /** Click-to-Messenger (OUTCOME_ENGAGEMENT): ad set targets the MESSENGER destination + promotes the page. */
+    messagingDestination?: boolean;
   }): Promise<string> {
     const body: Record<string, any> = {
       name: opts.name,
@@ -191,7 +314,18 @@ export class MetaService {
     // Lead-gen optimization uses a native instant form on the ad (ON_AD destination) — required
     // so a creative carrying a lead_gen_form_id is accepted (else Meta 100/1892040).
     if (opts.optimizationGoal === 'LEAD_GENERATION') body.destination_type = 'ON_AD';
-    if (opts.promotedPageId) body.promoted_object = JSON.stringify({ page_id: opts.promotedPageId });
+    // Click-to-Messenger: the ad opens a Messenger thread with the promoted page.
+    if (opts.messagingDestination) body.destination_type = 'MESSENGER';
+    // promoted_object: a pixel conversion (OFFSITE_CONVERSIONS) takes precedence over the page —
+    // Meta requires { pixel_id, custom_event_type } to optimize toward the Lead event.
+    if (opts.conversionPixelId) {
+      body.promoted_object = JSON.stringify({
+        pixel_id: opts.conversionPixelId,
+        custom_event_type: opts.customEventType || 'LEAD',
+      });
+    } else if (opts.promotedPageId) {
+      body.promoted_object = JSON.stringify({ page_id: opts.promotedPageId });
+    }
     return this.create(`${adAccountId}/adsets`, userToken, body);
   }
 
@@ -200,24 +334,59 @@ export class MetaService {
   async createAdCreative(adAccountId: string, userToken: string, opts: {
     pageId: string; imageUrl: string; headline: string; message: string; linkUrl: string;
     callToAction?: string; leadFormId?: string;
+    /** Opt into Meta Advantage+ standard creative enhancements (image expansion, background
+     *  gen, text variations) on top of our approved creative. Default off (brand-safe). */
+    enhancements?: boolean;
+    /** Click-to-Messenger: CTA opens a Messenger thread with the page (no outbound landing link). */
+    messaging?: boolean;
   }): Promise<string> {
-    const call_to_action = opts.leadFormId
-      ? { type: 'SIGN_UP', value: { lead_gen_form_id: opts.leadFormId, link: opts.linkUrl } }
-      : { type: opts.callToAction ?? 'LEARN_MORE', value: { link: opts.linkUrl } };
+    // Click-to-Messenger creative: MESSAGE_PAGE CTA → Messenger, no landing link. Otherwise a
+    // native-lead-form (SIGN_UP) or an outbound link (LEARN_MORE).
+    const call_to_action = opts.messaging
+      ? { type: 'MESSAGE_PAGE', value: { app_destination: 'MESSENGER' } }
+      : opts.leadFormId
+        ? { type: 'SIGN_UP', value: { lead_gen_form_id: opts.leadFormId, link: opts.linkUrl } }
+        : { type: opts.callToAction ?? 'LEARN_MORE', value: { link: opts.linkUrl } };
+    const link_data: Record<string, any> = {
+      picture: opts.imageUrl,
+      message: opts.message,
+      name: opts.headline,
+      call_to_action,
+    };
+    // Messaging ads route to Messenger via the CTA — no outbound `link`. All others carry the landing/lead URL.
+    if (!opts.messaging) link_data.link = opts.linkUrl;
     const objectStorySpec = {
       page_id: opts.pageId,
-      link_data: {
-        picture: opts.imageUrl,
-        link: opts.linkUrl,
-        message: opts.message,
-        name: opts.headline,
-        call_to_action,
-      },
+      link_data,
     };
-    return this.create(`${adAccountId}/adcreatives`, userToken, {
+    const body: Record<string, any> = {
       name: `${opts.headline} — creative`.slice(0, 100),
       object_story_spec: JSON.stringify(objectStorySpec),
-    });
+    };
+    // Advantage+ creative enhancements — opt-in only (exec Part 4). Meta optimizes variations
+    // AFTER our approval; off by default so nothing reaches delivery un-reviewed.
+    // NOTE: the umbrella `standard_enhancements` field is DEPRECATED (Meta error 3858504) — you
+    // must opt into INDIVIDUAL features. Which features are eligible varies by account/objective
+    // (the open research task), so the set is env-tunable via ADS_META_ENHANCEMENT_FEATURES.
+    if (opts.enhancements && SUPPORTS_CREATIVE_ENHANCEMENTS) {
+      // Default = subtle, broadly-ELIGIBLE features only. A single ineligible feature invalidates
+      // the WHOLE creative (Meta does NOT auto-drop, e.g. text_generation → "Creative Invalid for
+      // Text Generation", image_background_gen → "No catalog selected"). Verified eligible for our
+      // test account: image_brightness_and_contrast, image_touchups, enhance_cta (+ image_enhancement,
+      // image_auto_crop, image_uncrop, adapt_to_placement, text_optimizations, image_templates).
+      // Override per account via ADS_META_ENHANCEMENT_FEATURES.
+      const features = (process.env.ADS_META_ENHANCEMENT_FEATURES
+        || 'image_brightness_and_contrast,image_touchups,enhance_cta')
+        .split(',').map((f) => f.trim()).filter(Boolean);
+      const creative_features_spec: Record<string, any> = {};
+      for (const f of features) creative_features_spec[f] = { enroll_status: 'OPT_IN' };
+      body.degrees_of_freedom_spec = JSON.stringify({ creative_features_spec });
+    } else if (opts.enhancements) {
+      // Flag is on but the Graph version can't do individual enhancements — skip rather than
+      // send an invalid creative. Set META_GRAPH_VERSION=v22.0 to actually apply them.
+      logger.warn(`createAdCreative: enhancements requested but Graph ${GRAPH_VERSION} lacks individual creative_features_spec — skipping (set META_GRAPH_VERSION=v22.0).`);
+    }
+    return this.create(`${adAccountId}/adcreatives`, userToken, body);
   }
 
   /** Whether the Page has accepted Meta's Lead Generation Terms of Service (required before
@@ -317,15 +486,23 @@ export class MetaService {
   /** Shared POST → returns the created object id; throws a descriptive error on failure. */
   private async create(edge: string, userToken: string, body: Record<string, any>): Promise<string> {
     this.requireConfig();
+    let res;
     try {
-      const res = await axios.post(`${GRAPH}/${edge}`, null, { params: { ...body, access_token: userToken }, timeout: 20000 });
-      const id = res.data?.id;
-      if (!id) throw new Error(`Meta ${edge} returned no id`);
-      return String(id);
+      res = await axios.post(`${GRAPH}/${edge}`, null, { params: { ...body, access_token: userToken }, timeout: 20000 });
     } catch (err: any) {
       logger.error(`MetaService.create ${edge} failed`, { detail: err?.response?.data || err?.message });
       throw new Error(`meta_create_failed (${edge}): ${this.fbError(err)}`);
     }
+    // Meta sometimes returns HTTP 200 with an ERROR BODY (e.g. account security checkpoint
+    // code 31 "Please authenticate your account") — axios doesn't throw, so surface it here
+    // instead of the misleading "returned no id".
+    if (res.data?.error) {
+      logger.error(`MetaService.create ${edge} returned error body`, { detail: res.data });
+      throw new Error(`meta_create_failed (${edge}): ${this.fbError({ response: { data: res.data } })}`);
+    }
+    const id = res.data?.id;
+    if (!id) throw new Error(`meta_create_failed (${edge}): no id returned — response: ${JSON.stringify(res.data)}`);
+    return String(id);
   }
 
   /** Fetch daily campaign insights (spend/impressions/clicks) for the window. Returns the

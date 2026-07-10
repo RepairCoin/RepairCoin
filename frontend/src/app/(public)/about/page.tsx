@@ -9,10 +9,9 @@ import AboutHero from "@/components/about/AboutHero";
 
 // Below-the-fold - lazy loaded with dynamic imports
 const TheOrigin = dynamic(() => import("@/components/about/TheOrigin"), { ssr: true });
-const OurApproach = dynamic(() => import("@/components/about/OurApproach"), { ssr: true });
-const AboutHowItWorks = dynamic(() => import("@/components/about/AboutHowItWorks"), { ssr: true });
-const Trust = dynamic(() => import("@/components/about/Trust"), { ssr: true });
-const WhereWeAreGoing = dynamic(() => import("@/components/about/WhereWeAreGoing"), { ssr: true });
+const WhyFixFlow = dynamic(() => import("@/components/about/WhyFixFlow"), { ssr: true });
+const PlatformOverview = dynamic(() => import("@/components/about/PlatformOverview"), { ssr: true });
+const MissionVision = dynamic(() => import("@/components/about/MissionVision"), { ssr: true });
 const AboutCTA = dynamic(() => import("@/components/about/AboutCTA"), { ssr: true });
 
 export default function About() {
@@ -22,10 +21,9 @@ export default function About() {
         <ScrollProgress />
         <AboutHero />
         <TheOrigin />
-        <OurApproach />
-        <AboutHowItWorks />
-        <Trust />
-        <WhereWeAreGoing />
+        <WhyFixFlow />
+        <PlatformOverview />
+        <MissionVision />
         <AboutCTA />
       </div>
     </LazyMotion>

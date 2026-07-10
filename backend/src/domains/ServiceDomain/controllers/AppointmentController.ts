@@ -7,8 +7,9 @@ import { RescheduleService } from '../services/RescheduleService';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { OrderRepository } from '../../../repositories/OrderRepository';
-import { customerRepository, shopRepository } from '../../../repositories';
+import { customerRepository, shopRepository, shopLocationRepository } from '../../../repositories';
 import { EmailService } from '../../../services/EmailService';
+import { hasPaidMultiLocation, resolveBookingLocationId } from '../../../utils/multiLocationEntitlement';
 
 export class AppointmentController {
   private appointmentRepo: AppointmentRepository;
@@ -27,6 +28,25 @@ export class AppointmentController {
     this.serviceRepo = new ServiceRepository();
   }
 
+  // Validate a requested location for a per-branch write. Returns the id to persist (null =
+  // shop-level / primary), or an error when the location isn't owned or the shop isn't entitled.
+  private async resolveWritableLocation(
+    shopId: string,
+    locationId: unknown,
+    featureLabel: string
+  ): Promise<{ locationId: string | null; error?: { status: number; message: string } }> {
+    if (!locationId) return { locationId: null };
+    const loc = await shopLocationRepository.getById(locationId as string);
+    if (!loc || loc.shopId !== shopId) {
+      return { locationId: null, error: { status: 404, message: 'Location not found' } };
+    }
+    if (loc.isPrimary) return { locationId: null };
+    if (!(await hasPaidMultiLocation(shopId))) {
+      return { locationId: null, error: { status: 403, message: `Per-location ${featureLabel} require the Business plan` } };
+    }
+    return { locationId: loc.id };
+  }
+
   /**
    * Get available time slots for a service
    * GET /api/services/appointments/available-slots
@@ -37,7 +57,7 @@ export class AppointmentController {
    */
   getAvailableTimeSlots = async (req: Request, res: Response) => {
     try {
-      const { shopId, serviceId, date } = req.query;
+      const { shopId, serviceId, date, locationId } = req.query;
 
       if (!shopId || !serviceId || !date) {
         return res.status(400).json({
@@ -46,10 +66,16 @@ export class AppointmentController {
         });
       }
 
+      const resolvedLocationId = await resolveBookingLocationId(
+        shopId as string,
+        (locationId as string) || undefined
+      );
+
       const slots = await this.appointmentService.getAvailableTimeSlots(
         shopId as string,
         serviceId as string,
-        date as string
+        date as string,
+        resolvedLocationId
       );
 
       res.json({
@@ -73,7 +99,12 @@ export class AppointmentController {
     try {
       const { shopId } = req.params;
 
-      const availability = await this.appointmentRepo.getShopAvailability(shopId);
+      const resolvedLocationId = await resolveBookingLocationId(
+        shopId,
+        (req.query.locationId as string) || undefined
+      );
+
+      const availability = await this.appointmentRepo.getShopAvailability(shopId, resolvedLocationId);
 
       res.json({
         success: true,
@@ -100,8 +131,13 @@ export class AppointmentController {
         return res.status(400).json({ success: false, error: 'shopId is required' });
       }
 
-      // Lazy init: auto-create defaults if missing
-      let config = await this.appointmentRepo.getTimeSlotConfig(shopId);
+      const resolvedLocationId = await resolveBookingLocationId(
+        shopId,
+        (req.query.locationId as string) || undefined
+      );
+
+      // Lazy init: auto-create shop-level defaults if missing (branches inherit until customized)
+      let config = await this.appointmentRepo.getTimeSlotConfig(shopId, resolvedLocationId);
       if (!config) {
         logger.warn('No time slot config found in public endpoint, auto-creating defaults', { shopId });
         config = await this.appointmentRepo.updateTimeSlotConfig({ shopId });
@@ -131,7 +167,7 @@ export class AppointmentController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const { dayOfWeek, isOpen, openTime, closeTime, breakStartTime, breakEndTime } = req.body;
+      const { dayOfWeek, isOpen, openTime, closeTime, breakStartTime, breakEndTime, locationId } = req.body;
 
       if (dayOfWeek === undefined) {
         return res.status(400).json({ success: false, error: 'dayOfWeek is required' });
@@ -145,8 +181,14 @@ export class AppointmentController {
         return res.status(400).json({ success: false, error: 'Close time must be after open time' });
       }
 
+      const loc = await this.resolveWritableLocation(shopId, locationId, 'hours');
+      if (loc.error) {
+        return res.status(loc.error.status).json({ success: false, error: loc.error.message });
+      }
+
       const availability = await this.appointmentRepo.updateShopAvailability({
         shopId,
+        locationId: loc.locationId,
         dayOfWeek,
         isOpen,
         openTime,
@@ -179,7 +221,12 @@ export class AppointmentController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
+      const resolvedLocationId = await resolveBookingLocationId(
+        shopId,
+        (req.query.locationId as string) || undefined
+      );
+
+      const config = await this.appointmentRepo.getTimeSlotConfig(shopId, resolvedLocationId);
 
       res.json({
         success: true,
@@ -212,7 +259,8 @@ export class AppointmentController {
         bookingAdvanceDays,
         minBookingHours,
         allowWeekendBooking,
-        timezone
+        timezone,
+        locationId
       } = req.body;
 
       // Validate all fields before saving
@@ -266,8 +314,14 @@ export class AppointmentController {
         });
       }
 
+      const loc = await this.resolveWritableLocation(shopId, locationId, 'slot settings');
+      if (loc.error) {
+        return res.status(loc.error.status).json({ success: false, error: loc.error.message });
+      }
+
       const config = await this.appointmentRepo.updateTimeSlotConfig({
         shopId,
+        locationId: loc.locationId,
         slotDurationMinutes,
         bufferTimeMinutes,
         maxConcurrentBookings,
@@ -301,7 +355,12 @@ export class AppointmentController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      await this.appointmentRepo.deleteTimeSlotConfig(shopId);
+      const loc = await this.resolveWritableLocation(shopId, req.query.locationId, 'slot settings');
+      if (loc.error) {
+        return res.status(loc.error.status).json({ success: false, error: loc.error.message });
+      }
+
+      await this.appointmentRepo.deleteTimeSlotConfig(shopId, loc.locationId);
 
       res.json({
         success: true,
@@ -317,6 +376,41 @@ export class AppointmentController {
   };
 
   /**
+   * Get date overrides for a shop (public — used by the customer booking calendar
+   * so closed/holiday dates can be greyed out before a date is selected).
+   * GET /api/services/appointments/shop-date-overrides/:shopId
+   */
+  getShopDateOverrides = async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const { startDate, endDate, locationId } = req.query;
+
+      const resolvedLocationId = await resolveBookingLocationId(
+        shopId,
+        (locationId as string) || undefined
+      );
+
+      const overrides = await this.appointmentRepo.getDateOverrides(
+        shopId,
+        startDate as string | undefined,
+        endDate as string | undefined,
+        resolvedLocationId
+      );
+
+      res.json({
+        success: true,
+        data: overrides
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getShopDateOverrides controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get shop date overrides'
+      });
+    }
+  };
+
+  /**
    * Get date overrides (Shop only)
    * GET /api/services/appointments/date-overrides
    */
@@ -327,12 +421,18 @@ export class AppointmentController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, locationId } = req.query;
+
+      const resolvedLocationId = await resolveBookingLocationId(
+        shopId,
+        (locationId as string) || undefined
+      );
 
       const overrides = await this.appointmentRepo.getDateOverrides(
         shopId,
         startDate as string | undefined,
-        endDate as string | undefined
+        endDate as string | undefined,
+        resolvedLocationId
       );
 
       res.json({
@@ -359,14 +459,20 @@ export class AppointmentController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const { overrideDate, isClosed, customOpenTime, customCloseTime, reason } = req.body;
+      const { overrideDate, isClosed, customOpenTime, customCloseTime, reason, locationId } = req.body;
 
       if (!overrideDate) {
         return res.status(400).json({ success: false, error: 'overrideDate is required' });
       }
 
+      const loc = await this.resolveWritableLocation(shopId, locationId, 'holidays');
+      if (loc.error) {
+        return res.status(loc.error.status).json({ success: false, error: loc.error.message });
+      }
+
       const override = await this.appointmentRepo.createDateOverride({
         shopId,
+        locationId: loc.locationId,
         overrideDate,
         isClosed,
         customOpenTime,
@@ -400,7 +506,19 @@ export class AppointmentController {
 
       const { date } = req.params;
 
-      await this.appointmentRepo.deleteDateOverride(shopId, date);
+      const loc = await this.resolveWritableLocation(shopId, req.query.locationId, 'holidays');
+      if (loc.error) {
+        return res.status(loc.error.status).json({ success: false, error: loc.error.message });
+      }
+
+      const deleted = await this.appointmentRepo.deleteDateOverride(shopId, date, loc.locationId);
+
+      if (!deleted) {
+        return res.status(404).json({
+          success: false,
+          error: 'Date override not found'
+        });
+      }
 
       res.json({
         success: true,
@@ -438,7 +556,8 @@ export class AppointmentController {
       const bookings = await this.appointmentRepo.getShopCalendar(
         shopId,
         startDate as string,
-        endDate as string
+        endDate as string,
+        (req.query.locationId as string) || undefined
       );
 
       res.json({

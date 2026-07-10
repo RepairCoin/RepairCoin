@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://www.repaircoin.ai'),
   title: 'FixFlow - Loyalty Tokens for Service Businesses',
   description: 'Earn FixFlow tokens for services and redeem them at participating businesses',
-  keywords: ['blockchain', 'loyalty', 'tokens', 'repair', 'cryptocurrency'],
+  keywords: ['loyalty', 'rewards', 'repair', 'service business', 'customer rewards'],
   icons: {
     icon: '/img/landing/fixflow-icon.png',
     shortcut: '/img/landing/fixflow-icon.png',

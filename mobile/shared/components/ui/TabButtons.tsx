@@ -4,15 +4,22 @@ import { useHaptics } from "@/shared/hooks/useHaptics";
 interface Tab {
   key: string;
   label: string;
+  sublabel?: string;
 }
 
 interface TabButtonsProps {
   tabs: Tab[];
   activeTab: string;
   onTabChange: (tab: string) => void;
+  className?: string;
 }
 
-export function TabButtons({ tabs, activeTab, onTabChange }: TabButtonsProps) {
+export function TabButtons({
+  tabs,
+  activeTab,
+  onTabChange,
+  className = "px-4 mb-4",
+}: TabButtonsProps) {
   const haptics = useHaptics();
 
   const getTabClassName = (index: number, isActive: boolean) => {
@@ -29,7 +36,7 @@ export function TabButtons({ tabs, activeTab, onTabChange }: TabButtonsProps) {
   };
 
   return (
-    <View className="flex-row px-4 mb-4">
+    <View className={`flex-row ${className}`}>
       {tabs.map((tab, index) => {
         const isActive = activeTab === tab.key;
         return (
@@ -46,6 +53,15 @@ export function TabButtons({ tabs, activeTab, onTabChange }: TabButtonsProps) {
             >
               {tab.label}
             </Text>
+            {tab.sublabel && (
+              <Text
+                className={`text-center text-xs mt-0.5 ${
+                  isActive ? "text-black/60" : "text-gray-500"
+                }`}
+              >
+                {tab.sublabel}
+              </Text>
+            )}
           </TouchableOpacity>
         );
       })}

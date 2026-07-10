@@ -7,12 +7,11 @@ import {
   MarketingTemplate,
   CampaignRewardConfig
 } from '../repositories/MarketingCampaignRepository';
-import { NotificationRepository, CreateNotificationParams } from '../repositories/NotificationRepository';
+import { NotificationGateway, getNotificationGateway } from '../domains/notification/services/NotificationGateway';
 import { CustomerRepository } from '../repositories/CustomerRepository';
 import { ServiceRepository } from '../repositories/ServiceRepository';
 import { ShopRepository } from '../repositories/ShopRepository';
 import { EmailService } from './EmailService';
-import { WebSocketManager } from './WebSocketManager';
 import { PaginatedResult, PaginationParams } from '../repositories/BaseRepository';
 import { eventBus, createDomainEvent } from '../events/EventBus';
 import { campaignRewardService } from './CampaignRewardService';
@@ -62,19 +61,17 @@ function generateCouponCode(name: string): string {
 
 export class MarketingService {
   private campaignRepo: MarketingCampaignRepository;
-  private notificationRepo: NotificationRepository;
+  private notificationGateway: NotificationGateway;
   private customerRepo: CustomerRepository;
   private serviceRepo: ServiceRepository;
   private emailService: EmailService;
-  private wsManager: WebSocketManager | null;
 
-  constructor(wsManager?: WebSocketManager) {
+  constructor() {
     this.campaignRepo = new MarketingCampaignRepository();
-    this.notificationRepo = new NotificationRepository();
+    this.notificationGateway = getNotificationGateway();
     this.customerRepo = new CustomerRepository();
     this.serviceRepo = new ServiceRepository();
     this.emailService = new EmailService();
-    this.wsManager = wsManager || null;
   }
 
   // Campaign CRUD
@@ -575,6 +572,19 @@ export class MarketingService {
         }
         return [];
 
+      case 'imported_winback': {
+        // Square→FixFlow switch win-back: target only this shop's imported/
+        // migrated customers (import_source set, home_shop_id = shop), not the
+        // existing FixFlow base. Sourced directly from findImportedCustomers so
+        // the funnel stage is resolved at the SQL level — NOT a filter of the
+        // transaction-based shopCustomers list (imported customers have no
+        // token activity, so they aren't in it). See
+        // docs/tasks/strategy/customer-migration/square-switch-execution-scope.md
+        const stage = audienceFilters?.importStage as
+          | 'not_claimed' | 'claimed_not_booked' | 'active' | undefined;
+        return this.customerRepo.findImportedCustomers(shopId, stage);
+      }
+
       case 'custom': {
         // Lapsed / win-back (minDaysSinceLastVisit) is BOOKING-based: source
         // candidates from service_orders so customers who booked repairs but
@@ -672,11 +682,10 @@ export class MarketingService {
     shopInfo: ShopInfo
   ): Promise<boolean> {
     try {
-      // Create notification in database
-      const notificationParams: CreateNotificationParams = {
+      // Delivery (currently persist-only — see marketing_campaign in the
+      // notification registry) is driven by the gateway.
+      await this.notificationGateway.dispatch('marketing_campaign', recipient.walletAddress, {
         senderAddress: shopInfo.walletAddress,
-        receiverAddress: recipient.walletAddress,
-        notificationType: 'marketing_campaign',
         message: this.generateNotificationMessage(campaign, shopInfo),
         metadata: {
           campaignId: campaign.id,
@@ -690,14 +699,7 @@ export class MarketingService {
           serviceId: campaign.serviceId,
           designContent: campaign.designContent
         }
-      };
-
-      const notification = await this.notificationRepo.create(notificationParams);
-
-      // Send via WebSocket if available
-      if (this.wsManager) {
-        this.wsManager.sendNotificationToUser(recipient.walletAddress, notification);
-      }
+      });
 
       return true;
     } catch (error) {
@@ -943,9 +945,15 @@ export class MarketingService {
         `;
 
       case 'button':
-        // Generate proper link based on service or shop
+        // Generate proper link based on service or shop. An explicit block.url wins (e.g. the
+        // imported-customer win-back claim CTA points at the customer dashboard, where the claim
+        // banner prompts after login/signup) — otherwise default to the marketplace.
         let buttonUrl = `${frontendUrl}/customer?tab=marketplace`;
-        if (serviceData?.serviceId) {
+        if (typeof block.url === 'string' && block.url.trim()) {
+          buttonUrl = block.url.trim().startsWith('http')
+            ? block.url.trim()
+            : `${frontendUrl}${block.url.trim().startsWith('/') ? '' : '/'}${block.url.trim()}`;
+        } else if (serviceData?.serviceId) {
           buttonUrl = `${frontendUrl}/customer?tab=marketplace&service=${serviceData.serviceId}`;
         } else if (campaign.serviceId) {
           buttonUrl = `${frontendUrl}/customer?tab=marketplace&service=${campaign.serviceId}`;

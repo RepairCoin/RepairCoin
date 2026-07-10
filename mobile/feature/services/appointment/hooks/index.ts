@@ -4,6 +4,7 @@ export {
   useShopAvailabilityQuery,
   useTimeSlotConfigQuery,
   useDateOverridesQuery,
+  useShopDateOverridesQuery,
   useShopCalendarQuery,
 } from "./useAppointmentQueries";
 export { useBalance } from "./useBalance";

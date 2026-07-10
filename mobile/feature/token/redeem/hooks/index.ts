@@ -6,3 +6,5 @@ export { useCustomerRedeem } from "./useCustomerRedeem";
 export { useCustomerRedeemData } from "./useCustomerRedeemData";
 export { useSessionTimer } from "./useSessionTimer";
 export { useSessionPolling } from "./useSessionPolling";
+export { useRedemptionHistory } from "./useRedemptionHistory";
+export type { RedemptionHistoryItem } from "./useRedemptionHistory";

@@ -113,6 +113,7 @@ export interface UpdateInventoryItemParams {
 
 export interface InventoryFilters {
   shopId: string;
+  locationId?: string; // per-branch stock view (entitlement-gated); omitted = shop-total
   categoryId?: string;
   vendorId?: string;
   status?: InventoryStatus;
@@ -159,6 +160,7 @@ export interface UpdateVendorParams {
 export interface AdjustStockParams {
   itemId: string;
   shopId: string;
+  locationId?: string; // branch whose stock to adjust; omitted = the shop's primary location
   adjustmentType: AdjustmentType;
   quantityChange: number;
   referenceType?: string;
@@ -182,6 +184,7 @@ export class InventoryRepository extends BaseRepository {
    * Create a new inventory item
    */
   async createItem(params: CreateInventoryItemParams): Promise<InventoryItem> {
+    return this.withTransaction(async (client: PoolClient) => {
     try {
       const query = `
         INSERT INTO inventory_items (
@@ -191,6 +194,7 @@ export class InventoryRepository extends BaseRepository {
         RETURNING *
       `;
 
+      const initialStock = params.stockQuantity || 0;
       const values = [
         params.shopId,
         params.categoryId || null,
@@ -201,30 +205,64 @@ export class InventoryRepository extends BaseRepository {
         params.barcode || null,
         params.price,
         params.cost || null,
-        params.stockQuantity || 0,
+        initialStock,
         params.lowStockThreshold || 5,
         JSON.stringify(params.images || []),
         JSON.stringify(params.metadata || {})
       ];
 
-      const result = await this.pool.query(query, values);
-      return this.mapSnakeToCamel(result.rows[0]) as InventoryItem;
+      const result = await client.query(query, values);
+      const item = result.rows[0];
+
+      // Seed the initial stock into the shop's primary location so per-branch views and the
+      // shop-total cache agree from the start (no primary → skip; total still holds).
+      const primary = await client.query(
+        `SELECT id FROM shop_locations WHERE shop_id = $1 AND is_primary = true LIMIT 1`,
+        [params.shopId]
+      );
+      if (primary.rows[0]?.id) {
+        await client.query(
+          `INSERT INTO inventory_item_stock (item_id, location_id, stock_quantity, reserved_quantity)
+           VALUES ($1, $2, $3, 0) ON CONFLICT (item_id, location_id) DO NOTHING`,
+          [item.id, primary.rows[0].id, initialStock]
+        );
+      }
+
+      return this.mapSnakeToCamel(item) as InventoryItem;
     } catch (error: any) {
       logger.error('Error creating inventory item:', error);
       throw error;
     }
+    });
   }
 
   /**
    * Get inventory item by ID
    */
-  async getItemById(itemId: string, shopId: string): Promise<InventoryItem | null> {
+  async getItemById(itemId: string, shopId: string, locationId?: string): Promise<InventoryItem | null> {
     try {
-      const query = `
+      // With a location, the stock/reserved/threshold/status columns reflect that branch (aliased
+      // after ii.* so they win); otherwise the item's shop-total.
+      const query = locationId
+        ? `
+        SELECT
+          ii.*,
+          COALESCE(ils.stock_quantity, 0) AS stock_quantity,
+          COALESCE(ils.reserved_quantity, 0) AS reserved_quantity,
+          COALESCE(ils.low_stock_threshold, ii.low_stock_threshold) AS low_stock_threshold,
+          CASE WHEN COALESCE(ils.stock_quantity, 0) = 0 THEN 'out_of_stock'
+               WHEN COALESCE(ils.stock_quantity, 0) <= COALESCE(ils.low_stock_threshold, ii.low_stock_threshold) THEN 'low_stock'
+               ELSE 'available' END AS status
+        FROM inventory_items ii
+        LEFT JOIN inventory_item_stock ils ON ils.item_id = ii.id AND ils.location_id = $3::uuid
+        WHERE ii.id = $1 AND ii.shop_id = $2 AND ii.deleted_at IS NULL
+      `
+        : `
         SELECT * FROM inventory_items
         WHERE id = $1 AND shop_id = $2 AND deleted_at IS NULL
       `;
-      const result = await this.pool.query(query, [itemId, shopId]);
+      const params = locationId ? [itemId, shopId, locationId] : [itemId, shopId];
+      const result = await this.pool.query(query, params);
 
       if (result.rows.length === 0) return null;
       return this.mapSnakeToCamel(result.rows[0]) as InventoryItem;
@@ -285,6 +323,21 @@ export class InventoryRepository extends BaseRepository {
       const values: any[] = [filters.shopId];
       let paramIndex = 2;
 
+      // Per-branch stock view (entitlement-gated by the caller). When set, stock/reserved/threshold
+      // and status come from inventory_item_stock for that branch; otherwise the item's shop-total.
+      let stockJoin = '';
+      let stockExpr = 'ii.stock_quantity';
+      let reservedExpr = 'ii.reserved_quantity';
+      let thresholdExpr = 'ii.low_stock_threshold';
+      if (filters.locationId) {
+        values.push(filters.locationId);
+        stockJoin = `LEFT JOIN inventory_item_stock ils ON ils.item_id = ii.id AND ils.location_id = $${paramIndex}::uuid`;
+        stockExpr = 'COALESCE(ils.stock_quantity, 0)';
+        reservedExpr = 'COALESCE(ils.reserved_quantity, 0)';
+        thresholdExpr = 'COALESCE(ils.low_stock_threshold, ii.low_stock_threshold)';
+        paramIndex++;
+      }
+
       // Build WHERE clause
       if (filters.categoryId) {
         conditions.push(`ii.category_id = $${paramIndex}`);
@@ -305,11 +358,11 @@ export class InventoryRepository extends BaseRepository {
       }
 
       if (filters.lowStock) {
-        conditions.push('ii.stock_quantity <= ii.low_stock_threshold AND ii.stock_quantity > 0');
+        conditions.push(`${stockExpr} <= ${thresholdExpr} AND ${stockExpr} > 0`);
       }
 
       if (filters.outOfStock) {
-        conditions.push('ii.stock_quantity = 0');
+        conditions.push(`${stockExpr} = 0`);
       }
 
       if (filters.search) {
@@ -339,10 +392,10 @@ export class InventoryRepository extends BaseRepository {
           orderBy = 'ii.price DESC';
           break;
         case 'stock_asc':
-          orderBy = 'ii.stock_quantity ASC';
+          orderBy = `${stockExpr} ASC`;
           break;
         case 'stock_desc':
-          orderBy = 'ii.stock_quantity DESC';
+          orderBy = `${stockExpr} DESC`;
           break;
         case 'oldest':
           orderBy = 'ii.created_at ASC';
@@ -356,22 +409,32 @@ export class InventoryRepository extends BaseRepository {
       // Get total count
       const countQuery = `
         SELECT COUNT(*) FROM inventory_items ii
+        ${stockJoin}
         WHERE ${conditions.join(' AND ')}
       `;
       const countResult = await this.pool.query(countQuery, values);
       const totalItems = parseInt(countResult.rows[0].count);
 
-      // Get paginated items
+      // Get paginated items. The branch-scoped columns are aliased after ii.* so they win
+      // (node-pg keeps the last column of a duplicated name) — giving per-branch values when a
+      // location is set, and the identical shop-total when it is not.
       const offset = this.getPaginationOffset(page, limit);
       const query = `
         SELECT
           ii.*,
           ic.name AS category_name,
           iv.name AS vendor_name,
-          (ii.stock_quantity - ii.reserved_quantity) AS available_quantity
+          ${stockExpr} AS stock_quantity,
+          ${reservedExpr} AS reserved_quantity,
+          ${thresholdExpr} AS low_stock_threshold,
+          (${stockExpr} - ${reservedExpr}) AS available_quantity${filters.locationId ? `,
+          CASE WHEN ${stockExpr} = 0 THEN 'out_of_stock'
+               WHEN ${stockExpr} <= ${thresholdExpr} THEN 'low_stock'
+               ELSE 'available' END AS status` : ''}
         FROM inventory_items ii
         LEFT JOIN inventory_categories ic ON ii.category_id = ic.id
         LEFT JOIN inventory_vendors iv ON ii.vendor_id = iv.id
+        ${stockJoin}
         WHERE ${conditions.join(' AND ')}
         ORDER BY ${orderBy}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -594,58 +657,94 @@ export class InventoryRepository extends BaseRepository {
   async adjustStock(params: AdjustStockParams): Promise<InventoryAdjustment> {
     return this.withTransaction(async (client: PoolClient) => {
       try {
-        // Get current item
-        const itemQuery = `
-          SELECT stock_quantity FROM inventory_items
-          WHERE id = $1 AND shop_id = $2 AND deleted_at IS NULL
-          FOR UPDATE
-        `;
-        const itemResult = await client.query(itemQuery, [params.itemId, params.shopId]);
-
+        // Lock the item (existence + shop check).
+        const itemResult = await client.query(
+          `SELECT stock_quantity FROM inventory_items
+           WHERE id = $1 AND shop_id = $2 AND deleted_at IS NULL FOR UPDATE`,
+          [params.itemId, params.shopId]
+        );
         if (itemResult.rows.length === 0) {
           throw new Error('Inventory item not found');
         }
 
-        const quantityBefore = itemResult.rows[0].stock_quantity;
-        const quantityAfter = quantityBefore + params.quantityChange;
-
-        if (quantityAfter < 0) {
-          throw new Error('Insufficient stock quantity');
+        // Resolve the branch this adjustment hits — explicit, else the shop's primary location.
+        let locationId: string | null = params.locationId || null;
+        if (!locationId) {
+          const primary = await client.query(
+            `SELECT id FROM shop_locations WHERE shop_id = $1 AND is_primary = true LIMIT 1`,
+            [params.shopId]
+          );
+          locationId = primary.rows[0]?.id || null;
         }
 
-        // Update stock quantity
-        const updateQuery = `
-          UPDATE inventory_items
-          SET stock_quantity = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE id = $2 AND shop_id = $3
-        `;
-        await client.query(updateQuery, [quantityAfter, params.itemId, params.shopId]);
+        let quantityBefore: number;
+        let quantityAfter: number;
 
-        // Create adjustment record
-        const adjustmentQuery = `
-          INSERT INTO inventory_adjustments (
-            item_id, shop_id, adjustment_type, quantity_change,
+        if (locationId) {
+          // Per-branch path: adjust the branch's stock row (before/after are the branch's), then
+          // apply the same delta to the item's cached shop-total.
+          await client.query(
+            `INSERT INTO inventory_item_stock (item_id, location_id, stock_quantity, reserved_quantity)
+             VALUES ($1, $2, 0, 0) ON CONFLICT (item_id, location_id) DO NOTHING`,
+            [params.itemId, locationId]
+          );
+          const branch = await client.query(
+            `SELECT stock_quantity FROM inventory_item_stock
+             WHERE item_id = $1 AND location_id = $2 FOR UPDATE`,
+            [params.itemId, locationId]
+          );
+          quantityBefore = branch.rows[0].stock_quantity;
+          quantityAfter = quantityBefore + params.quantityChange;
+          if (quantityAfter < 0) {
+            throw new Error('Insufficient stock quantity');
+          }
+          await client.query(
+            `UPDATE inventory_item_stock SET stock_quantity = $1, updated_at = CURRENT_TIMESTAMP
+             WHERE item_id = $2 AND location_id = $3`,
+            [quantityAfter, params.itemId, locationId]
+          );
+          await client.query(
+            `UPDATE inventory_items
+             SET stock_quantity = GREATEST(stock_quantity + $1, 0), updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2`,
+            [params.quantityChange, params.itemId]
+          );
+        } else {
+          // Legacy path: shop has no primary location — adjust the item total directly.
+          quantityBefore = itemResult.rows[0].stock_quantity;
+          quantityAfter = quantityBefore + params.quantityChange;
+          if (quantityAfter < 0) {
+            throw new Error('Insufficient stock quantity');
+          }
+          await client.query(
+            `UPDATE inventory_items SET stock_quantity = $1, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2 AND shop_id = $3`,
+            [quantityAfter, params.itemId, params.shopId]
+          );
+        }
+
+        const adjustmentResult = await client.query(
+          `INSERT INTO inventory_adjustments (
+            item_id, shop_id, location_id, adjustment_type, quantity_change,
             quantity_before, quantity_after, reference_type, reference_id,
             reason, notes, adjusted_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-          RETURNING *
-        `;
-
-        const adjustmentValues = [
-          params.itemId,
-          params.shopId,
-          params.adjustmentType,
-          params.quantityChange,
-          quantityBefore,
-          quantityAfter,
-          params.referenceType || null,
-          params.referenceId || null,
-          params.reason || null,
-          params.notes || null,
-          params.adjustedBy || null
-        ];
-
-        const adjustmentResult = await client.query(adjustmentQuery, adjustmentValues);
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          RETURNING *`,
+          [
+            params.itemId,
+            params.shopId,
+            locationId,
+            params.adjustmentType,
+            params.quantityChange,
+            quantityBefore,
+            quantityAfter,
+            params.referenceType || null,
+            params.referenceId || null,
+            params.reason || null,
+            params.notes || null,
+            params.adjustedBy || null
+          ]
+        );
         return this.mapSnakeToCamel(adjustmentResult.rows[0]) as InventoryAdjustment;
       } catch (error: any) {
         logger.error('Error adjusting stock:', error);
@@ -979,7 +1078,7 @@ export class InventoryRepository extends BaseRepository {
   /**
    * Get inventory statistics for a shop
    */
-  async getInventoryStats(shopId: string): Promise<{
+  async getInventoryStats(shopId: string, locationId?: string): Promise<{
     totalItems: number;
     totalValue: number;
     lowStockItems: number;
@@ -988,19 +1087,27 @@ export class InventoryRepository extends BaseRepository {
     totalVendors: number;
   }> {
     try {
+      // Value/low/out reflect the branch when set (item count stays shop-wide — the catalog is
+      // shop-level regardless of which branch stocks it).
+      const stockExpr = locationId ? 'COALESCE(ils.stock_quantity, 0)' : 'ii.stock_quantity';
+      const thresholdExpr = locationId ? 'COALESCE(ils.low_stock_threshold, ii.low_stock_threshold)' : 'ii.low_stock_threshold';
+      const stockJoin = locationId
+        ? 'LEFT JOIN inventory_item_stock ils ON ils.item_id = ii.id AND ils.location_id = $2::uuid'
+        : '';
       const query = `
         SELECT
           COUNT(ii.id) as total_items,
-          COALESCE(SUM(ii.price * ii.stock_quantity), 0) as total_value,
-          COUNT(CASE WHEN ii.stock_quantity <= ii.low_stock_threshold AND ii.stock_quantity > 0 THEN 1 END) as low_stock_items,
-          COUNT(CASE WHEN ii.stock_quantity = 0 THEN 1 END) as out_of_stock_items,
+          COALESCE(SUM(ii.price * ${stockExpr}), 0) as total_value,
+          COUNT(CASE WHEN ${stockExpr} <= ${thresholdExpr} AND ${stockExpr} > 0 THEN 1 END) as low_stock_items,
+          COUNT(CASE WHEN ${stockExpr} = 0 THEN 1 END) as out_of_stock_items,
           (SELECT COUNT(*) FROM inventory_categories WHERE shop_id = $1 AND deleted_at IS NULL) as total_categories,
           (SELECT COUNT(*) FROM inventory_vendors WHERE shop_id = $1 AND deleted_at IS NULL) as total_vendors
         FROM inventory_items ii
+        ${stockJoin}
         WHERE ii.shop_id = $1 AND ii.deleted_at IS NULL
       `;
 
-      const result = await this.pool.query(query, [shopId]);
+      const result = await this.pool.query(query, locationId ? [shopId, locationId] : [shopId]);
       const raw = this.mapSnakeToCamel(result.rows[0]);
 
       // Ensure numeric values are properly typed (PostgreSQL returns strings for aggregates)
