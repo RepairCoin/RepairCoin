@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Megaphone, TrendingUp, AlertTriangle, Plus, X, Lock, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { LeadKanban } from "@/components/ads/LeadKanban";
+import { ChannelBreakdown } from "@/components/ads/ChannelBreakdown";
 import { ConversationInbox } from "@/components/ads/ConversationInbox";
 import { AdMessageThread } from "@/components/ads/AdMessageThread";
 import { SubscriptionPanel } from "@/components/ads/SubscriptionPanel";
@@ -357,6 +358,7 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
                           <Stat label="Cost / Booking" value={fmtMoney(perf.roi.cpbCents, metaConn?.currency)} />
                           <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
                         </div>
+                        <ChannelBreakdown channels={perf.channels} currency={metaConn?.currency} />
                         <div className="mt-5 rounded-lg border border-white/10 bg-[#1A1A1A] p-4">
                           <p className="text-sm font-medium text-gray-200">AI first contact</p>
                           <p className="text-xs text-gray-400 mt-0.5 mb-3">

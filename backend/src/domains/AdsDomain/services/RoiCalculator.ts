@@ -4,7 +4,7 @@
 // Q6 LOCKED — exclude: AI inference cost is NOT subtracted from the shop-facing
 // ROI here; that's FixFlow COGS shown only in the admin "true margin" panel.
 
-import { PerformanceRepository, CampaignTotals } from '../repositories/PerformanceRepository';
+import { PerformanceRepository, CampaignTotals, ChannelRow, LeadChannel } from '../repositories/PerformanceRepository';
 
 export interface CampaignRoi {
   totalSpendCents: number;
@@ -36,12 +36,67 @@ export interface CampaignMargin {
   roiDip: number | null;
 }
 
+/** One channel's slice of a campaign. leads/bookings/revenue are exact (from the
+ *  lead pipeline). Spend is NOT reported per channel by Meta/Google, so it's
+ *  allocated proportionally to each channel's lead share — hence roi/cpl/cpb are
+ *  estimates (spendModel = 'allocated_by_leads'), while conversionRate and
+ *  avgOrderValueCents are exact. */
+export interface ChannelRoi {
+  channel: LeadChannel;
+  leads: number;
+  bookings: number;
+  revenueCents: number;
+  /** Campaign spend allocated to this channel by lead share (estimate). */
+  allocatedSpendCents: number;
+  /** (revenue - allocatedSpend) / allocatedSpend. null when no spend allocated. */
+  roi: number | null;
+  /** bookings / leads. null when no leads. */
+  conversionRate: number | null;
+  /** revenue / bookings (cents). null when no bookings. */
+  avgOrderValueCents: number | null;
+  /** allocatedSpend / leads (cents). null when no leads. */
+  cplCents: number | null;
+  /** allocatedSpend / bookings (cents). null when no bookings. */
+  cpbCents: number | null;
+}
+
 export class RoiCalculator {
   constructor(private readonly perf: PerformanceRepository = new PerformanceRepository()) {}
 
   async computeForCampaign(campaignId: string): Promise<CampaignRoi> {
     const t = await this.perf.getTotals(campaignId);
     return RoiCalculator.fromTotals(t);
+  }
+
+  /** Per-channel breakdown for a campaign, spend allocated by lead share. */
+  async computeChannelsForCampaign(campaignId: string, totalSpendCents: number): Promise<ChannelRoi[]> {
+    const rows = await this.perf.getChannelBreakdown(campaignId);
+    return RoiCalculator.channelsFromRows(rows, totalSpendCents);
+  }
+
+  /** Pure — allocate the campaign's spend across channels by lead share, then derive
+   *  each channel's ROI/CPL/CPB. Sorted by revenue desc (biggest earner first). */
+  static channelsFromRows(rows: ChannelRow[], totalSpendCents: number): ChannelRoi[] {
+    const totalLeads = rows.reduce((s, r) => s + r.leads, 0);
+    return rows
+      .map((r) => {
+        const allocatedSpendCents = totalLeads > 0
+          ? Math.round(totalSpendCents * (r.leads / totalLeads))
+          : 0;
+        return {
+          channel: r.channel,
+          leads: r.leads,
+          bookings: r.bookings,
+          revenueCents: r.revenueCents,
+          allocatedSpendCents,
+          roi: allocatedSpendCents > 0 ? (r.revenueCents - allocatedSpendCents) / allocatedSpendCents : null,
+          conversionRate: r.leads > 0 ? r.bookings / r.leads : null,
+          avgOrderValueCents: r.bookings > 0 ? Math.round(r.revenueCents / r.bookings) : null,
+          cplCents: r.leads > 0 && allocatedSpendCents > 0 ? Math.round(allocatedSpendCents / r.leads) : null,
+          cpbCents: r.bookings > 0 && allocatedSpendCents > 0 ? Math.round(allocatedSpendCents / r.bookings) : null,
+        };
+      })
+      .sort((a, b) => b.revenueCents - a.revenueCents || b.leads - a.leads);
   }
 
   /** Pure — unit-testable without a DB. Folds AI COGS into the denominator. */
