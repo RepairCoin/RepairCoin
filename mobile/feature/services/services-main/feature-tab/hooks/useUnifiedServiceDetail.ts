@@ -119,7 +119,12 @@ export function useUnifiedServiceDetail() {
   };
 
   // Share functionality
-  const getShareUrl = () => `https://repaircoin.ai/customer/shop/${shopId}`;
+  const appEnv = process.env.APP_ENV;
+  const webBaseUrl =
+    appEnv === "staging"
+      ? "https://staging.repaircoin.ai"
+      : "https://repaircoin.ai";
+  const getShareUrl = () => `${webBaseUrl}/customer/shop/${shopId}`;
 
   const getShareMessage = () => {
     if (!serviceData) return "";
