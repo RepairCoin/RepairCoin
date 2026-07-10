@@ -6,10 +6,8 @@ import {
   BookingResponse,
 } from "@/feature/services/services/service.interface";
 import { MyAppointment } from "@/feature/services/services/service.interface";
-import {
-  appointmentApi,
-  CustomerSearchResult,
-} from "@/feature/services/services/service.services";
+import { appointmentApi } from "@/feature/services/services/service.services";
+import { CustomerSearchResult } from "@/feature/services/services/service.interface";
 import { TrendDays } from "@/feature/services/services/service.interface";
 
 interface QueryOptions {
@@ -39,7 +37,14 @@ export function useServiceOrdersQuery() {
     queryKey: ["repaircoin", "serviceOrders"],
     queryFn: async () => {
       const response = await serviceApi.getShopBookings({ limit: 500 });
-      return response.data || response.items || [];
+      const items = response.data || response.items || [];
+      // Deduplicate by orderId — guards against JOIN fan-out returning duplicate rows
+      const seen = new Set<string>();
+      return items.filter((order: any) => {
+        if (seen.has(order.orderId)) return false;
+        seen.add(order.orderId);
+        return true;
+      });
     },
     staleTime: 30 * 1000,
   });
