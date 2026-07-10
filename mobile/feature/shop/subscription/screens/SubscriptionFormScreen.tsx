@@ -20,6 +20,7 @@ export default function SubscriptionFormScreen() {
     isLoading,
     isLoadingShop,
     error,
+    selectedPlan,
     handleSubmit,
     handleGoBack,
   } = useSubscriptionForm();
@@ -46,9 +47,26 @@ export default function SubscriptionFormScreen() {
             <Text className="text-[#FFCC00] text-2xl font-bold text-center">
               Start Your Subscription
             </Text>
-            <Text className="text-gray-300 text-center mt-2 mb-8">
+            <Text className="text-gray-300 text-center mt-2 mb-6">
               Complete the form below to get started
             </Text>
+
+            <View className="bg-[#FFCC00]/10 border border-[#FFCC00]/30 rounded-2xl p-4 mb-6 flex-row items-center justify-between">
+              <View>
+                <Text className="text-white/50 text-xs font-semibold uppercase tracking-wide mb-1">
+                  Selected plan
+                </Text>
+                <Text className="text-[#FFCC00] text-base font-bold">
+                  {selectedPlan.label}
+                </Text>
+              </View>
+              <View className="items-end">
+                <Text className="text-white text-2xl font-extrabold">
+                  ${selectedPlan.price}
+                </Text>
+                <Text className="text-white/40 text-xs">per month</Text>
+              </View>
+            </View>
 
             <ErrorMessage message={error} />
 

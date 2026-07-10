@@ -1029,13 +1029,18 @@ router.post('/subscription/start-trial', requireShopPermission('billing:manage')
 router.post('/subscription/checkout-mobile', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
-    const { billingEmail, billingContact } = req.body;
+    const { billingEmail, billingContact, tier } = req.body;
 
     if (!shopId) {
       return res.status(401).json({ success: false, error: 'Shop ID not found in token' });
     }
     if (!billingEmail || !billingContact) {
       return res.status(400).json({ success: false, error: 'Billing email and contact name are required' });
+    }
+
+    const selectedTier = tier === undefined ? DEFAULT_TIER : tier;
+    if (!isValidTier(selectedTier)) {
+      return res.status(400).json({ success: false, error: 'Invalid subscription tier. Must be one of: starter, growth, business' });
     }
 
     const subscriptionService = getSubscriptionService();
@@ -1060,10 +1065,10 @@ router.post('/subscription/checkout-mobile', async (req: Request, res: Response)
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomer.stripeCustomerId,
       mode: 'subscription',
-      line_items: [{ price: process.env.STRIPE_MONTHLY_PRICE_ID, quantity: 1 }],
+      line_items: [{ price: resolveCheckoutPriceId(selectedTier), quantity: 1 }],
       success_url: `repaircoin://subscription-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `repaircoin://subscription-cancel`,
-      metadata: { shopId, platform: 'mobile' },
+      metadata: { shopId, platform: 'mobile', tier: selectedTier },
     });
 
     return res.json({ success: true, data: { checkoutUrl: session.url, sessionId: session.id } });
