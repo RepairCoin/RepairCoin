@@ -3,7 +3,7 @@
 // backend deriveLeadChannel (messenger_id/whatsapp_id/gclid/meta_lead_id → channel).
 
 import React from "react";
-import { MessageCircle, Globe, Search, FileText, Phone } from "lucide-react";
+import { MessageCircle, Globe, Search, FileText, Phone, Mail } from "lucide-react";
 import type { LeadChannel } from "@/services/api/ads";
 
 export const CHANNEL_META: Record<LeadChannel, { label: string; Icon: React.ComponentType<{ className?: string }>; color: string }> = {
@@ -15,6 +15,15 @@ export const CHANNEL_META: Record<LeadChannel, { label: string; Icon: React.Comp
 };
 
 export const channelMeta = (channel?: LeadChannel | null) => CHANNEL_META[channel ?? "webform"] ?? CHANNEL_META.webform;
+
+// Where a Conversation reply actually goes out — mirrors the backend pickChannel
+// (messenger > whatsapp > email). google/meta_form/webform leads reply by email.
+//   short: button label   verb: "Replies go to…" sentence   Icon: matching glyph
+export const replyAction = (channel?: LeadChannel | null): { short: string; verb: string; Icon: React.ComponentType<{ className?: string }> } => {
+  if (channel === "messenger") return { short: "Messenger", verb: "sent to this customer on Messenger", Icon: MessageCircle };
+  if (channel === "whatsapp") return { short: "WhatsApp", verb: "sent to this customer on WhatsApp", Icon: Phone };
+  return { short: "Email", verb: "emailed to this customer", Icon: Mail };
+};
 
 // Compact pill for a single lead (Kanban card / inbox row).
 export const ChannelBadge: React.FC<{ channel?: LeadChannel | null; className?: string }> = ({ channel, className }) => {
