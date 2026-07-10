@@ -112,6 +112,9 @@ export interface AdLead {
   email: string | null;
   leadStatus: LeadStatus;
   attributionMethod: string;
+  /** Human-facing source of the lead, derived from its identifiers (Messenger/WhatsApp/Google/
+   *  Instant form/Web form). Drives the channel badge. */
+  channel?: LeadChannel;
   /** True only for Messenger/WhatsApp leads → enables Chat / AI-reply. Form/manual leads are false. */
   hasChatChannel?: boolean;
   /** First time the shop/admin actually contacted the lead (call/email/status→contacted). Null = never. */

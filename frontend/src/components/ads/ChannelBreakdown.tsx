@@ -6,16 +6,8 @@
 // each channel's lead share — an estimate, flagged in the footnote.
 
 import React from "react";
-import { MessageCircle, Globe, Search, FileText, Phone } from "lucide-react";
-import { fmtMoney, fmtRoi, type ChannelRoi, type LeadChannel } from "@/services/api/ads";
-
-const META: Record<LeadChannel, { label: string; Icon: React.ComponentType<{ className?: string }>; color: string }> = {
-  messenger: { label: "Messenger", Icon: MessageCircle, color: "text-[#0084FF]" },
-  whatsapp: { label: "WhatsApp", Icon: Phone, color: "text-[#25D366]" },
-  google: { label: "Google", Icon: Search, color: "text-[#EA4335]" },
-  meta_form: { label: "Instant form", Icon: FileText, color: "text-[#FFCC00]" },
-  webform: { label: "Web form", Icon: Globe, color: "text-gray-300" },
-};
+import { fmtMoney, fmtRoi, type ChannelRoi } from "@/services/api/ads";
+import { channelMeta } from "./channelMeta";
 
 const pct = (v: number | null): string => (v == null ? "—" : `${(v * 100).toFixed(0)}%`);
 
@@ -45,7 +37,7 @@ export const ChannelBreakdown: React.FC<{ channels: ChannelRoi[]; currency?: str
 
       <div className="divide-y divide-white/5">
         {rows.map((c) => {
-          const m = META[c.channel] ?? META.webform;
+          const m = channelMeta(c.channel);
           return (
             <div key={c.channel}>
               {/* desktop: one aligned row */}

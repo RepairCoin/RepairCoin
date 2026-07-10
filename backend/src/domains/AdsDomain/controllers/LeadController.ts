@@ -435,7 +435,7 @@ function toConversationItem(row: LeadConversationRow, nowMs: number) {
   return {
     id: row.id, campaignId: row.campaignId, campaignName: row.campaignName,
     name: row.name, email: row.email, phone: row.phone,
-    leadStatus: row.leadStatus, hasChatChannel: row.hasChatChannel,
+    leadStatus: row.leadStatus, hasChatChannel: row.hasChatChannel, channel: row.channel,
     lastDirection: row.lastDirection, lastAuthor: row.lastAuthor, lastBody: row.lastBody,
     lastAt: row.lastAt, messageCount: row.messageCount ?? 0,
     conversationState: state, needsHuman: isNeedsHuman(state),
