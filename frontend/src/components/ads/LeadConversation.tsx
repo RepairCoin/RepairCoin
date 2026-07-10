@@ -10,8 +10,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Send, Sparkles, Bot, User, Headset, PauseCircle, PlayCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getLeadThread, sendLeadMessage, sendLeadEmail, autoAnswerLead, setLeadAiPaused, type LeadMessage } from "@/services/api/ads";
+import { getLeadThread, sendLeadMessage, sendLeadEmail, autoAnswerLead, setLeadAiPaused, type LeadMessage, type LeadChannel } from "@/services/api/ads";
 import { LeadActivityList } from "@/components/ads/LeadActivityList";
+import { replyAction } from "@/components/ads/channelMeta";
 
 // Plain reply text → minimal HTML (for the formatted-email send path).
 const toHtml = (text: string) =>
@@ -27,13 +28,15 @@ const AUTHOR_META: Record<LeadMessage["author"], { label: string; icon: React.Re
 export const LeadConversation: React.FC<{
   leadId: string;
   leadName?: string | null;
+  /** Lead's source channel — drives the "replies go to…" note so it's clear where sends land. */
+  channel?: LeadChannel;
   open: boolean;
   onClose: () => void;
   /** Which API base to hit — shop uses the ownership-gated /ads/shop/leads/... routes. */
   mode?: "admin" | "shop";
   /** Take-over (P3): whether the AI is currently paused for this lead. */
   initialAiPaused?: boolean;
-}> = ({ leadId, leadName, open, onClose, mode = "admin", initialAiPaused = false }) => {
+}> = ({ leadId, leadName, channel, open, onClose, mode = "admin", initialAiPaused = false }) => {
   const [thread, setThread] = useState<LeadMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
@@ -112,6 +115,14 @@ export const LeadConversation: React.FC<{
           <DialogTitle className="text-white text-base flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#FFCC00]" /> Conversation{leadName ? ` — ${leadName}` : ""}
           </DialogTitle>
+          {(() => {
+            const act = replyAction(channel);
+            return (
+              <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                <act.Icon className="w-3 h-3 shrink-0" /> Replies are {act.verb}.
+              </p>
+            );
+          })()}
         </DialogHeader>
 
         <div className="flex items-center gap-1 border-b border-white/10 -mt-1">

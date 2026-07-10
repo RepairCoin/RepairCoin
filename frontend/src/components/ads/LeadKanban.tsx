@@ -6,13 +6,13 @@
 // /ads/shop/leads). One-click status change (not drag-drop — simpler + reliable).
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, ChevronRight, Phone, Mail, Sparkles, Copy, MessageSquare, Clock } from "lucide-react";
+import { Loader2, ChevronRight, Phone, Mail, Sparkles, Copy, Clock } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   listLeads, listShopLeads, updateLeadStatus, updateShopLeadStatus, draftLeadReply,
   type AdLead, type LeadStatus,
 } from "@/services/api/ads";
-import { ChannelBadge } from "@/components/ads/channelMeta";
+import { ChannelBadge, replyAction } from "@/components/ads/channelMeta";
 import { LeadConversation } from "@/components/ads/LeadConversation";
 import { LeadCallLogger } from "@/components/ads/LeadCallLogger";
 
@@ -169,11 +169,14 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                               <Phone className="w-3 h-3" /> Call
                             </button>
                           )}
-                          {(lead.hasChatChannel || lead.email) && (
-                            <button onClick={() => setConvoLead(lead)} title="Open the conversation (messages, activity, email)" className="inline-flex items-center gap-1 text-[11px] font-medium text-[#FFCC00]/90 hover:text-[#FFCC00]">
-                              <MessageSquare className="w-3 h-3" /> Conversation
-                            </button>
-                          )}
+                          {(lead.hasChatChannel || lead.email) && (() => {
+                            const act = replyAction(lead.channel);
+                            return (
+                              <button onClick={() => setConvoLead(lead)} title={`Open the conversation — replies are ${act.verb}`} className="inline-flex items-center gap-1 text-[11px] font-medium text-[#FFCC00]/90 hover:text-[#FFCC00]">
+                                <act.Icon className="w-3 h-3" /> {act.short}
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     )}
@@ -214,6 +217,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
         <LeadConversation
           leadId={convoLead.id}
           leadName={convoLead.name}
+          channel={convoLead.channel}
           open={!!convoLead}
           onClose={() => setConvoLead(null)}
           mode={mode}

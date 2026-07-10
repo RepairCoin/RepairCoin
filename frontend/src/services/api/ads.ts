@@ -938,6 +938,7 @@ export interface LeadConversationItem {
   phone: string | null;
   leadStatus: string;
   hasChatChannel: boolean;
+  channel?: LeadChannel;
   lastDirection: 'inbound' | 'outbound' | null;
   lastAuthor: 'lead' | 'ai' | 'admin' | null;
   lastBody: string | null;
