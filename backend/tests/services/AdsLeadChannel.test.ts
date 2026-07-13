@@ -6,11 +6,13 @@ const c = (o: Partial<Parameters<typeof LeadChannelSender.pickChannel>[0]> = {})
   ({ phone: null, email: null, messengerId: null, whatsappId: null, ...o });
 
 describe('LeadChannelSender.pickChannel', () => {
-  it('prefers messenger, then whatsapp, then sms, then email', () => {
+  it('prefers messenger, then whatsapp, then email, then sms', () => {
     expect(LeadChannelSender.pickChannel(c({ messengerId: 'm1', phone: '+15551234567' }))).toBe('messenger');
     expect(LeadChannelSender.pickChannel(c({ whatsappId: 'w1', phone: '+15551234567' }))).toBe('whatsapp');
-    expect(LeadChannelSender.pickChannel(c({ phone: '+15551234567', email: 'a@b.com' }))).toBe('sms');
-    expect(LeadChannelSender.pickChannel(c({ email: 'a@b.com' }))).toBe('email');
+    // Email is preferred over SMS (free per message, no opt-out/TCPA cost) when both are present.
+    expect(LeadChannelSender.pickChannel(c({ email: 'a@b.com', phone: '+15551234567' }))).toBe('email');
+    // A phone-only lead falls back to SMS.
+    expect(LeadChannelSender.pickChannel(c({ phone: '+15551234567' }))).toBe('sms');
   });
 
   it('falls back to manual with no contact info', () => {
@@ -30,7 +32,7 @@ describe('LeadChannelSender.pickChannel', () => {
     const sender = new LeadChannelSender();
     process.env.ADS_LEAD_TRANSPORT_ENABLED = 'true';
     expect(await sender.deliver('manual', c(), 'hi')).toBe('recorded');
-    expect(await sender.deliver('sms', c({ phone: '+1' }), 'hi')).toBe('queued'); // enabled but unwired
+    expect(await sender.deliver('sms', c({ phone: '+1' }), 'hi')).toBe('queued'); // wired, but ADS_SMS_ENABLED off → queued
     delete process.env.ADS_LEAD_TRANSPORT_ENABLED;
   });
 });

@@ -9,6 +9,10 @@ import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AdsEvents } from '../events';
 import { LeadRepository, AttributionMethod } from '../repositories/LeadRepository';
+// normalizePhone now lives in the shared phone util (SMS needs it too); re-exported here so existing
+// imports (and tests) that pull it from this module keep working.
+export { normalizePhone } from '../../../utils/phone';
+import { normalizePhone } from '../../../utils/phone';
 
 export interface RawLead {
   campaignId?: string;
@@ -31,18 +35,6 @@ export interface RawLead {
 export interface AttributeResult {
   leadId: string;
   deduped: boolean;
-}
-
-/** Crude E.164 normalization (pure) — strips formatting; assumes US (+1) for a
- *  bare 10-digit number. Good enough for dedupe; full libphonenumber is overkill. */
-export function normalizePhone(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const cleaned = raw.replace(/[^\d+]/g, '');
-  const digits = cleaned.replace(/\D/g, '');
-  if (!digits) return null;
-  if (cleaned.startsWith('+')) return '+' + digits;
-  if (digits.length === 10) return '+1' + digits;
-  return '+' + digits;
 }
 
 export class LeadAttributionService {

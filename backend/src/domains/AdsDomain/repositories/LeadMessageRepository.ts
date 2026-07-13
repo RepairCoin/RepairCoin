@@ -48,6 +48,15 @@ export class LeadMessageRepository extends BaseRepository {
     return this.mapRow(res.rows[0]);
   }
 
+  /** Move a sent message to its final delivery state when the provider calls back (Twilio status
+   *  callback keys on the message SID stored as external_id). No-op if the message isn't found. */
+  async updateDeliveryStatusByExternalId(externalId: string, deliveryStatus: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_lead_messages SET delivery_status = $2 WHERE external_id = $1`,
+      [externalId, deliveryStatus]
+    );
+  }
+
   /** Inbound dedupe: has this lead already got a message with this Message-ID? */
   async existsByExternalId(leadId: string, externalId: string): Promise<boolean> {
     const res = await this.pool.query(
