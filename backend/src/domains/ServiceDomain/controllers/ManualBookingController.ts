@@ -531,7 +531,9 @@ export const searchCustomers = async (req: Request, res: Response): Promise<void
 
     const searchQuery = `%${q.toLowerCase()}%`;
 
-    // Search customers scoped to this shop only (customers who have placed orders here)
+    // Search customers scoped to this shop: those who have ordered here, plus imported/
+    // migrated customers homed here (home_shop_id) who have no orders yet — otherwise you
+    // can't create the first booking for a customer you just imported.
     const customers = await pool.query(
       `SELECT
         c.address,
@@ -548,10 +550,13 @@ export const searchCustomers = async (req: Request, res: Response): Promise<void
         LOWER(c.email) LIKE $1 OR
         LOWER(c.phone) LIKE $1 OR
         LOWER(c.address) LIKE $1)
-        AND EXISTS (
-          SELECT 1 FROM service_orders so
-          WHERE so.customer_address = c.address
-          AND so.shop_id = $2
+        AND (
+          EXISTS (
+            SELECT 1 FROM service_orders so
+            WHERE so.customer_address = c.address
+            AND so.shop_id = $2
+          )
+          OR LOWER(c.home_shop_id) = LOWER($2)
         )
       ORDER BY
         CASE

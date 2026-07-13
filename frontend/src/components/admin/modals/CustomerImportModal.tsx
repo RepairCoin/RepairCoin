@@ -275,9 +275,9 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete,
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-[#1A1A1A] rounded-xl max-w-4xl w-full border border-gray-800 my-8">
+      <div className="bg-[#1A1A1A] rounded-xl max-w-4xl w-full border border-gray-800 my-8 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-800">
+        <div className="flex justify-between items-center p-6 border-b border-gray-800 shrink-0">
           <div>
             <h2 className="text-xl font-semibold text-white">Import Customers</h2>
             <p className="text-sm text-gray-400 mt-1">
@@ -296,7 +296,7 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete,
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
           {/* Upload View */}
           {viewState === 'upload' && (
             <div className="space-y-6">
@@ -616,7 +616,7 @@ export default function CustomerImportModal({ isOpen, onClose, onImportComplete,
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-gray-800">
+        <div className="flex justify-end gap-3 p-6 border-t border-gray-800 shrink-0">
           {viewState === 'upload' && (
             <>
               <button
