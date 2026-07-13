@@ -68,6 +68,7 @@ export const useAuth = () => {
         address: userData.walletAddress || userData.address || userData.wallet_address || address,
         type: userCheck.type as 'customer' | 'shop' | 'admin',
         name: userData.name || userData.shopName || userData.shop_name || '',
+        memberName: userData.memberName,
         email: userData.email || '',
         avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
         isActive: userData.active !== false,
