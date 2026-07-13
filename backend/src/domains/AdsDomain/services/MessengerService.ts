@@ -18,6 +18,25 @@ export class MessengerService {
     return process.env.ADS_MESSENGER_ENABLED === 'true';
   }
 
+  /** Best-effort fetch of a Messenger user's public name via the User Profile API, so a new lead
+   *  shows a real name instead of "Unnamed lead". The webhook only carries the PSID — this trades it
+   *  for first/last name using the shop Page token. Returns null on any error (privacy block, expired
+   *  token, permission gap); lead creation must never fail because of it. */
+  async getProfileName(pageToken: string, psid: string): Promise<string | null> {
+    try {
+      const res = await axios.get(`${GRAPH}/${psid}`, {
+        params: { fields: 'first_name,last_name', access_token: pageToken },
+        timeout: 8000,
+      });
+      const name = [res.data?.first_name, res.data?.last_name].filter(Boolean).join(' ').trim();
+      return name || null;
+    } catch (err: any) {
+      const g = err?.response?.data?.error;
+      logger.warn('MessengerService.getProfileName failed', { psid, error: g?.message || err?.message, code: g?.code });
+      return null;
+    }
+  }
+
   /** Send a text message to a PSID via the shop Page. Returns 'sent' | 'failed'. `messaging_type:
    *  RESPONSE` = a reply within the 24h window (the normal AI-answer case). */
   async send(pageId: string, pageToken: string, recipientPsid: string, text: string): Promise<'sent' | 'failed'> {

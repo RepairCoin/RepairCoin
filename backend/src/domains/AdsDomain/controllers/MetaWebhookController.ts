@@ -16,6 +16,7 @@ import { verifyMetaSignature, parseLeadEvents, parseMessagingEvents, type MetaMe
 import { leadAttributionService } from '../services/LeadAttributionService';
 import { leadAutoAnswerService } from '../services/LeadAutoAnswerService';
 import { messengerService } from '../services/MessengerService';
+import { decryptToken } from '../../../utils/tokenCrypto';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { LeadRepository } from '../repositories/LeadRepository';
 import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
@@ -34,11 +35,17 @@ async function handleMessengerInbound(ev: MetaMessagingEvent): Promise<void> {
     if (!shopId) { logger.info(`Messenger: no shop connected to page ${ev.pageId} — skipped`); return; }
     const campaign = await campaigns.findLatestForShop(shopId);
     if (!campaign) { logger.info(`Messenger: shop ${shopId} has no campaign to attach the lead to — skipped`); return; }
+    // Best-effort: trade the PSID for the user's public name so the lead isn't "Unnamed". The webhook
+    // never carries a name; the Page token can look it up. Failure (privacy/permission) leaves name null.
+    const conn = await metaConnections.getConnection(shopId).catch(() => null);
+    const name = conn?.pageTokenEnc
+      ? await messengerService.getProfileName(decryptToken(conn.pageTokenEnc), ev.senderPsid).catch(() => null)
+      : null;
     lead = await leads.create({
-      campaignId: campaign.id, messengerId: ev.senderPsid, attributionMethod: 'meta_webhook',
-      consentToContact: true, notes: 'Messenger',
+      campaignId: campaign.id, name: name ?? undefined, messengerId: ev.senderPsid,
+      attributionMethod: 'meta_webhook', consentToContact: true, notes: 'Messenger',
     });
-    logger.info(`Messenger: created lead ${lead.id} from PSID on page ${ev.pageId}`);
+    logger.info(`Messenger: created lead ${lead.id} from PSID on page ${ev.pageId}${name ? ` (name: ${name})` : ' (no profile name)'}`);
   }
   await leadAutoAnswerService.handleInbound(lead.id, ev.text, 'messenger', ev.mid ?? null);
 }

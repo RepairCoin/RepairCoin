@@ -9,18 +9,25 @@ import { BaseRepository } from '../../../repositories/BaseRepository';
 export type LeadStatus = 'new' | 'contacted' | 'booked' | 'paid' | 'completed' | 'lost';
 export type AttributionMethod = 'manual' | 'utm' | 'click_id' | 'meta_webhook';
 
-/** Where the lead came from, derived from its own identifiers (same logic the
- *  per-channel performance breakdown uses). A Meta campaign can't tell Messenger
- *  from a lead-form apart via `platform`/`attribution_method` — the lead row can. */
-export type LeadChannel = 'messenger' | 'whatsapp' | 'google' | 'meta_form' | 'webform';
+/** Where the lead came from. Primary signal = the lead's own identifiers (most precise);
+ *  for a landing-page lead with no click id, fall back to the campaign's ad platform
+ *  (a Meta campaign's page traffic is Facebook-driven, a Google campaign's is Google).
+ *  Facebook link-click ads land on our page but Facebook only tags them with fbclid, so
+ *  without that fallback they'd be indistinguishable from organic ("Web form"). */
+export type LeadChannel = 'messenger' | 'whatsapp' | 'facebook' | 'google' | 'meta_form' | 'webform';
 
-export function deriveLeadChannel(r: {
-  messenger_id?: string | null; whatsapp_id?: string | null; gclid?: string | null; meta_lead_id?: string | null;
-}): LeadChannel {
+export function deriveLeadChannel(
+  r: { messenger_id?: string | null; whatsapp_id?: string | null; gclid?: string | null; fbclid?: string | null; meta_lead_id?: string | null },
+  platform?: string | null
+): LeadChannel {
   if (r.messenger_id) return 'messenger';
   if (r.whatsapp_id) return 'whatsapp';
   if (r.gclid) return 'google';
+  if (r.fbclid) return 'facebook';
   if (r.meta_lead_id) return 'meta_form';
+  // No click id → attribute the landing-page lead by the campaign's platform.
+  if (platform === 'google') return 'google';
+  if (platform === 'meta') return 'facebook';
   return 'webform';
 }
 
@@ -51,6 +58,9 @@ export interface AdLead {
   /** Google click id (from auto-tagging on the landing URL) — used to upload an offline
    *  conversion to Google when this lead converts (Google conversion-optimization, Phase 1). */
   gclid: string | null;
+  /** Facebook click id (auto-appended by FB on ad-click landing URLs) — attributes a
+   *  landing-page lead to Facebook rather than the generic "Web form" bucket. */
+  fbclid: string | null;
   /** When this lead's offline conversion was uploaded to Google (Phase 2) — idempotency marker. */
   conversionUploadedAt: Date | null;
   /** Take-over (P3): when true, the AI stops auto-answering this lead's replies — a human is handling it. */
@@ -72,6 +82,7 @@ export interface CreateLeadInput {
   notes?: string | null;
   metaLeadId?: string | null;
   gclid?: string | null;
+  fbclid?: string | null;
   messengerId?: string | null;
 }
 
@@ -98,8 +109,8 @@ export class LeadRepository extends BaseRepository {
   async create(input: CreateLeadInput): Promise<AdLead> {
     const res = await this.pool.query(
       `INSERT INTO ad_leads
-         (campaign_id, creative_id, name, phone, email, attribution_method, consent_to_contact, notes, meta_lead_id, gclid, messenger_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+         (campaign_id, creative_id, name, phone, email, attribution_method, consent_to_contact, notes, meta_lead_id, gclid, fbclid, messenger_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [
         input.campaignId,
         input.creativeId ?? null,
@@ -111,6 +122,7 @@ export class LeadRepository extends BaseRepository {
         input.notes ?? null,
         input.metaLeadId ?? null,
         input.gclid ?? null,
+        input.fbclid ?? null,
         input.messengerId ?? null,
       ]
     );
@@ -201,9 +213,10 @@ export class LeadRepository extends BaseRepository {
     if (filter.status) { params.push(filter.status); where.push(`l.lead_status = $${params.length}`); }
     if (filter.shopId) { params.push(filter.shopId); where.push(`c.shop_id = $${params.length}`); }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-    const from = joinShop
-      ? `ad_leads l JOIN ad_campaigns c ON c.id = l.campaign_id`
-      : `ad_leads l`;
+    // Always join the campaign (every lead has one) so we can surface c.platform for the
+    // channel derivation's platform fallback. joinShop only affects the shop_id filter.
+    void joinShop;
+    const from = `ad_leads l JOIN ad_campaigns c ON c.id = l.campaign_id`;
 
     const page = filter.page ?? 1;
     const limit = filter.limit ?? 25;
@@ -211,7 +224,7 @@ export class LeadRepository extends BaseRepository {
 
     const countRes = await this.pool.query(`SELECT COUNT(*)::int AS n FROM ${from} ${whereSql}`, params);
     const dataRes = await this.pool.query(
-      `SELECT l.* FROM ${from} ${whereSql}
+      `SELECT l.*, c.platform FROM ${from} ${whereSql}
        ORDER BY l.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]
     );
@@ -373,7 +386,7 @@ export class LeadRepository extends BaseRepository {
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     params.push(filter.limit ?? 100);
     const res = await this.pool.query(
-      `SELECT l.*, c.name AS campaign_name, c.ai_outreach_mode AS campaign_outreach_mode,
+      `SELECT l.*, c.platform, c.name AS campaign_name, c.ai_outreach_mode AS campaign_outreach_mode,
               m.direction AS last_direction, m.author AS last_author,
               left(m.body, 140) AS last_body, m.created_at AS last_at, cnt.n AS message_count
          FROM ad_leads l
@@ -415,11 +428,14 @@ export class LeadRepository extends BaseRepository {
       attributionMethod: r.attribution_method,
       consentToContact: r.consent_to_contact,
       hasChatChannel: !!(r.messenger_id || r.whatsapp_id),
-      channel: deriveLeadChannel(r),
+      // r.platform is present when the query joins ad_campaigns (list/conversation); enables the
+      // platform fallback so a no-click-id Meta-campaign lead reads Facebook, not Web form.
+      channel: deriveLeadChannel(r, r.platform),
       firstResponseAt: r.first_response_at,
       notes: r.notes,
       lostReason: r.lost_reason,
       gclid: r.gclid ?? null,
+      fbclid: r.fbclid ?? null,
       conversionUploadedAt: r.conversion_uploaded_at ?? null,
       aiPaused: r.ai_paused === true,
       escalatedAt: r.escalated_at ?? null,
