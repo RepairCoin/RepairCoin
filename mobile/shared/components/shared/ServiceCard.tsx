@@ -49,6 +49,11 @@ interface ServiceCardProps {
   location?: string;
   /** Shop/vendor name shown under the title (V2 white card). */
   shopName?: string;
+  /**
+   * Transparent V2 style (Figma "trending" card): no white surface/shadow,
+   * rounded image, and light text for use on a dark background.
+   */
+  transparent?: boolean;
 }
 
 function ServiceCard({
@@ -80,6 +85,7 @@ function ServiceCard({
   bookingCount,
   location,
   shopName,
+  transparent = false,
 }: ServiceCardProps) {
   const category = getCategoryLabel(rawCategory);
   const { toggleFavorite } = useToggleFavoriteMutation();
@@ -93,10 +99,10 @@ function ServiceCard({
       : null);
   const ratingCountLabel =
     bookingCount != null
-      ? `(${bookingCount} booked)`
+      ? `(${bookingCount} bookings)`
       : reviewCount != null
-      ? `(${reviewCount} ${reviewCount === 1 ? "review" : "reviews"})`
-      : "";
+        ? `(${reviewCount} ${reviewCount === 1 ? "review" : "reviews"})`
+        : "";
 
   const [localFavorited, setLocalFavorited] = useState(initialFavorited);
 
@@ -106,7 +112,7 @@ function ServiceCard({
 
   const imageSource = useMemo(
     () => (imageUrl ? { uri: imageUrl } : null),
-    [imageUrl]
+    [imageUrl],
   );
 
   const handleFavoritePress = useCallback(() => {
@@ -165,26 +171,39 @@ function ServiceCard({
                     {category}
                   </Text>
                   {status && (
-                    <View className={`px-2 py-0.5 rounded-full ${status.bgColor}`}>
-                      <Text className={`text-xs font-medium capitalize ${status.textColor}`}>
+                    <View
+                      className={`px-2 py-0.5 rounded-full ${status.bgColor}`}
+                    >
+                      <Text
+                        className={`text-xs font-medium capitalize ${status.textColor}`}
+                      >
                         {status.label}
                       </Text>
                     </View>
                   )}
                 </View>
-                <Text className="text-white text-base font-semibold" numberOfLines={1}>
+                <Text
+                  className="text-white text-base font-semibold"
+                  numberOfLines={1}
+                >
                   {title}
                 </Text>
               </View>
 
               <View className="flex-row items-center justify-between mt-2">
                 <View className="flex-row items-center">
-                  <Text className="text-[#FFCC00] font-bold text-lg">${price}</Text>
+                  <Text className="text-[#FFCC00] font-bold text-lg">
+                    ${price}
+                  </Text>
                   {avgRating != null && avgRating > 0 && (
                     <View className="flex-row items-center ml-3">
                       <Ionicons name="star" size={12} color="#FFCC00" />
-                      <Text className="text-white text-xs font-semibold ml-0.5">{avgRating.toFixed(1)}</Text>
-                      <Text className="text-gray-500 text-xs ml-1">({reviewCount})</Text>
+                      <Text className="text-white text-xs font-semibold ml-0.5">
+                        {avgRating.toFixed(1)}
+                      </Text>
+                      <Text className="text-gray-500 text-xs ml-1">
+                        ({reviewCount})
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -192,12 +211,20 @@ function ServiceCard({
                   {duration !== undefined ? (
                     <>
                       <Ionicons name="time-outline" size={14} color="#9CA3AF" />
-                      <Text className="text-gray-400 text-xs ml-1">{duration} min</Text>
+                      <Text className="text-gray-400 text-xs ml-1">
+                        {duration} min
+                      </Text>
                     </>
                   ) : date !== undefined ? (
                     <>
-                      <Ionicons name="calendar-outline" size={14} color="#9CA3AF" />
-                      <Text className="text-gray-400 text-xs ml-1">{formatDate(date)}</Text>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={14}
+                        color="#9CA3AF"
+                      />
+                      <Text className="text-gray-400 text-xs ml-1">
+                        {formatDate(date)}
+                      </Text>
                     </>
                   ) : null}
                 </View>
@@ -222,18 +249,32 @@ function ServiceCard({
   // V2 white card. Rating renders as a 5-star row (rounded to avgRating).
   const ratingValue = avgRating ?? 0;
   const stars = [1, 2, 3, 4, 5];
-  const subLabel = shopName ?? category;
+  const subLabel = shopName || category;
+
+  // Theme-aware text colors: transparent variant sits on the dark home bg.
+  const titleColor = transparent ? "text-white" : "text-gray-900";
+  const subColor = transparent ? "text-gray-400" : "text-gray-500";
+  const priceColor = transparent ? "text-white" : "text-gray-900";
+  const ratingTextColor = transparent ? "text-gray-300" : "text-gray-500";
 
   return (
     <View
-      className="bg-white rounded-2xl overflow-hidden flex-1"
-      style={{
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 6,
-        elevation: 3,
-      }}
+      className={
+        transparent
+          ? "rounded-2xl flex-1"
+          : "bg-white rounded-2xl overflow-hidden flex-1"
+      }
+      style={
+        transparent
+          ? undefined
+          : {
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.12,
+              shadowRadius: 6,
+              elevation: 3,
+            }
+      }
     >
       <TouchableOpacity
         onPress={onPress}
@@ -241,15 +282,25 @@ function ServiceCard({
         className="flex-1"
       >
         {imageUrl !== undefined && (
-          <View className="relative bg-white">
+          <View
+            className={
+              transparent
+                ? "relative rounded-2xl overflow-hidden bg-white"
+                : "relative bg-white"
+            }
+          >
             {imageSource ? (
               <Image
                 source={imageSource}
-                className="w-full h-40"
+                className={transparent ? "w-full aspect-square" : "w-full h-40"}
                 resizeMode="cover"
               />
             ) : (
-              <View className="w-full h-40 bg-gray-100 items-center justify-center">
+              <View
+                className={`bg-gray-100 items-center justify-center ${
+                  transparent ? "w-full aspect-square" : "w-full h-40"
+                }`}
+              >
                 <Ionicons name="image-outline" size={32} color="#9CA3AF" />
               </View>
             )}
@@ -310,40 +361,45 @@ function ServiceCard({
           </View>
         )}
 
-        <View className="p-3">
-          <Text
-            className="text-gray-900 text-[15px] font-bold leading-5"
-            numberOfLines={2}
-          >
-            {title}
-          </Text>
-
-          {subLabel ? (
-            <Text className="text-gray-500 text-xs mt-1" numberOfLines={1}>
-              {subLabel}
+        <View className="flex-1 p-3">
+          {/* Title — fixed 2-line height so cards align whether the title
+              wraps to 1 or 2 lines (leading-5 = 20px × 2). */}
+          {title ? (
+            <Text
+              className={`${titleColor} text-[15px] font-bold leading-5`}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              style={{ height: 40 }}
+            >
+              {title}
             </Text>
           ) : null}
 
-          {/* Price */}
-          <View className="flex-row items-center flex-wrap mt-1.5">
-            <Text className="text-gray-900 font-bold text-lg">$ {price}</Text>
-            {hasDiscount && (
-              <>
-                <Text className="text-gray-400 text-sm line-through ml-2">
-                  $ {originalPrice}
-                </Text>
-                {resolvedDiscountLabel && (
-                  <View className="ml-2">
-                    <Badge tone="discount" label={resolvedDiscountLabel} />
-                  </View>
-                )}
-              </>
-            )}
-          </View>
+          {/* Shop / category — pin icon matches the Figma trending card.
+              Fixed height keeps the row aligned across cards. */}
+          {subLabel ? (
+            <View
+              className="flex-row items-center mt-1.5"
+              style={{ height: 18 }}
+            >
+              {transparent && (
+                <Ionicons
+                  name="location-outline"
+                  size={13}
+                  color="#9CA3AF"
+                  style={{ marginRight: 3 }}
+                />
+              )}
+              <Text className={`${subColor} text-xs flex-1`} numberOfLines={1}>
+                {subLabel}
+              </Text>
+            </View>
+          ) : null}
 
-          {/* Rating */}
-          {ratingValue > 0 && (
-            <View className="flex-row items-center mt-1.5">
+          {/* Rating — shows stars when rated, otherwise a "Not yet rated"
+                placeholder so the row height stays consistent across cards. */}
+          {ratingValue > 0 ? (
+            <View className="flex-row items-center pt-1.5">
               {stars.map((s) => (
                 <Ionicons
                   key={s}
@@ -354,10 +410,43 @@ function ServiceCard({
                 />
               ))}
               {ratingCountLabel ? (
-                <Text className="text-gray-500 text-xs ml-1.5">
+                <Text className={`${ratingTextColor} text-xs ml-1.5`}>
                   {ratingCountLabel}
                 </Text>
               ) : null}
+            </View>
+          ) : (
+            <View className="flex-row items-center pt-1.5">
+              <Ionicons
+                name="star-outline"
+                size={13}
+                color="#6B7280"
+                style={{ marginRight: 4 }}
+              />
+              <Text className={`${ratingTextColor} text-xs`}>
+                Not yet rated
+              </Text>
+            </View>
+          )}
+
+          {/* Price */}
+          {price != null && (
+            <View className="flex-row items-center flex-wrap pt-1.5">
+              <Text className={`${priceColor} font-bold text-lg`}>
+                $ {price}
+              </Text>
+              {hasDiscount && (
+                <>
+                  <Text className="text-gray-400 text-sm line-through ml-2">
+                    $ {originalPrice}
+                  </Text>
+                  {resolvedDiscountLabel && (
+                    <View className="ml-2">
+                      <Badge tone="discount" label={resolvedDiscountLabel} />
+                    </View>
+                  )}
+                </>
+              )}
             </View>
           )}
 
@@ -379,7 +468,7 @@ function ServiceCard({
             <View className="flex-row items-center mt-2">
               <Ionicons name="location-outline" size={12} color="#9CA3AF" />
               <Text
-                className="text-gray-500 text-xs ml-1 flex-1"
+                className={`${subColor} text-xs ml-1 flex-1`}
                 numberOfLines={1}
               >
                 {location}

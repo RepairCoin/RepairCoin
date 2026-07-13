@@ -56,7 +56,7 @@ describe('InboundEmailService.handle — metadata-only payload fetches the body'
   const makeService = (opts: { aiOn?: boolean } = {}) => {
     const handleInbound = jest.fn(async () => ({ inbound: { id: 'm1' }, reply: { body: 'We do!' }, autoAnswered: true }));
     const recordInbound = jest.fn(async () => ({ id: 'm1' }));
-    const leads: any = { findByReplyToken: async () => ({ id: 'lead1', campaignId: 'camp1', name: 'Deo' }) };
+    const leads: any = { findByReplyToken: async () => ({ id: 'lead1', campaignId: 'camp1', name: 'Deo' }), setEscalated: async () => true };
     const campaigns: any = { findById: async () => ({ shopId: 'peanut', aiAgentEnabled: opts.aiOn ?? true }) };
     const messages: any = { existsByExternalId: async () => false, countByAuthorSince: async () => 0 };
     const notifications: any = { create: async () => undefined };

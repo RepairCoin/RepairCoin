@@ -56,7 +56,7 @@ interface ManualBookingRequest {
   bookingDate: string; // YYYY-MM-DD
   bookingTimeSlot: string; // HH:MM:SS
   bookingEndTime?: string; // HH:MM:SS
-  paymentStatus: 'paid' | 'pending' | 'unpaid' | 'send_link' | 'qr_code';
+  paymentStatus: 'paid' | 'unpaid' | 'send_link' | 'qr_code';
   notes?: string;
   locationId?: string;
   createNewCustomer?: boolean;
@@ -126,8 +126,8 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
     console.log('Step 5: Basic validation passed');
 
     // Validate payment status
-    if (!['paid', 'pending', 'unpaid', 'send_link', 'qr_code'].includes(paymentStatus)) {
-      res.status(400).json({ error: 'Invalid payment status. Must be: paid, pending, unpaid, send_link, or qr_code' });
+    if (!['paid', 'unpaid', 'send_link', 'qr_code'].includes(paymentStatus)) {
+      res.status(400).json({ error: 'Invalid payment status. Must be: paid, unpaid, send_link, or qr_code' });
       return;
     }
 
@@ -251,11 +251,11 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
     }
 
     // Determine order status based on payment status
-    // 'send_link' and 'qr_code' create order in 'pending' status until customer pays
+    // All manual bookings are created as 'paid' (confirmed by shop); payment_status tracks actual payment method
     // Note: Valid statuses are: pending, paid, completed, cancelled, refunded, no_show, expired
     const requiresPayment = paymentStatus === 'send_link' || paymentStatus === 'qr_code';
-    const orderStatus = paymentStatus === 'paid' ? 'paid' : 'pending';
-    const dbPaymentStatus = requiresPayment ? 'pending' : paymentStatus;
+    const orderStatus = 'paid';
+    const dbPaymentStatus = requiresPayment ? 'unpaid' : paymentStatus;
     console.log('Step 10: Order status will be:', orderStatus, ', dbPaymentStatus:', dbPaymentStatus);
 
     // Create the manual booking

@@ -2,10 +2,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Search, User, Calendar as CalendarIcon, Clock, DollarSign, FileText, Loader2, AlertCircle, CheckCircle, Smartphone, CheckCircle2 } from 'lucide-react';
+import { X, Search, User, Calendar as CalendarIcon, Clock, DollarSign, FileText, Loader2, AlertCircle, CheckCircle, Smartphone, CheckCircle2, MapPin } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { appointmentsApi, CustomerSearchResult, TimeSlot, TimeSlotConfig, ManualBookingResponse } from '@/services/api/appointments';
 import { servicesApi } from '@/services/api/services';
+import { getLocations, type ShopLocation } from '@/services/api/locations';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { toast } from 'react-hot-toast';
 import { useLocationStore } from '@/stores/locationStore';
 import { DateAvailabilityPicker } from '@/components/customer/DateAvailabilityPicker';
@@ -42,6 +44,9 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
 }) => {
   // Search state
   const activeLocationId = useLocationStore((s) => s.activeLocationId);
+  const { multiLocationActive } = useFeatureAccess();
+  const [locations, setLocations] = useState<ShopLocation[]>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<CustomerSearchResult[]>([]);
@@ -100,6 +105,18 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
       loadTimeSlotConfig();
     }
   }, [isOpen, shopId]);
+
+  useEffect(() => {
+    if (!isOpen || !multiLocationActive) return;
+    getLocations()
+      .then((l) => setLocations(Array.isArray(l) ? l.filter((loc) => loc.active) : []))
+      .catch(() => setLocations([]));
+  }, [isOpen, multiLocationActive]);
+
+  // With "All locations" active the backend would silently file the booking under the
+  // shop's primary branch, so make the owner pick one instead.
+  const needsLocationChoice = multiLocationActive && !activeLocationId && locations.length >= 2;
+  const bookingLocationId = (activeLocationId || (needsLocationChoice ? selectedLocationId : '')) || undefined;
 
   const loadTimeSlotConfig = async () => {
     try {
@@ -184,16 +201,16 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
     }
   }, [isOpen, preSelectedDate]);
 
-  // Load time slots when date, service, or active branch change
+  // Load time slots when date, service, or branch change
   useEffect(() => {
-    if (selectedServiceId && bookingDate) {
+    if (selectedServiceId && bookingDate && !(needsLocationChoice && !selectedLocationId)) {
       loadTimeSlots();
     } else {
       setAvailableSlots([]);
       setSelectedTimeSlot('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedServiceId, bookingDate, activeLocationId]);
+  }, [selectedServiceId, bookingDate, bookingLocationId, needsLocationChoice]);
 
   const loadServices = async () => {
     try {
@@ -227,7 +244,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
         shopId,
         selectedServiceId,
         bookingDate,
-        activeLocationId || undefined
+        bookingLocationId
       );
       setAvailableSlots(slots);
     } catch (error) {
@@ -302,6 +319,11 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
 
   const handleSubmit = async () => {
     // Validation
+    if (needsLocationChoice && !selectedLocationId) {
+      toast.error('Please select which location this booking is for');
+      return;
+    }
+
     if (!selectedCustomer && !showNewCustomerForm) {
       toast.error('Please select or create a customer');
       return;
@@ -385,7 +407,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             bookingEndTime,
             paymentStatus,
             notes: notes || undefined,
-            locationId: activeLocationId || undefined,
+            locationId: bookingLocationId,
             createNewCustomer: true
           }
         : {
@@ -399,7 +421,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             bookingEndTime,
             paymentStatus,
             notes: notes || undefined,
-            locationId: activeLocationId || undefined,
+            locationId: bookingLocationId,
             createNewCustomer: false
           };
 
@@ -459,6 +481,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
     setSelectedCustomer(null);
     setShowNewCustomerForm(false);
     setNewCustomer({ name: '', email: '', phone: '' });
+    setSelectedLocationId('');
     setSelectedServiceId(preSelectedService?.serviceId || '');
     setBookingDate(preSelectedDate || '');
     setSelectedTimeSlot(preSelectedTime || '');
@@ -496,6 +519,40 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
         </div>
 
         <div className="p-4 sm:p-6 space-y-6">
+          {needsLocationChoice && (
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-[#FFCC00]" />
+                Location
+              </h3>
+
+              <Select
+                value={selectedLocationId || undefined}
+                onValueChange={(value) => {
+                  setSelectedLocationId(value);
+                  setSelectedTimeSlot('');
+                }}
+              >
+                <SelectTrigger variant="dark" className="w-full h-auto py-3">
+                  <SelectValue placeholder="Select a location..." />
+                </SelectTrigger>
+                <SelectContent variant="dark" className="z-[1200]">
+                  {locations.map((location) => (
+                    <SelectItem variant="dark" key={location.id} value={location.id}>
+                      {location.isPrimary ? `${location.name} (Primary)` : location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {!selectedLocationId && (
+                <p className="mt-2 text-xs text-gray-500">
+                  You&apos;re viewing all locations. Choose the branch this appointment is for.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Step 1: Customer Selection */}
           <div>
             <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">

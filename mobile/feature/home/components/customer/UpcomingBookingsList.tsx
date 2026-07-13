@@ -5,6 +5,14 @@ import { router } from "expo-router";
 import { useMyAppointmentsQuery } from "@/feature/services/services-main/booking-tab/hooks";
 import { MyAppointment } from "@/feature/services/services/service.interface";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
+import { rScale } from "@/shared/utilities/responsive";
+
+// Concrete pixel sizes scaled from the 375pt baseline so the row adapts
+// across small phones and tablets. (Spacing/text stay as NativeWind dp.)
+const AVATAR_SIZE = rScale(100); // w-14 / h-14
+const ICON_MAIN = rScale(22);
+const ICON_PIN = rScale(12);
+const ICON_CHEVRON = rScale(18);
 
 const DONE_STATUSES = ["cancelled", "canceled", "completed", "no_show"];
 
@@ -70,12 +78,16 @@ function UpcomingBookingsList() {
             {item.serviceImage ? (
               <Image
                 source={{ uri: item.serviceImage }}
-                className="w-14 h-14 rounded-xl"
+                className="rounded-xl"
+                style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
                 resizeMode="cover"
               />
             ) : (
-              <View className="w-14 h-14 rounded-xl bg-zinc-800 items-center justify-center">
-                <Ionicons name="cube-outline" size={22} color="#FFCC00" />
+              <View
+                className="rounded-xl bg-zinc-800 items-center justify-center"
+                style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+              >
+                <Ionicons name="cube-outline" size={ICON_MAIN} color="#FFCC00" />
               </View>
             )}
             <View className="flex-1 ml-3">
@@ -83,7 +95,11 @@ function UpcomingBookingsList() {
                 {item.serviceName}
               </Text>
               <View className="flex-row items-center mt-0.5">
-                <Ionicons name="location-outline" size={12} color="#9CA3AF" />
+                <Ionicons
+                  name="location-outline"
+                  size={ICON_PIN}
+                  color="#9CA3AF"
+                />
                 <Text className="text-zinc-400 text-xs ml-1" numberOfLines={1}>
                   {item.shopName}
                 </Text>
@@ -92,7 +108,11 @@ function UpcomingBookingsList() {
                 {formatWhen(item.bookingDate, item.bookingTimeSlot)}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#52525b" />
+            <Ionicons
+              name="chevron-forward"
+              size={ICON_CHEVRON}
+              color="#52525b"
+            />
           </Pressable>
         ))}
       </View>

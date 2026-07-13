@@ -737,6 +737,53 @@ export class EmailService {
   }
 
   /**
+   * Remind a shop that its free trial is ending soon, nudging them to subscribe
+   * before access is lost.
+   */
+  async sendTrialEndingReminder(
+    shopEmail: string,
+    shopName: string,
+    daysLeft: number,
+    trialEndsAt: Date
+  ): Promise<boolean> {
+    const dayLabel = daysLeft === 1 ? '1 day' : `${daysLeft} days`;
+    const subject = `⏳ Your RepairCoin free trial ends in ${dayLabel}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #d97706;">Your free trial is ending soon</h2>
+
+        <p>Dear ${shopName},</p>
+
+        <p>Your RepairCoin free trial ends in <strong>${dayLabel}</strong> on
+          <strong>${trialEndsAt.toLocaleDateString()}</strong>.</p>
+
+        <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;">Subscribe before your trial ends to keep issuing rewards,
+            processing redemptions, and purchasing RCN without interruption. When the trial
+            ends without a subscription, operational features are paused until you subscribe.</p>
+        </div>
+
+        <p>
+          <a href="${process.env.FRONTEND_URL || 'https://app.repaircoin.ai'}/shop/subscription-form"
+             style="display: inline-block; background-color: #FFCC00; color: #000; font-weight: bold;
+                    padding: 12px 24px; border-radius: 8px; text-decoration: none;">
+            Subscribe Now
+          </a>
+        </p>
+
+        <hr style="border: 1px solid #ddd; margin: 30px 0;">
+
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message from RepairCoin. For support, please contact support@repaircoin.com
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail(shopEmail, subject, html);
+  }
+
+  /**
    * Send appointment confirmation for manual booking
    */
   async sendAppointmentConfirmation(

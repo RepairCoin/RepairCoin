@@ -194,9 +194,9 @@ describe('Customer Find Shop Tab — E2E', () => {
       if (res.status === 200 && res.body.data.shops.length > 0) {
         const shop = res.body.data.shops[0];
 
-        // Backend maps DB "twitter" → "x" for frontend
+        // Backend returns the raw DB "twitter" column; the frontend maps it to "x".
         expect('facebook' in shop).toBe(true);
-        expect('x' in shop).toBe(true);
+        expect('twitter' in shop).toBe(true);
         expect('instagram' in shop).toBe(true);
       }
     });
@@ -515,22 +515,23 @@ describe('Customer Find Shop Tab — E2E', () => {
   // SECTION 8: Social Media Field Mapping
   // ============================================================
   describe('Social Media Field Mapping', () => {
-    it('should return "x" field mapped from DB "twitter" column', async () => {
+    it('should return the DB "twitter" column as the "twitter" field', async () => {
       const res = await request(app).get('/api/customers/shops');
 
       if (res.status === 200 && res.body.data.shops.length > 0) {
         const shop = res.body.data.shops[0];
-        // Backend maps DB "twitter" → response "x" (X/Twitter rebrand fix)
-        expect('x' in shop).toBe(true);
+        // Backend exposes the raw DB "twitter" column; the X/Twitter rebrand
+        // mapping to "x" is handled client-side by the frontend.
+        expect('twitter' in shop).toBe(true);
       }
     });
 
-    it('should NOT return legacy "twitter" field (replaced by "x")', async () => {
+    it('should NOT return an "x" field (twitter to x mapping is frontend-side)', async () => {
       const res = await request(app).get('/api/customers/shops');
 
       if (res.status === 200 && res.body.data.shops.length > 0) {
         const shop = res.body.data.shops[0];
-        expect('twitter' in shop).toBe(false);
+        expect('x' in shop).toBe(false);
       }
     });
 

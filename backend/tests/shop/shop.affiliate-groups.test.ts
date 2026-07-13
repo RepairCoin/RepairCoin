@@ -424,7 +424,7 @@ describe('Shop Affiliate Groups Tests', () => {
 
         expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
-        expect(response.body.error).toContain('at least 2 characters');
+        expect(response.body.error).toContain('at least 3 characters');
       });
     });
   });

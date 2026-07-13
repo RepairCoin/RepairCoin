@@ -17,6 +17,7 @@ import { ChatMessage } from '@/components/support/ChatMessage';
 import { ChatInput } from '@/components/support/ChatInput';
 import { TicketList } from '@/components/support/TicketList';
 import { useAuthStore } from '@/stores/authStore';
+import { SupportLevelCard } from '@/components/shop/SupportLevelCard';
 
 export function SupportTab() {
   const { account, userProfile } = useAuthStore();
@@ -161,6 +162,9 @@ export function SupportTab() {
 
   return (
     <div className="space-y-6">
+      {/* Plan-based support level (Dedicated Account Manager / Priority Support) */}
+      <SupportLevelCard />
+
       {/* Error Alert */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 flex items-start gap-3">

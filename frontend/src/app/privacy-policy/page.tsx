@@ -37,13 +37,13 @@ export default function PrivacyPolicyPage() {
             <li><strong>Email address</strong> — Used for account management and notifications</li>
             <li><strong>Phone number</strong> (optional) — Used for account verification</li>
             <li><strong>Profile photo</strong> (optional) — Displayed on your profile</li>
-            <li><strong>Wallet address</strong> — Used for blockchain-based rewards and authentication</li>
+            <li><strong>Account identifier</strong> — A unique ID used for rewards and authentication</li>
           </ul>
 
           <h3 className="text-white font-semibold mb-3">Financial Information</h3>
           <ul className="list-disc list-inside space-y-2 text-gray-300 mb-4">
             <li><strong>Purchase history</strong> — Service bookings and transaction records</li>
-            <li><strong>Token balances</strong> — RCN reward token balances and redemption history</li>
+            <li><strong>Reward balances</strong> — RCN reward balances and redemption history</li>
             <li><strong>Payment processing</strong> — Handled securely by Stripe. We do not store your credit card numbers or payment details.</li>
           </ul>
 
@@ -87,7 +87,7 @@ export default function PrivacyPolicyPage() {
           <p className="mb-3">We do not sell your personal information. We share data only with:</p>
           <ul className="list-disc list-inside space-y-2 text-gray-300">
             <li><strong>Stripe</strong> — Payment processing (payment details only)</li>
-            <li><strong>Thirdweb</strong> — Blockchain wallet connection and token transactions</li>
+            <li><strong>Thirdweb</strong> — Secure login and account authentication</li>
             <li><strong>DigitalOcean</strong> — Cloud hosting and image storage</li>
             <li><strong>OpenAI</strong> — Voice command audio is sent to OpenAI&apos;s Whisper service to convert speech to text when you use the voice command feature</li>
             <li><strong>Service providers (shops)</strong> — Your name and booking details when you book a service</li>
@@ -155,7 +155,7 @@ export default function PrivacyPolicyPage() {
           <p className="mb-3">Our app integrates with the following third-party services, each with their own privacy policies:</p>
           <ul className="list-disc list-inside space-y-2 text-gray-300">
             <li><strong>Stripe</strong> — Payment processing</li>
-            <li><strong>Thirdweb</strong> — Blockchain wallet and smart contract interactions</li>
+            <li><strong>Thirdweb</strong> — Login and account authentication</li>
             <li><strong>DigitalOcean Spaces</strong> — Image and file storage</li>
             <li><strong>OpenAI (Whisper API)</strong> — Speech-to-text transcription for voice commands. Audio retained up to 30 days for abuse-monitoring then deleted; not used to train OpenAI models. Voice commands are optional — a typed equivalent is available for every voice-enabled feature.</li>
             <li><strong>Expo / React Native</strong> — App framework and push notifications</li>

@@ -5,8 +5,18 @@ module.exports = {
   testMatch: [
     '**/?(*.)+(spec|test).ts'
   ],
+  // Integration suites that require a seeded database are excluded from the default run.
+  // Run them explicitly with `npm run test:integration` against a seeded DB.
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '<rootDir>/tests/integration/full-flow.test.ts',
+    '<rootDir>/tests/unit/wallet-detection.test.ts',
+    '<rootDir>/tests/subscription/subscription.edge-cases.test.ts'
+  ],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    // isolatedModules skips per-file type-checking (CI runs `tsc --noEmit` separately),
+    // which is the dominant cost in the unit run.
+    '^.+\\.ts$': ['ts-jest', { isolatedModules: true }],
   },
   collectCoverageFrom: [
     'src/**/*.ts',

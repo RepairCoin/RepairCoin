@@ -3,6 +3,8 @@ import {
   ShopFormData,
   ShopByWalletAddressResponse,
   ShopResponse,
+  MapShopsResponse,
+  MapShopsQuery,
   ShopCustomersResponse,
   ShopCustomerGrowthResponse,
   TransactionsResponse,
@@ -62,6 +64,24 @@ class ShopApi {
       return await apiClient.get<ShopResponse>("/shops");
     } catch (error: any) {
       console.error("Failed to list shops:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Discovery/nearby shops with service-derived categories, ratings, and
+   * distance. Pass the user's coords to get distance + proximity sorting.
+   */
+  async listShopsForMap(query?: MapShopsQuery): Promise<MapShopsResponse> {
+    try {
+      const params: Record<string, number> = {};
+      if (query?.lat != null) params.lat = query.lat;
+      if (query?.lng != null) params.lng = query.lng;
+      if (query?.radius != null) params.radius = query.radius;
+      if (query?.limit != null) params.limit = query.limit;
+      return await apiClient.get<MapShopsResponse>("/shops/map", { params });
+    } catch (error: any) {
+      console.error("Failed to list shops for map:", error.message);
       throw error;
     }
   }
@@ -383,6 +403,15 @@ class ShopApi {
       return await apiClient.get(`/shops/purchase/history/${shopId}`);
     } catch (error: any) {
       console.error("Failed to get purchase history:", error.message);
+      throw error;
+    }
+  }
+
+  async cancelPurchase(purchaseId: string): Promise<any> {
+    try {
+      return await apiClient.post(`/shops/purchase/${purchaseId}/cancel`);
+    } catch (error: any) {
+      console.error("Failed to cancel purchase:", error.message);
       throw error;
     }
   }

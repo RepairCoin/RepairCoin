@@ -28,9 +28,11 @@ describe('Subscription WebSocket Real-Time Updates', () => {
     jest.clearAllMocks();
 
     // Create mock WebSocket manager
+    // Mirror the real WebSocketManager public API. Admin fan-out is done via
+    // sendToAddresses(adminAddresses, {...}) — there is no sendNotificationToAdmins method.
     mockWsManager = {
       sendNotificationToUser: jest.fn(),
-      sendNotificationToAdmins: jest.fn(),
+      sendToAddresses: jest.fn(),
       broadcastToAll: jest.fn(),
     };
 
@@ -116,10 +118,16 @@ describe('Subscription WebSocket Real-Time Updates', () => {
         },
       });
 
-      // Verify admins were notified for real-time dashboard updates
-      expect(mockWsManager.sendNotificationToAdmins).toHaveBeenCalledWith(
+      // Verify admins were notified for real-time dashboard updates via the
+      // real WebSocketManager API: sendToAddresses(adminAddresses, {...}).
+      expect(mockWsManager.sendToAddresses).toHaveBeenCalledWith(
+        ['0xadmin1', '0xadmin2'],
         expect.objectContaining({
-          notificationType: 'subscription_self_cancelled',
+          type: 'subscription_status_changed',
+          payload: expect.objectContaining({
+            shopAddress: mockShopAddress,
+            action: 'self_cancelled',
+          }),
         })
       );
     });
@@ -154,10 +162,15 @@ describe('Subscription WebSocket Real-Time Updates', () => {
         },
       });
 
-      // Verify admins were notified
-      expect(mockWsManager.sendNotificationToAdmins).toHaveBeenCalledWith(
+      // Verify admins were notified via sendToAddresses(adminAddresses, {...})
+      expect(mockWsManager.sendToAddresses).toHaveBeenCalledWith(
+        ['0xadmin1', '0xadmin2'],
         expect.objectContaining({
-          notificationType: 'subscription_reactivated',
+          type: 'subscription_status_changed',
+          payload: expect.objectContaining({
+            shopAddress: mockShopAddress,
+            action: 'reactivated',
+          }),
         })
       );
     });
@@ -196,7 +209,16 @@ describe('Subscription WebSocket Real-Time Updates', () => {
         },
       });
 
-      expect(mockWsManager.sendNotificationToAdmins).toHaveBeenCalled();
+      expect(mockWsManager.sendToAddresses).toHaveBeenCalledWith(
+        ['0xadmin1', '0xadmin2'],
+        expect.objectContaining({
+          type: 'subscription_status_changed',
+          payload: expect.objectContaining({
+            shopAddress: mockShopAddress,
+            action: 'cancelled',
+          }),
+        })
+      );
     });
   });
 
@@ -230,7 +252,16 @@ describe('Subscription WebSocket Real-Time Updates', () => {
         },
       });
 
-      expect(mockWsManager.sendNotificationToAdmins).toHaveBeenCalled();
+      expect(mockWsManager.sendToAddresses).toHaveBeenCalledWith(
+        ['0xadmin1', '0xadmin2'],
+        expect.objectContaining({
+          type: 'subscription_status_changed',
+          payload: expect.objectContaining({
+            shopAddress: mockShopAddress,
+            action: 'paused',
+          }),
+        })
+      );
     });
   });
 
@@ -261,7 +292,16 @@ describe('Subscription WebSocket Real-Time Updates', () => {
         },
       });
 
-      expect(mockWsManager.sendNotificationToAdmins).toHaveBeenCalled();
+      expect(mockWsManager.sendToAddresses).toHaveBeenCalledWith(
+        ['0xadmin1', '0xadmin2'],
+        expect.objectContaining({
+          type: 'subscription_status_changed',
+          payload: expect.objectContaining({
+            shopAddress: mockShopAddress,
+            action: 'resumed',
+          }),
+        })
+      );
     });
   });
 });

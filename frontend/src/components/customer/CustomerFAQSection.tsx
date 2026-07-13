@@ -2,12 +2,13 @@
 
 import React, { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
-const faqs = [
+const faqs: { question: string; answer: string; blockchain?: boolean }[] = [
   {
     question: "What is RepairCoin (RCN)?",
     answer:
-      "RepairCoin (RCN) is a blockchain-based utility token designed specifically for the repair industry. Each RCN token has a fixed value of $0.10 USD and can be earned through repairs and referrals, then redeemed at participating shops.",
+      "RepairCoin (RCN) is a digital rewards currency designed specifically for the repair industry. Each RCN has a fixed value of $0.10 USD and can be earned through repairs and referrals, then redeemed at participating shops.",
   },
   {
     question: "How do I earn RCN tokens?",
@@ -23,6 +24,7 @@ const faqs = [
     question: "What is RCG and how is it different from RCN?",
     answer:
       "RCG (RepairCoin Governance) is the governance token with a fixed supply of 100M tokens. While RCN is for customer rewards, RCG is staked by shops to unlock tier benefits (Standard/Premium/Elite) and grants voting rights in the DAO.",
+    blockchain: true,
   },
   {
     question: "How does the redemption approval process work?",
@@ -43,16 +45,19 @@ const faqs = [
     question: "How do I gift tokens to someone?",
     answer:
       "Go to the Gift Tokens page, enter the recipient's wallet address (or scan their QR code), specify the amount, and confirm the transfer. Gifted tokens can be redeemed at any participating shop.",
+    blockchain: true,
   },
 ];
 
 export function CustomerFAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const blockchainEnabled = useBlockchainEnabled();
+  const visibleFaqs = faqs.filter((f) => blockchainEnabled || !f.blockchain);
 
   return (
     <div className="w-full">
       <div className="space-y-3">
-        {faqs.map((faq, index) => {
+        {visibleFaqs.map((faq, index) => {
           const isOpen = openIndex === index;
 
           return (

@@ -198,12 +198,17 @@ export class OrderRepository extends BaseRepository {
           sh.address as shop_address,
           sh.phone as shop_phone,
           c.name as customer_name,
-          COALESCE(t.amount, 0) as rcn_earned
+          COALESCE(t.total_amount, 0) as rcn_earned
         FROM service_orders o
         INNER JOIN shop_services s ON o.service_id = s.service_id
         INNER JOIN shops sh ON o.shop_id = sh.shop_id
         LEFT JOIN customers c ON o.customer_address = c.address
-        LEFT JOIN transactions t ON t.metadata->>'orderId' = o.order_id AND t.type = 'mint'
+        LEFT JOIN (
+          SELECT (metadata->>'orderId') AS order_id, SUM(amount) AS total_amount
+          FROM transactions
+          WHERE type = 'mint'
+          GROUP BY metadata->>'orderId'
+        ) t ON t.order_id = o.order_id
         WHERE o.order_id = $1
       `;
       const result = await this.pool.query(query, [orderId]);
@@ -304,12 +309,17 @@ export class OrderRepository extends BaseRepository {
           sh.name as shop_name,
           sh.address as shop_address,
           sh.phone as shop_phone,
-          COALESCE(t.amount, 0) as rcn_earned,
+          COALESCE(t.total_amount, 0) as rcn_earned,
           CASE WHEN sr.review_id IS NOT NULL THEN true ELSE false END as has_review
         FROM service_orders o
         INNER JOIN shop_services s ON o.service_id = s.service_id
         INNER JOIN shops sh ON o.shop_id = sh.shop_id
-        LEFT JOIN transactions t ON t.metadata->>'orderId' = o.order_id AND t.type = 'mint'
+        LEFT JOIN (
+          SELECT (metadata->>'orderId') AS order_id, SUM(amount) AS total_amount
+          FROM transactions
+          WHERE type = 'mint'
+          GROUP BY metadata->>'orderId'
+        ) t ON t.order_id = o.order_id
         LEFT JOIN service_reviews sr ON sr.order_id = o.order_id
         ${whereClause}
         ORDER BY o.created_at DESC
@@ -414,11 +424,16 @@ export class OrderRepository extends BaseRepository {
           c.name as customer_name,
           c.tier as customer_tier,
           c.phone as customer_phone,
-          COALESCE(t.amount, 0) as rcn_earned
+          COALESCE(t.total_amount, 0) as rcn_earned
         FROM service_orders o
         INNER JOIN shop_services s ON o.service_id = s.service_id
         LEFT JOIN customers c ON o.customer_address = c.address
-        LEFT JOIN transactions t ON t.metadata->>'orderId' = o.order_id AND t.type = 'mint'
+        LEFT JOIN (
+          SELECT (metadata->>'orderId') AS order_id, SUM(amount) AS total_amount
+          FROM transactions
+          WHERE type = 'mint'
+          GROUP BY metadata->>'orderId'
+        ) t ON t.order_id = o.order_id
         ${whereClause}
         ORDER BY o.created_at DESC
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}

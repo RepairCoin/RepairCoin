@@ -2,11 +2,14 @@ import { useState, useCallback } from "react";
 import { View, ScrollView, TouchableOpacity, Text, ActivityIndicator, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
+import { appointmentApi } from "@/feature/services/services/service.services";
 import {
   CustomerProfileHeader,
   CustomerStats,
-  CustomerContactInfo
+  CustomerContactInfo,
+  CustomerNoShowRecord
 } from "../components";
 import { useCustomerProfileScreen } from "../hooks/ui";
 import { useLocalSearchParams } from "expo-router";
@@ -42,6 +45,13 @@ export default function CustomerProfileScreen() {
     isShopOwner ? customerAddress : undefined
   );
   const { mutate: unblockCustomer } = useUnblockCustomer();
+
+  // Shop owners see the customer's no-show history to inform block/booking decisions.
+  const { data: noShowStatus } = useQuery({
+    queryKey: ["customerNoShowStatus", customerAddress],
+    queryFn: () => appointmentApi.getCustomerNoShowStatus(customerAddress!),
+    enabled: isShopOwner && !!customerAddress,
+  });
 
   const handleUnblock = () => {
     if (!customerAddress) return;
@@ -108,6 +118,14 @@ export default function CustomerProfileScreen() {
           totalRedemptions={customerData.totalRedemptions}
           totalRepairs={customerData.totalRepairs}
         />
+
+        {isShopOwner && noShowStatus && (
+          <CustomerNoShowRecord
+            noShowCount={noShowStatus.noShowCount}
+            tier={noShowStatus.tier}
+            lastNoShowAt={noShowStatus.lastNoShowAt}
+          />
+        )}
 
         <CustomerContactInfo
           email={customerData.email}

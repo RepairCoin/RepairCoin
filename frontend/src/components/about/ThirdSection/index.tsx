@@ -14,8 +14,8 @@ const ThirdSection: React.FC<any> = () => {
             </p>
             <p className="text-[#FFCC00] md:text-center text-sm md:text-lg tracking-wide">
               To transform everyday tech repairs into rewarding
-              experiences—empowering local shops and customers through the power
-              of blockchain.
+              experiences—empowering local shops and customers through smart,
+              seamless rewards.
             </p>
           </div>
           <div className="md:w-2/3 flex flex-col md:items-center md:gap-6 gap-4">

@@ -331,6 +331,16 @@ export class NotificationDomain implements DomainModule {
           type: 'shop_status_changed',
           payload: { shopAddress, action: 'subscription_cancelled' }
         });
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'subscription_status_changed',
+            payload: { shopAddress, action: 'cancelled', reason, effectiveDate }
+          });
+          logger.info('Sent subscription status change event to admins', { shopAddress, action: 'cancelled' });
+        }
       }
     } catch (error: any) {
       logger.error('Error handling subscription cancelled event:', error);
@@ -393,6 +403,16 @@ export class NotificationDomain implements DomainModule {
           type: 'shop_status_changed',
           payload: { shopAddress, action: 'paused' }
         });
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'subscription_status_changed',
+            payload: { shopAddress, action: 'paused', reason }
+          });
+          logger.info('Sent subscription status change event to admins', { shopAddress, action: 'paused' });
+        }
       }
     } catch (error: any) {
       logger.error('Error handling subscription paused event:', error);
@@ -418,6 +438,16 @@ export class NotificationDomain implements DomainModule {
           type: 'shop_status_changed',
           payload: { shopAddress, action: 'resumed' }
         });
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'subscription_status_changed',
+            payload: { shopAddress, action: 'resumed' }
+          });
+          logger.info('Sent subscription status change event to admins', { shopAddress, action: 'resumed' });
+        }
       }
     } catch (error: any) {
       logger.error('Error handling subscription resumed event:', error);

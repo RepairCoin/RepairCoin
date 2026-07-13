@@ -265,9 +265,24 @@ export function useMarkNoShowMutation() {
       return serviceApi.markOrderAsNoShow(orderId, notes);
     },
     onSuccess: () => {
+      // Mirror cancelOrder's invalidation set. "shopBookings" is a separate cache
+      // read by the bookings/calendar screen, and refetchType "all" is required
+      // because that screen is unmounted (inactive) while the detail screen is
+      // open — the global refetchOnMount:false would otherwise serve it stale.
+      const refetchType = "all" as const;
       queryClient.invalidateQueries({
         queryKey: ["repaircoin", "bookings", "shop"],
+        refetchType,
       });
+      queryClient.invalidateQueries({
+        queryKey: ["repaircoin", "bookings", "customer"],
+        refetchType,
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["repaircoin", "appointments"],
+        refetchType,
+      });
+      queryClient.invalidateQueries({ queryKey: ["shopBookings"], refetchType });
       showSuccess("Marked as no-show. Customer's record updated.");
     },
     onError: (error: any) => {

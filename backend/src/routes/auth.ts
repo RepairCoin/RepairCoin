@@ -1110,6 +1110,7 @@ router.post('/admin', authLimiter, async (req, res) => {
 
     if (!address) {
       return res.status(400).json({
+        success: false,
         error: 'Wallet address is required'
       });
     }
@@ -1161,6 +1162,7 @@ router.post('/admin', authLimiter, async (req, res) => {
     // Check if user is authorized
     if (!adminData && !isSuperAdminFromEnv) {
       return res.status(403).json({
+        success: false,
         error: 'Address not authorized as admin'
       });
     }
@@ -1775,13 +1777,34 @@ const getDemoAccounts = (platform: DemoPlatform) =>
     : { address: IOS_DEMO_ADDRESS, shopAddress: IOS_DEMO_SHOP_ADDRESS, shopId: IOS_DEMO_SHOP_ID };
 
 /**
- * Check if demo mode is enabled for a given platform
- * GET /api/auth/demo/status?platform=ios|android
+ * Check if demo mode is enabled per platform.
+ * Returns both flags so the client picks the right one using its own Platform.OS,
+ * avoiding server-side platform parsing that could silently fall back to 'ios'.
+ *
+ * Android version gating: if DEMO_ANDROID_MIN_VERSION is set, only builds at or
+ * above that version receive android: true. This lets you enable demo for a new
+ * review build (e.g. 1.0.2) without showing the demo button to existing live
+ * users still running the old version (e.g. 1.0.1).
+ *
+ * GET /api/auth/demo/status
  */
 router.get('/demo/status', (req, res) => {
-  const platform = parsePlatform(req.query.platform);
-  return res.json({ enabled: isDemoEnabled(platform) });
+  const androidEnabled = process.env.DEMO_ENABLE_ANDROID === 'true';
+  const minVersion = process.env.DEMO_ANDROID_MIN_VERSION;
+
+  let androidDemo = androidEnabled;
+  if (androidEnabled && minVersion) {
+    const appVersion = (req.headers['x-app-version'] as string) ?? '0.0.0';
+    // Protect the live version: only show demo to versions that are NOT the live version
+    androidDemo = appVersion !== minVersion;
+  }
+
+  return res.json({
+    android: androidDemo,
+    ios: process.env.DEMO_ENABLE_IOS === 'true',
+  });
 });
+
 
 /**
  * Demo customer login

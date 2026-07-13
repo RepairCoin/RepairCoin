@@ -166,7 +166,7 @@ export class AdminController {
     } catch (error: any) {
       if (error.message === 'Shop not found') {
         ResponseHelper.error(res, error.message, 404);
-      } else if (error.message === 'Shop already verified') {
+      } else if (error.message.includes('already verified')) {
         ResponseHelper.error(res, error.message, 400);
       } else {
         ResponseHelper.error(res, error.message, 500);
@@ -236,7 +236,11 @@ export class AdminController {
       const result = await this.adminService.createShop(dbShopData);
       ResponseHelper.success(res, result, 'Shop created successfully');
     } catch (error: any) {
-      ResponseHelper.error(res, error.message, 500);
+      if (error.message.includes('already exists') || error.message.includes('already registered')) {
+        ResponseHelper.error(res, error.message, 409);
+      } else {
+        ResponseHelper.error(res, error.message, 500);
+      }
     }
   }
 

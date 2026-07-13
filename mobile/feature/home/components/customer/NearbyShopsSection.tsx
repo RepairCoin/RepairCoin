@@ -1,28 +1,83 @@
 import React from "react";
-import { View, Text, ScrollView, Pressable, Image } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, ScrollView, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
-import { useShop } from "@/feature/shop/account/hooks/useShopQuery";
-import { ShopData } from "@/feature/shop/services/shop.interface";
+import { useQuery } from "@tanstack/react-query";
+import { shopApi } from "@/feature/shop/services/shop.services";
+import { MapShop } from "@/feature/shop/services/shop.interface";
+import {
+  getCurrentLocation,
+  Coordinates,
+} from "@/feature/find-shop/services/geocoding.services";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import { SkeletonHorizontalCards } from "@/shared/components/ui/Skeleton";
+import ShopGridCard from "@/shared/components/shared/ShopGridCard";
+import { rScale } from "@/shared/utilities/responsive";
 
-const CARD_WIDTH = 260;
+// Fixed spacing scaled from the Figma baseline. Card width itself is derived
+// from the live screen width below (percentage + clamp), which is already
+// device-adaptive, so it stays as-is.
+const CARD_GAP = rScale(12);
+const MILES_TO_KM = 1.60934;
+const WALKING_MIN_PER_KM = 12; // ~5 km/h walking pace, matching the "run" ETA
 
 /**
- * V2 Home "Nearby Shops" carousel. Sourced from the shops list; distance/rating
- * are omitted until geolocation + shop-rating data are wired (see follow-ups).
+ * V2 Home "Nearby Shops" carousel. Backed by `GET /shops/map`, which returns
+ * service-derived categories, ratings, and (with coords) distance — so the
+ * card's icon fallback, rating, and ETA all come straight from the API.
  */
 function NearbyShopsSection() {
-  const { useGetShops } = useShop();
-  const { data, isLoading } = useGetShops();
+  const { width } = useWindowDimensions();
+  // Card scales with the screen so ~1.4 cards peek on any device (clamped for tablets).
+  const cardWidth = Math.round(Math.min(320, Math.max(230, width * 0.7)));
+  const imageHeight = Math.round(cardWidth * 0.62);
+  const cardHeight = Math.round(cardWidth * 1.15);
 
-  const shops: ShopData[] = React.useMemo(() => {
-    const list = data?.shops ?? [];
-    return list.filter((s) => s.active !== false).slice(0, 8);
-  }, [data]);
+  const [userLocation, setUserLocation] = React.useState<Coordinates | null>(
+    null
+  );
+  const [locationReady, setLocationReady] = React.useState(false);
 
-  if (!isLoading && shops.length === 0) return null;
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const location = await getCurrentLocation();
+        if (!cancelled && location) setUserLocation(location);
+      } catch {
+        // Location is optional — shops still load, just without distance.
+      } finally {
+        if (!cancelled) setLocationReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["shopsForMap", "nearby", userLocation?.latitude, userLocation?.longitude],
+    queryFn: () =>
+      shopApi.listShopsForMap({
+        lat: userLocation?.latitude,
+        lng: userLocation?.longitude,
+        limit: 8,
+      }),
+    // Wait until the location attempt resolves so the first fetch can include coords.
+    enabled: locationReady,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const shops: MapShop[] = React.useMemo(() => data?.data ?? [], [data]);
+
+  const formatDistance = (miles: number | null): string | undefined => {
+    if (miles == null) return undefined;
+    const km = miles * MILES_TO_KM;
+    const eta = Math.max(1, Math.round(km * WALKING_MIN_PER_KM));
+    return `${km.toFixed(1)}km/${eta}min`;
+  };
+
+  const loading = isLoading || !locationReady;
+  if (!loading && shops.length === 0) return null;
 
   return (
     <View>
@@ -30,8 +85,8 @@ function NearbyShopsSection() {
         title="Nearby Shops"
         onSeeAll={() => router.navigate("/customer/tabs/find-shop")}
       />
-      {isLoading ? (
-        <SkeletonHorizontalCards count={3} cardWidth={CARD_WIDTH} />
+      {loading ? (
+        <SkeletonHorizontalCards count={3} cardWidth={cardWidth} />
       ) : (
         <View style={{ marginHorizontal: -16 }}>
           <ScrollView
@@ -39,63 +94,30 @@ function NearbyShopsSection() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16 }}
             decelerationRate="fast"
-            snapToInterval={CARD_WIDTH + 12}
+            snapToInterval={cardWidth + CARD_GAP}
           >
             {shops.map((shop) => (
-              <Pressable
+              <View
                 key={shop.shopId}
-                onPress={() => router.navigate("/customer/tabs/find-shop")}
-                style={{ width: CARD_WIDTH, marginRight: 12 }}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden active:border-[#FFCC00]/50"
+                style={{
+                  width: cardWidth,
+                  height: cardHeight,
+                  marginRight: CARD_GAP,
+                }}
               >
-                {shop.bannerUrl || shop.logoUrl ? (
-                  <Image
-                    source={{ uri: shop.bannerUrl || shop.logoUrl }}
-                    className="w-full h-32"
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View className="w-full h-32 bg-zinc-800 items-center justify-center">
-                    <Ionicons name="storefront" size={32} color="#FFCC00" />
-                  </View>
-                )}
-                <View className="p-3">
-                  <View className="flex-row items-center">
-                    <Text
-                      className="text-white text-base font-bold flex-1"
-                      numberOfLines={1}
-                    >
-                      {shop.name || "Shop"}
-                    </Text>
-                    {shop.verified && (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={15}
-                        color="#22C55E"
-                        style={{ marginLeft: 4 }}
-                      />
-                    )}
-                  </View>
-                  <View className="flex-row items-center mt-1">
-                    <Ionicons name="location-outline" size={12} color="#9CA3AF" />
-                    <Text
-                      className="text-zinc-400 text-xs ml-1 flex-1"
-                      numberOfLines={1}
-                    >
-                      {shop.address || "No address"}
-                    </Text>
-                  </View>
-                  {shop.rcg_tier ? (
-                    <View className="flex-row mt-2">
-                      <View className="bg-[#FFCC00]/15 px-2 py-0.5 rounded-full">
-                        <Text className="text-[#FFCC00] text-[10px] font-medium capitalize">
-                          {shop.rcg_tier}
-                        </Text>
-                      </View>
-                    </View>
-                  ) : null}
-                </View>
-              </Pressable>
+                <ShopGridCard
+                  imageUrl={shop.logoUrl}
+                  name={shop.name}
+                  address={shop.address}
+                  verified={shop.verified}
+                  category={shop.serviceCategories?.[0] ?? shop.category}
+                  rating={shop.avgRating}
+                  reviewCount={shop.totalReviews}
+                  distanceLabel={formatDistance(shop.distanceMiles)}
+                  imageHeight={imageHeight}
+                  onPress={() => router.navigate("/customer/tabs/find-shop")}
+                />
+              </View>
             ))}
           </ScrollView>
         </View>

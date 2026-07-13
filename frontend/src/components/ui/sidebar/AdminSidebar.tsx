@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck, ScrollText, DollarSign, Webhook, Gem, Share2, Network } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck, ScrollText, DollarSign, Webhook, Gem, Share2 } from "lucide-react";
 import { SettingsIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
@@ -80,223 +80,91 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // Build menu items based on admin role
+  // Build menu items based on admin role, grouped into labeled categories.
   const getMenuItems = (): SidebarItem[] => {
-    const adminItems: SidebarItem[] = [];
+    const isSuper = isSuperAdmin === true || adminRole === "super_admin";
+    const adsEnabled = process.env.NEXT_PUBLIC_ADS_DASHBOARD_ENABLED === "true";
 
-    // Overview is always visible for any admin
-    adminItems.push({
-      title: "Overview",
-      href: "/admin?tab=overview",
-      icon: <LayoutDashboard className="w-5 h-5" />,
-      tabId: "overview",
+    // Non-clickable category header row (detected in the render by tabId).
+    const section = (title: string): SidebarItem => ({
+      title,
+      href: `#section-${title.toLowerCase().replace(/[^a-z]+/g, "-")}`,
+      tabId: "__section",
+      icon: null,
     });
 
-    // Check role for tab visibility
-    const isSuper = isSuperAdmin === true || adminRole === "super_admin";
+    const customers: SidebarItem = {
+      title: "Customers",
+      href: "/admin?tab=customers",
+      icon: <Users className="w-5 h-5" />,
+      tabId: "customers",
+      subItems: [
+        { title: "Grouped by Shop", href: "/admin?tab=customers&view=grouped", icon: <Store className="w-4 h-4" />, tabId: "customers-grouped" },
+        { title: "All Customers", href: "/admin?tab=customers&view=all", icon: <User className="w-4 h-4" />, tabId: "customers-all" },
+        { title: "Unsuspend Requests", href: "/admin?tab=customers&view=unsuspend", icon: <Unlock className="w-4 h-4" />, tabId: "customers-unsuspend" },
+      ],
+    };
 
-    // Only Super Admin can manage other admins
-    if (isSuper) {
-      adminItems.push({
-        title: "Admins",
-        href: "/admin?tab=admins",
-        icon: <Shield className="w-5 h-5" />,
-        tabId: "admins",
-      });
-    }
+    const shops: SidebarItem = {
+      title: "Shops",
+      href: "/admin?tab=shops-management",
+      icon: <Store className="w-5 h-5" />,
+      tabId: "shops-management",
+      subItems: [
+        { title: "All Shops", href: "/admin?tab=shops-management&view=all", icon: <ClipboardList className="w-4 h-4" />, tabId: "shops-all" },
+        { title: "Unsuspend Requests", href: "/admin?tab=shops-management&view=unsuspend", icon: <Unlock className="w-4 h-4" />, tabId: "shops-unsuspend" },
+      ],
+    };
 
-    // These tabs are always visible for all admin roles
-    adminItems.push(
-      {
-        title: "Customers",
-        href: "/admin?tab=customers",
-        icon: <Users className="w-5 h-5" />,
-        tabId: "customers",
-        subItems: [
-          {
-            title: "Grouped by Shop",
-            href: "/admin?tab=customers&view=grouped",
-            icon: <Store className="w-4 h-4" />,
-            tabId: "customers-grouped",
-          },
-          {
-            title: "All Customers",
-            href: "/admin?tab=customers&view=all",
-            icon: <User className="w-4 h-4" />,
-            tabId: "customers-all",
-          },
-          {
-            title: "Unsuspend Requests",
-            href: "/admin?tab=customers&view=unsuspend",
-            icon: <Unlock className="w-4 h-4" />,
-            tabId: "customers-unsuspend",
-          },
-        ],
-      },
-      {
-        title: "Shops",
-        href: "/admin?tab=shops-management",
-        icon: <Store className="w-5 h-5" />,
-        tabId: "shops-management",
-        subItems: [
-          {
-            title: "All Shops",
-            href: "/admin?tab=shops-management&view=all",
-            icon: <ClipboardList className="w-4 h-4" />,
-            tabId: "shops-all",
-          },
-          {
-            title: "Unsuspend Requests",
-            href: "/admin?tab=shops-management&view=unsuspend",
-            icon: <Unlock className="w-4 h-4" />,
-            tabId: "shops-unsuspend",
-          },
-        ],
-      },
-      {
-        title: "Subscriptions",
-        href: "/admin?tab=subscriptions",
-        icon: <CreditCard className="w-5 h-5" />,
-        tabId: "subscriptions",
-      },
-      {
-        title: "Analytics",
-        href: "/admin?tab=analytics",
-        icon: <BarChart3 className="w-5 h-5" />,
-        tabId: "analytics",
-      },
-      {
-        title: "Marketplace",
-        href: "/admin?tab=marketplace",
-        icon: <BarChart3 className="w-5 h-5" />,
-        tabId: "marketplace",
-      },
-      {
-        title: "Referrals",
-        href: "/admin?tab=referrals",
-        icon: <Share2 className="w-5 h-5" />,
-        tabId: "referrals",
-      },
-      {
-        title: "Affiliate Groups",
-        href: "/admin?tab=affiliate-groups",
-        icon: <Network className="w-5 h-5" />,
-        tabId: "affiliate-groups",
-      },
-      {
-        title: "Treasury",
-        href: "/admin?tab=treasury",
-        icon: <Coins className="w-5 h-5" />,
-        tabId: "treasury",
-      },
-      {
-        title: "Revenue",
-        href: "/admin?tab=revenue",
-        icon: <DollarSign className="w-5 h-5" />,
-        tabId: "revenue",
-      },
-      {
-        title: "RCG",
-        href: "/admin?tab=rcg",
-        icon: <Gem className="w-5 h-5" />,
-        tabId: "rcg",
-      },
-      {
-        title: "Trust & Safety",
-        href: "/admin?tab=fraud",
-        icon: <ShieldAlert className="w-5 h-5" />,
-        tabId: "fraud",
-      },
-      {
-        title: "Platform Copilot",
-        href: "/admin?tab=copilot",
-        icon: <Bot className="w-5 h-5" />,
-        tabId: "copilot",
-      },
-      {
-        title: "Content Moderation",
-        href: "/admin?tab=content-moderation",
-        icon: <ShieldCheck className="w-5 h-5" />,
-        tabId: "content-moderation",
-      },
-      {
-        title: "Promo Codes",
-        href: "/admin?tab=promo-codes",
-        icon: <Tag className="w-5 h-5" />,
-        tabId: "promo-codes",
-      },
-      {
-        title: "AI Agent",
-        href: "/admin?tab=ai-agent",
-        icon: <Bot className="w-5 h-5" />,
-        tabId: "ai-agent",
-      },
-      {
-        title: "Sessions",
-        href: "/admin?tab=sessions",
-        icon: <Lock className="w-5 h-5" />,
-        tabId: "sessions",
-      }
-    );
+    const items: SidebarItem[] = [
+      { title: "Overview", href: "/admin?tab=overview", icon: <LayoutDashboard className="w-5 h-5" />, tabId: "overview" },
 
-    // Ads System (Stage 1) — gated behind the rollout flag.
-    if (process.env.NEXT_PUBLIC_ADS_DASHBOARD_ENABLED === "true") {
-      adminItems.push({
-        title: "Ads",
-        href: "/admin?tab=ads",
-        icon: <Megaphone className="w-5 h-5" />,
-        tabId: "ads",
-      });
-    }
+      section("Users & Shops"),
+      customers,
+      shops,
+      { title: "Subscriptions", href: "/admin?tab=subscriptions", icon: <CreditCard className="w-5 h-5" />, tabId: "subscriptions" },
+      { title: "Waitlist", href: "/admin?tab=waitlist", icon: <ClipboardList className="w-5 h-5" />, tabId: "waitlist" },
 
-    return adminItems;
+      section("Finance & Tokens"),
+      { title: "Treasury", href: "/admin?tab=treasury", icon: <Coins className="w-5 h-5" />, tabId: "treasury" },
+      { title: "Revenue", href: "/admin?tab=revenue", icon: <DollarSign className="w-5 h-5" />, tabId: "revenue" },
+      { title: "RCG", href: "/admin?tab=rcg", icon: <Gem className="w-5 h-5" />, tabId: "rcg" },
+      { title: "Promo Codes", href: "/admin?tab=promo-codes", icon: <Tag className="w-5 h-5" />, tabId: "promo-codes" },
+
+      section("Growth & Analytics"),
+      { title: "Analytics", href: "/admin?tab=analytics", icon: <BarChart3 className="w-5 h-5" />, tabId: "analytics" },
+      { title: "Marketplace", href: "/admin?tab=marketplace", icon: <BarChart3 className="w-5 h-5" />, tabId: "marketplace" },
+      { title: "Referrals", href: "/admin?tab=referrals", icon: <Share2 className="w-5 h-5" />, tabId: "referrals" },
+      ...(adsEnabled ? [{ title: "Ads", href: "/admin?tab=ads", icon: <Megaphone className="w-5 h-5" />, tabId: "ads" }] : []),
+
+      section("AI Tools"),
+      { title: "Platform Copilot", href: "/admin?tab=copilot", icon: <Bot className="w-5 h-5" />, tabId: "copilot" },
+      { title: "AI Agent", href: "/admin?tab=ai-agent", icon: <Bot className="w-5 h-5" />, tabId: "ai-agent" },
+      { title: "Content Moderation", href: "/admin?tab=content-moderation", icon: <ShieldCheck className="w-5 h-5" />, tabId: "content-moderation" },
+
+      section("Trust & Safety"),
+      { title: "Trust & Safety", href: "/admin?tab=fraud", icon: <ShieldAlert className="w-5 h-5" />, tabId: "fraud" },
+      { title: "Disputes", href: "/admin?tab=disputes", icon: <AlertTriangle className="w-5 h-5" />, tabId: "disputes" },
+      { title: "Bug Reports", href: "/admin?tab=bug-reports", icon: <Bug className="w-5 h-5" />, tabId: "bug-reports" },
+
+      section("Communication"),
+      { title: "Announcements", href: "/admin?tab=announcements", icon: <Megaphone className="w-5 h-5" />, tabId: "announcements" },
+      { title: "Support", href: "/admin?tab=support", icon: <LifeBuoy className="w-5 h-5" />, tabId: "support" },
+
+      section("System"),
+      ...(isSuper ? [{ title: "Admins", href: "/admin?tab=admins", icon: <Shield className="w-5 h-5" />, tabId: "admins" }] : []),
+      { title: "Sessions", href: "/admin?tab=sessions", icon: <Lock className="w-5 h-5" />, tabId: "sessions" },
+      { title: "Audit Log", href: "/admin?tab=audit-log", icon: <ScrollText className="w-5 h-5" />, tabId: "audit-log" },
+      { title: "Webhooks", href: "/admin?tab=webhooks", icon: <Webhook className="w-5 h-5" />, tabId: "webhooks" },
+    ];
+
+    return items;
   };
 
   const menuItems = getMenuItems();
 
+  // Settings stays pinned at the very bottom; everything else is categorized above.
   const bottomMenuItems: SidebarItem[] = [
-    {
-      title: "Waitlist",
-      href: "/admin?tab=waitlist",
-      icon: <ClipboardList className="w-5 h-5" />,
-      tabId: "waitlist",
-    },
-    {
-      title: "Support",
-      href: "/admin?tab=support",
-      icon: <LifeBuoy className="w-5 h-5" />,
-      tabId: "support",
-    },
-    {
-      title: "Announcements",
-      href: "/admin?tab=announcements",
-      icon: <Megaphone className="w-5 h-5" />,
-      tabId: "announcements",
-    },
-    {
-      title: "Disputes",
-      href: "/admin?tab=disputes",
-      icon: <AlertTriangle className="w-5 h-5" />,
-      tabId: "disputes",
-    },
-    {
-      title: "Bug Reports",
-      href: "/admin?tab=bug-reports",
-      icon: <Bug className="w-5 h-5" />,
-      tabId: "bug-reports",
-    },
-    {
-      title: "Audit Log",
-      href: "/admin?tab=audit-log",
-      icon: <ScrollText className="w-5 h-5" />,
-      tabId: "audit-log",
-    },
-    {
-      title: "Webhooks",
-      href: "/admin?tab=webhooks",
-      icon: <Webhook className="w-5 h-5" />,
-      tabId: "webhooks",
-    },
     {
       title: "Settings",
       href: "/admin?tab=settings",
@@ -406,6 +274,20 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       <nav className="pt-3 sm:pt-4 pb-0">
         <ul className="space-y-1 px-2 sm:px-3">
           {menuItems.map((item) => {
+            // Category header row (non-clickable). Collapsed → thin divider.
+            if (item.tabId === "__section") {
+              return isCollapsed ? (
+                <li key={item.href} className="mx-2 my-2 border-t border-gray-800/70" aria-hidden />
+              ) : (
+                <li
+                  key={item.href}
+                  className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 select-none"
+                >
+                  {item.title}
+                </li>
+              );
+            }
+
             const hasSubItems = item.subItems && item.subItems.length > 0;
             const itemExpanded = isExpanded(item);
             const hasActiveSub = hasActiveSubItem(item);

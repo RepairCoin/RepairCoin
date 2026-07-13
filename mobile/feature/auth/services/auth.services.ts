@@ -20,11 +20,11 @@ class AuthApi {
     }
   }
 
-  async getDemoStatus(): Promise<{ enabled: boolean }> {
+  async getDemoStatus(): Promise<{ android: boolean; ios: boolean }> {
     try {
-      return await apiClient.get(`/auth/demo/status?platform=${Platform.OS}`);
+      return await apiClient.get(`/auth/demo/status`);
     } catch {
-      return { enabled: false };
+      return { android: false, ios: false };
     }
   }
 

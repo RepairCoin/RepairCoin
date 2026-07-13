@@ -9,6 +9,13 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { SkeletonHorizontalCards } from "@/shared/components/ui/Skeleton";
+import { rScale } from "@/shared/utilities/responsive";
+
+// Card sizing scaled from the 375pt baseline so it stays proportional
+// across small phones and tablets.
+const CARD_WIDTH = rScale(200);
+const CARD_HEIGHT = rScale(350);
+const CARD_GAP = rScale(20);
 
 interface TrendingSectionProps {
   handleViewAllTrendingServices: () => void;
@@ -39,7 +46,7 @@ export default function TrendingSection({
         </TouchableOpacity>
       </View>
       {trendingLoading ? (
-        <SkeletonHorizontalCards count={3} cardWidth={280} />
+        <SkeletonHorizontalCards count={3} cardWidth={CARD_WIDTH} />
       ) : trendingData && trendingData.length > 0 ? (
         <View style={{ marginHorizontal: -16 }}>
           <ScrollView
@@ -47,12 +54,16 @@ export default function TrendingSection({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16 }}
             decelerationRate="fast"
-            snapToInterval={286}
+            snapToInterval={CARD_WIDTH + CARD_GAP}
             snapToAlignment="start"
           >
             {trendingData.map((item: ServiceData) => (
-              <View key={item.serviceId} style={{ width: 280, marginRight: 6 }}>
+              <View
+                key={item.serviceId}
+                style={{ width: CARD_WIDTH, height: CARD_HEIGHT, marginRight: CARD_GAP }}
+              >
                 <ServiceCard
+                  transparent
                   imageUrl={item.imageUrl}
                   category={item.category}
                   shopName={item.shopName}
@@ -64,7 +75,6 @@ export default function TrendingSection({
                   bookingCount={item.reviewCount}
                   duration={item.durationMinutes}
                   onPress={() => handleServicePress(item)}
-                  showTrendingBadge
                   showFavoriteButton
                   serviceId={item.serviceId}
                   isFavorited={favoritedIds.has(item.serviceId)}

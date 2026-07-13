@@ -34,8 +34,16 @@ describe('service validateImportData — category coercion + skip-invalid', () =
     expect(report.validServices[0].category).toBe('automotive_services');
   });
 
-  it('skips (does not import) a row with no valid price', async () => {
+  it('keeps a $0 "variable" price row with a ZERO_PRICE warning (quote-on-request)', async () => {
     const rows = await parseServiceExcel(Buffer.from('Service Name,Price,Category\nFreebie,0,repairs\n'), 'csv');
+    const report = await svc.validateImportData(rows, 'shop1');
+    expect(report.validServices.length).toBe(1);
+    expect(report.invalidRows).toBe(0);
+    expect(report.warnings.some((w) => w.code === 'ZERO_PRICE')).toBe(true);
+  });
+
+  it('skips (does not import) a row with a negative price', async () => {
+    const rows = await parseServiceExcel(Buffer.from('Service Name,Price,Category\nBadRow,-5,repairs\n'), 'csv');
     const report = await svc.validateImportData(rows, 'shop1');
     expect(report.validServices.length).toBe(0);
     expect(report.invalidRows).toBe(1);

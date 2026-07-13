@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 8, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-fix { background: #fdecec; color: #c0392b; }
+  .tag-real { background: var(--green-bg); color: #14753b; }
+  .tag-clean { background: #eef6ff; color: #1d4ed8; }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Stabilizing the New Admin Tools &amp; Sidebar Cleanup</h1>
+    <p class="sub">Bug fixes, matching the data to the current (blockchain-off) reality, and a categorized sidebar.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 8, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Delivered &amp; Pushed to main</span></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      A polish-and-fix day. We hardened the admin tools shipped over the last two days (several returned bad data
+      or errored on real data), corrected figures that didn't match the current blockchain-off reality, parked the
+      affiliate feature, and reorganized the now-crowded admin sidebar into clean categories.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Fixes <span class="tag tag-fix">FIX</span></h2>
+    <ul>
+      <li><strong>Referrals tab (was erroring / 500).</strong> It relied on a database view that doesn't exist in
+          this environment. Rewired to compute the top-referrer leaderboard directly from the referrals table — now
+          loads with real data.</li>
+      <li><strong>Revenue "by tier" garbled numbers.</strong> The database returns money values as text, so the code
+          was concatenating them (e.g. <code class="inline">$025.501.00…</code>) and showing <code class="inline">NaN%</code>
+          discount. Fixed the arithmetic; the tier breakdown now reconciles correctly.</li>
+      <li><strong>Audit Log crash.</strong> A log entry with no action value crashed the whole table. Made it
+          null-safe so any entry renders gracefully.</li>
+      <li><strong>Webhook Monitor false “degraded”.</strong> The health check depended on a database function missing
+          from this environment, which errored and falsely reported degraded. Now computes health directly from the
+          logs (no recent failures = healthy).</li>
+      <li><strong>Marketplace tab color mismatch.</strong> It used light cards on the dark dashboard; re-themed to
+          match the rest of the admin tabs.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Matched to Current Reality <span class="tag tag-real">ACCURACY</span></h2>
+    <ul>
+      <li><strong>Revenue — hid Stakers / DAO / projections.</strong> There are no stakers or DAO yet (those are
+          future blockchain-governance features), so showing an 80/10/10 revenue split was misleading. Gated behind
+          the blockchain flag, so Revenue now shows only real platform revenue and shop-tier discounts. The split and
+          projections return automatically when blockchain is re-enabled at launch.</li>
+      <li><strong>Affiliate Groups parked.</strong> Confirmed the feature is still fully wired (backend + shop pages),
+          just hidden from the shop menu. Hid the admin menu link too, for consistency. (The 122 groups in the data
+          turned out to be ~87% QA/test entries — only two hold real balances.)</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Sidebar Cleanup <span class="tag tag-clean">HOUSEKEEPING</span></h2>
+    <p>
+      The admin sidebar had grown to two dozen items in one long list. We grouped everything under labeled
+      categories — <strong>Users &amp; Shops · Finance &amp; Tokens · Growth &amp; Analytics · AI Tools ·
+      Trust &amp; Safety · Communication · System</strong> — with Overview on top and Settings pinned at the bottom.
+      Navigation is unchanged; it's now much easier to scan.
+    </p>
+  </section>
+
+  <section>
+    <h2>Verification</h2>
+    <div class="callout green">
+      Backend type-checking clean (0 errors); the frontend gained 0 new type errors across every fix; each change
+      was committed and pushed independently, rebased onto the latest main.
+    </div>
+  </section>
+
+  <section>
+    <h2>Where Things Stand</h2>
+    <p>
+      The eight admin tools built over the prior two days are now stable, accurate, and consistent with the current
+      database-only (blockchain-off) mode. The admin surface is organized and dependable.
+    </p>
+    <div class="callout violet">
+      <strong>The standing unlock:</strong> enabling the two AI API keys in production makes the full AI suite go
+      live; re-enabling the blockchain flag at launch brings back the token-governance features (stakers/DAO split,
+      staking, affiliate tokens) automatically.
+    </div>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 8, 2026</footer>
+</div>
+</body>
+</html>

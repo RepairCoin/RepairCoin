@@ -14,6 +14,7 @@ import {
 import toast from "react-hot-toast";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { adminApi } from "@/services/api/admin";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
 interface RevenueReport {
   totalRevenue: number;
@@ -58,6 +59,11 @@ export function RevenueAnalyticsTab() {
   const [week, setWeek] = useState<RevenueReport | null>(null);
   const [byTier, setByTier] = useState<TierBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Stakers / DAO revenue-sharing + staker projections are blockchain-governance
+  // features that don't exist yet (no stakers/DAO in database-only mode). Hide
+  // them until blockchain is re-enabled — then 100% of RCN sales is platform revenue.
+  const blockchainEnabled = useBlockchainEnabled();
 
   // Custom range
   const [startDate, setStartDate] = useState("");
@@ -134,11 +140,13 @@ export function RevenueAnalyticsTab() {
       </div>
       <p className="text-3xl font-bold text-white mb-1">{usd(report.totalRevenue)}</p>
       <p className="text-xs text-gray-500 mb-4">Total revenue (RCN sales)</p>
-      <div className="grid grid-cols-3 gap-3">
-        <Split icon={Cog} label="Operations" value={report.totalOperations} pct="80%" color="text-blue-400" />
-        <Split icon={Wallet} label="Stakers" value={report.totalStakers} pct="10%" color="text-emerald-400" />
-        <Split icon={Landmark} label="DAO" value={report.totalDAO} pct="10%" color="text-violet-400" />
-      </div>
+      {blockchainEnabled && (
+        <div className="grid grid-cols-3 gap-3">
+          <Split icon={Cog} label="Operations" value={report.totalOperations} pct="80%" color="text-blue-400" />
+          <Split icon={Wallet} label="Stakers" value={report.totalStakers} pct="10%" color="text-emerald-400" />
+          <Split icon={Landmark} label="DAO" value={report.totalDAO} pct="10%" color="text-violet-400" />
+        </div>
+      )}
       {report.purchasesByTier && (
         <div className="mt-4 pt-4 border-t border-gray-800 grid grid-cols-3 gap-3">
           {["standard", "premium", "elite"].map((t) => (
@@ -157,7 +165,11 @@ export function RevenueAnalyticsTab() {
     <div className="space-y-6">
       <DashboardHeader
         title="Revenue Analytics"
-        subtitle="RCN sales revenue, the 80/10/10 distribution, tier discounts, and staker projections"
+        subtitle={
+          blockchainEnabled
+            ? "RCN sales revenue, the 80/10/10 distribution, tier discounts, and staker projections"
+            : "RCN sales revenue and shop-tier discounts"
+        }
         icon={DollarSign}
         gradientFrom="from-emerald-500"
         gradientTo="to-green-600"
@@ -218,14 +230,16 @@ export function RevenueAnalyticsTab() {
                     <p className="text-2xl font-bold text-white">{usd(range.totalRevenue)}</p>
                     <p className="text-xs text-gray-500">Total revenue</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <MiniSplit label="Ops" value={range.totalOperations} />
-                    <MiniSplit label="Stakers" value={range.totalStakers} />
-                    <MiniSplit label="DAO" value={range.totalDAO} />
-                  </div>
+                  {blockchainEnabled && (
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <MiniSplit label="Ops" value={range.totalOperations} />
+                      <MiniSplit label="Stakers" value={range.totalStakers} />
+                      <MiniSplit label="DAO" value={range.totalDAO} />
+                    </div>
+                  )}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">Pick a date range to see its revenue distribution.</p>
+                <p className="text-sm text-gray-500">Pick a date range to see its revenue for the period.</p>
               )}
             </div>
           </div>
@@ -275,7 +289,8 @@ export function RevenueAnalyticsTab() {
             </div>
           )}
 
-          {/* Staker revenue projections */}
+          {/* Staker revenue projections — blockchain-governance only (hidden in DB-only mode) */}
+          {blockchainEnabled && (
           <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-4">
               <Calculator className="w-5 h-5 text-violet-400" />
@@ -324,6 +339,7 @@ export function RevenueAnalyticsTab() {
               Assumes ~30M RCG staked. Stakers receive 10% of RCN-sales revenue.
             </p>
           </div>
+          )}
         </>
       )}
     </div>

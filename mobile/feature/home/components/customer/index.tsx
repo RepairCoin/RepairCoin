@@ -57,7 +57,7 @@ export default function CustomerWalletTab() {
     data: trendingData,
     isLoading: trendingLoading,
     refetch: refetchTrending,
-  } = useGetTrendingServicesQuery({ limit: 4, days: 7 });
+  } = useGetTrendingServicesQuery({ limit: 4, days: 30 });
 
   const {
     data: recentlyViewedData,
@@ -197,7 +197,6 @@ export default function CustomerWalletTab() {
   return (
     <View className="flex-1">
       <ScrollView
-        className="h-full"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -276,7 +275,7 @@ export default function CustomerWalletTab() {
             </Pressable>
           </Pressable>
         </Modal> */}
-        {trendingData && trendingData.length > 0 && (
+        {(trendingLoading || (trendingData && trendingData.length > 0)) && (
           <TrendingSection
             handleViewAllTrendingServices={handleViewAllTrendingServices}
             trendingLoading={trendingLoading}
@@ -285,7 +284,7 @@ export default function CustomerWalletTab() {
             favoritedIds={favoritedIds}
           />
         )}
-        {displayedServices && displayedServices.length > 0 && (
+        {/* {displayedServices && displayedServices.length > 0 && (
           <AiRecommendedSection
             data={displayedServices}
             isLoading={servicesLoading}
@@ -293,7 +292,7 @@ export default function CustomerWalletTab() {
             onSeeAll={handleViewAllServices}
             favoritedIds={favoritedIds}
           />
-        )}
+        )} */}
         <CategoryGrid />
         <NearbyShopsSection />
         <UpcomingBookingsList />

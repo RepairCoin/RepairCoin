@@ -22,6 +22,7 @@ import {
 import { useActiveAccount } from "thirdweb/react";
 import QRCode from "qrcode";
 import { useAuthStore } from "@/stores/authStore";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import { SuspendedActionModal } from "./SuspendedActionModal";
 import { NotificationPreferences } from "./NotificationPreferences";
 import { CountryPhoneInput } from "../ui/CountryPhoneInput";
@@ -35,6 +36,9 @@ export function SettingsTab() {
   const account = useActiveAccount();
   const { userProfile, switchingAccount } = useAuthStore();
   const walletAddress = account?.address || userProfile?.address;
+  const blockchainEnabled = useBlockchainEnabled();
+  // In database-only mode the address is just the account's redemption ID, not a crypto wallet.
+  const idLabel = blockchainEnabled ? "Wallet Address" : "RepairCoin ID";
   const {
     customerData,
     isLoading,
@@ -338,11 +342,11 @@ export function SettingsTab() {
               </p>
             </div>
 
-            {/* Wallet Address */}
+            {/* Account ID / Wallet Address */}
             <div>
               <label className="flex items-center gap-2 text-sm font-bold text-white mb-1.5">
                 <Wallet className="w-4 h-4 text-[#FFCC00]" />
-                Wallet Address
+                {idLabel}
               </label>
               <div className="flex gap-2">
                 <input
@@ -352,17 +356,17 @@ export function SettingsTab() {
                   className="flex-1 px-4 py-3 bg-[#2F2F2F] text-gray-400 rounded-xl border border-gray-700 focus:outline-none cursor-not-allowed font-mono text-sm truncate"
                 />
                 <button
-                  onClick={() =>
-                    copyToClipboard(walletAddress || "", "Wallet address")
-                  }
+                  onClick={() => copyToClipboard(walletAddress || "", idLabel)}
                   className="px-3 py-3 bg-[#2F2F2F] border border-gray-700 text-gray-400 rounded-xl hover:text-[#FFCC00] hover:border-[#FFCC00]/50 transition-colors"
-                  title="Copy wallet address"
+                  title={`Copy ${idLabel}`}
                 >
                   <Copy className="w-4 h-4" />
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                This wallet is used for receiving and sending RCN rewards.
+                {blockchainEnabled
+                  ? "This wallet is used for receiving and sending RCN rewards."
+                  : "This is your unique ID that shops use to give you rewards."}
               </p>
             </div>
 
@@ -550,14 +554,14 @@ export function SettingsTab() {
             QR Code for Redemption
           </h3>
           <p className="text-sm text-gray-400 mt-0.5">
-            Share your wallet address with shops for easy token redemption.
+            Share your {idLabel} with shops for easy redemption.
           </p>
         </div>
         <div className="px-6 py-8">
           <div className="text-center">
             <QrCode className="w-14 h-14 mx-auto mb-3 text-[#FFCC00]" />
             <p className="text-gray-300 text-sm mb-5 max-w-md mx-auto">
-              Generate a QR code with your wallet address to share with shops
+              Generate a QR code with your {idLabel} to share with shops
               for easy redemption
             </p>
             <button
@@ -611,10 +615,7 @@ export function SettingsTab() {
                   <div className="flex gap-3 justify-center">
                     <button
                       onClick={() =>
-                        copyToClipboard(
-                          walletAddress || "",
-                          "Wallet address"
-                        )
+                        copyToClipboard(walletAddress || "", idLabel)
                       }
                       className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
                     >

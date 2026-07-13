@@ -26,13 +26,14 @@ interface ManualBookingModalProps {
   shopId: string;
 }
 
-type PaymentStatus = "paid" | "pending" | "unpaid";
+type PaymentStatus = "paid" | "unpaid" | "qr_code" | "send_link";
 type Step = "customer" | "service" | "datetime" | "confirm";
 
 const PAYMENT_OPTIONS: { value: PaymentStatus; label: string; description: string }[] = [
   { value: "paid", label: "Paid", description: "Customer has already paid" },
-  { value: "pending", label: "Pending", description: "Payment will be collected later" },
   { value: "unpaid", label: "Unpaid", description: "No payment required" },
+  { value: "qr_code", label: "QR Code", description: "Walk-in scan & pay" },
+  { value: "send_link", label: "Send Link", description: "Email a payment link to the customer" },
 ];
 
 export default function ManualBookingModal({
@@ -50,7 +51,7 @@ export default function ManualBookingModal({
   const [selectedService, setSelectedService] = useState<ServiceData | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("pending");
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("unpaid");
   const [notes, setNotes] = useState("");
 
   // Mutation
@@ -68,7 +69,7 @@ export default function ManualBookingModal({
       setSelectedService(null);
       setSelectedDate("");
       setSelectedTime("");
-      setPaymentStatus("pending");
+      setPaymentStatus("unpaid");
       setNotes("");
     }
   }, [visible]);

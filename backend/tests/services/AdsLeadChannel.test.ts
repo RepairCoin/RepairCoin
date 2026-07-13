@@ -6,13 +6,14 @@ const c = (o: Partial<Parameters<typeof LeadChannelSender.pickChannel>[0]> = {})
   ({ phone: null, email: null, messengerId: null, whatsappId: null, ...o });
 
 describe('LeadChannelSender.pickChannel', () => {
+  // Priority: messenger > whatsapp > email > sms. Email outranks SMS even though both are wired now
+  // (Twilio) — email is free per message and carries no opt-out/TCPA cost. A phone-only lead → sms.
   it('prefers messenger, then whatsapp, then email, then sms', () => {
     expect(LeadChannelSender.pickChannel(c({ messengerId: 'm1', phone: '+15551234567' }))).toBe('messenger');
     expect(LeadChannelSender.pickChannel(c({ whatsappId: 'w1', phone: '+15551234567' }))).toBe('whatsapp');
-    // Email is preferred over SMS (free per message, no opt-out/TCPA cost) when both are present.
-    expect(LeadChannelSender.pickChannel(c({ email: 'a@b.com', phone: '+15551234567' }))).toBe('email');
-    // A phone-only lead falls back to SMS.
+    expect(LeadChannelSender.pickChannel(c({ phone: '+15551234567', email: 'a@b.com' }))).toBe('email');
     expect(LeadChannelSender.pickChannel(c({ phone: '+15551234567' }))).toBe('sms');
+    expect(LeadChannelSender.pickChannel(c({ email: 'a@b.com' }))).toBe('email');
   });
 
   it('falls back to manual with no contact info', () => {
