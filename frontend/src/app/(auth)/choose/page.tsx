@@ -201,7 +201,7 @@ export default function ChoosePage() {
             Welcome to RepairCoin
           </p>
           <p className="text-white text-xs md:text-base mb-6 xl:w-2/3 md:w-2/4 text-center tracking-wide">
-            Choose how you'd like to join our blockchain-powered repair
+            Choose how you'd like to join our rewards-powered repair
             ecosystem
           </p>
         </div>

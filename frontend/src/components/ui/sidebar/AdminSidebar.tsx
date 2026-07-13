@@ -6,6 +6,7 @@ import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, Clipb
 import { SettingsIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
 interface AdminSidebarProps {
   isOpen?: boolean;
@@ -46,6 +47,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     onTabChange,
     onCollapseChange,
   });
+
+  const blockchainEnabled = useBlockchainEnabled();
 
   // Collapsed-state hover flyout: which group is open + its vertical anchor
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
@@ -128,7 +131,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       section("Finance & Tokens"),
       { title: "Treasury", href: "/admin?tab=treasury", icon: <Coins className="w-5 h-5" />, tabId: "treasury" },
       { title: "Revenue", href: "/admin?tab=revenue", icon: <DollarSign className="w-5 h-5" />, tabId: "revenue" },
-      { title: "RCG", href: "/admin?tab=rcg", icon: <Gem className="w-5 h-5" />, tabId: "rcg" },
+      // RCG governance is blockchain-only; hide the nav link in database-only mode.
+      ...(blockchainEnabled ? [{ title: "RCG", href: "/admin?tab=rcg", icon: <Gem className="w-5 h-5" />, tabId: "rcg" }] : []),
       { title: "Promo Codes", href: "/admin?tab=promo-codes", icon: <Tag className="w-5 h-5" />, tabId: "promo-codes" },
 
       section("Growth & Analytics"),

@@ -589,7 +589,7 @@ export function SettingsTab() {
           <div className="bg-[#212121] rounded-2xl max-w-md w-full mx-4 border border-gray-800/50">
             <div className="flex justify-between items-center p-6 border-b border-gray-700">
               <h3 className="text-xl font-semibold text-white">
-                Wallet Address QR Code
+                {idLabel} QR Code
               </h3>
               <button
                 onClick={() => setShowQRModal(false)}
@@ -604,7 +604,7 @@ export function SettingsTab() {
                 <div className="space-y-4">
                   <img
                     src={qrCodeData}
-                    alt="Wallet Address QR Code"
+                    alt={`${idLabel} QR Code`}
                     className="mx-auto bg-white p-4 rounded-lg"
                   />
 
