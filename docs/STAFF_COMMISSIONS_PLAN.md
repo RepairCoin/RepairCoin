@@ -74,7 +74,7 @@ One branch, one commit per slice.
 
 ### Slice 1 — Schema ✅ written, ⚠️ never executed
 
-`backend/migrations/211_add_staff_commissions.sql`
+`backend/migrations/213_add_staff_commissions.sql` (renumbered 211→212→213 as `211_add_lead_fbclid` then `212_create_sms_opt_outs` landed on `main` — see the migration-number note at the end)
 
 - `shops`: `commissions_enabled BOOLEAN NOT NULL DEFAULT false`, `default_commission_percent NUMERIC(5,2) NOT NULL DEFAULT 0`
 - `shop_team_members`: `commission_percent NUMERIC(5,2)` (NULL = inherit)
@@ -148,7 +148,9 @@ Added after the fact so a staff member can see their own commission (the reporti
 
 All 5 slices are implemented on branch `feat/staff-commissions` (uncommitted). Backend `npm run typecheck` clean; every changed frontend file is error-free under `tsc` (repo has ~211 pre-existing unrelated tsc errors). **The feature has never run against a database** — migration 212 unapplied (verified absent on staging), no accrual ever written. Run `docs/STAFF_COMMISSIONS_QA.md` once a DB is reachable before shipping.
 
-**Migration gate (2026-07-13):** `npm run db:migrate` (which `.env` points at the shared DigitalOcean *staging* DB) was blocked by a false-positive collision — staging recorded migrations 206–209 with the full `NNN_` filename prefix, which `extractName()` strips, so the names mismatched. Their schema is verified present (benign name-format drift), so 206–209 were added to `KNOWN_DRIFT` in `backend/scripts/run-migrations.ts`. 210, 211, 212 are all still pending on staging.
+**Migration gate (2026-07-13):** `npm run db:migrate` (which `.env` points at the shared DigitalOcean *staging* DB) was blocked by a false-positive collision — staging recorded migrations 206–209 with the full `NNN_` filename prefix, which `extractName()` strips, so the names mismatched. Their schema is verified present (benign name-format drift), so 206–209 were added to `KNOWN_DRIFT` in `backend/scripts/run-migrations.ts`.
+
+**Migration number 211→212→213 (2026-07-13):** the migration was applied to staging as `212` (recorded `212 = add_staff_commissions`, `staff_commissions` table present). Then `212_create_sms_opt_outs.sql` landed on `main` and claimed 212 canonically, so this migration was renumbered to **`213_add_staff_commissions.sql`**. Both tables already exist on staging; the staging `schema_migrations` ledger was reconciled: `UPDATE ... SET name='create_sms_opt_outs' WHERE version=212` and `INSERT (213, 'add_staff_commissions')`. Lesson: don't manually run a feature-branch migration against shared staging — it grabs a number a merged-to-main migration also needs.
 
 ---
 
