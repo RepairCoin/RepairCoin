@@ -2,6 +2,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership, requireActiveSubscription } from '../../../middleware/auth';
 import { requireShopPermission } from '../../../middleware/permissions';
+import { requireTier } from '../../../middleware/tierGuard';
 import { optionalAuthMiddleware } from '../../../middleware/optionalAuth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric, validateStringType } from '../../../middleware/errorHandler';
 import { validateShopUniqueness } from '../../../middleware/validation';
@@ -70,6 +71,7 @@ import paymentMethodsRoutes from './paymentMethods';
 import moderationRoutes from './moderation';
 import welcomeRcnRoutes from './welcomeRcn';
 import teamRoutes from './team';
+import commissionsRoutes from './commissions';
 import locationsRoutes from './locations';
 import featureAccessRoutes from './featureAccess';
 import calendarRoutes from '../../ShopDomain/routes/calendar.routes';
@@ -90,6 +92,7 @@ router.use('/team', teamRoutes); // Team management (auth handled per-route: acc
 router.use('/locations', locationsRoutes); // Multi-location management (Business tier; auth + gate per-route)
 router.use('/feature-access', authMiddleware, requireRole(['shop']), featureAccessRoutes); // Tier-based feature access map
 router.use('/welcome-rcn', authMiddleware, requireRole(['shop']), requireShopPermission('shop:manage'), welcomeRcnRoutes); // Welcome-RCN-on-claim settings
+router.use('/commissions', authMiddleware, requireRole(['shop']), requireShopPermission('shop:manage'), requireTier('teamManagement'), commissionsRoutes); // Staff-commission settings (Business tier)
 router.use('/calendar', calendarRoutes); // Calendar integration routes (auth handled in route file)
 router.use('/gmail', gmailRoutes); // Gmail integration routes (auth handled in route file)
 

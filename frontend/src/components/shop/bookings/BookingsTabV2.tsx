@@ -30,6 +30,7 @@ import {
 } from "@/services/api/services";
 import { appointmentsApi } from "@/services/api/appointments";
 import { RescheduleModal } from "../modals/RescheduleModal";
+import { CompleteOrderModal } from "../modals/CompleteOrderModal";
 import { MarkNoShowModal } from "../MarkNoShowModal";
 import { MessagesContainer } from "@/components/messaging/MessagesContainer";
 
@@ -124,6 +125,8 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
   const [cancelModalBooking, setCancelModalBooking] = useState<MockBooking | null>(null);
   const [rescheduleModalBooking, setRescheduleModalBooking] = useState<MockBooking | null>(null);
   const [noShowModalBooking, setNoShowModalBooking] = useState<MockBooking | null>(null);
+  const [completeModalBooking, setCompleteModalBooking] = useState<MockBooking | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -435,13 +438,19 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
     toast.success(`Booking ${bookingId} marked as scheduled!`);
   };
 
-  const handleComplete = async (bookingId: string) => {
-    // Find the original order ID from the booking
+  const handleComplete = (bookingId: string) => {
     const booking = bookings.find((b) => b.bookingId === bookingId);
     if (!booking || !booking.orderId) {
       toast.error("Could not find order to complete");
       return;
     }
+    setCompleteModalBooking(booking);
+  };
+
+  const performComplete = async (booking: MockBooking, completedByMemberId?: string) => {
+    if (!booking.orderId) return;
+    const bookingId = booking.bookingId;
+    setIsCompleting(true);
 
     // Update local state optimistically
     setBookings((prev) =>
@@ -453,8 +462,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
               id: `tl-${Date.now()}`,
               type: "completed" as const,
               timestamp: new Date().toISOString(),
-              description:
-                "Service completed successfully. RCN rewards issued.",
+              description: "Service completed successfully. RCN rewards issued.",
             },
           ];
           return { ...b, status: "completed" as const, timeline: newTimeline };
@@ -463,38 +471,31 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
       }),
     );
 
+    const revert = () =>
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.bookingId === bookingId ? { ...b, status: "scheduled" as const } : b,
+        ),
+      );
+
     try {
-      // Call the API to persist the status change
-      const result = await updateOrderStatus(booking.orderId, "completed");
+      const result = await updateOrderStatus(booking.orderId, "completed", completedByMemberId);
       if (result) {
         toast.success(
           `Booking ${bookingId} marked as completed! Customer will receive their RCN rewards.`,
         );
+        setCompleteModalBooking(null);
         loadCounts();
       } else {
-        // Revert optimistic update on failure
-        setBookings((prev) =>
-          prev.map((b) => {
-            if (b.bookingId === bookingId) {
-              return { ...b, status: "scheduled" as const };
-            }
-            return b;
-          }),
-        );
+        revert();
         toast.error("Failed to mark order as complete. Please try again.");
       }
     } catch (error) {
       console.error("Error completing order:", error);
-      // Revert optimistic update on error
-      setBookings((prev) =>
-        prev.map((b) => {
-          if (b.bookingId === bookingId) {
-            return { ...b, status: "scheduled" as const };
-          }
-          return b;
-        }),
-      );
+      revert();
       toast.error("Failed to mark order as complete. Please try again.");
+    } finally {
+      setIsCompleting(false);
     }
   };
 
@@ -714,6 +715,20 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
           onReschedule={handleRescheduleComplete}
           onClose={() => setRescheduleModalBooking(null)}
           isProcessing={isRescheduling}
+        />
+      )}
+
+      {/* Complete Order Modal */}
+      {completeModalBooking && (
+        <CompleteOrderModal
+          orderAmount={completeModalBooking.amount}
+          serviceName={completeModalBooking.serviceName}
+          customerAddress={completeModalBooking.customerAddress}
+          onConfirm={(completedByMemberId) =>
+            performComplete(completeModalBooking, completedByMemberId)
+          }
+          onClose={() => setCompleteModalBooking(null)}
+          isProcessing={isCompleting}
         />
       )}
 

@@ -704,11 +704,11 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
     }
   };
 
-  const handleMarkComplete = async () => {
+  const handleMarkComplete = async (completedByMemberId?: string) => {
     if (!completeOrder) return;
     setUpdatingOrder(completeOrder.orderId);
     try {
-      await updateOrderStatus(completeOrder.orderId, "completed");
+      await updateOrderStatus(completeOrder.orderId, "completed", completedByMemberId);
       toast.success("Order marked as completed! Customer will receive their RCN rewards.");
       setCompleteOrder(null);
       loadOrders();

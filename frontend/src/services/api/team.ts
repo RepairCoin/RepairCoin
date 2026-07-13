@@ -11,6 +11,7 @@ export interface TeamMember {
   walletAddress: string | null;
   role: TeamRole;
   permissions: string[];
+  commissionPercent: number | null;
   status: TeamStatus;
   invitedAt: string | null;
   acceptedAt: string | null;
@@ -27,6 +28,7 @@ export interface UpdateMemberInput {
   name?: string;
   role?: Exclude<TeamRole, 'owner'>;
   permissions?: string[];
+  commissionPercent?: number | null;
 }
 
 // All shop-scoped permission strings (kept in sync with backend shop/permissions.ts).
@@ -51,6 +53,26 @@ export const SHOP_PERMISSIONS: { value: string; label: string }[] = [
 export const getTeamMembers = async (): Promise<TeamMember[]> => {
   const res = await apiClient.get<{ success: boolean; data: TeamMember[] }>('/shops/team');
   return res.data || [];
+};
+
+export interface AssignableMember {
+  id: string;
+  name: string;
+}
+
+export interface AssignableMembers {
+  commissionsEnabled: boolean;
+  currentMemberId: string | null;
+  members: AssignableMember[];
+}
+
+// Minimal roster + commission context for the order-completion picker. Readable by any
+// shop user (staff included), unlike the full getTeamMembers roster.
+export const getAssignableMembers = async (): Promise<AssignableMembers> => {
+  const res = await apiClient.get<{ success: boolean; data: AssignableMembers }>(
+    '/shops/team/assignable'
+  );
+  return res.data;
 };
 
 export interface InviteResult {

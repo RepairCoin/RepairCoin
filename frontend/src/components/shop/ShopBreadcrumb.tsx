@@ -219,6 +219,7 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
   onTabChange,
 }) => {
   const name = useAuthStore((s) => s.userProfile?.name);
+  const memberName = useAuthStore((s) => s.userProfile?.memberName);
   const profileFirstName = useAuthStore((s) => s.userProfile?.firstName);
   const avatarUrl = useAuthStore((s) => s.userProfile?.avatarUrl);
   const shopId = useAuthStore((s) => s.userProfile?.shopId);
@@ -227,9 +228,9 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
 
   const tabConfig = TAB_CONFIG[activeTab] || DEFAULT_TAB;
   const isHome = activeTab === "overview";
-  // Greet the person, not the shop: owners carry firstName/lastName; team members
-  // carry their own name. Fall back to the shop name, then "there".
-  const personName = profileFirstName || name;
+  // Greet the person, not the shop: team members carry their own name (memberName),
+  // owners carry firstName/lastName. Fall back to the shop name, then "there".
+  const personName = memberName || profileFirstName || name;
   const firstName = (personName || "there").split(" ")[0];
   const tier =
     rcgInfo?.tier && rcgInfo.tier !== "none" ? capitalize(rcgInfo.tier) : null;

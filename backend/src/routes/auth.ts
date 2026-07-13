@@ -621,7 +621,8 @@ router.post('/check-user', async (req, res) => {
               shopId: staffShop.shopId,
               address: normalizedAddress,
               walletAddress: normalizedAddress,
-              name: staff.name || staffShop.name,
+              name: staffShop.name,
+              memberName: staff.name || undefined,
               shopName: staffShop.name,
               email: staff.email,
               role: 'shop',
@@ -1031,6 +1032,20 @@ router.get('/session', authMiddleware, async (req, res) => {
     } else if (role === 'shop' && shopId) {
       const shop = await shopRepository.getShop(shopId);
       if (shop) {
+        // The shop identity (name/email/logo) stays the shop's — that's what the sidebar
+        // footer shows. A team member's own name rides a separate `memberName` field (the
+        // header greeting uses it). Permissions come from the member record (authoritative,
+        // reflects current grants) rather than the token, so a refreshed staff member can't
+        // silently inherit the owner's '*'.
+        let memberName: string | null = null;
+        let permissions = req.user.permissions ?? ['*'];
+        if (req.user.teamMemberId) {
+          const member = await shopTeamRepository.getMemberById(req.user.teamMemberId);
+          if (member && member.shopId === shopId) {
+            memberName = member.name;
+            permissions = member.permissions;
+          }
+        }
         userData = {
           id: shop.shopId,
           address: shop.walletAddress,
@@ -1039,11 +1054,12 @@ router.get('/session', authMiddleware, async (req, res) => {
           role: 'shop',
           shopName: shop.name,
           name: shop.name,
+          memberName: memberName || undefined,
           email: shop.email,
           logoUrl: shop.logoUrl,
           active: shop.active,
           shopId: shop.shopId,
-          permissions: req.user.permissions ?? ['*'],
+          permissions,
           isTeamMember: !!req.user.teamMemberId,
           createdAt: shop.joinDate,
           created_at: shop.joinDate
@@ -1416,8 +1432,10 @@ router.post('/shop', authLimiter, async (req, res) => {
           address: shop.walletAddress, // Original registered wallet (has RCG tokens)
           walletAddress: shop.walletAddress,
           connectedWallet: linkedByEmail ? normalizedAddress : shop.walletAddress, // Current session wallet
-          // Staff are greeted by their own name, but keep the shop logo as the avatar.
-          name: resolved.memberName || shop.name,
+          // Identity stays the shop's (sidebar footer); the member's own name rides
+          // memberName, which the header greeting prefers.
+          name: shop.name,
+          memberName: resolved.memberName || undefined,
           email: shop.email,
           logoUrl: shop.logoUrl,
           role: 'shop',
@@ -1591,11 +1609,15 @@ router.post('/refresh', async (req, res) => {
     // Update last used timestamp
     await refreshTokenRepository.updateLastUsed(decoded.tokenId);
 
-    // Generate new access token (refresh token stays the same)
+    // Generate new access token (refresh token stays the same).
+    // Carry forward the team-member claims — without them authMiddleware defaults a shop
+    // token to owner ('*'), silently escalating a team member to owner after a refresh.
     const newAccessToken = generateAccessToken({
       address: decoded.address,
       role: decoded.role,
-      shopId: decoded.shopId
+      shopId: decoded.shopId,
+      permissions: decoded.permissions,
+      teamMemberId: decoded.teamMemberId
     }, decoded.tokenId);
 
     const isProduction = process.env.NODE_ENV === 'production';

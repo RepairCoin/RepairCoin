@@ -1,13 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { X, CheckCircle, DollarSign, Coins, AlertCircle } from "lucide-react";
+import { getAssignableMembers, type AssignableMembers } from "@/services/api/team";
 
 interface CompleteOrderModalProps {
   orderAmount: number;
   serviceName: string;
   customerAddress: string;
-  onConfirm: () => void;
+  onConfirm: (completedByMemberId?: string) => void;
   onClose: () => void;
   isProcessing: boolean;
 }
@@ -20,6 +21,31 @@ export const CompleteOrderModal: React.FC<CompleteOrderModalProps> = ({
   onClose,
   isProcessing,
 }) => {
+  const [assignable, setAssignable] = useState<AssignableMembers | null>(null);
+  const [performedBy, setPerformedBy] = useState<string>("");
+
+  useEffect(() => {
+    let active = true;
+    getAssignableMembers()
+      .then((data) => {
+        if (!active) return;
+        setAssignable(data);
+        setPerformedBy(data.currentMemberId ?? "");
+      })
+      .catch(() => {
+        // Non-blocking: without the roster the order still completes, just unattributed.
+        if (active) setAssignable(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const showPicker = assignable?.commissionsEnabled && assignable.members.length > 0;
+
+  const handleConfirm = () => {
+    onConfirm(showPicker ? performedBy || undefined : undefined);
+  };
   // Calculate RCN rewards based on business logic
   const calculateRcnReward = (amount: number): number => {
     if (amount >= 100) return 25;
@@ -36,9 +62,9 @@ export const CompleteOrderModal: React.FC<CompleteOrderModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl max-w-md w-full">
+      <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-800">
+        <div className="flex items-center justify-between p-6 border-b border-gray-800 shrink-0">
           <h2 className="text-2xl font-bold text-white">Complete Order</h2>
           <button
             onClick={onClose}
@@ -49,7 +75,7 @@ export const CompleteOrderModal: React.FC<CompleteOrderModalProps> = ({
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           {/* Service Info */}
           <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-4">
             <h3 className="text-sm font-semibold text-gray-400 mb-3">Order Summary</h3>
@@ -108,6 +134,30 @@ export const CompleteOrderModal: React.FC<CompleteOrderModalProps> = ({
             </div>
           )}
 
+          {/* Performed by (commission attribution) */}
+          {showPicker && (
+            <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-4">
+              <label className="block text-sm font-semibold text-gray-400 mb-2">
+                Performed by
+              </label>
+              <select
+                value={performedBy}
+                onChange={(e) => setPerformedBy(e.target.value)}
+                disabled={isProcessing}
+                className="w-full px-3 py-2 rounded-lg bg-[#1A1A1A] border border-gray-800 text-white focus:border-[#FFCC00] outline-none disabled:opacity-50"
+              >
+                {assignable!.members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-2">
+                Commission for this order is credited to the selected team member.
+              </p>
+            </div>
+          )}
+
           {/* Confirmation Message */}
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
             <p className="text-sm text-blue-300">
@@ -118,7 +168,7 @@ export const CompleteOrderModal: React.FC<CompleteOrderModalProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 p-6 border-t border-gray-800">
+        <div className="flex gap-3 p-6 border-t border-gray-800 shrink-0">
           <button
             onClick={onClose}
             disabled={isProcessing}
@@ -127,7 +177,7 @@ export const CompleteOrderModal: React.FC<CompleteOrderModalProps> = ({
             Cancel
           </button>
           <button
-            onClick={onConfirm}
+            onClick={handleConfirm}
             disabled={isProcessing}
             className="flex-1 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-bold px-4 py-3 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >

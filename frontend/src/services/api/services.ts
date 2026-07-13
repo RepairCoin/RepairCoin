@@ -550,11 +550,15 @@ export const getOrderById = async (orderId: string): Promise<ServiceOrderWithDet
 /**
  * Update order status (Shop only)
  */
-export const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<ServiceOrder | null> => {
+export const updateOrderStatus = async (
+  orderId: string,
+  status: OrderStatus,
+  completedByMemberId?: string
+): Promise<ServiceOrder | null> => {
   try {
-    const response = await apiClient.put<ServiceOrder>(`/services/orders/${orderId}/status`, {
-      status,
-    });
+    const body: { status: OrderStatus; completedByMemberId?: string } = { status };
+    if (completedByMemberId) body.completedByMemberId = completedByMemberId;
+    const response = await apiClient.put<ServiceOrder>(`/services/orders/${orderId}/status`, body);
     return response.data || null;
   } catch (error) {
     console.error('Error updating order status:', error);

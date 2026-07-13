@@ -10,6 +10,7 @@ export interface ShopTeamMember {
   name: string | null;
   role: string;
   permissions: string[];
+  commissionPercent: number | null;
   status: 'invited' | 'active' | 'suspended' | 'removed';
   inviteToken: string | null;
   inviteExpiresAt: string | null;
@@ -48,6 +49,7 @@ export class ShopTeamRepository extends BaseRepository {
       name: row.name,
       role: row.role,
       permissions: Array.isArray(row.permissions) ? row.permissions : [],
+      commissionPercent: row.commission_percent != null ? parseFloat(row.commission_percent) : null,
       status: row.status,
       inviteToken: row.invite_token,
       inviteExpiresAt: row.invite_expires_at,
@@ -187,7 +189,7 @@ export class ShopTeamRepository extends BaseRepository {
   async updateMember(
     id: string,
     updates: Partial<Pick<ShopTeamMember,
-      'name' | 'role' | 'permissions' | 'status' | 'walletAddress' | 'inviteToken' | 'inviteExpiresAt' | 'acceptedAt'
+      'name' | 'role' | 'permissions' | 'commissionPercent' | 'status' | 'walletAddress' | 'inviteToken' | 'inviteExpiresAt' | 'acceptedAt'
     >>,
     client?: PoolClient
   ): Promise<ShopTeamMember | null> {
@@ -204,6 +206,7 @@ export class ShopTeamRepository extends BaseRepository {
     if (updates.name !== undefined) push('name', updates.name);
     if (updates.role !== undefined) push('role', updates.role);
     if (updates.permissions !== undefined) push('permissions', JSON.stringify(sanitizePermissions(updates.permissions)), '::jsonb');
+    if (updates.commissionPercent !== undefined) push('commission_percent', updates.commissionPercent);
     if (updates.status !== undefined) push('status', updates.status);
     if (updates.walletAddress !== undefined) push('wallet_address', updates.walletAddress ? updates.walletAddress.toLowerCase() : null);
     if (updates.inviteToken !== undefined) push('invite_token', updates.inviteToken);

@@ -33,6 +33,13 @@ const KNOWN_DRIFT: Record<number, string> = {
   53: 'add_shop_profile_enhancements',
   54: 'add_booking_approval_and_reschedule',
   118: 'create_inventory_v2_enhancements',
+  // 206-209: staging recorded these with the full "NNN_" filename prefix instead of the
+  // bare descriptive name extractName() derives. Same already-applied migrations (columns
+  // verified present on staging), just a name-format mismatch — benign.
+  206: '206_add_campaign_ai_outreach_mode',
+  207: '207_add_lead_ai_paused',
+  208: '208_add_lead_escalated_at',
+  209: '209_add_service_import_fields',
 };
 
 // Legacy duplicate-numbered migration files (kept in sync with
