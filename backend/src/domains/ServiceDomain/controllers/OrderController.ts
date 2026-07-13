@@ -5,6 +5,7 @@ import { OrderRepository, OrderStatus } from '../../../repositories/OrderReposit
 import { NotificationService } from '../../notification/services/NotificationService';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { shopRepository } from '../../../repositories';
+import { shopTeamRepository } from '../../../repositories';
 import { customerRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
@@ -373,7 +374,31 @@ export class OrderController {
         }
       }
 
-      const updatedOrder = await this.orderRepository.updateOrderStatus(id, status);
+      let completedByMemberId: string | undefined;
+      if (status === 'completed') {
+        const provided = req.body.completedByMemberId;
+        if (provided !== undefined && provided !== null && provided !== '') {
+          const member = await shopTeamRepository.getMemberById(provided);
+          if (!member || member.shopId !== shopId || member.status !== 'active') {
+            return res.status(400).json({
+              success: false,
+              error: 'Invalid team member for completion attribution'
+            });
+          }
+          completedByMemberId = member.id;
+        } else if (req.user?.teamMemberId) {
+          completedByMemberId = req.user.teamMemberId;
+        } else if (req.user?.address) {
+          const self = await shopTeamRepository.getActiveMemberByWallet(req.user.address);
+          if (self && self.shopId === shopId) {
+            completedByMemberId = self.id;
+          }
+        }
+      }
+
+      const updatedOrder = status === 'completed'
+        ? await this.orderRepository.completeOrder(id, { completedByMemberId })
+        : await this.orderRepository.updateOrderStatus(id, status);
 
       // Emit event when order is marked completed for RCN rewards
       if (status === 'completed' && updatedOrder) {
