@@ -6,10 +6,9 @@ const c = (o: Partial<Parameters<typeof LeadChannelSender.pickChannel>[0]> = {})
   ({ phone: null, email: null, messengerId: null, whatsappId: null, ...o });
 
 describe('LeadChannelSender.pickChannel', () => {
-  // Priority: messenger > whatsapp > email > sms. Email outranks SMS because email (Resend) is the
-  // only wired transport today; a lead with both should get an email that actually sends rather than
-  // an SMS that queues until a carrier is wired. A phone-only lead still resolves to sms.
-  it('prefers messenger, then whatsapp, then email (wired), then sms', () => {
+  // Priority: messenger > whatsapp > email > sms. Email outranks SMS even though both are wired now
+  // (Twilio) — email is free per message and carries no opt-out/TCPA cost. A phone-only lead → sms.
+  it('prefers messenger, then whatsapp, then email, then sms', () => {
     expect(LeadChannelSender.pickChannel(c({ messengerId: 'm1', phone: '+15551234567' }))).toBe('messenger');
     expect(LeadChannelSender.pickChannel(c({ whatsappId: 'w1', phone: '+15551234567' }))).toBe('whatsapp');
     expect(LeadChannelSender.pickChannel(c({ phone: '+15551234567', email: 'a@b.com' }))).toBe('email');
@@ -34,7 +33,7 @@ describe('LeadChannelSender.pickChannel', () => {
     const sender = new LeadChannelSender();
     process.env.ADS_LEAD_TRANSPORT_ENABLED = 'true';
     expect(await sender.deliver('manual', c(), 'hi')).toBe('recorded');
-    expect(await sender.deliver('sms', c({ phone: '+1' }), 'hi')).toBe('queued'); // enabled but unwired
+    expect(await sender.deliver('sms', c({ phone: '+1' }), 'hi')).toBe('queued'); // wired, but ADS_SMS_ENABLED off → queued
     delete process.env.ADS_LEAD_TRANSPORT_ENABLED;
   });
 });

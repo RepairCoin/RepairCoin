@@ -205,6 +205,18 @@ export class LeadRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
+  /** SMS: resolve a lead by phone (E.164) — the most recent non-duplicate match. Joins the campaign
+   *  so the derived channel is platform-aware, mirroring the other lookups. */
+  async findByPhone(phone: string): Promise<AdLead | null> {
+    const res = await this.pool.query(
+      `SELECT l.*, c.platform FROM ad_leads l JOIN ad_campaigns c ON c.id = l.campaign_id
+        WHERE l.phone = $1 AND l.is_duplicate = false
+        ORDER BY l.created_at DESC LIMIT 1`,
+      [phone]
+    );
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
   async list(filter: ListLeadsFilter): Promise<{ items: AdLead[]; total: number }> {
     const where: string[] = [];
     const params: any[] = [];

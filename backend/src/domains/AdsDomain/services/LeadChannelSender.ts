@@ -15,6 +15,9 @@ import { CampaignRepository } from '../repositories/CampaignRepository';
 import { LeadRepository } from '../repositories/LeadRepository';
 import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
 import { messengerService } from './MessengerService';
+import { twilioService } from '../../../services/TwilioService';
+import { smsOptOutRepository } from '../../../repositories/SmsOptOutRepository';
+import { normalizePhone } from '../../../utils/phone';
 import { decryptToken } from '../../../utils/tokenCrypto';
 import { isInboundEmailEnabled, replyAddressFor } from './inboundEmailConfig';
 
@@ -40,13 +43,14 @@ export class LeadChannelSender {
     private readonly campaigns = new CampaignRepository(),
     private readonly leads = new LeadRepository(),
     private readonly metaConnections = new MetaConnectionRepository(),
-    private readonly messenger = messengerService
+    private readonly messenger = messengerService,
+    private readonly sms = twilioService,
+    private readonly optOuts = smsOptOutRepository
   ) {}
 
   /** PURE — best channel for a lead from its contact fields. Messenger/WhatsApp (the chat moat)
-   *  win when present. Email is preferred over SMS because email is the only WIRED transport today
-   *  (Resend); a phone-only lead still picks SMS (queued until a carrier is wired). Revisit the
-   *  email-vs-SMS order once SMS transport (Twilio) lands. */
+   *  win when present. Email is preferred over SMS even though both are wired now (Twilio) — email is
+   *  free per message and carries no opt-out/TCPA cost — so SMS is the fallback for a phone-only lead. */
   static pickChannel(lead: LeadContact): MsgChannel {
     if (lead.messengerId) return 'messenger';
     if (lead.whatsappId) return 'whatsapp';
@@ -65,16 +69,47 @@ export class LeadChannelSender {
     if (channel === 'manual' || !this.isTransportEnabled()) {
       return 'recorded';
     }
-    // Email (Resend) and Messenger (Send API) are wired providers. SMS/WhatsApp still need one, so they
-    // queue (visibly pending) rather than silently "delivered".
+    // Email (Resend), Messenger (Send API) and SMS (Twilio) are wired. WhatsApp still needs a provider,
+    // so it queues (visibly pending) rather than silently "delivered".
     if (channel === 'email') {
       return this.deliverEmail(to, body);
     }
     if (channel === 'messenger') {
       return this.deliverMessenger(to, body);
     }
+    if (channel === 'sms') {
+      return this.deliverSms(to, body);
+    }
     logger.warn(`LeadChannelSender: transport enabled but ${channel} provider not wired — queued`);
     return 'queued';
+  }
+
+  private smsEnabled(): boolean {
+    return process.env.ADS_SMS_ENABLED === 'true';
+  }
+
+  /** Send an SMS to the lead's phone via Twilio. Gated by ADS_SMS_ENABLED AND the shared
+   *  TWILIO_SMS_ENABLED master — queues when either is off or there's no phone. Checks the GLOBAL
+   *  opt-out list first (a STOP suppresses ALL platform SMS) → 'recorded' (captured, not sent) when
+   *  opted out. Otherwise returns Twilio's 'sent'/'failed'. */
+  private async deliverSms(to: LeadContact, body: string): Promise<DeliveryStatus> {
+    if (!this.smsEnabled() || !this.sms.enabled()) {
+      logger.warn('SMS transport off (ADS_SMS_ENABLED / TWILIO_SMS_ENABLED) — queued');
+      return 'queued';
+    }
+    const phone = normalizePhone(to.phone);
+    if (!phone) return 'queued';
+    if (await this.optOuts.isOptedOut(phone).catch(() => false)) {
+      logger.info('LeadChannelSender: recipient has opted out of SMS — suppressed (recorded)');
+      return 'recorded';
+    }
+    // Delivery updates (sent→delivered/failed) POST back to the shared Twilio webhook when we know our URL.
+    const statusCallback = process.env.TWILIO_WEBHOOK_URL
+      || (process.env.API_BASE_URL ? `${process.env.API_BASE_URL}/api/ads/webhooks/twilio` : undefined);
+    const result = await this.sms.sendSms(phone, body, statusCallback);
+    if (result.status === 'sent') return 'sent';
+    if (result.status === 'failed') return 'failed';
+    return 'queued'; // 'disabled' safety net (shouldn't reach here — enabled() checked above)
   }
 
   /** Send to a lead's Messenger PSID via the shop's connected Page (Send API). Gated by
