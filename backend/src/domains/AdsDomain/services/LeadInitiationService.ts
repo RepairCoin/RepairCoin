@@ -2,9 +2,9 @@
 //
 // AI-initiated first contact (Part B). On LEAD_CAPTURED, when the lead's campaign is in 'auto' outreach
 // mode and the lead is fresh + contactable, the AI drafts and SENDS the first message — brand-grounded
-// and spend-capped (LeadAIService.draftOutreach). The email carries reply-to = <token>@reply.fixflow.ai,
-// so the lead's reply flows straight into LeadAutoAnswerService (the reply engine). Gated by
-// ADS_AI_INITIATE_ENABLED (off by default). Non-throwing — returns an outcome for logging/tests.
+// and spend-capped (LeadAIService.draftOutreach) — on the lead's best channel (Messenger/WhatsApp/email/
+// SMS via pickChannel), so a phone-only lead gets texted first. Replies loop back to the reply engine
+// (LeadAutoAnswerService) per channel. Gated by ADS_AI_INITIATE_ENABLED (off by default). Non-throwing.
 // See docs/tasks/strategy/ads-system/ads-lead-conversation-and-ai-outreach-scope.md (Part B).
 
 import { logger } from '../../../utils/logger';
@@ -41,7 +41,11 @@ export class LeadInitiationService {
 
     const lead = await this.leads.findById(leadId);
     if (!lead) return 'no_lead';
-    if (!lead.email) return 'no_channel'; // email is the only wired 2-way channel (v1)
+    // Channel-aware: reach the lead on their best available channel (Messenger/WhatsApp/email/SMS).
+    // A phone-only lead now gets TEXTED first (Twilio) instead of being skipped; 'manual' = no
+    // contactable channel at all.
+    const channel = LeadChannelSender.pickChannel(lead);
+    if (channel === 'manual') return 'no_channel';
 
     // Idempotency: only a brand-new, untouched lead. The dedupe path returns an existing lead id, so a
     // re-capture can re-enter here — the status guard + the message check prevent a double-send.
@@ -56,10 +60,11 @@ export class LeadInitiationService {
       return 'draft_failed';
     }
 
-    // Sends when ADS_LEAD_TRANSPORT_ENABLED is on (sets reply-to token → replies loop back to the AI);
-    // records-for-manual-relay otherwise. Either way the message lands in the thread the shop sees.
-    const status = await this.channel.deliver('email', lead, draft);
-    await this.messages.append({ leadId, direction: 'outbound', author: 'ai', channel: 'email', body: draft, deliveryStatus: status });
+    // Sends when ADS_LEAD_TRANSPORT_ENABLED is on; records-for-manual-relay otherwise. Either way the
+    // message lands in the thread the shop sees. Replies loop back to the AI per channel — email via the
+    // reply-to token, SMS via the Twilio inbound webhook (findByPhone), Messenger via the Send webhook.
+    const status = await this.channel.deliver(channel, lead, draft);
+    await this.messages.append({ leadId, direction: 'outbound', author: 'ai', channel, body: draft, deliveryStatus: status });
     // Record speed-to-lead, but DON'T advance the pipeline stage — an AI email isn't a human 'contacted'
     // milestone. Conversation state ('ai_engaged') expresses "AI reached out"; the funnel stays honest.
     await this.leads.stampFirstResponse(leadId);
