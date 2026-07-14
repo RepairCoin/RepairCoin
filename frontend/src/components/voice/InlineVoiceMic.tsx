@@ -66,6 +66,7 @@ import {
   classifyTranscriptClientSide,
   VoiceHintDomain,
 } from "@/utils/voiceDomainHints";
+import { useVoiceEnabled } from "@/hooks/useVoiceEnabled";
 
 export type InlineVoiceMicPanel = "insights" | "marketing" | "help";
 
@@ -103,6 +104,9 @@ export const InlineVoiceMic: React.FC<InlineVoiceMicProps> = ({
   // True while the router (Haiku) is confirming a suspected mismatch.
   const [confirming, setConfirming] = useState(false);
   const dispatch = useVoiceDispatchStore((s) => s.dispatch);
+  // WS2: voice is Growth+. Below tier the inline mic isn't rendered (the panel's
+  // text input still works). Matters mainly for the Help panel, which is Starter+.
+  const voiceEnabled = useVoiceEnabled();
 
   // The per-recording session id is the panel's session id. STT + any
   // dispatch audit row group under the same id, joinable to the
@@ -197,6 +201,8 @@ export const InlineVoiceMic: React.FC<InlineVoiceMicProps> = ({
     dispatch(otherDomain, recorder.transcript.trim());
     handleOpenChange(false);
   };
+
+  if (!voiceEnabled) return null;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>

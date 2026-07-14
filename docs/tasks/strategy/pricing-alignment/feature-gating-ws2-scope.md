@@ -141,9 +141,79 @@ Cumulative: each row = the MINIMUM tier. `[all]` = ungated (Starter+).
 - Tests: `config/featureTiers.test.ts` (matrix + cumulative), SettingsController WS2 reject/allow +
   `tier` field; AISalesFollowUp + CampaignReward tests mock `shopHasFeature`. 107/107, tsc clean.
 
-## Remaining — WS2 Slice 2 (tab-level route gating)
-- **T2.2 continued:** a generic `featureGuard(feature)` middleware on the gated *tab* ROUTES
-  (inventory, campaigns, advanced reports, voice, team, multi-location…) — today those routes are only
-  UI-gated by `<TierGate>`, reachable via direct API.
-- **T2.3 continued:** wrap remaining shop tabs with `<TierGate>`; sidebar lock badges; shop-side upgrade
-  prompts on locked pages.
+## Built 2026-07-14 — WS2 Slice 2 (route-level gating + sidebar lock hints)
+
+- **T2.2 (route guard) — DONE.** The generic middleware already existed: `requireTier(feature)` in
+  `middleware/tierGuard.ts` (getShopTier → tierAllowsFeature → 403 `FEATURE_NOT_IN_TIER` + `{feature,
+  currentTier, requiredTier}` upsell payload). It was already applied to the tab routes (inventory,
+  marketing, reports, team, locations). Slice 2 **extended it to the advanced-AI routes** in
+  `AIAgentDomain/routes.ts`:
+  - `POST /ai-agent/insights` → `requireTier('aiInsights')` (growth)
+  - `POST /ai-agent/voice/speak` → `requireTier('voiceAiAssistant')` (growth)
+  - `/ai-agent/memories` GET/POST/PATCH/DELETE → `requireTier('aiMemory')` (business)
+  - `POST /ai-agent/orchestrate` **stays ungated** — the basic unified assistant is Starter+.
+- **T2.3 (sidebar lock hints) — DONE.** `ShopSidebar` maps gated tabs → feature
+  (`inventory→inventoryManagement`, `reports→advancedReports`, `marketing→campaignBuilder`,
+  `team→teamManagement`, `locations→multiLocation`) and sets `item.locked` via `useFeatureAccess().can()`
+  (suppressed while loading so no first-paint flash). `SectionMenuItem` renders a small `Lock` glyph;
+  clicking still routes to the tab where `<TierGate>` shows the upgrade prompt.
+- Tests: `tests/middleware/tierGuard.test.ts` (next() at/above tier, 403 + upsell below, business-only,
+  400 no-shop) — 5/5. Backend tsc 0, FE tsc 211 (< baseline), full WS2 suite green.
+
+### ⚠ Behavior change to verify on local
+Gating `/insights`, `/voice/speak`, `/memories` locks those for **Starter** shops — including **peanut**
+(our staging test shop = starter). This is the intended WS2 outcome (advanced AI is Growth/Business), but
+it means peanut loses Insights/Voice/Memory until seeded to growth/business or upgraded. Trial shops
+resolve to business, so trials keep everything.
+
+## Built 2026-07-14 — WS2 Slice 2b (friendly upgrade UX for the AI-assistant 403s)
+
+The Slice 2 route guards return raw 403s; without UX handling those three surfaces would just error for a
+Starter shop. Added a graceful upgrade prompt at each, reusing the `<TierGate>` "unmount the locked child
+so its gated request never fires" pattern:
+
+- **New** `components/shop/FeatureLockedCard.tsx` — compact inline upgrade card (lock glyph + "Available on
+  the {Plan} plan" + Upgrade button → `?tab=settings`), a non-overlay sibling of `TierGate`.
+- **Insights** — `InsightsLauncher` now renders `FeatureLockedCard` (feature `aiInsights`) instead of
+  mounting `InsightsPanel` when `!can('aiInsights')`, so no `/ai/insights` request fires. Defensive
+  `case 403` added to `InsightsPanel`'s error switch for the stale-cache path.
+- **AI Memory** — `AiMemorySettings` shows `FeatureLockedCard` (feature `aiMemory`) when
+  `!can('aiMemory')` and skips the gated list request. (Previously a 403 fell through to the wrong
+  "contact support to turn it on" copy — that message is for the flag being off on an *entitled* plan.)
+- **Voice** — see decision below. `speakText` now attaches `.status` to its error; `UnifiedAssistantPanel`
+  shows a **one-time** toast ("Spoken replies are available on the Growth plan — showing text instead.")
+  when TTS 403s, then keeps the existing silent text fallback.
+
+## Built 2026-07-14 — WS2 Slice 2c (the orchestrator leak — the REAL gate)
+
+**Found during QA:** the dedicated route guards weren't enough. The unified "sparkles" assistant
+(`POST /ai/orchestrate`) is intentionally Starter+ (basic assistant), but `getOrchestratorTools()` merges
+`getInsightsTools() + getMarketingTools() + orchestrator-own` — so a Starter shop could ask the sparkles
+assistant "how much did I earn last week?" and get real Insights data, **bypassing** the `/ai/insights`
+guard entirely. Same for Marketing. This is the surface-vs-capability trap: we gated the panels, not the
+capability. (Decision locked: Starter's basic assistant = **help + chat only**.)
+
+**Fix — tool-level tier gating in `UnifiedAssistantController`:** resolve `shopHasFeature` for aiInsights /
+aiMarketingSuite / inventoryManagement / aiMemory, then strip the tools the plan doesn't include before
+they reach the model. Plus a non-cached `PLAN LIMITS:` system block so the model **declines** those asks
+(never fabricates numbers) and points to upgrade. Insights tools → aiInsights (Growth); Marketing →
+aiMarketingSuite (Growth); `propose_purchase_order` → inventoryManagement (Growth); `remember_this` +
+memory recall → aiMemory (Business) AND the ENABLE_AI_MEMORY flag.
+
+**Also closed the sibling dedicated-route leaks:** `POST /marketing-chat` → `requireTier('aiMarketingSuite')`;
+`/insights/anomalies` (GET + dismiss) and `/insights/pinned` (GET/POST/DELETE/run) → `requireTier('aiInsights')`
+(they return insights data — revenue/booking deltas, saved metric queries).
+
+Tests: `tests/ai-agent/UnifiedAssistantTierGating.test.ts` — Starter strips insights/marketing/inventory
+tools; Business keeps them; per-capability independence (insights-on / marketing-off). 3/3, backend tsc 0.
+
+### Voice scoping — SUPERSEDED (voice is now fully gated)
+Initial Slice 2b gated only `/ai/voice/speak` (TTS) and left dictation free. **Reversed 2026-07-14** per
+pricing.jpeg (Voice AI Assistant = Growth) + owner decision "hide the mic for Starter":
+- **Backend:** `requireTier('voiceAiAssistant')` now on ALL three voice routes — `/voice/transcribe`,
+  `/dispatch`, and `/voice/speak`.
+- **Frontend:** new `hooks/useVoiceEnabled.ts` (single `can('voiceAiAssistant')` rule). Every voice
+  affordance self-gates to `null` below Growth: `HeaderVoiceMic` (both header spots), `MobileBottomNavMic`,
+  `VoiceCommandPill`, `InlineVoiceMic`, and the `UnifiedAssistantPanel` Talk button + Voice toggle +
+  auto-listen. Starter keeps the sparkles assistant as **text-only chat**; Growth+ unchanged.
+- The now-unreachable TTS "spoken replies are Growth" toast from 2b was removed.
