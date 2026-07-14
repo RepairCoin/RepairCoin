@@ -87,6 +87,8 @@ export const MAX_SESSION_ID_CHARS = 64;
 // ----- Agent-loop constants -----
 
 const MARKETING_MODEL: ClaudeModel = "claude-sonnet-4-6";
+// Spend-cap soft landing (D2): Haiku at ≥70% + past the 100% cap so AI keeps working at minimal cost.
+const MARKETING_MODEL_CHEAP: ClaudeModel = "claude-haiku-4-5-20251001";
 const MARKETING_MAX_TOKENS = 2048; // larger than Insights — drafted bodies can be several paragraphs
 
 // Same shape as Insights: 5 iterations is enough for
@@ -323,7 +325,7 @@ export function makeMarketingChatController(
             const response = await anthropic.complete({
               systemPrompt: systemBlocks,
               messages: loopMessages,
-              model: MARKETING_MODEL,
+              model: spendCheck.useCheaperModel ? MARKETING_MODEL_CHEAP : MARKETING_MODEL,
               maxTokens: MARKETING_MAX_TOKENS,
               tools,
               toolChoice: { type: "auto" },

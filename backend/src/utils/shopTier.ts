@@ -1,4 +1,4 @@
-import { SubscriptionTier, isValidTier } from '../config/subscriptionPlans';
+import { SubscriptionTier, isValidTier, AI_TIER_ALLOWANCE } from '../config/subscriptionPlans';
 import { shopSubscriptionRepository } from '../repositories';
 import { getSharedPool } from './database-pool';
 import { logger } from './logger';
@@ -40,4 +40,10 @@ export async function getShopTier(shopId: string): Promise<SubscriptionTier> {
     });
     return 'starter';
   }
+}
+
+// The shop's included monthly AI budget ($10/$30/$75) — a PURE FUNCTION of its tier. This is the
+// single source of truth for the cap AND for the read-only usage monitor; it is never hand-set.
+export async function getShopAiBudget(shopId: string): Promise<number> {
+  return AI_TIER_ALLOWANCE[await getShopTier(shopId)];
 }

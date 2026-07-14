@@ -27,9 +27,9 @@
 import { Request, Response } from "express";
 import { Pool } from "pg";
 import { getSharedPool } from "../../../utils/database-pool";
+import { getShopAiBudget } from "../../../utils/shopTier";
 import { logger } from "../../../utils/logger";
 
-const DEFAULT_MONTHLY_BUDGET = 20.0;
 const DEFAULT_ESCALATION_THRESHOLD = 5;
 const DEFAULT_FOLLOWUP_DELAY_MINUTES = 20;
 // Matches DB DEFAULT 240 on ai_shop_settings.human_reply_baseline_minutes
@@ -44,11 +44,6 @@ const DELAY_MAX = 30;
 // Mirrors the DB CHECK constraint added in migration 117.
 const BASELINE_MIN = 15;
 const BASELINE_MAX = 1440;
-
-// Admin-gated monthly budget bounds. Admin is trusted; the cap is just a
-// fat-finger guard so a typo can't set a shop's AI budget to $50,000.
-const BUDGET_MIN = 0;
-const BUDGET_MAX = 1000;
 
 // Phase 6 branding — shop-settable assistant display name. Empty/blank clears
 // it (→ NULL → UI shows "Assistant"). 40 chars matches the DB column.
@@ -165,13 +160,13 @@ export interface AdminShopAiSettings extends ShopAiSettings {
   shopName: string;
 }
 
-/** The admin-editable gate fields. All optional — a partial update. */
+/** The admin-editable gate fields. All optional — a partial update.
+ *  (monthlyBudgetUsd is NOT here — the AI budget is tier-derived + read-only.) */
 export interface AdminShopAiSettingsUpdate {
   aiGlobalEnabled?: boolean;
   aiFollowupEnabled?: boolean;
   aiImagesEnabled?: boolean;
   campaignRewardsEnabled?: boolean;
-  monthlyBudgetUsd?: number;
 }
 
 export interface AdminValidationResult {
@@ -215,22 +210,14 @@ export function validateAdminShopAiSettingsUpdate(body: any): AdminValidationRes
     }
     out.campaignRewardsEnabled = body.campaignRewardsEnabled;
   }
-  if (body.monthlyBudgetUsd !== undefined) {
-    const b = body.monthlyBudgetUsd;
-    if (typeof b !== "number" || !Number.isFinite(b) || b < BUDGET_MIN || b > BUDGET_MAX) {
-      return {
-        ok: false,
-        error: `monthlyBudgetUsd must be a number between ${BUDGET_MIN} and ${BUDGET_MAX}`,
-      };
-    }
-    out.monthlyBudgetUsd = b;
-  }
+  // monthlyBudgetUsd is NO LONGER settable — the AI budget is a pure function of the shop's tier
+  // ($10/$30/$75), computed at read. Any monthlyBudgetUsd in the body is ignored (read-only field).
 
   if (Object.keys(out).length === 0) {
     return {
       ok: false,
       error:
-        "Provide at least one of: aiGlobalEnabled, aiFollowupEnabled, aiImagesEnabled, campaignRewardsEnabled, monthlyBudgetUsd",
+        "Provide at least one of: aiGlobalEnabled, aiFollowupEnabled, aiImagesEnabled, campaignRewardsEnabled",
     };
   }
   return { ok: true, value: out };
@@ -258,13 +245,17 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
     [shopId]
   );
 
+  // Budget is the shop's tier allowance ($10/$30/$75) — the stored monthly_budget_usd is inert
+  // (read-only monitoring shows the real cap).
+  const budget = await getShopAiBudget(shopId);
+
   if (r.rows.length === 0) {
     return {
       aiGlobalEnabled: false,
       aiFollowupEnabled: false,
       aiImagesEnabled: false,
       campaignRewardsEnabled: false,
-      monthlyBudgetUsd: DEFAULT_MONTHLY_BUDGET,
+      monthlyBudgetUsd: budget,
       currentMonthSpendUsd: 0,
       escalationThreshold: DEFAULT_ESCALATION_THRESHOLD,
       aiFollowupDelayMinutes: DEFAULT_FOLLOWUP_DELAY_MINUTES,
@@ -278,7 +269,7 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
     aiFollowupEnabled: row.ai_followup_enabled === true,
     aiImagesEnabled: row.ai_images_enabled === true,
     campaignRewardsEnabled: row.campaign_rewards_enabled === true,
-    monthlyBudgetUsd: parseFloat(row.monthly_budget_usd) || DEFAULT_MONTHLY_BUDGET,
+    monthlyBudgetUsd: budget,
     currentMonthSpendUsd: parseFloat(row.current_month_spend_usd) || 0,
     escalationThreshold: row.escalation_threshold ?? DEFAULT_ESCALATION_THRESHOLD,
     aiFollowupDelayMinutes:
@@ -300,7 +291,7 @@ const ADMIN_SELECT = `
   FROM ai_shop_settings s
   LEFT JOIN shops sh ON sh.shop_id = s.shop_id`;
 
-function mapAdminRow(row: any): AdminShopAiSettings {
+async function mapAdminRow(row: any): Promise<AdminShopAiSettings> {
   return {
     shopId: row.shop_id,
     shopName: row.shop_name ?? row.shop_id,
@@ -308,7 +299,8 @@ function mapAdminRow(row: any): AdminShopAiSettings {
     aiFollowupEnabled: row.ai_followup_enabled === true,
     aiImagesEnabled: row.ai_images_enabled === true,
     campaignRewardsEnabled: row.campaign_rewards_enabled === true,
-    monthlyBudgetUsd: parseFloat(row.monthly_budget_usd) || DEFAULT_MONTHLY_BUDGET,
+    // Tier-derived budget (read-only) — the stored monthly_budget_usd is inert.
+    monthlyBudgetUsd: await getShopAiBudget(row.shop_id),
     currentMonthSpendUsd: parseFloat(row.current_month_spend_usd) || 0,
     escalationThreshold: row.escalation_threshold ?? DEFAULT_ESCALATION_THRESHOLD,
     aiFollowupDelayMinutes:
@@ -400,7 +392,7 @@ export function makeSettingsControllers(deps: SettingsControllerDeps = {}) {
     listShopAiSettings: async (_req: Request, res: Response): Promise<void> => {
       try {
         const r = await pool.query(`${ADMIN_SELECT} ORDER BY shop_name ASC`);
-        res.json({ success: true, data: r.rows.map(mapAdminRow) });
+        res.json({ success: true, data: await Promise.all(r.rows.map(mapAdminRow)) });
       } catch (err) {
         logger.error("SettingsController.listShopAiSettings failed", err);
         res.status(500).json({ success: false, error: "Failed to load shop AI settings" });
@@ -442,7 +434,7 @@ export function makeSettingsControllers(deps: SettingsControllerDeps = {}) {
         if (v.aiFollowupEnabled !== undefined) add("ai_followup_enabled", v.aiFollowupEnabled);
         if (v.aiImagesEnabled !== undefined) add("ai_images_enabled", v.aiImagesEnabled);
         if (v.campaignRewardsEnabled !== undefined) add("campaign_rewards_enabled", v.campaignRewardsEnabled);
-        if (v.monthlyBudgetUsd !== undefined) add("monthly_budget_usd", v.monthlyBudgetUsd);
+        // monthly_budget_usd is intentionally NOT writable — it's tier-derived + read-only.
 
         const placeholders = vals.map((_, i) => `$${i + 1}`);
         await pool.query(
@@ -457,7 +449,7 @@ export function makeSettingsControllers(deps: SettingsControllerDeps = {}) {
           res.status(404).json({ success: false, error: "Shop not found" });
           return;
         }
-        res.json({ success: true, data: mapAdminRow(r.rows[0]) });
+        res.json({ success: true, data: await mapAdminRow(r.rows[0]) });
       } catch (err) {
         logger.error("SettingsController.adminUpdateShopAiSettings failed", err);
         res.status(500).json({ success: false, error: "Failed to update shop AI settings" });

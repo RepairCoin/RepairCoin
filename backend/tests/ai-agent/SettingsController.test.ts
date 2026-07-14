@@ -2,7 +2,10 @@
 //
 // Verify GET /api/ai/settings + PUT /api/ai/settings (shop) and the
 // pure validation. The key guarantee: a shop can only edit the two
-// behavior fields — gate fields in the body are never trusted.
+// behavior fields — gate fields in the body are never trusted. Budget is
+// tier-derived + read-only (getShopAiBudget, mocked to $30 = growth).
+
+jest.mock("../../src/utils/shopTier", () => ({ getShopAiBudget: jest.fn().mockResolvedValue(30) }));
 
 import {
   makeSettingsControllers,
@@ -177,7 +180,7 @@ describe("SettingsController.getOwnShopAiSettings", () => {
         aiFollowupEnabled: false,
         aiImagesEnabled: false,
         campaignRewardsEnabled: false,
-        monthlyBudgetUsd: 20,
+        monthlyBudgetUsd: 30,
         currentMonthSpendUsd: 3.5,
         escalationThreshold: 5,
         aiFollowupDelayMinutes: 20,
@@ -289,18 +292,21 @@ describe("validateAdminShopAiSettingsUpdate", () => {
     expect(r.value).toEqual({ aiFollowupEnabled: true });
   });
 
-  it("accepts all three gate fields", () => {
+  it("accepts the boolean gate fields", () => {
     const r = validateAdminShopAiSettingsUpdate({
       aiGlobalEnabled: true,
       aiFollowupEnabled: false,
-      monthlyBudgetUsd: 50,
     });
     expect(r.ok).toBe(true);
-    expect(r.value).toEqual({
-      aiGlobalEnabled: true,
-      aiFollowupEnabled: false,
-      monthlyBudgetUsd: 50,
-    });
+    expect(r.value).toEqual({ aiGlobalEnabled: true, aiFollowupEnabled: false });
+  });
+
+  it("IGNORES monthlyBudgetUsd — the AI budget is tier-derived + read-only, not settable", () => {
+    const r = validateAdminShopAiSettingsUpdate({ aiGlobalEnabled: true, monthlyBudgetUsd: 50 });
+    expect(r.ok).toBe(true);
+    expect(r.value).toEqual({ aiGlobalEnabled: true }); // monthlyBudgetUsd dropped
+    // A body with ONLY monthlyBudgetUsd has no settable field → rejected as empty.
+    expect(validateAdminShopAiSettingsUpdate({ monthlyBudgetUsd: 50 }).ok).toBe(false);
   });
 
   it("rejects an empty body (no gate fields provided)", () => {
@@ -312,20 +318,6 @@ describe("validateAdminShopAiSettingsUpdate", () => {
   it.each([1, "true", null])("rejects non-boolean aiGlobalEnabled = %p", (bad) => {
     const r = validateAdminShopAiSettingsUpdate({ aiGlobalEnabled: bad });
     expect(r.ok).toBe(false);
-  });
-
-  it.each([-1, 1001, "20", NaN, Infinity])(
-    "rejects out-of-range monthlyBudgetUsd = %p",
-    (bad) => {
-      const r = validateAdminShopAiSettingsUpdate({ monthlyBudgetUsd: bad });
-      expect(r.ok).toBe(false);
-      expect(r.error).toMatch(/monthlyBudgetUsd/);
-    }
-  );
-
-  it("accepts budget boundary values 0 and 1000", () => {
-    expect(validateAdminShopAiSettingsUpdate({ monthlyBudgetUsd: 0 }).ok).toBe(true);
-    expect(validateAdminShopAiSettingsUpdate({ monthlyBudgetUsd: 1000 }).ok).toBe(true);
   });
 
   it("rejects a non-object body", () => {
@@ -364,7 +356,7 @@ describe("SettingsController.listShopAiSettings", () => {
           aiFollowupEnabled: false,
           aiImagesEnabled: false,
           campaignRewardsEnabled: false,
-          monthlyBudgetUsd: 20,
+          monthlyBudgetUsd: 30,
           currentMonthSpendUsd: 9.36,
           escalationThreshold: 5,
           aiFollowupDelayMinutes: 15,

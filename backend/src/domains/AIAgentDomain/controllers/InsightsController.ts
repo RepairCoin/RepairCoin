@@ -101,6 +101,9 @@ export const MAX_SESSION_ID_CHARS = 64;
 // Sonnet per scope-doc decision I — tool-use + structured reasoning
 // benefits from the stronger model; corpus-only Q&A doesn't apply.
 const INSIGHTS_MODEL: ClaudeModel = "claude-sonnet-4-6";
+// Spend-cap soft landing (D2): downshift to Haiku at ≥70% and past the 100% cap so a shop's AI
+// keeps working at minimal cost instead of dead-ending.
+const INSIGHTS_MODEL_CHEAP: ClaudeModel = "claude-haiku-4-5-20251001";
 const INSIGHTS_MAX_TOKENS = 1024;
 
 // Safety cap on the tool-use agent loop. The prompt tells Claude one
@@ -299,7 +302,7 @@ export function makeInsightsController(deps: InsightsControllerDeps = {}) {
                 { text: buildDateContextBlock(), cache: false },
               ],
               messages: loopMessages,
-              model: INSIGHTS_MODEL,
+              model: spendCheck.useCheaperModel ? INSIGHTS_MODEL_CHEAP : INSIGHTS_MODEL,
               maxTokens: INSIGHTS_MAX_TOKENS,
               tools,
               toolChoice: { type: "auto" },

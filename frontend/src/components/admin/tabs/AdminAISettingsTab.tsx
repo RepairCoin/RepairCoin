@@ -7,7 +7,6 @@ import { Switch } from "@/components/ui/switch";
 import {
   AdminShopAiSettings,
   AdminShopAiSettingsUpdate,
-  ADMIN_BUDGET_BOUNDS,
   listAdminShopAiSettings,
   adminUpdateShopAiSettings,
 } from "@/services/api/aiSettings";
@@ -86,9 +85,10 @@ export const AdminAISettingsTab: React.FC = () => {
         </p>
         <p className="text-sm text-gray-400 mt-1">
           Enable the AI Sales Agent, follow-up nudges, and AI image generation
-          per shop, and set each shop&apos;s monthly AI budget. Shops tune their
-          own behavior settings (handoff threshold, follow-up delay) from their
-          dashboard.
+          per shop. The monthly AI budget is set automatically by each shop&apos;s
+          plan tier ($10 / $30 / $75) and shown here for monitoring. Shops tune
+          their own behavior settings (handoff threshold, follow-up delay) from
+          their dashboard.
         </p>
       </div>
 
@@ -177,30 +177,8 @@ interface ShopAIRowProps {
 }
 
 const ShopAIRow: React.FC<ShopAIRowProps> = ({ shop, saving, onUpdate }) => {
-  const [budget, setBudget] = useState(String(shop.monthlyBudgetUsd));
-
-  // Keep the local input in sync when a save returns fresh data.
-  useEffect(() => {
-    setBudget(String(shop.monthlyBudgetUsd));
-  }, [shop.monthlyBudgetUsd]);
-
-  const commitBudget = () => {
-    const n = parseFloat(budget);
-    if (!Number.isFinite(n)) {
-      setBudget(String(shop.monthlyBudgetUsd));
-      return;
-    }
-    if (n < ADMIN_BUDGET_BOUNDS.min || n > ADMIN_BUDGET_BOUNDS.max) {
-      toast.error(
-        `Budget must be between $${ADMIN_BUDGET_BOUNDS.min} and $${ADMIN_BUDGET_BOUNDS.max}`
-      );
-      setBudget(String(shop.monthlyBudgetUsd));
-      return;
-    }
-    if (n === shop.monthlyBudgetUsd) return; // no change
-    onUpdate(shop.shopId, { monthlyBudgetUsd: n });
-  };
-
+  // The monthly AI budget is READ-ONLY — it's a pure function of the shop's plan tier
+  // ($10/$30/$75), not admin-set. Shown here for monitoring only.
   return (
     <tr className="border-t border-[#303236]">
       <td className="px-4 py-3">
@@ -247,22 +225,9 @@ const ShopAIRow: React.FC<ShopAIRowProps> = ({ shop, saving, onUpdate }) => {
         />
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1">
-          <span className="text-gray-500">$</span>
-          <input
-            type="number"
-            min={ADMIN_BUDGET_BOUNDS.min}
-            max={ADMIN_BUDGET_BOUNDS.max}
-            value={budget}
-            disabled={saving}
-            onChange={(e) => setBudget(e.target.value)}
-            onBlur={commitBudget}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
-            className="w-20 px-2 py-1 bg-[#1a1a1a] text-white rounded border border-[#303236] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] disabled:opacity-50"
-          />
-        </div>
+        {/* Read-only — budget follows the plan tier ($10/$30/$75), not admin-set. */}
+        <span className="text-white font-medium">${shop.monthlyBudgetUsd}</span>
+        <span className="ml-1 text-[11px] text-gray-500">/mo · by plan</span>
       </td>
       <td className="px-4 py-3 text-gray-400">
         ${shop.currentMonthSpendUsd.toFixed(2)}
