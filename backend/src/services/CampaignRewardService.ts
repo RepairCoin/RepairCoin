@@ -16,6 +16,7 @@
 
 import { Pool } from 'pg';
 import { getSharedPool } from '../utils/database-pool';
+import { shopHasFeature } from '../utils/shopTier';
 import { shopRepository } from '../repositories';
 import {
   MarketingCampaignRepository,
@@ -151,7 +152,9 @@ export class CampaignRewardService {
         `SELECT campaign_rewards_enabled FROM ai_shop_settings WHERE shop_id = $1`,
         [shopId]
       );
-      return r.rows[0]?.campaign_rewards_enabled === true;
+      if (r.rows[0]?.campaign_rewards_enabled !== true) return false;
+      // WS2 tier entitlement — Campaign Rewards is Growth+; a stale flag can't bypass it.
+      return await shopHasFeature(shopId, "campaignRewards");
     } catch {
       return false;
     }

@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/sheet";
 import { InsightsPanel } from "./InsightsPanel";
 import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { FeatureLockedCard } from "@/components/shop/FeatureLockedCard";
 
 /**
  * InsightsLauncher
@@ -39,6 +41,11 @@ export const InsightsLauncher: React.FC = () => {
   // seed its input + auto-send, then consumes it.
   const pendingDomain = useVoiceDispatchStore((s) => s.pending?.domain);
   const pendingDispatchId = useVoiceDispatchStore((s) => s.pending?.dispatchId);
+  // WS2: Insights is a Growth+ feature. When the plan doesn't include it we
+  // render the upgrade card in place of the panel, so InsightsPanel never
+  // mounts and its (server-gated) requests never fire.
+  const { can, loading: featureLoading } = useFeatureAccess();
+  const insightsUnlocked = can("aiInsights");
   useEffect(() => {
     if (pendingDomain === "insights") {
       setOpen(true);
@@ -95,7 +102,19 @@ export const InsightsLauncher: React.FC = () => {
           </button>
         </div>
 
-        <InsightsPanel />
+        {featureLoading ? (
+          <div className="flex-1" />
+        ) : insightsUnlocked ? (
+          <InsightsPanel />
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <FeatureLockedCard
+              feature="aiInsights"
+              title="Business Insights is a Growth feature"
+              description="Ask about your revenue, top customers, services, and AI impact — available on the Growth plan and above."
+            />
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

@@ -62,7 +62,7 @@ export class GoogleAdsCreativeService {
       let descriptions = uniq((parsed.descriptions || []).map((s: any) => clip(String(s), 90)));
       let keywords = uniq((parsed.keywords || []).map((s: any) => clip(String(s), 80)));
 
-      await this.spendCap.recordSpend(shopId, resp.costUsd).catch(() => undefined);
+      // Ads-AI is COGS (ad_ai_costs), not the shop's included AI allowance — don't drain the shop pool (T3.3).
       if (input.campaignId) {
         this.aiCosts.record({ campaignId: input.campaignId, costCents: resp.costUsd * 100, kind: 'creative_copy', model: resp.model })
           .catch((e) => logger.error('GoogleAdsCreativeService: failed to record AI cost', e));

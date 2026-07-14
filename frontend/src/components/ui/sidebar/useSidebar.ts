@@ -21,6 +21,8 @@ export interface SidebarItem {
     count: number;
     variant?: 'danger' | 'warning' | 'info';
   };
+  // WS2: the tab's content is gated to a higher plan tier — show a lock hint in the nav.
+  locked?: boolean;
 }
 
 export interface SidebarSection {

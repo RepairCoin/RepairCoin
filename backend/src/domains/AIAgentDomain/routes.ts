@@ -2,6 +2,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { authMiddleware, requireRole } from '../../middleware/auth';
+import { requireTier } from '../../middleware/tierGuard';
 import { audioUploadMiddleware } from '../../middleware/audioUpload';
 import { previewAIReply } from './controllers/PreviewController';
 import { transcribeVoice } from './controllers/VoiceTranscribeController';
@@ -165,7 +166,8 @@ export function initializeRoutes(): Router {
   // hardcoded shop-scoped SQL (shopId sourced from the JWT, never
   // from Claude args). Spend-capped against the shared monthly budget
   // and audited into ai_insights_messages with the tool_calls JSONB.
-  router.post('/insights', authMiddleware, requireRole(['shop']), askInsights);
+  // WS2: AI Insights & BI is a Growth+ feature (the basic unified assistant at /orchestrate stays open to all).
+  router.post('/insights', authMiddleware, requireRole(['shop']), requireTier('aiInsights'), askInsights);
 
   // ⚠️ SPIKE — Unified "Talk To My Business" assistant. ONE conversation
   // that answers business questions (insights tools) AND takes marketing
@@ -215,54 +217,64 @@ export function initializeRoutes(): Router {
   // endpoint never sends directly.
   // Body: { sessionId, messages: [{ role, content }, ...] }.
   // Shop-scoped via JWT; audited into ai_marketing_messages.
+  // WS2: the dedicated Marketing AI chat is the AI Marketing Suite (Growth+).
   router.post(
     '/marketing-chat',
     authMiddleware,
     requireRole(['shop']),
+    requireTier('aiMarketingSuite'),
     askMarketing
   );
 
   // Phase 7.2 — nightly anomaly detection. Banner reads via GET on
   // panel mount; "Dismiss" tap soft-dismisses via POST. Both shop-
   // scoped via JWT — the controller never trusts URL/body for scope.
+  // WS2: anomalies expose insights data (revenue/booking deltas) → aiInsights.
   router.get(
     '/insights/anomalies',
     authMiddleware,
     requireRole(['shop']),
+    requireTier('aiInsights'),
     listAnomalies
   );
   router.post(
     '/insights/anomalies/:id/dismiss',
     authMiddleware,
     requireRole(['shop']),
+    requireTier('aiInsights'),
     dismissAnomaly
   );
 
   // Phase 7.3 — saved queries (pinned questions). All shop-scoped via
   // JWT; URL :id never determines scope, so guessing UUIDs can't
   // touch another shop's pins.
+  // WS2: pinned insights queries are part of Insights (aiInsights=Growth+).
   router.get(
     '/insights/pinned',
     authMiddleware,
     requireRole(['shop']),
+    requireTier('aiInsights'),
     listPinned
   );
   router.post(
     '/insights/pinned',
     authMiddleware,
     requireRole(['shop']),
+    requireTier('aiInsights'),
     createPinned
   );
   router.delete(
     '/insights/pinned/:id',
     authMiddleware,
     requireRole(['shop']),
+    requireTier('aiInsights'),
     deletePinned
   );
   router.put(
     '/insights/pinned/:id/run',
     authMiddleware,
     requireRole(['shop']),
+    requireTier('aiInsights'),
     recordPinnedRun
   );
 
@@ -272,10 +284,12 @@ export function initializeRoutes(): Router {
   // sessionId }. Shop-scoped via JWT; spend-capped against the shared
   // monthly budget; audited into ai_voice_transcriptions. See
   // docs/tasks/strategy/voice-ai-dispatcher/implementation.md Phase 1.
+  // WS2: Voice AI Assistant (voice-IN dictation) is a Growth+ feature.
   router.post(
     '/voice/transcribe',
     authMiddleware,
     requireRole(['shop']),
+    requireTier('voiceAiAssistant'),
     audioUploadMiddleware.single('audio'),
     handleMulterErrors,
     transcribeVoice
@@ -286,7 +300,8 @@ export function initializeRoutes(): Router {
   // otherwise). Reuses OPENAI_API_KEY (same vendor as Whisper); spend-capped
   // against the shared monthly budget. See
   // docs/tasks/strategy/unified-assistant/implementation.md Phase 3.
-  router.post('/voice/speak', authMiddleware, requireRole(['shop']), speakVoice);
+  // WS2: Voice AI Assistant is a Growth+ feature.
+  router.post('/voice/speak', authMiddleware, requireRole(['shop']), requireTier('voiceAiAssistant'), speakVoice);
 
   // Voice AI Dispatcher Phase 3 — cross-domain router. Takes a
   // transcript, asks Haiku to classify it (INSIGHTS / MARKETING /
@@ -295,10 +310,12 @@ export function initializeRoutes(): Router {
   // JWT; spend-capped against the shared monthly budget; audited
   // into ai_dispatch_audit. See
   // docs/tasks/strategy/voice-ai-dispatcher/implementation.md Phase 3.
+  // WS2: the voice cross-domain router is part of Voice AI Assistant (Growth+).
   router.post(
     '/dispatch',
     authMiddleware,
     requireRole(['shop']),
+    requireTier('voiceAiAssistant'),
     dispatchVoice
   );
 
@@ -330,10 +347,12 @@ export function initializeRoutes(): Router {
   // AI Memory (Phase 2) — shop-owner CRUD over the unified assistant's saved
   // standing instructions. All shop-scoped via JWT (:id never determines scope).
   // Gated by ENABLE_AI_MEMORY (controller returns enabled:false / 409 when off).
-  router.get('/memories', authMiddleware, requireRole(['shop']), listMemories);
-  router.post('/memories', authMiddleware, requireRole(['shop']), createMemory);
-  router.patch('/memories/:id', authMiddleware, requireRole(['shop']), updateMemory);
-  router.delete('/memories/:id', authMiddleware, requireRole(['shop']), removeMemory);
+  // WS2: Advanced AI Memory is a Business-only feature.
+  const memGate = [authMiddleware, requireRole(['shop']), requireTier('aiMemory')];
+  router.get('/memories', ...memGate, listMemories);
+  router.post('/memories', ...memGate, createMemory);
+  router.patch('/memories/:id', ...memGate, updateMemory);
+  router.delete('/memories/:id', ...memGate, removeMemory);
 
   // Customer-facing diagnostic chat — PUBLIC endpoints (no auth required).
   // Anonymous customers can get AI help finding the right repair service.

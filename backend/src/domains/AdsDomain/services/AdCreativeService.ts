@@ -146,8 +146,9 @@ export class AdCreativeService {
           model: COPY_MODEL,
           maxTokens: 200,
         });
-        await this.spendCap.recordSpend(shopId, resp.costUsd);
-        // Q6 — log copy COGS to the per-campaign ledger so True Margin reflects it (best-effort).
+        // Ads-AI is COGS (tracked in ad_ai_costs), NOT part of the shop's included AI allowance —
+        // don't drain the shop's $10/$30/$75 pool (T3.3). Q6: log copy COGS to the per-campaign ledger
+        // so True Margin reflects it (best-effort).
         if (opts.campaignId) {
           void this.aiCosts.record({ campaignId: opts.campaignId, costCents: (resp.costUsd || 0) * 100, kind: 'creative_copy', model: COPY_MODEL })
             .catch((e) => logger.warn('AdCreativeService: copy cost ledger failed', e));

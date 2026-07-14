@@ -54,6 +54,7 @@ import {
   getOrchestratorOwnToolByName,
 } from "../services/orchestrator/registry";
 import { AiMemoryService, isAiMemoryEnabled, getAiMemoryService, formatMemoryBlock } from "../services/AiMemoryService";
+import { shopHasFeature } from "../../../utils/shopTier";
 import type { AiMemory } from "../../../repositories/AiMemoryRepository";
 import { getDefaultHelpCorpusLoader } from "../services/HelpCorpusLoader";
 import { SUPPORT_FALLBACK_COPY } from "../services/HelpPromptBuilder";
@@ -88,6 +89,16 @@ function getOrchestratorTools(): ClaudeTool[] {
     ...getOrchestratorOwnTools(),
   ];
 }
+
+// WS2 tier gating — the orchestrator (this "basic" unified assistant) is Starter+,
+// but its TOOLS are tier-scoped capabilities: Insights (aiInsights=Growth),
+// Marketing (aiMarketingSuite=Growth), inventory restock (inventoryManagement=
+// Growth), and memory (aiMemory=Business). Below tier we strip those tools so a
+// Starter shop can't reach Insights/Marketing/etc. through the sparkles assistant
+// (which would otherwise bypass the dedicated /ai/insights + /ai/marketing guards).
+// Names are derived from the registries so new tools inherit the gate automatically.
+const INSIGHTS_TOOL_NAMES = new Set(getInsightsTools().map((t) => t.name));
+const MARKETING_TOOL_NAMES = new Set(getMarketingTools().map((t) => t.name));
 
 /**
  * HELP KNOWLEDGE — folded in from the standalone How-To assistant so the
@@ -391,12 +402,28 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
         const model: ClaudeModel = spendCheck.useCheaperModel
           ? ORCHESTRATE_MODEL_CHEAP
           : ORCHESTRATE_MODEL_DEFAULT;
-        // AI Memory (Phase 1) is flag-gated: only OFFER remember_this to the model
-        // when ENABLE_AI_MEMORY is on, so it costs nothing when the feature is off.
-        const memoryEnabled = isAiMemoryEnabled();
-        const tools = memoryEnabled
-          ? getOrchestratorTools()
-          : getOrchestratorTools().filter((t) => t.name !== "remember_this");
+        // WS2 tier gating — resolve which capability groups this shop's plan
+        // includes, then strip the tools it doesn't. This is what actually stops
+        // a Starter from reaching Insights/Marketing/inventory/memory through the
+        // sparkles assistant (the dedicated panels are gated separately).
+        const [insightsOk, marketingOk, inventoryOk, memoryTierOk] =
+          await Promise.all([
+            shopHasFeature(shopId, "aiInsights"),
+            shopHasFeature(shopId, "aiMarketingSuite"),
+            shopHasFeature(shopId, "inventoryManagement"),
+            shopHasFeature(shopId, "aiMemory"),
+          ]);
+        // AI Memory (Phase 1) needs BOTH the global flag AND the Business tier.
+        const memoryEnabled = isAiMemoryEnabled() && memoryTierOk;
+        let tools = getOrchestratorTools();
+        if (!insightsOk)
+          tools = tools.filter((t) => !INSIGHTS_TOOL_NAMES.has(t.name));
+        if (!marketingOk)
+          tools = tools.filter((t) => !MARKETING_TOOL_NAMES.has(t.name));
+        if (!inventoryOk)
+          tools = tools.filter((t) => t.name !== "propose_purchase_order");
+        if (!memoryEnabled)
+          tools = tools.filter((t) => t.name !== "remember_this");
         // System prompt is assembled as ordered blocks, cache-stable prefix
         // first so the prompt cache stays warm:
         //   1. main rules         (cache: true — stable)
@@ -431,6 +458,27 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           text: `Your name is "${effectiveName}" — use it when you refer to yourself.`,
           cache: false,
         });
+        // WS2: when the plan excludes a capability we've stripped its tools; tell
+        // the model so it DECLINES those asks instead of fabricating numbers/drafts.
+        const lockedCapabilities: string[] = [];
+        if (!insightsOk)
+          lockedCapabilities.push(
+            "business insights & data (revenue, customers, bookings, services, inventory levels, briefings)"
+          );
+        if (!marketingOk)
+          lockedCapabilities.push(
+            "marketing campaigns, audience sizing, and email/image drafting"
+          );
+        if (!inventoryOk)
+          lockedCapabilities.push("inventory restock / purchase-order actions");
+        if (lockedCapabilities.length > 0) {
+          systemPrompt.push({
+            text: `PLAN LIMITS: the owner's current plan does NOT include: ${lockedCapabilities.join(
+              "; "
+            )}. You have NO tools for these. If they ask for any of it, do NOT invent numbers, metrics, or drafts — briefly say that capability is on the Growth plan and they can upgrade from Settings. You CAN still answer how-to / product-usage questions from the help knowledge and general questions.`,
+            cache: false,
+          });
+        }
         // AI Memory (Phase 1): inject the owner's recalled standing instructions.
         // Non-cached (varies per shop + edits) and bounded to the top-K by recall().
         if (ownerMemories.length > 0) {

@@ -4,10 +4,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Bot, Loader2, AlertCircle, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import { Switch } from "@/components/ui/switch";
+import { tierAllowsFeature, getRequiredTier } from "@/config/featureTiers";
 import {
   AdminShopAiSettings,
   AdminShopAiSettingsUpdate,
-  ADMIN_BUDGET_BOUNDS,
   listAdminShopAiSettings,
   adminUpdateShopAiSettings,
 } from "@/services/api/aiSettings";
@@ -86,9 +86,10 @@ export const AdminAISettingsTab: React.FC = () => {
         </p>
         <p className="text-sm text-gray-400 mt-1">
           Enable the AI Sales Agent, follow-up nudges, and AI image generation
-          per shop, and set each shop&apos;s monthly AI budget. Shops tune their
-          own behavior settings (handoff threshold, follow-up delay) from their
-          dashboard.
+          per shop. The monthly AI budget is set automatically by each shop&apos;s
+          plan tier ($10 / $30 / $75) and shown here for monitoring. Shops tune
+          their own behavior settings (handoff threshold, follow-up delay) from
+          their dashboard.
         </p>
       </div>
 
@@ -176,31 +177,42 @@ interface ShopAIRowProps {
   onUpdate: (shopId: string, patch: AdminShopAiSettingsUpdate) => void;
 }
 
+// A per-shop feature toggle that's LOCKED when the shop's plan tier doesn't include the feature (WS2).
+// Availability comes from the tier, not the admin — a below-tier toggle is disabled + shows "Growth+".
+const FeatureSwitch: React.FC<{
+  shop: AdminShopAiSettings;
+  feature: string;
+  checked: boolean;
+  saving: boolean;
+  requireAiOn?: boolean;
+  onChange: (v: boolean) => void;
+}> = ({ shop, feature, checked, saving, requireAiOn, onChange }) => {
+  const allowed = tierAllowsFeature(shop.tier, feature);
+  const req = getRequiredTier(feature);
+  const needAiFirst = !!requireAiOn && !shop.aiGlobalEnabled;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Switch
+        checked={allowed && checked}
+        disabled={saving || !allowed || needAiFirst}
+        onCheckedChange={onChange}
+        className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00] disabled:opacity-50"
+      />
+      {!allowed && req && (
+        <span className="text-[11px] text-[#FFCC00]/70">
+          {req.charAt(0).toUpperCase() + req.slice(1)}+
+        </span>
+      )}
+      {allowed && needAiFirst && (
+        <span className="text-[11px] text-gray-600">Enable AI first</span>
+      )}
+    </div>
+  );
+};
+
 const ShopAIRow: React.FC<ShopAIRowProps> = ({ shop, saving, onUpdate }) => {
-  const [budget, setBudget] = useState(String(shop.monthlyBudgetUsd));
-
-  // Keep the local input in sync when a save returns fresh data.
-  useEffect(() => {
-    setBudget(String(shop.monthlyBudgetUsd));
-  }, [shop.monthlyBudgetUsd]);
-
-  const commitBudget = () => {
-    const n = parseFloat(budget);
-    if (!Number.isFinite(n)) {
-      setBudget(String(shop.monthlyBudgetUsd));
-      return;
-    }
-    if (n < ADMIN_BUDGET_BOUNDS.min || n > ADMIN_BUDGET_BOUNDS.max) {
-      toast.error(
-        `Budget must be between $${ADMIN_BUDGET_BOUNDS.min} and $${ADMIN_BUDGET_BOUNDS.max}`
-      );
-      setBudget(String(shop.monthlyBudgetUsd));
-      return;
-    }
-    if (n === shop.monthlyBudgetUsd) return; // no change
-    onUpdate(shop.shopId, { monthlyBudgetUsd: n });
-  };
-
+  // The monthly AI budget is READ-ONLY — it's a pure function of the shop's plan tier
+  // ($10/$30/$75), not admin-set. Shown here for monitoring only.
   return (
     <tr className="border-t border-[#303236]">
       <td className="px-4 py-3">
@@ -216,53 +228,37 @@ const ShopAIRow: React.FC<ShopAIRowProps> = ({ shop, saving, onUpdate }) => {
         />
       </td>
       <td className="px-4 py-3">
-        <div className="flex flex-col gap-0.5">
-          <Switch
-            checked={shop.aiFollowupEnabled}
-            disabled={saving || !shop.aiGlobalEnabled}
-            onCheckedChange={(v) =>
-              onUpdate(shop.shopId, { aiFollowupEnabled: v })
-            }
-            className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00]"
-          />
-          {!shop.aiGlobalEnabled && (
-            <span className="text-[11px] text-gray-600">Enable AI first</span>
-          )}
-        </div>
+        <FeatureSwitch
+          shop={shop}
+          feature="aiLeadFollowUp"
+          checked={shop.aiFollowupEnabled}
+          saving={saving}
+          requireAiOn
+          onChange={(v) => onUpdate(shop.shopId, { aiFollowupEnabled: v })}
+        />
       </td>
       <td className="px-4 py-3">
-        <Switch
+        <FeatureSwitch
+          shop={shop}
+          feature="aiImageGen"
           checked={shop.aiImagesEnabled}
-          disabled={saving}
-          onCheckedChange={(v) => onUpdate(shop.shopId, { aiImagesEnabled: v })}
-          className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00]"
+          saving={saving}
+          onChange={(v) => onUpdate(shop.shopId, { aiImagesEnabled: v })}
         />
       </td>
       <td className="px-4 py-3">
-        <Switch
+        <FeatureSwitch
+          shop={shop}
+          feature="campaignRewards"
           checked={shop.campaignRewardsEnabled}
-          disabled={saving}
-          onCheckedChange={(v) => onUpdate(shop.shopId, { campaignRewardsEnabled: v })}
-          className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00]"
+          saving={saving}
+          onChange={(v) => onUpdate(shop.shopId, { campaignRewardsEnabled: v })}
         />
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1">
-          <span className="text-gray-500">$</span>
-          <input
-            type="number"
-            min={ADMIN_BUDGET_BOUNDS.min}
-            max={ADMIN_BUDGET_BOUNDS.max}
-            value={budget}
-            disabled={saving}
-            onChange={(e) => setBudget(e.target.value)}
-            onBlur={commitBudget}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
-            className="w-20 px-2 py-1 bg-[#1a1a1a] text-white rounded border border-[#303236] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] disabled:opacity-50"
-          />
-        </div>
+        {/* Read-only — budget follows the plan tier ($10/$30/$75), not admin-set. */}
+        <span className="text-white font-medium">${shop.monthlyBudgetUsd}</span>
+        <span className="ml-1 text-[11px] text-gray-500">/mo · by plan</span>
       </td>
       <td className="px-4 py-3 text-gray-400">
         ${shop.currentMonthSpendUsd.toFixed(2)}

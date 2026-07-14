@@ -21,9 +21,14 @@ import React from "react";
 import { Mic } from "lucide-react";
 import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
 import { unlockAudioPlayback } from "@/lib/audioUnlock";
+import { useVoiceEnabled } from "@/hooks/useVoiceEnabled";
 
 export const MobileBottomNavMic: React.FC = () => {
   const openWithMic = useUnifiedAssistantStore((s) => s.openWithMic);
+  // WS2: voice is Growth+ — hide the mobile mic below tier.
+  const voiceEnabled = useVoiceEnabled();
+
+  if (!voiceEnabled) return null;
 
   return (
     <button

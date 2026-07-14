@@ -13,6 +13,7 @@ import {
   updateAssistantName,
 } from "@/services/api/aiSettings";
 import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
+import { useVoiceEnabled } from "@/hooks/useVoiceEnabled";
 
 /**
  * UnifiedAssistantLauncher (v2 — "the one door")
@@ -29,6 +30,12 @@ import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
 export const UnifiedAssistantLauncher: React.FC<{ variant?: 'default' | 'subtle' }> = ({ variant = 'default' }) => {
   const subtle = variant === 'subtle';
   const openAssistant = useUnifiedAssistantStore((s) => s.open);
+  // WS2: on Starter (voice off) the HeaderVoiceMic slot already shows the ✨
+  // launcher, so hide this standalone one to avoid a duplicate sparkle. Growth+
+  // keeps both (mic + ✨). Only the trigger is gated — UnifiedAssistantHost
+  // (the panel) is a separate export and always mounts.
+  const voiceEnabled = useVoiceEnabled();
+  if (!voiceEnabled) return null;
   return (
     <button
       type="button"

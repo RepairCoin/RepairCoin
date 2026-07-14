@@ -618,8 +618,12 @@ export interface AIAgentMessageInsert {
 
 export interface SpendCheckResult {
   allowed: boolean;
-  /** True when current spend ≥ 70% of monthly budget — caller should pick Haiku to extend runway */
+  /** True when current spend ≥ 70% of monthly budget — caller MUST pick Haiku to extend runway. */
   useCheaperModel: boolean;
+  /** Soft landing (D2): true when spend ≥ 100% of the tier allowance. The call is still `allowed`
+   *  (never a dead-end) but MUST run Haiku-only; surface an "upgrade your plan for more AI" message.
+   *  Ops that can't cheaply degrade (image/vision generation) should treat this as a block. */
+  limitReached?: boolean;
   currentSpendUsd: number;
   monthlyBudgetUsd: number;
   percentUsed: number;

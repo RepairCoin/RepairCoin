@@ -15,9 +15,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Mic } from "lucide-react";
+import { Mic, Sparkles } from "lucide-react";
 import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
 import { unlockAudioPlayback } from "@/lib/audioUnlock";
+import { useVoiceEnabled } from "@/hooks/useVoiceEnabled";
 
 const EXAMPLE_PROMPTS = [
   "How did we do this month?",
@@ -25,6 +26,15 @@ const EXAMPLE_PROMPTS = [
   "What's running low in inventory?",
   "How do I export my customer list?",
   "Show me revenue this week",
+];
+
+// WS2: on Starter the assistant is help + chat only, so show examples it can
+// actually answer (the data/marketing ones above would just get declined).
+const HELP_EXAMPLE_PROMPTS = [
+  "How do I create a service?",
+  "Where do I set my appointment hours?",
+  "How do I issue a reward?",
+  "How do I export my customer list?",
 ];
 
 interface VoiceCommandPillProps {
@@ -43,22 +53,31 @@ export const VoiceCommandPill: React.FC<VoiceCommandPillProps> = ({
   sidebarCollapsed = false,
 }) => {
   const openWithMic = useUnifiedAssistantStore((s) => s.openWithMic);
+  const openAssistant = useUnifiedAssistantStore((s) => s.open);
+  // WS2: voice is Growth+. On Starter the pill stays (it's the "Ask AI Anything"
+  // CTA) but becomes a SPARKLE that opens the text assistant — no mic, no "talk".
+  const voiceEnabled = useVoiceEnabled();
+  const examples = voiceEnabled ? EXAMPLE_PROMPTS : HELP_EXAMPLE_PROMPTS;
 
   // Rotate the example prompt every 4s so the owner sees the breadth of what
   // they can ask. Purely cosmetic.
   const [exampleIndex, setExampleIndex] = useState(0);
   useEffect(() => {
     const id = setInterval(
-      () => setExampleIndex((i) => (i + 1) % EXAMPLE_PROMPTS.length),
+      () => setExampleIndex((i) => (i + 1) % examples.length),
       4000
     );
     return () => clearInterval(id);
-  }, []);
+  }, [examples.length]);
 
   const handleClick = () => {
-    // Unlock audio in the gesture so the deferred spoken greeting can play.
-    unlockAudioPlayback();
-    openWithMic();
+    if (voiceEnabled) {
+      // Unlock audio in the gesture so the deferred spoken greeting can play.
+      unlockAudioPlayback();
+      openWithMic();
+    } else {
+      openAssistant(); // text-only assistant
+    }
   };
 
   return (
@@ -85,14 +104,23 @@ export const VoiceCommandPill: React.FC<VoiceCommandPillProps> = ({
       <button
         type="button"
         onClick={handleClick}
-        aria-label="Talk to your business assistant"
+        aria-label={
+          voiceEnabled
+            ? "Talk to your business assistant"
+            : "Ask your business assistant"
+        }
         // Blue→purple GRADIENT border (matches the orb) via the double-background
         // trick: dark fill on padding-box, gradient on border-box.
         className="relative flex w-full items-center gap-4 rounded-full px-5 py-3.5 text-left backdrop-blur border-2 border-transparent shadow-[0_10px_32px_rgba(0,0,0,0.55)] transition-shadow duration-300 hover:shadow-[0_0_28px_rgba(139,92,246,0.55),0_10px_32px_rgba(0,0,0,0.55)] [background:linear-gradient(#15121f,#15121f)_padding-box,linear-gradient(to_bottom_right,#3b82f6,#9333ea)_border-box]"
       >
-        {/* Solid blue→purple mic orb (no pulse — the pulse is on the pill now). */}
+        {/* Solid blue→purple orb — mic for voice tiers, ✨ for the text-only
+            (Starter) assistant. */}
         <span className="relative flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-          <Mic className="w-6 h-6" />
+          {voiceEnabled ? (
+            <Mic className="w-6 h-6" />
+          ) : (
+            <Sparkles className="w-6 h-6" />
+          )}
         </span>
 
         <span className="flex-1 min-w-0">
@@ -100,12 +128,12 @@ export const VoiceCommandPill: React.FC<VoiceCommandPillProps> = ({
             Ask AI Anything
           </span>
           <span className="block text-sm text-purple-200/70 truncate">
-            “{EXAMPLE_PROMPTS[exampleIndex]}”
+            “{examples[exampleIndex]}”
           </span>
         </span>
 
         <span className="hidden sm:inline text-[10px] uppercase tracking-wider text-purple-300/70 font-semibold whitespace-nowrap">
-          Tap to talk
+          {voiceEnabled ? "Tap to talk" : "Tap to ask"}
         </span>
       </button>
     </div>

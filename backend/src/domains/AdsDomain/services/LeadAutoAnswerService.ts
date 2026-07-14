@@ -511,8 +511,8 @@ export class LeadAutoAnswerService {
         body: reply, aiCostCents: resp.costUsd * 100, deliveryStatus,
       });
 
-      // Reply cost + the Phase 3/4 + enrichment extraction calls (when they ran) all count against budget.
-      await this.spendCap.recordSpend(shopId, resp.costUsd + availability.costUsd + booking.costUsd + enrichCost);
+      // Ads-AI (lead auto-answer + extraction) is COGS tracked in ad_ai_costs — NOT the shop's included
+      // AI allowance, so it must not drain the shop's $10/$30/$75 pool (T3.3).
       try {
         await this.aiCosts.record({
           campaignId: lead.campaignId, leadId: lead.id,

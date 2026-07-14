@@ -15,9 +15,8 @@
 import { Request, Response } from "express";
 import { Pool } from "pg";
 import { getSharedPool } from "../../../utils/database-pool";
+import { getShopAiBudget } from "../../../utils/shopTier";
 import { logger } from "../../../utils/logger";
-
-const DEFAULT_MONTHLY_BUDGET = 20.0;
 
 export interface SpendControllerDeps {
   pool?: Pool;
@@ -39,25 +38,27 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
           return;
         }
 
+        // Budget = the shop's tier allowance ($10/$30/$75), read-only. The stored monthly_budget_usd is inert.
+        const budget = await getShopAiBudget(shopId);
+
         const settings = await pool.query<{
-          monthly_budget_usd: string;
           current_month_spend_usd: string;
           current_month_started_at: Date | null;
         }>(
-          `SELECT monthly_budget_usd, current_month_spend_usd, current_month_started_at
+          `SELECT current_month_spend_usd, current_month_started_at
            FROM ai_shop_settings
            WHERE shop_id = $1`,
           [shopId]
         );
 
         if (settings.rows.length === 0) {
-          // Shop has no AI settings row yet — treat as zero spend with default
-          // budget. Don't auto-create the row from a GET endpoint.
+          // Shop has no AI settings row yet — treat as zero spend against the tier budget.
+          // Don't auto-create the row from a GET endpoint.
           res.json({
             success: true,
             data: {
               currentMonthSpendUsd: 0,
-              monthlyBudgetUsd: DEFAULT_MONTHLY_BUDGET,
+              monthlyBudgetUsd: budget,
               percentUsed: 0,
               monthStartedAt: null,
               callsThisMonth: 0,
@@ -67,7 +68,6 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
         }
 
         const row = settings.rows[0];
-        const budget = parseFloat(row.monthly_budget_usd) || DEFAULT_MONTHLY_BUDGET;
         const spent = parseFloat(row.current_month_spend_usd) || 0;
         const percentUsed = budget > 0 ? spent / budget : 0;
 

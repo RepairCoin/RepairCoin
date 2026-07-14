@@ -15,6 +15,16 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
 
 export const DEFAULT_TIER: SubscriptionTier = 'business';
 
+// Monthly AI-usage allowance (raw AI cost, USD) INCLUDED per tier — the unit
+// ai_shop_settings.current_month_spend_usd measures. Pricing sheet: $10 / $30 / $75.
+// The AI budget is a pure function of the tier (never hand-set by an admin); the
+// enforcer computes it from the shop's current tier at read time.
+export const AI_TIER_ALLOWANCE: Record<SubscriptionTier, number> = {
+  starter: 10,
+  growth: 30,
+  business: 75,
+};
+
 export const LEGACY_MONTHLY_AMOUNT = 500;
 
 export const TRIAL_PERIOD_DAYS = 14;

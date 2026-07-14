@@ -1,93 +1,92 @@
 // backend/tests/ai-agent/SpendCapEnforcer.test.ts
 //
-// Tests the spend cap pre-flight check + recordSpend increment + month rollover.
-// Mocks the pg Pool so no DB hits.
+// Spend cap: the monthly budget is a PURE FUNCTION of the shop's tier ($10/$30/$75), computed via
+// getShopTier (mocked here); 70% → Haiku; 100% → SOFT LANDING (still allowed, limitReached + Haiku),
+// never a hard block. recordSpend increment unchanged. Mocks the pg Pool + getShopTier so no DB hits.
+
+jest.mock("../../src/utils/shopTier", () => ({ getShopTier: jest.fn() }));
 
 import { SpendCapEnforcer } from "../../src/domains/AIAgentDomain/services/SpendCapEnforcer";
+import { getShopTier } from "../../src/utils/shopTier";
+
+const mockedGetShopTier = getShopTier as jest.Mock;
 
 function mockPool(rows: any[] = []) {
   const queryMock = jest.fn().mockImplementation((sql: string) => {
-    if (sql.includes("SELECT monthly_budget_usd")) {
-      return Promise.resolve({ rows });
-    }
-    // UPDATE statements (recordSpend, maybeRolloverMonth)
-    return Promise.resolve({ rowCount: rows.length });
+    if (sql.includes("SELECT current_month_spend_usd")) return Promise.resolve({ rows });
+    return Promise.resolve({ rowCount: rows.length }); // UPDATE / INSERT (rollover, provision, recordSpend)
   });
   return { query: queryMock } as any;
 }
 
-describe("SpendCapEnforcer.canSpend", () => {
-  it("allows against the default budget when shop has no row (lazy-provisions)", async () => {
-    // A brand-new shop with no ai_shop_settings row is no longer hard-blocked:
-    // canSpend lazily provisions a default row and allows the call against the
-    // DEFAULT $20 budget (blocking here broke first-run AI / Branding Studio).
+const spend = (v: string) => [{ current_month_spend_usd: v }];
+
+beforeEach(() => mockedGetShopTier.mockResolvedValue("growth")); // $30 default; override per test
+
+describe("SpendCapEnforcer.canSpend — budget follows the tier", () => {
+  it.each([
+    ["starter", 10],
+    ["growth", 30],
+    ["business", 75],
+  ])("budget for %s = $%d (computed from the tier, not a stored value)", async (tier, budget) => {
+    mockedGetShopTier.mockResolvedValueOnce(tier);
+    const enforcer = new SpendCapEnforcer(mockPool(spend("0.00")));
+    const r = await enforcer.canSpend("shop");
+    expect(r.monthlyBudgetUsd).toBe(budget);
+    expect(r.allowed).toBe(true);
+  });
+
+  it("fails closed to starter/$10 when tier resolution errors", async () => {
+    mockedGetShopTier.mockRejectedValueOnce(new Error("db down"));
+    const enforcer = new SpendCapEnforcer(mockPool(spend("0.00")));
+    expect((await enforcer.canSpend("shop")).monthlyBudgetUsd).toBe(10);
+  });
+
+  it("allows against the tier budget when the shop has no settings row (lazy-provisions)", async () => {
+    mockedGetShopTier.mockResolvedValueOnce("business");
     const enforcer = new SpendCapEnforcer(mockPool([]));
-    const result = await enforcer.canSpend("missing_shop");
-    expect(result.allowed).toBe(true);
-    expect(result.useCheaperModel).toBe(false);
-    expect(result.blockReason).toBeUndefined();
-    expect(result.currentSpendUsd).toBe(0);
-    expect(result.monthlyBudgetUsd).toBe(20);
-    expect(result.percentUsed).toBe(0);
+    const r = await enforcer.canSpend("missing_shop");
+    expect(r.allowed).toBe(true);
+    expect(r.useCheaperModel).toBe(false);
+    expect(r.monthlyBudgetUsd).toBe(75);
+    expect(r.currentSpendUsd).toBe(0);
+  });
+});
+
+describe("SpendCapEnforcer.canSpend — thresholds", () => {
+  it("Sonnet below 70% (growth $30, spent $9 = 30%)", async () => {
+    const r = await new SpendCapEnforcer(mockPool(spend("9.00"))).canSpend("s");
+    expect(r.allowed).toBe(true);
+    expect(r.useCheaperModel).toBe(false);
+    expect(r.limitReached).toBeFalsy();
   });
 
-  it("allows + uses Sonnet when spend < 70% of budget", async () => {
-    const enforcer = new SpendCapEnforcer(
-      mockPool([{ monthly_budget_usd: "20.00", current_month_spend_usd: "5.00" }])
-    );
-    const result = await enforcer.canSpend("shop_a");
-    expect(result.allowed).toBe(true);
-    expect(result.useCheaperModel).toBe(false);
-    expect(result.percentUsed).toBeCloseTo(0.25, 2);
+  it("switches to Haiku at exactly 70% (growth $30, spent $21)", async () => {
+    const r = await new SpendCapEnforcer(mockPool(spend("21.00"))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true);
+    expect(r.limitReached).toBeFalsy();
   });
 
-  it("allows + switches to Haiku at exactly 70% of budget", async () => {
-    const enforcer = new SpendCapEnforcer(
-      mockPool([{ monthly_budget_usd: "20.00", current_month_spend_usd: "14.00" }])
-    );
-    const result = await enforcer.canSpend("shop_b");
-    expect(result.allowed).toBe(true);
-    expect(result.useCheaperModel).toBe(true);
-    expect(result.percentUsed).toBeCloseTo(0.7, 2);
+  it("SOFT LANDING at 100% — still allowed, Haiku-only, limitReached (no hard block)", async () => {
+    const r = await new SpendCapEnforcer(mockPool(spend("30.00"))).canSpend("s");
+    expect(r.allowed).toBe(true);
+    expect(r.useCheaperModel).toBe(true);
+    expect(r.limitReached).toBe(true);
   });
 
-  it("allows + switches to Haiku above 70% (e.g., 85%)", async () => {
-    const enforcer = new SpendCapEnforcer(
-      mockPool([{ monthly_budget_usd: "20.00", current_month_spend_usd: "17.00" }])
-    );
-    const result = await enforcer.canSpend("shop_c");
-    expect(result.allowed).toBe(true);
-    expect(result.useCheaperModel).toBe(true);
-  });
-
-  it("blocks at exactly 100% of budget", async () => {
-    const enforcer = new SpendCapEnforcer(
-      mockPool([{ monthly_budget_usd: "20.00", current_month_spend_usd: "20.00" }])
-    );
-    const result = await enforcer.canSpend("shop_d");
-    expect(result.allowed).toBe(false);
-    expect(result.blockReason).toBe("monthly_budget_exceeded");
-  });
-
-  it("blocks when over budget", async () => {
-    const enforcer = new SpendCapEnforcer(
-      mockPool([{ monthly_budget_usd: "20.00", current_month_spend_usd: "25.50" }])
-    );
-    const result = await enforcer.canSpend("shop_e");
-    expect(result.allowed).toBe(false);
+  it("SOFT LANDING when over budget too (spent $40 on $30)", async () => {
+    const r = await new SpendCapEnforcer(mockPool(spend("40.00"))).canSpend("s");
+    expect(r.allowed).toBe(true);
+    expect(r.limitReached).toBe(true);
   });
 });
 
 describe("SpendCapEnforcer.recordSpend", () => {
   it("issues an UPDATE with the cost amount", async () => {
-    const pool = mockPool([{ monthly_budget_usd: "20.00", current_month_spend_usd: "5.00" }]);
-    const enforcer = new SpendCapEnforcer(pool);
-    await enforcer.recordSpend("shop_a", 0.0234);
-
-    // Look for an UPDATE call (not the SELECT or rollover)
-    const updateCall = pool.query.mock.calls.find((c: any) =>
-      c[0].includes("UPDATE ai_shop_settings") &&
-      c[0].includes("current_month_spend_usd = current_month_spend_usd +")
+    const pool = mockPool(spend("5.00"));
+    await new SpendCapEnforcer(pool).recordSpend("shop_a", 0.0234);
+    const updateCall = pool.query.mock.calls.find(
+      (c: any) => c[0].includes("UPDATE ai_shop_settings") && c[0].includes("current_month_spend_usd = current_month_spend_usd +")
     );
     expect(updateCall).toBeDefined();
     expect(updateCall![1]).toEqual([0.0234, "shop_a"]);
@@ -98,23 +97,14 @@ describe("SpendCapEnforcer.recordSpend", () => {
     const enforcer = new SpendCapEnforcer(pool);
     await enforcer.recordSpend("shop_x", 0);
     await enforcer.recordSpend("shop_x", -0.5);
-
-    // No update issued
-    const updateCalls = pool.query.mock.calls.filter((c: any) =>
-      c[0].includes("UPDATE ai_shop_settings") &&
-      c[0].includes("current_month_spend_usd +")
+    const updates = pool.query.mock.calls.filter(
+      (c: any) => c[0].includes("UPDATE ai_shop_settings") && c[0].includes("current_month_spend_usd +")
     );
-    expect(updateCalls).toHaveLength(0);
+    expect(updates).toHaveLength(0);
   });
 
-  it("swallows DB errors gracefully (returns void)", async () => {
-    const pool = {
-      query: jest
-        .fn()
-        .mockResolvedValueOnce({ rowCount: 0 }) // maybeRolloverMonth (called inside canSpend, but we're calling recordSpend here)
-        .mockRejectedValueOnce(new Error("connection lost")),
-    } as any;
-    const enforcer = new SpendCapEnforcer(pool);
-    await expect(enforcer.recordSpend("shop_x", 1.5)).resolves.toBeUndefined();
+  it("swallows DB errors gracefully", async () => {
+    const pool = { query: jest.fn().mockRejectedValue(new Error("connection lost")) } as any;
+    await expect(new SpendCapEnforcer(pool).recordSpend("shop_x", 1.5)).resolves.toBeUndefined();
   });
 });

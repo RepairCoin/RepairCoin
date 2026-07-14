@@ -13,6 +13,7 @@
 import { Pool } from "pg";
 import { logger } from "../../../utils/logger";
 import { getSharedPool } from "../../../utils/database-pool";
+import { shopHasFeature } from "../../../utils/shopTier";
 import {
   OpenAIImageClient,
   openAIImageClient,
@@ -149,6 +150,11 @@ export class ImageGenerationService {
       );
       if (!r.rows[0]?.ai_images_enabled) {
         return { ok: false, status: 403, error: "AI image generation isn't enabled for this shop yet." };
+      }
+      // WS2 tier entitlement — AI Image Generation is a Growth+ feature. A stale "enabled" flag on a
+      // below-tier shop can't bypass it.
+      if (!(await shopHasFeature(shopId, "aiImageGen"))) {
+        return { ok: false, status: 403, error: "AI image generation is available on the Growth plan and above — upgrade to use it." };
       }
     } catch (err) {
       logger.error("ImageGenerationService: kill-switch read failed", err);

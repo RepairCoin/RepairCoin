@@ -265,6 +265,13 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
             detail ||
             "We couldn't process that question. Try rephrasing it.";
           break;
+        case 403:
+          // WS2 tier lock — Insights is a Growth+ feature. Normally the panel
+          // is gated at the launcher and never mounts below tier; this is the
+          // stale-cache fallback so the raw guard message doesn't leak through.
+          msg =
+            "Business Insights is available on the Growth plan and above. Upgrade to ask about your shop's data.";
+          break;
         case 429:
           msg =
             detail ||
