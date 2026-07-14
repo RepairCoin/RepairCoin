@@ -27,7 +27,9 @@
 import { Request, Response } from "express";
 import { Pool } from "pg";
 import { getSharedPool } from "../../../utils/database-pool";
-import { getShopAiBudget } from "../../../utils/shopTier";
+import { getShopTier, getShopAiBudget } from "../../../utils/shopTier";
+import { AI_TIER_ALLOWANCE, SubscriptionTier } from "../../../config/subscriptionPlans";
+import { tierAllowsFeature, getRequiredTier } from "../../../config/featureTiers";
 import { logger } from "../../../utils/logger";
 
 const DEFAULT_ESCALATION_THRESHOLD = 5;
@@ -158,6 +160,8 @@ export function validateShopAiSettingsUpdate(body: any): ValidationResult {
 export interface AdminShopAiSettings extends ShopAiSettings {
   shopId: string;
   shopName: string;
+  /** The shop's plan tier — the UI uses it to lock feature toggles the tier doesn't include (WS2). */
+  tier: SubscriptionTier;
 }
 
 /** The admin-editable gate fields. All optional — a partial update.
@@ -292,6 +296,7 @@ const ADMIN_SELECT = `
   LEFT JOIN shops sh ON sh.shop_id = s.shop_id`;
 
 async function mapAdminRow(row: any): Promise<AdminShopAiSettings> {
+  const tier = await getShopTier(row.shop_id);
   return {
     shopId: row.shop_id,
     shopName: row.shop_name ?? row.shop_id,
@@ -299,8 +304,9 @@ async function mapAdminRow(row: any): Promise<AdminShopAiSettings> {
     aiFollowupEnabled: row.ai_followup_enabled === true,
     aiImagesEnabled: row.ai_images_enabled === true,
     campaignRewardsEnabled: row.campaign_rewards_enabled === true,
-    // Tier-derived budget (read-only) — the stored monthly_budget_usd is inert.
-    monthlyBudgetUsd: await getShopAiBudget(row.shop_id),
+    // Tier + tier-derived budget (both read-only). One tier lookup; budget = AI_TIER_ALLOWANCE[tier].
+    tier,
+    monthlyBudgetUsd: AI_TIER_ALLOWANCE[tier],
     currentMonthSpendUsd: parseFloat(row.current_month_spend_usd) || 0,
     escalationThreshold: row.escalation_threshold ?? DEFAULT_ESCALATION_THRESHOLD,
     aiFollowupDelayMinutes:
@@ -416,6 +422,25 @@ export function makeSettingsControllers(deps: SettingsControllerDeps = {}) {
         if (!validation.ok || !validation.value) {
           res.status(400).json({ success: false, error: validation.error });
           return;
+        }
+
+        // WS2 — a gated feature can't be ENABLED for a shop whose tier doesn't include it. Availability
+        // is governed by the plan, not the admin (the UI also locks these toggles below tier).
+        const tier = await getShopTier(shopId);
+        const GATED: Record<string, string> = {
+          aiFollowupEnabled: "aiLeadFollowUp",
+          aiImagesEnabled: "aiImageGen",
+          campaignRewardsEnabled: "campaignRewards",
+        }; // aiGlobalEnabled (master AI on/off) is Starter+ — intentionally not gated.
+        for (const [field, feature] of Object.entries(GATED)) {
+          if ((validation.value as any)[field] === true && !tierAllowsFeature(tier, feature)) {
+            res.status(403).json({
+              success: false,
+              error: `That feature isn't included in this shop's plan (${tier}). Upgrade the plan to enable it.`,
+              details: { field, requiredTier: getRequiredTier(feature), currentTier: tier },
+            });
+            return;
+          }
         }
 
         // Partial upsert — only the provided gate fields are written; any

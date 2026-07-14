@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Bot, Loader2, AlertCircle, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import { Switch } from "@/components/ui/switch";
+import { tierAllowsFeature, getRequiredTier } from "@/config/featureTiers";
 import {
   AdminShopAiSettings,
   AdminShopAiSettingsUpdate,
@@ -176,6 +177,39 @@ interface ShopAIRowProps {
   onUpdate: (shopId: string, patch: AdminShopAiSettingsUpdate) => void;
 }
 
+// A per-shop feature toggle that's LOCKED when the shop's plan tier doesn't include the feature (WS2).
+// Availability comes from the tier, not the admin — a below-tier toggle is disabled + shows "Growth+".
+const FeatureSwitch: React.FC<{
+  shop: AdminShopAiSettings;
+  feature: string;
+  checked: boolean;
+  saving: boolean;
+  requireAiOn?: boolean;
+  onChange: (v: boolean) => void;
+}> = ({ shop, feature, checked, saving, requireAiOn, onChange }) => {
+  const allowed = tierAllowsFeature(shop.tier, feature);
+  const req = getRequiredTier(feature);
+  const needAiFirst = !!requireAiOn && !shop.aiGlobalEnabled;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Switch
+        checked={allowed && checked}
+        disabled={saving || !allowed || needAiFirst}
+        onCheckedChange={onChange}
+        className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00] disabled:opacity-50"
+      />
+      {!allowed && req && (
+        <span className="text-[11px] text-[#FFCC00]/70">
+          {req.charAt(0).toUpperCase() + req.slice(1)}+
+        </span>
+      )}
+      {allowed && needAiFirst && (
+        <span className="text-[11px] text-gray-600">Enable AI first</span>
+      )}
+    </div>
+  );
+};
+
 const ShopAIRow: React.FC<ShopAIRowProps> = ({ shop, saving, onUpdate }) => {
   // The monthly AI budget is READ-ONLY — it's a pure function of the shop's plan tier
   // ($10/$30/$75), not admin-set. Shown here for monitoring only.
@@ -194,34 +228,31 @@ const ShopAIRow: React.FC<ShopAIRowProps> = ({ shop, saving, onUpdate }) => {
         />
       </td>
       <td className="px-4 py-3">
-        <div className="flex flex-col gap-0.5">
-          <Switch
-            checked={shop.aiFollowupEnabled}
-            disabled={saving || !shop.aiGlobalEnabled}
-            onCheckedChange={(v) =>
-              onUpdate(shop.shopId, { aiFollowupEnabled: v })
-            }
-            className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00]"
-          />
-          {!shop.aiGlobalEnabled && (
-            <span className="text-[11px] text-gray-600">Enable AI first</span>
-          )}
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        <Switch
-          checked={shop.aiImagesEnabled}
-          disabled={saving}
-          onCheckedChange={(v) => onUpdate(shop.shopId, { aiImagesEnabled: v })}
-          className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00]"
+        <FeatureSwitch
+          shop={shop}
+          feature="aiLeadFollowUp"
+          checked={shop.aiFollowupEnabled}
+          saving={saving}
+          requireAiOn
+          onChange={(v) => onUpdate(shop.shopId, { aiFollowupEnabled: v })}
         />
       </td>
       <td className="px-4 py-3">
-        <Switch
+        <FeatureSwitch
+          shop={shop}
+          feature="aiImageGen"
+          checked={shop.aiImagesEnabled}
+          saving={saving}
+          onChange={(v) => onUpdate(shop.shopId, { aiImagesEnabled: v })}
+        />
+      </td>
+      <td className="px-4 py-3">
+        <FeatureSwitch
+          shop={shop}
+          feature="campaignRewards"
           checked={shop.campaignRewardsEnabled}
-          disabled={saving}
-          onCheckedChange={(v) => onUpdate(shop.shopId, { campaignRewardsEnabled: v })}
-          className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00]"
+          saving={saving}
+          onChange={(v) => onUpdate(shop.shopId, { campaignRewardsEnabled: v })}
         />
       </td>
       <td className="px-4 py-3">

@@ -5,6 +5,10 @@
 // outcomes, idempotent retry). The actual RCN issuance (RewardIssuanceService) is
 // mocked — these tests assert HOW the service decides/records, not the on-chain mint.
 
+// WS2 tier gate: Campaign Rewards is Growth+. Mock the entitlement to allowed so these behavior tests
+// aren't blocked by tier resolution (the gate itself is covered in SettingsController/featureTiers).
+jest.mock("../../src/utils/shopTier", () => ({ shopHasFeature: jest.fn().mockResolvedValue(true) }));
+
 // Mock the injected dependencies. (Vars must be `mock`-prefixed to be referenced
 // inside jest.mock factories.)
 const mockIssueExact = jest.fn();

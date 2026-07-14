@@ -122,3 +122,28 @@ Cumulative: each row = the MINIMUM tier. `[all]` = ungated (Starter+).
 ## Rollout
 - No migration. Flag-safe. Trial shops (=business) keep full access. Verify against the staging tier
   distribution (40 starter / 19 business / 0 growth) — seed a growth shop for QA.
+
+---
+
+## Built 2026-07-14 — WS2 Slice 1 (matrix + AI-toggle entitlement + admin UI)
+
+- **T2.1 — matrix expanded** (BE `config/featureTiers.ts` + FE mirror): aiImageGen/aiLeadFollowUp/
+  campaignRewards/voiceAiAssistant/aiMarketingSuite/aiInsights = growth; aiMemory/aiAutoReplies/
+  aiCampaignsAdvanced/advancedInventory = business. AI Sales Agent (ai_global_enabled) intentionally
+  ungated (Starter+).
+- **T2.2 — real entitlement enforcement** at the 3 actual gate points (a stale per-shop "enabled" flag
+  can't bypass tier): `shopHasFeature(shopId, feature)` helper in `utils/shopTier.ts`, applied in
+  `ImageGenerationService.checkGates` (aiImageGen), `AISalesFollowUpHandler` (aiLeadFollowUp),
+  `CampaignRewardService.isEnabled` (campaignRewards). Plus **admin write-side reject** —
+  `adminUpdateShopAiSettings` returns 403 when enabling a below-tier toggle.
+- **T2.3 (admin tab)** — the AdminAISettingsTab toggles are now tier-aware: `<FeatureSwitch>` disables +
+  shows "Growth+" when the shop's plan doesn't include the feature; the admin response now carries `tier`.
+- Tests: `config/featureTiers.test.ts` (matrix + cumulative), SettingsController WS2 reject/allow +
+  `tier` field; AISalesFollowUp + CampaignReward tests mock `shopHasFeature`. 107/107, tsc clean.
+
+## Remaining — WS2 Slice 2 (tab-level route gating)
+- **T2.2 continued:** a generic `featureGuard(feature)` middleware on the gated *tab* ROUTES
+  (inventory, campaigns, advanced reports, voice, team, multi-location…) — today those routes are only
+  UI-gated by `<TierGate>`, reachable via direct API.
+- **T2.3 continued:** wrap remaining shop tabs with `<TierGate>`; sidebar lock badges; shop-side upgrade
+  prompts on locked pages.

@@ -3,6 +3,10 @@
 // Verifies the AI sales follow-up nudge fires (and skips) under the right
 // conditions. The handler is the authoritative gate — every guard tested.
 
+// WS2 tier gate: follow-up is Growth+. Mock the entitlement to allowed so these behavior tests aren't
+// blocked by tier resolution (the gate itself is covered in SettingsController/featureTiers tests).
+jest.mock("../../src/utils/shopTier", () => ({ shopHasFeature: jest.fn().mockResolvedValue(true) }));
+
 import { AISalesFollowUpHandler } from "../../src/domains/AIAgentDomain/services/AISalesFollowUpHandler";
 
 // ----- Time helpers -----

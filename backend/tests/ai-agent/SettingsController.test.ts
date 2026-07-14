@@ -5,13 +5,17 @@
 // behavior fields — gate fields in the body are never trusted. Budget is
 // tier-derived + read-only (getShopAiBudget, mocked to $30 = growth).
 
-jest.mock("../../src/utils/shopTier", () => ({ getShopAiBudget: jest.fn().mockResolvedValue(30) }));
+jest.mock("../../src/utils/shopTier", () => ({
+  getShopAiBudget: jest.fn().mockResolvedValue(30),
+  getShopTier: jest.fn().mockResolvedValue("growth"), // $30 tier; override per test for gating
+}));
 
 import {
   makeSettingsControllers,
   validateShopAiSettingsUpdate,
   validateAdminShopAiSettingsUpdate,
 } from "../../src/domains/AIAgentDomain/controllers/SettingsController";
+import { getShopTier } from "../../src/utils/shopTier";
 
 const makeReq = (opts: { user?: any; body?: any; params?: any } = {}) =>
   ({ user: opts.user ?? {}, body: opts.body, params: opts.params ?? {} } as any);
@@ -356,6 +360,7 @@ describe("SettingsController.listShopAiSettings", () => {
           aiFollowupEnabled: false,
           aiImagesEnabled: false,
           campaignRewardsEnabled: false,
+          tier: "growth",
           monthlyBudgetUsd: 30,
           currentMonthSpendUsd: 9.36,
           escalationThreshold: 5,
@@ -431,6 +436,31 @@ describe("SettingsController.adminUpdateShopAiSettings", () => {
       success: true,
       data: expect.objectContaining({ shopId: "peanut", aiFollowupEnabled: true }),
     });
+  });
+
+  it("WS2: rejects (403) enabling a feature the shop's tier doesn't include — and writes nothing", async () => {
+    (getShopTier as jest.Mock).mockResolvedValueOnce("starter"); // below Growth
+    const pool = makePool([]);
+    const controllers = makeSettingsControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.adminUpdateShopAiSettings(
+      makeReq({ user: { role: "admin" }, params: { shopId: "peanut" }, body: { aiImagesEnabled: true } }),
+      res
+    );
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(pool.query).not.toHaveBeenCalled(); // no upsert
+  });
+
+  it("WS2: allows enabling the Starter+ master AI toggle on any tier", async () => {
+    (getShopTier as jest.Mock).mockResolvedValueOnce("starter");
+    const pool = makePool([[], [{ shop_id: "peanut", shop_name: "P", ai_global_enabled: true, current_month_spend_usd: "0" }]]);
+    const controllers = makeSettingsControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.adminUpdateShopAiSettings(
+      makeReq({ user: { role: "admin" }, params: { shopId: "peanut" }, body: { aiGlobalEnabled: true } }),
+      res
+    );
+    expect(res.status).not.toHaveBeenCalledWith(403);
   });
 
   it("returns 404 when the shop row can't be found after the upsert", async () => {
