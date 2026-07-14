@@ -134,6 +134,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       // RCG governance is blockchain-only; hide the nav link in database-only mode.
       ...(blockchainEnabled ? [{ title: "RCG", href: "/admin?tab=rcg", icon: <Gem className="w-5 h-5" />, tabId: "rcg" }] : []),
       { title: "Promo Codes", href: "/admin?tab=promo-codes", icon: <Tag className="w-5 h-5" />, tabId: "promo-codes" },
+      { title: "Commissions", href: "/admin?tab=commissions", icon: <DollarSign className="w-5 h-5" />, tabId: "commissions" },
 
       section("Growth & Analytics"),
       { title: "Analytics", href: "/admin?tab=analytics", icon: <BarChart3 className="w-5 h-5" />, tabId: "analytics" },
