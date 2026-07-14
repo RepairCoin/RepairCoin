@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../../../middleware/auth';
-import { requireShopPermission } from '../../../middleware/permissions';
+import { requireShopPermission, requireAnyShopPermission } from '../../../middleware/permissions';
 import { requireTier } from '../../../middleware/tierGuard';
 import { shopLocationRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
@@ -11,6 +11,13 @@ const router = Router();
 // location). Adding/removing locations and changing the primary is Business-tier only.
 const guard = [authMiddleware, requireRole(['shop']), requireShopPermission('shop:manage')];
 const guardBusiness = [...guard, requireTier('multiLocation')];
+// Reading the location list is needed both to manage locations (shop:manage) and to pick
+// one when booking (bookings:manage), so staff who can book can list — but not edit — them.
+const readGuard = [
+  authMiddleware,
+  requireRole(['shop']),
+  requireAnyShopPermission(['shop:manage', 'bookings:manage']),
+];
 
 // Coerce a lat/lng-ish value to a finite number or null.
 const toNum = (v: unknown): number | null => {
@@ -27,7 +34,7 @@ const toStr = (v: unknown): string | null => {
 };
 
 // GET /api/shops/locations — list this shop's locations
-router.get('/', guard, async (req: Request, res: Response) => {
+router.get('/', readGuard, async (req: Request, res: Response) => {
   try {
     const locations = await shopLocationRepository.listByShop(req.user!.shopId!);
     res.json({ success: true, data: locations });

@@ -32,6 +32,7 @@ import { WebhookMonitorTab } from "@/components/admin/tabs/WebhookMonitorTab";
 import { RcgManagementTab } from "@/components/admin/tabs/RcgManagementTab";
 import { AnnouncementsTab } from "@/components/admin/tabs/AnnouncementsTab";
 import { ReferralAnalyticsTab } from "@/components/admin/tabs/ReferralAnalyticsTab";
+import { CommissionsAnalyticsTab } from "@/components/admin/tabs/CommissionsAnalyticsTab";
 import ServiceMarketplaceAnalyticsSection from "@/components/admin/ServiceMarketplaceAnalyticsSection";
 import { AffiliateGroupsTab } from "@/components/admin/tabs/AffiliateGroupsTab";
 import { AdminAISettingsTab } from "@/components/admin/tabs/AdminAISettingsTab";
@@ -503,6 +504,12 @@ export default function AdminDashboardClient() {
           {activeTab === "referrals" && hasAdminAccess && (
             <LazyTabWrapper isActive={activeTab === "referrals"}>
               <ReferralAnalyticsTab />
+            </LazyTabWrapper>
+          )}
+
+          {activeTab === "commissions" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "commissions"}>
+              <CommissionsAnalyticsTab />
             </LazyTabWrapper>
           )}
 
