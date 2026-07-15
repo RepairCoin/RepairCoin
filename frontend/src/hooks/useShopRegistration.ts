@@ -166,7 +166,7 @@ export const useShopRegistration = () => {
       );
 
       // Show success message with next steps
-      toast.success("Your application is pending admin approval. Authenticating...", {
+      toast.success("Shop registered! Setting up your dashboard...", {
         duration: 3000,
         icon: "✅",
       });

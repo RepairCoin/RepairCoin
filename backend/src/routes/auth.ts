@@ -1451,9 +1451,9 @@ router.post('/shop', authLimiter, async (req, res) => {
             suspensionReason: shop.suspensionReason
           })
         },
-        // Include warning if shop is not verified/active
-        ...((!shop.active || !shop.verified) && {
-          warning: 'Shop is pending verification. Some features may be limited.',
+        // Include warning if shop has been deactivated by an admin
+        ...(!shop.active && {
+          warning: 'Your shop is inactive. Please contact support.',
           limitedAccess: true
         }),
         // Include note about email-linked login

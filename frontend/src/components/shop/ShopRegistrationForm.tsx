@@ -330,12 +330,11 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
 
           <ul className="space-y-4 mb-6">
             {[
-              "Your shop will need admin verification before activation",
+              "Your shop is active as soon as you register",
               "You'll be able to purchase RCN at $0.10 each",
               "Tier bonuses will be automatically deducted from your RCN Balance",
-              "Cross hop redemption can be enabled after verification",
-              "All transactions are recorded on the blockchain",
-              "You agree to comply with all RepairCoin network policies",
+              "Cross shop redemption can be enabled anytime",
+              "You agree to comply with all FixFlow platform policies",
             ].map((item, index) => (
               <li key={index} className="flex items-start">
                 <svg

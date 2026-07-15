@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RecentActivityTimeline } from './RecentActivityTimeline';
 import { useOverviewData } from '@/hooks/useOverviewData';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
-import { useShopsData } from '@/hooks/useShopsData';
 import { StatCard } from '@/components/ui/StatCard';
 
 interface Transaction {
@@ -44,8 +43,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
   // Fetch overview data only for this tab
   const { stats, loading: statsLoading, error: statsError } = useOverviewData();
   const {  } = useAdminAuth();
-  const { pendingShops } = useShopsData();
-  const pendingShopsCount = pendingShops?.length || 0;
 
   // Memoize filtered transactions
   const filteredTransactions = useMemo(() => 
@@ -165,11 +162,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
           title="Active Shops"
           value={stats?.totalShops || 0}
           icon={<Building2 className="w-6 h-6 text-white" />}
-        />
-        <StatCard
-          title="Pending Application"
-          value={pendingShopsCount || 0}
-          icon={<ClipboardList className="w-6 h-6 text-white" />}
         />
         {/* <MetricCard
           title="Tokens Issued"

@@ -245,9 +245,6 @@ export class TokenOperationsService {
       if (!shop.active) {
         throw new Error('Shop is not active');
       }
-      if (!shop.verified) {
-        throw new Error('Shop is not verified');
-      }
 
       logger.info('Processing RCN sale to shop', {
         shopId: params.shopId,
@@ -457,8 +454,8 @@ export class TokenOperationsService {
 
       const shop = shopQuery.rows[0];
 
-      if (!shop.active || !shop.verified) {
-        throw new Error('Shop must be active and verified to mint tokens');
+      if (!shop.active) {
+        throw new Error('Shop must be active to mint tokens');
       }
 
       // Get purchases to mint with row locks to prevent concurrent minting
