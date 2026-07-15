@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 14, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+    --amber: #b45309; --amber-bg: #fef3e2; --red: #b91c1c; --red-bg: #fdecec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-done { background: var(--green-bg); color: #14753b; }
+  .tag-verify { background: #e4eeff; color: #1d4ed8; }
+  .tag-note { background: var(--amber-bg); color: var(--amber); }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; }
+  .flow .step { background: #f4f6fb; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 600; color: #2b3142; }
+  .flow .arrow { color: var(--muted); font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  td .warn { color: var(--amber); font-weight: 700; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.amber { background: var(--amber-bg); border: 1px solid #f6d9a8; }
+  .callout.green strong { color: #14753b; }
+  .callout.amber strong { color: var(--amber); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Core Loop Verified in Database-Only Mode</h1>
+    <p class="sub">Traced booking → completion → RCN reward → redemption end-to-end with blockchain off — the whole loop credits and debits correctly without the chain.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 14, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Verified — no code changes needed</span></span>
+      <span class="meta-pill"><strong>Focus:</strong>&nbsp; Go-live checklist §4 (core loop)</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      Yesterday's blockchain-hiding raised a real risk: with wallet UI gone, does the customer still <em>earn</em> and
+      <em>redeem</em> RCN? Today I traced the full core loop through the backend and confirmed it does. Reward accrual
+      and redemption both run on the database balance and never depend on the chain, so hiding the wallet changed
+      nothing about the money/points path. I also confirmed the new staff-commissions merge hooks into completion
+      without touching rewards. Two behavioural notes for the barbershop launch are flagged below — neither is a bug.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> The core loop, traced <span class="tag tag-verify">VERIFIED</span></h2>
+    <div class="flow">
+      <span class="step">Book + pay (Stripe)</span>
+      <span class="arrow">→</span>
+      <span class="step">Shop completes</span>
+      <span class="arrow">→</span>
+      <span class="step">RCN earned (DB)</span>
+      <span class="arrow">→</span>
+      <span class="step">"My Rewards" balance</span>
+      <span class="arrow">→</span>
+      <span class="step">Redeem at shop (DB)</span>
+    </div>
+    <ul>
+      <li><strong>Earning:</strong> completing an order emits <code class="inline">service.order_completed</code>, which the
+          token domain turns into an RCN reward. The reward path computes tokens ($100+ → 25 RCN, $50–99 → 10 RCN),
+          returns success, and <strong>credits the customer's database balance</strong> — the on-chain mint only ever ran
+          via the explicit "Mint to Wallet" button, which is now hidden. So earning behaves identically with blockchain
+          on or off.</li>
+      <li><strong>Balance display:</strong> the customer balance is derived from the transactions table, so the credited
+          reward shows up in the "My Rewards" card with no wallet involved.</li>
+      <li><strong>Redemption:</strong> with blockchain off, redemption takes the pure-database path — the full amount is
+          deducted by recording a <code class="inline">redeem</code> transaction, and approval trusts the authenticated
+          JWT session instead of a wallet signature. Balance debits correctly; no chain call in the path.</li>
+    </ul>
+    <div class="callout green">
+      <strong>Result:</strong> the entire earn-and-redeem loop is database-native. Hiding the wallet UI removed nothing
+      the customer needs to earn or spend RCN.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">✓</span> Staff-commissions merge — no regression <span class="tag tag-verify">VERIFIED</span></h2>
+    <p>
+      Yesterday's pull added staff commissions on the same completion path, so I checked it can't break rewards.
+      Commission accrual runs <strong>inside the completion transaction</strong>, is <strong>idempotent</strong>
+      (one row per order, <code class="inline">ON CONFLICT (order_id) DO NOTHING</code>), only fires when the shop has
+      commissions enabled and the performing member is active, and is <strong>completely independent of RCN reward
+      issuance</strong> (rewards run async via the event bus). No interference in either direction.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">!</span> Launch notes (behaviour, not bugs) <span class="tag tag-note">FLAG</span></h2>
+    <ul>
+      <li><strong>$50 minimum to earn RCN:</strong> services under $50 earn <strong>0 RCN</strong> by the current business
+          rule. Worth confirming against barbershop pricing — a sub-$50 haircut would give the customer no reward.</li>
+      <li><strong>Async reward timing:</strong> rewards mint on an event-bus handler after completion; the completion
+          response waits ~2 seconds before reading back <code class="inline">rcnEarned</code>. It works, but the earned
+          amount is eventually-consistent — the shop UI should not assume it's instant.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Go-Live checklist — running status</h2>
+    <table>
+      <thead><tr><th>§</th><th>Item</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>Config / env sanity</td><td><span class="ok">✓ Verified (Jul 13)</span></td></tr>
+        <tr><td>1</td><td>Blockchain/wallet hidden — all surfaces</td><td><span class="ok">✓ Fixed (Jul 13)</span></td></tr>
+        <tr><td>3</td><td>Trial + billing config</td><td><span class="ok">✓ Verified (Jul 13)</span></td></tr>
+        <tr><td>4</td><td>Core loop — earn + redeem in DB-only mode</td><td><span class="ok">✓ Verified (today)</span></td></tr>
+        <tr><td>3</td><td>Stripe tier price IDs + live keys in prod</td><td><span class="warn">⚠ Ops hand-off</span></td></tr>
+        <tr><td>5</td><td>Referrals end-to-end</td><td>Next</td></tr>
+        <tr><td>7</td><td>Admin tools spot-check</td><td>Next</td></tr>
+        <tr><td>9</td><td>Responsive QA (mobile / tablet / desktop)</td><td>Next</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>
+      The scariest launch question — "did hiding the wallet quietly break earning or redeeming?" — is answered: no.
+      The core loop is fully database-native and the commissions merge sits cleanly beside it. No code changes were
+      needed today; the output is the verification itself plus two pricing/timing notes for product to confirm. Next
+      up on the checklist: referrals, an admin spot-check, and responsive QA.
+    </p>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 14, 2026</footer>
+</div>
+</body>
+</html>

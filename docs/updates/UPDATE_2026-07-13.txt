@@ -1,0 +1,111 @@
+RepairCoin — Engineering Update
+Go-Live Verification & Blockchain-Leak Cleanup
+Date: July 13, 2026
+Status: Delivered & Pushed to main
+Focus: Go-live checklist §0 / §1 / §3
+
+
+SUMMARY
+-------
+Pulled the latest main and executed the go-live checklist against the running
+app — config sanity, the "blockchain hidden" launch requirement, and the trial
++ billing flow. The config wiring and shop surface held up clean, but the audit
+surfaced a set of leftover blockchain leaks (admin RCG/Treasury, two customer QR
+headings, and stray public-page wording) that the July 9 pass didn't reach. All
+are now fixed, type-checked, and pushed. Two production billing blockers were
+identified and handed off.
+
+
+§0  CONFIG SANITY — VERIFIED
+----------------------------
+Booted the backend against the live database and confirmed the launch config
+end-to-end:
+  - GET /api/config returns { blockchainEnabled: false } — verified live, not
+    just in source.
+  - The frontend config context fails closed: it defaults to blockchain-hidden
+    and stays hidden if the config call ever errors, so nothing crypto can flash
+    on a slow network.
+  - Wallet login is confirmed independent of the flag — Thirdweb connect renders
+    unconditionally, exactly as intended (we keep login, hide everything else
+    blockchain).
+  - ANTHROPIC / OPENAI keys present; Stripe keys present (test locally — prod
+    needs live keys, see blockers).
+
+
+§1  BLOCKCHAIN HIDDEN — LEAK AUDIT & FIXES — FIXED
+--------------------------------------------------
+Audited every user-facing surface for wallet/blockchain/token UI that could
+still render with the flag off. The shop surface was already fully gated
+(Wallet & Payouts, staking, RCG, mint, crypto pay — all correctly hidden). The
+following leaks were found and closed:
+
+  - Admin (largest gap): the RCG nav link + tab still rendered, and inside
+    Treasury the Stakers (10%) / DAO (10%) revenue-share cards and the RCG
+    Metrics sub-tab were ungated. Now all gated behind the blockchain flag; the
+    legitimate RCN-sales, pricing and analytics content in Treasury stays
+    visible.
+  - Customer: two QR modal headings were hardcoded "Wallet Address QR Code" —
+    now use the shared label and read "RepairCoin ID QR Code" (redemption +
+    settings).
+  - Public / legal: dropped leftover blockchain/crypto/staking wording from the
+    privacy policy, delete-account page, the sign-in "choose" page, the
+    team-invite page, the tier explainer, and the public shop tier cards.
+
+  Reversible: the admin and customer fixes are behind ENABLE_BLOCKCHAIN_MINTING
+  and restore automatically when the flag flips back on; the public copy is
+  neutral in both modes.
+
+
+§3  TRIAL + BILLING — VERIFIED (2 BLOCKERS)
+-------------------------------------------
+Traced the tier/trial/checkout flow across frontend and backend:
+  - Prices match front-to-back — Starter $80 / Growth $299 / Business $599,
+    14-day trial constant, and the plan-comparison UI is wired into the working
+    checkout. OK
+  - Blocker 1 — Stripe tier price IDs: STRIPE_PRICE_STARTER / _GROWTH / _BUSINESS
+    are not set; checkout silently falls back to the single legacy price, so all
+    three tiers would bill the same amount. Create the three prices in Stripe and
+    set them in prod env.
+  - Blocker 2 — Live Stripe keys: production must use live keys + webhook secret
+    (local is test mode).
+
+
+GO-LIVE CHECKLIST — VERIFICATION STATUS
+---------------------------------------
+  §0  Config / env sanity (blockchainEnabled:false, keys, wallet login kept)  ✓ Verified
+  §1  Blockchain/wallet hidden — shop surface                                 ✓ Clean
+  §1  Blockchain/wallet hidden — admin / customer / public                    ✓ Fixed & pushed
+  §3  Trial + plan pricing config                                             ✓ Verified
+  §3  Stripe tier price IDs in prod                                           ✗ Blocker — hand-off
+  §3  Live Stripe keys in prod                                                ⚠ Deploy step
+
+  Verification: 11 files changed across the leak fixes; 0 new type errors in any
+  modified file (checked with tsc --noEmit). Shipped as one focused commit on
+  main (3aa70e67).
+
+
+ALSO LANDED ON MAIN (OTHER TRACKS)
+----------------------------------
+Today's pull brought in teammates' work — reviewed for overlap with the launch
+loop, no conflicts with the Web/UI changes:
+  - Ads / AI: Twilio SMS integration + inbound webhook, channel-aware AI
+    first-contact, Facebook lead attribution.
+  - Shop: staff commissions (accrual, config, reporting) and team-member
+    identity persistence across token refresh.
+  - Fixes: imported customers now visible across shop surfaces; manual-booking
+    branch selection.
+  - Mobile: subscription tier selection + plan change without cancelling; Play
+    Store demo mode.
+
+
+BOTTOM LINE
+-----------
+The launch config is verified live and the "blockchain invisible" requirement
+now genuinely holds across every surface — the admin RCG/Treasury and
+public-page leaks that slipped past the first pass are closed and reversible.
+Billing logic is sound; the only remaining launch gate on this lane is the two
+Stripe production settings, which are ops/env work handed off to be set before
+go-live.
+
+
+RepairCoin · Engineering Update · July 13, 2026

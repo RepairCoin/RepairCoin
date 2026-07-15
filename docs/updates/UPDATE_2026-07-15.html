@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 15, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+    --amber: #b45309; --amber-bg: #fef3e2; --red: #b91c1c; --red-bg: #fdecec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-done { background: var(--green-bg); color: #14753b; }
+  .tag-verify { background: #e4eeff; color: #1d4ed8; }
+  .tag-note { background: var(--amber-bg); color: var(--amber); }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  td .warn { color: var(--amber); font-weight: 700; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.amber { background: var(--amber-bg); border: 1px solid #f6d9a8; }
+  .callout.green strong { color: #14753b; }
+  .callout.amber strong { color: var(--amber); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Onboarding, Referrals &amp; Admin — Verified for Launch</h1>
+    <p class="sub">Three more checklist sections traced in database-only mode: new users onboard, referrals pay out, and every admin tool loads clean.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 15, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Verified · 2 leaks fixed</span></span>
+      <span class="meta-pill"><strong>Focus:</strong>&nbsp; Go-live checklist §2 / §5 / §7</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      Cleared three more go-live sections ahead of the launch. New shops and customers can register and reach their
+      dashboards on wallet-login + profile alone — no blockchain step blocks anyone. Referral payouts (25 / 10 RCN)
+      credit the database balance with no chain dependency. All five recently-built admin tools load without crashing
+      and leak no blockchain content. Two cosmetic wording leaks on the shop registration form were found and fixed;
+      a couple of behaviour notes are flagged for the launch tester.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Onboarding <span class="tag tag-verify">VERIFIED</span> <span class="tag tag-done">2 LEAKS FIXED</span></h2>
+    <p>Traced shop and customer registration end-to-end, frontend and backend:</p>
+    <ul>
+      <li><strong>Shop:</strong> registration gates on wallet <em>login</em> + profile fields only. The backend creates a
+          plain shop record (pending admin verification) with no mint/staking/RCG step, and redirects to the dashboard.
+          The post-registration OnboardingModal's RCG option is correctly gated off; the subscription prompt is a
+          business gate, not a blockchain one.</li>
+      <li><strong>Customer:</strong> registration completes on login + name/email, referral code optional. Pure DB write,
+          no on-chain dependency; referral processing is wrapped so it can't fail the signup.</li>
+      <li><strong>Fixed:</strong> two leftover blockchain phrasings on the shop form — the "Wallet Information" section
+          heading (→ "Account Information"), the "<code class="inline">0x…</code>" reimbursement placeholder (→ "Defaults
+          to your connected account"), and the terms line "All transactions are recorded on the blockchain" (→ "securely
+          recorded for your records").</li>
+    </ul>
+    <div class="callout amber">
+      <strong>Flag for product (not blockchain):</strong> if a customer signs up with an <em>invalid</em> referral code
+      in the link (<code class="inline">?ref=</code>), registration is rejected. A malformed or stale share link would
+      block that one signup — worth confirming how referral links are generated before launch.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Referrals <span class="tag tag-verify">VERIFIED</span></h2>
+    <ul>
+      <li>Referrer earns <strong>25 RCN</strong>, referee earns <strong>10 RCN</strong>, both credited straight to the
+          database balance via a plain SQL update — transactions are recorded <code class="inline">balanceOnly</code>
+          with no blockchain call. No on-chain requirement anywhere in the path.</li>
+      <li>The referral dashboard reads DB stats (total / successful / pending / earned) — no wallet involved.</li>
+    </ul>
+    <div class="callout amber">
+      <strong>Timing note:</strong> payout fires on the referee's <strong>first completed repair</strong>, not at
+      registration. Right after a referee signs up, the dashboard correctly shows the referral as <em>pending</em> with
+      0 earned; the 25 / 10 RCN land once they complete one qualifying service. The launch tester must complete a repair
+      to see balances move.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span> Admin tools <span class="tag tag-verify">VERIFIED</span></h2>
+    <p>Spot-checked the five recently built/fixed tools for crashes and leaks — all clean:</p>
+    <ul>
+      <li><strong>Audit Log</strong> — null-safe on action/entity/timestamp; the earlier crash on empty rows is confirmed fixed.</li>
+      <li><strong>Revenue Analytics</strong> — NaN-safe formatting; Stakers/DAO split and staker projections gated off.</li>
+      <li><strong>Webhook Monitor</strong> — the false "degraded" fix holds; an empty webhook table at launch reports healthy.</li>
+      <li><strong>Announcements</strong> — composer renders, recipient counts null-safe.</li>
+      <li><strong>Pending shops</strong> — list + Approve / Review / Reject actions all present.</li>
+    </ul>
+    <div class="callout green">
+      <strong>Note:</strong> two internal filter dropdowns still list <code class="inline">contract</code> (Audit Log)
+      and <code class="inline">thirdweb</code> (Webhook source) as options. They only filter historical log rows and show
+      no blockchain <em>data</em> — left as-is so existing logs stay filterable.
+    </div>
+  </section>
+
+  <section>
+    <h2>Go-Live checklist — running status</h2>
+    <table>
+      <thead><tr><th>§</th><th>Item</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>Config / env sanity</td><td><span class="ok">✓ Verified</span></td></tr>
+        <tr><td>1</td><td>Blockchain/wallet hidden — all surfaces</td><td><span class="ok">✓ Fixed</span></td></tr>
+        <tr><td>2</td><td>Onboarding (shop + customer)</td><td><span class="ok">✓ Verified (today)</span></td></tr>
+        <tr><td>3</td><td>Trial + billing config</td><td><span class="ok">✓ Verified</span></td></tr>
+        <tr><td>4</td><td>Core loop — earn + redeem</td><td><span class="ok">✓ Verified</span></td></tr>
+        <tr><td>5</td><td>Referrals</td><td><span class="ok">✓ Verified (today)</span></td></tr>
+        <tr><td>7</td><td>Admin tools</td><td><span class="ok">✓ Verified (today)</span></td></tr>
+        <tr><td>3</td><td>Stripe tier price IDs + live keys in prod</td><td><span class="warn">⚠ Ops hand-off</span></td></tr>
+        <tr><td>6</td><td>Reviews / moderation</td><td>Optional pre-launch</td></tr>
+        <tr><td>8</td><td>Agency page</td><td>Optional pre-launch</td></tr>
+        <tr><td>9</td><td>Responsive QA (mobile / tablet / desktop)</td><td>Recommended</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>
+      Seven of the checklist's core sections are now verified (§0, §1, §2, §3, §4, §5, §7) and every code-level launch
+      risk on the Web/UI lane is either confirmed working or fixed. What stands between us and going live is no longer
+      code — it's the production ops hand-off (Stripe tier price IDs + live keys, deploy from latest main, run
+      migrations, confirm the blockchain flag in prod) plus a recommended responsive pass on mobile. §6 reviews and §8
+      agency are safe to verify post-launch.
+    </p>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 15, 2026</footer>
+</div>
+</body>
+</html>

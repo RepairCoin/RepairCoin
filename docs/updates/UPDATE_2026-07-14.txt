@@ -1,0 +1,85 @@
+RepairCoin — Engineering Update
+Core Loop Verified in Database-Only Mode
+Date: July 14, 2026
+Status: Verified — no code changes needed
+Focus: Go-live checklist §4 (core loop)
+
+
+SUMMARY
+-------
+Yesterday's blockchain-hiding raised a real risk: with wallet UI gone, does the
+customer still earn and redeem RCN? Today I traced the full core loop through the
+backend and confirmed it does. Reward accrual and redemption both run on the
+database balance and never depend on the chain, so hiding the wallet changed
+nothing about the money/points path. I also confirmed the new staff-commissions
+merge hooks into completion without touching rewards. Two behavioural notes for
+the barbershop launch are flagged below — neither is a bug.
+
+
+§4  THE CORE LOOP, TRACED — VERIFIED
+------------------------------------
+Flow:  Book + pay (Stripe)  ->  Shop completes  ->  RCN earned (DB)
+       ->  "My Rewards" balance  ->  Redeem at shop (DB)
+
+  - Earning: completing an order emits service.order_completed, which the token
+    domain turns into an RCN reward. The reward path computes tokens ($100+ ->
+    25 RCN, $50-99 -> 10 RCN), returns success, and credits the customer's
+    database balance — the on-chain mint only ever ran via the explicit "Mint to
+    Wallet" button, which is now hidden. So earning behaves identically with
+    blockchain on or off.
+  - Balance display: the customer balance is derived from the transactions table,
+    so the credited reward shows up in the "My Rewards" card with no wallet
+    involved.
+  - Redemption: with blockchain off, redemption takes the pure-database path —
+    the full amount is deducted by recording a redeem transaction, and approval
+    trusts the authenticated JWT session instead of a wallet signature. Balance
+    debits correctly; no chain call in the path.
+
+  Result: the entire earn-and-redeem loop is database-native. Hiding the wallet
+  UI removed nothing the customer needs to earn or spend RCN.
+
+
+STAFF-COMMISSIONS MERGE — NO REGRESSION — VERIFIED
+--------------------------------------------------
+Yesterday's pull added staff commissions on the same completion path, so I
+checked it can't break rewards. Commission accrual runs inside the completion
+transaction, is idempotent (one row per order, ON CONFLICT (order_id) DO
+NOTHING), only fires when the shop has commissions enabled and the performing
+member is active, and is completely independent of RCN reward issuance (rewards
+run async via the event bus). No interference in either direction.
+
+
+LAUNCH NOTES (BEHAVIOUR, NOT BUGS) — FLAG
+-----------------------------------------
+  - $50 minimum to earn RCN: services under $50 earn 0 RCN by the current
+    business rule. Worth confirming against barbershop pricing — a sub-$50
+    haircut would give the customer no reward.
+  - Async reward timing: rewards mint on an event-bus handler after completion;
+    the completion response waits ~2 seconds before reading back rcnEarned. It
+    works, but the earned amount is eventually-consistent — the shop UI should
+    not assume it's instant.
+
+
+GO-LIVE CHECKLIST — RUNNING STATUS
+----------------------------------
+  §0  Config / env sanity                                  ✓ Verified (Jul 13)
+  §1  Blockchain/wallet hidden — all surfaces              ✓ Fixed (Jul 13)
+  §3  Trial + billing config                               ✓ Verified (Jul 13)
+  §4  Core loop — earn + redeem in DB-only mode            ✓ Verified (today)
+  §3  Stripe tier price IDs + live keys in prod            ⚠ Ops hand-off
+  §5  Referrals end-to-end                                 Next
+  §7  Admin tools spot-check                               Next
+  §9  Responsive QA (mobile / tablet / desktop)            Next
+
+
+BOTTOM LINE
+-----------
+The scariest launch question — "did hiding the wallet quietly break earning or
+redeeming?" — is answered: no. The core loop is fully database-native and the
+commissions merge sits cleanly beside it. No code changes were needed today; the
+output is the verification itself plus two pricing/timing notes for product to
+confirm. Next up on the checklist: referrals, an admin spot-check, and responsive
+QA.
+
+
+RepairCoin · Engineering Update · July 14, 2026

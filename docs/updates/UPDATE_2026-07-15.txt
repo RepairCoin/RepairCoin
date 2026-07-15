@@ -1,0 +1,100 @@
+RepairCoin — Engineering Update
+Onboarding, Referrals & Admin — Verified for Launch
+Date: July 15, 2026
+Status: Verified · 2 leaks fixed
+Focus: Go-live checklist §2 / §5 / §7
+
+
+SUMMARY
+-------
+Cleared three more go-live sections ahead of the launch. New shops and customers
+can register and reach their dashboards on wallet-login + profile alone — no
+blockchain step blocks anyone. Referral payouts (25 / 10 RCN) credit the database
+balance with no chain dependency. All five recently-built admin tools load without
+crashing and leak no blockchain content. Two cosmetic wording leaks on the shop
+registration form were found and fixed; a couple of behaviour notes are flagged
+for the launch tester.
+
+
+§2  ONBOARDING — VERIFIED (2 LEAKS FIXED)
+-----------------------------------------
+Traced shop and customer registration end-to-end, frontend and backend:
+  - Shop: registration gates on wallet login + profile fields only. The backend
+    creates a plain shop record (pending admin verification) with no mint/staking/
+    RCG step, and redirects to the dashboard. The post-registration OnboardingModal's
+    RCG option is correctly gated off; the subscription prompt is a business gate,
+    not a blockchain one.
+  - Customer: registration completes on login + name/email, referral code optional.
+    Pure DB write, no on-chain dependency; referral processing is wrapped so it
+    can't fail the signup.
+  - Fixed: two leftover blockchain phrasings on the shop form — the "Wallet
+    Information" section heading (-> "Account Information"), the "0x..."
+    reimbursement placeholder (-> "Defaults to your connected account"), and the
+    terms line "All transactions are recorded on the blockchain" (-> "securely
+    recorded for your records").
+
+  Flag for product (not blockchain): if a customer signs up with an invalid
+  referral code in the link (?ref=), registration is rejected. A malformed or
+  stale share link would block that one signup — worth confirming how referral
+  links are generated before launch.
+
+
+§5  REFERRALS — VERIFIED
+------------------------
+  - Referrer earns 25 RCN, referee earns 10 RCN, both credited straight to the
+    database balance via a plain SQL update — transactions are recorded balanceOnly
+    with no blockchain call. No on-chain requirement anywhere in the path.
+  - The referral dashboard reads DB stats (total / successful / pending / earned)
+    — no wallet involved.
+
+  Timing note: payout fires on the referee's first completed repair, not at
+  registration. Right after a referee signs up, the dashboard correctly shows the
+  referral as pending with 0 earned; the 25 / 10 RCN land once they complete one
+  qualifying service. The launch tester must complete a repair to see balances
+  move.
+
+
+§7  ADMIN TOOLS — VERIFIED
+--------------------------
+Spot-checked the five recently built/fixed tools for crashes and leaks — all clean:
+  - Audit Log — null-safe on action/entity/timestamp; the earlier crash on empty
+    rows is confirmed fixed.
+  - Revenue Analytics — NaN-safe formatting; Stakers/DAO split and staker
+    projections gated off.
+  - Webhook Monitor — the false "degraded" fix holds; an empty webhook table at
+    launch reports healthy.
+  - Announcements — composer renders, recipient counts null-safe.
+  - Pending shops — list + Approve / Review / Reject actions all present.
+
+  Note: two internal filter dropdowns still list "contract" (Audit Log) and
+  "thirdweb" (Webhook source) as options. They only filter historical log rows and
+  show no blockchain data — left as-is so existing logs stay filterable.
+
+
+GO-LIVE CHECKLIST — RUNNING STATUS
+----------------------------------
+  §0  Config / env sanity                              ✓ Verified
+  §1  Blockchain/wallet hidden — all surfaces          ✓ Fixed
+  §2  Onboarding (shop + customer)                     ✓ Verified (today)
+  §3  Trial + billing config                           ✓ Verified
+  §4  Core loop — earn + redeem                        ✓ Verified
+  §5  Referrals                                        ✓ Verified (today)
+  §7  Admin tools                                      ✓ Verified (today)
+  §3  Stripe tier price IDs + live keys in prod        ⚠ Ops hand-off
+  §6  Reviews / moderation                             Optional pre-launch
+  §8  Agency page                                      Optional pre-launch
+  §9  Responsive QA (mobile / tablet / desktop)        Recommended
+
+
+BOTTOM LINE
+-----------
+Seven of the checklist's core sections are now verified (§0, §1, §2, §3, §4, §5,
+§7) and every code-level launch risk on the Web/UI lane is either confirmed
+working or fixed. What stands between us and going live is no longer code — it's
+the production ops hand-off (Stripe tier price IDs + live keys, deploy from latest
+main, run migrations, confirm the blockchain flag in prod) plus a recommended
+responsive pass on mobile. §6 reviews and §8 agency are safe to verify
+post-launch.
+
+
+RepairCoin · Engineering Update · July 15, 2026
