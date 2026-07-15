@@ -144,20 +144,24 @@ export class ImageGenerationService {
    *  limit. Returns a blocking outcome, or null when all gates pass. */
   private async checkGates(shopId: string, useCase: string): Promise<GenerateOutcome | null> {
     try {
+      // WS2 tier entitlement FIRST — AI Image Generation is a Growth+ feature. Check
+      // the plan BEFORE the per-shop kill switch so a below-tier shop is told to
+      // UPGRADE (actionable) rather than "ask an admin to enable it" — a dead end,
+      // since enabling the switch wouldn't help below Growth.
+      if (!(await shopHasFeature(shopId, "aiImageGen"))) {
+        return { ok: false, status: 403, error: "AI image generation is available on the Growth plan and above — upgrade to use it." };
+      }
+      // Per-shop kill switch (admin toggle). Only reached once the plan allows it, so
+      // "ask an admin to enable it" is honest here — the shop IS entitled.
       const r = await this.pool.query<{ ai_images_enabled: boolean }>(
         `SELECT ai_images_enabled FROM ai_shop_settings WHERE shop_id = $1`,
         [shopId]
       );
       if (!r.rows[0]?.ai_images_enabled) {
-        return { ok: false, status: 403, error: "AI image generation isn't enabled for this shop yet." };
-      }
-      // WS2 tier entitlement — AI Image Generation is a Growth+ feature. A stale "enabled" flag on a
-      // below-tier shop can't bypass it.
-      if (!(await shopHasFeature(shopId, "aiImageGen"))) {
-        return { ok: false, status: 403, error: "AI image generation is available on the Growth plan and above — upgrade to use it." };
+        return { ok: false, status: 403, error: "AI image generation isn't enabled for this shop yet. Ask an admin to enable it." };
       }
     } catch (err) {
-      logger.error("ImageGenerationService: kill-switch read failed", err);
+      logger.error("ImageGenerationService: gate check failed", err);
       return { ok: false, status: 503, error: "Image generation is temporarily unavailable. Please try again." };
     }
 
