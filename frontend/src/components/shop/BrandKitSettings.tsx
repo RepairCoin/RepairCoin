@@ -13,6 +13,7 @@ import { BrandingStudio } from "./branding-studio/BrandingStudio";
 import { BrandTemplatesPanel } from "./branding-studio/BrandTemplatesPanel";
 import { useAuthStore } from "@/stores/authStore";
 import { updateShopProfile } from "@/services/api/shop";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 const isValidHex = (v: string) => v === "" || HEX_RE.test(v);
@@ -25,6 +26,10 @@ const isValidHex = (v: string) => v === "" || HEX_RE.test(v);
  * The on-demand template gallery lives below (BrandTemplatesPanel).
  */
 export const BrandKitSettings: React.FC = () => {
+  // WS2 — AI banner generation is a Growth+ feature (aiImageGen). Manual banner
+  // upload stays available to everyone; only the AI generate row is gated.
+  const { can, loading: faLoading } = useFeatureAccess();
+  const imagesLocked = !faLoading && !can("aiImageGen");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [primary, setPrimary] = useState("");
@@ -334,33 +339,50 @@ export const BrandKitSettings: React.FC = () => {
           }
           showPreview
         />
-        <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-center">
-          <input
-            type="text"
-            value={bannerPrompt}
-            onChange={(e) => setBannerPrompt(e.target.value)}
-            maxLength={500}
-            placeholder="Tell the AI what to show — e.g. 'phone repair promo, cracked screen being fixed'"
-            className="flex-1 min-w-0 px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors"
-          />
-          <button
-            type="button"
-            onClick={generateBanner}
-            disabled={generatingBanner}
-            className="inline-flex items-center justify-center gap-2 text-xs font-medium px-3 py-2.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-          >
-            {generatingBanner ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5 text-[#FFCC00]" />
-            )}
-            {generatingBanner ? "Generating banner…" : "Generate banner with AI"}
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-gray-500">
-          Leave the box empty to generate from your brand profile, or describe exactly
-          what you want. Your colors + logo are always applied.
-        </p>
+        {imagesLocked ? (
+          <p className="mt-3 text-xs text-gray-400 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5">
+            ✨ Generating a banner with AI is a{" "}
+            <span className="font-medium text-[#FFCC00]">Growth</span> feature — you can still
+            upload your own banner above.{" "}
+            <button
+              type="button"
+              onClick={() => { window.location.href = "/shop?tab=plans"; }}
+              className="text-[#FFCC00] underline hover:text-[#E6B800]"
+            >
+              Upgrade to unlock
+            </button>
+          </p>
+        ) : (
+          <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-center">
+            <input
+              type="text"
+              value={bannerPrompt}
+              onChange={(e) => setBannerPrompt(e.target.value)}
+              maxLength={500}
+              placeholder="Tell the AI what to show — e.g. 'phone repair promo, cracked screen being fixed'"
+              className="flex-1 min-w-0 px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors"
+            />
+            <button
+              type="button"
+              onClick={generateBanner}
+              disabled={generatingBanner}
+              className="inline-flex items-center justify-center gap-2 text-xs font-medium px-3 py-2.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+            >
+              {generatingBanner ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 text-[#FFCC00]" />
+              )}
+              {generatingBanner ? "Generating banner…" : "Generate banner with AI"}
+            </button>
+          </div>
+        )}
+        {!imagesLocked && (
+          <p className="mt-2 text-xs text-gray-500">
+            Leave the box empty to generate from your brand profile, or describe exactly
+            what you want. Your colors + logo are always applied.
+          </p>
+        )}
       </div>
 
       <div className="mt-6 border-t border-[#3F3F3F] pt-6">
