@@ -58,10 +58,15 @@ export function makeBrandTemplateController(deps: BrandTemplateControllerDeps = 
           if (blocked) {
             res.status(blocked.status).json({
               success: false,
+              // Pass the gate's OWN message through — ImageGenerationService now
+              // distinguishes the 403 reasons (below-tier → "upgrade to Growth";
+              // kill-switch off → "ask an admin"). Flattening them all to "ask an
+              // admin" was misleading for below-tier shops.
               error:
-                blocked.status === 403
-                  ? "AI image generation isn't enabled for this shop yet. Ask an admin to enable it."
-                  : "Your monthly AI budget is exhausted. Try again next month.",
+                blocked.error ||
+                (blocked.status === 403
+                  ? "AI image generation isn't available on your plan yet."
+                  : "Your monthly AI budget is exhausted. Try again next month."),
               data: { results },
             });
             return;
@@ -92,12 +97,14 @@ export function makeBrandTemplateController(deps: BrandTemplateControllerDeps = 
         if (!r.ok) {
           res.status(r.status === 403 || r.status === 429 ? r.status : 502).json({
             success: false,
+            // Pass the gate's OWN message through (below-tier vs kill-switch vs cap).
             error:
-              r.status === 403
-                ? "AI image generation isn't enabled for this shop yet. Ask an admin to enable it."
+              r.error ||
+              (r.status === 403
+                ? "AI image generation isn't available on your plan yet."
                 : r.status === 429
                 ? "Your monthly AI budget is exhausted. Try again next month."
-                : r.error || "Couldn't generate a banner. Please try again.",
+                : "Couldn't generate a banner. Please try again."),
           });
           return;
         }
