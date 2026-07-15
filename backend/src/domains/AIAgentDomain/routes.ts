@@ -28,7 +28,7 @@ import { askOrchestrator } from './controllers/UnifiedAssistantController';
 import { generateImage } from './controllers/ImageGenerateController';
 import { editImage } from './controllers/ImageEditController';
 import { getOwnBrandKit, updateOwnBrandKit, analyzeLogoColors, analyzeBrandProfile, completeBrandOnboarding } from './controllers/BrandKitController';
-import { generateBrandTemplates, listBrandTemplates, generateShopBanner } from './controllers/BrandTemplateController';
+import { generateBrandTemplates, listBrandTemplates, generateShopBanner, deleteBrandTemplate } from './controllers/BrandTemplateController';
 import {
   listAnomalies,
   dismissAnomaly,
@@ -205,6 +205,9 @@ export function initializeRoutes(): Router {
   // Branding Studio Phase 4 — on-demand brand templates (social/poster).
   router.post('/brand-kit/templates/generate', authMiddleware, requireRole(['shop']), generateBrandTemplates);
   router.get('/brand-kit/templates', authMiddleware, requireRole(['shop']), listBrandTemplates);
+  // Hard-delete one generated template (image + row). Shop-scoped; no tier gate —
+  // a shop can always remove its own assets, even after a downgrade.
+  router.delete('/brand-kit/templates/:id', authMiddleware, requireRole(['shop']), deleteBrandTemplate);
   // Branding Studio — generate a shop banner (header) with AI → returns the URL.
   router.post('/brand-kit/generate-banner', authMiddleware, requireRole(['shop']), generateShopBanner);
 

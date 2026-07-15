@@ -19,6 +19,7 @@ import {
   imageGenerationService,
 } from "./ImageGenerationService";
 import { BrandKit, BrandKitService } from "./BrandKitService";
+import { imageStorageService } from "../../../services/ImageStorageService";
 import type { ImageSize } from "../../../services/openai/OpenAIImageClient";
 
 export type TemplateKind = "social_post" | "social_story" | "poster";
@@ -268,6 +269,40 @@ export class BrandTemplateService {
       costUsd: row.cost_usd ? Number(row.cost_usd) : 0,
       createdAt: row.created_at.toISOString(),
     }));
+  }
+
+  /** Hard-delete one generated template: remove the stored image from DO Spaces
+   *  AND the ledger row. Scoped to the shop (the `AND shop_id` guards against
+   *  deleting another shop's asset via a guessed id). Storage delete is
+   *  best-effort — an orphaned object is preferable to a stuck row, so a storage
+   *  failure doesn't block the DB delete. */
+  async deleteTemplate(
+    shopId: string,
+    id: number
+  ): Promise<{ ok: boolean; status: number; error?: string }> {
+    const found = await this.pool.query<{ url: string }>(
+      `SELECT url FROM brand_template_assets WHERE id = $1 AND shop_id = $2`,
+      [id, shopId]
+    );
+    if (found.rows.length === 0) {
+      return { ok: false, status: 404, error: "Template not found." };
+    }
+
+    try {
+      const key = imageStorageService.extractKeyFromUrl(found.rows[0].url);
+      if (key) await imageStorageService.deleteImage(key);
+    } catch (err) {
+      logger.warn("BrandTemplateService: storage delete failed (continuing)", {
+        id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    await this.pool.query(
+      `DELETE FROM brand_template_assets WHERE id = $1 AND shop_id = $2`,
+      [id, shopId]
+    );
+    return { ok: true, status: 200 };
   }
 }
 

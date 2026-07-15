@@ -8,11 +8,11 @@
 // upstream by ai_images_enabled + the monthly spend cap — we surface those.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Sparkles, Download, RefreshCw, ImageIcon, Megaphone } from "lucide-react";
+import { Loader2, Sparkles, Download, RefreshCw, ImageIcon, Megaphone, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import {
-  listBrandTemplates, generateBrandTemplates,
+  listBrandTemplates, generateBrandTemplates, deleteBrandTemplate,
   type BrandTemplate, type TemplateKind,
 } from "@/services/api/aiBrandKit";
 
@@ -28,6 +28,7 @@ export const BrandTemplatesPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState<null | "all" | TemplateKind>(null);
   const [prompt, setPrompt] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,6 +58,29 @@ export const BrandTemplatesPanel: React.FC = () => {
       toast.error(e?.message || "Couldn't generate templates. Please try again.");
     } finally {
       setGenerating(null);
+    }
+  };
+
+  const handleDelete = async (t: BrandTemplate) => {
+    if (
+      !window.confirm(
+        "Delete this template? This permanently removes the image — it can't be undone. You can always generate a new one."
+      )
+    ) {
+      return;
+    }
+    setDeletingId(t.id);
+    // Optimistic remove; restore on failure.
+    const prev = templates;
+    setTemplates((cur) => cur.filter((x) => x.id !== t.id));
+    try {
+      await deleteBrandTemplate(t.id);
+      toast.success("Template deleted.");
+    } catch (e: any) {
+      setTemplates(prev);
+      toast.error(e?.message || "Couldn't delete the template. Please try again.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -141,6 +165,21 @@ export const BrandTemplatesPanel: React.FC = () => {
                           alt={`${meta.label} template`}
                           className={`${meta.aspect} w-[220px] object-cover rounded-xl border border-white/10 bg-[#141414]`}
                         />
+                        {/* Delete — top-right, hover-revealed, with a confirm. */}
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(t)}
+                          disabled={deletingId === t.id}
+                          title="Delete template"
+                          aria-label="Delete template"
+                          className="absolute top-2 right-2 inline-flex items-center justify-center w-7 h-7 rounded-md bg-black/70 text-white hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-100"
+                        >
+                          {deletingId === t.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
                         <a
                           href={t.url}
                           target="_blank"

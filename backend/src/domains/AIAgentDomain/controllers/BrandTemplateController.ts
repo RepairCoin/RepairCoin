@@ -136,6 +136,38 @@ export function makeBrandTemplateController(deps: BrandTemplateControllerDeps = 
         });
       }
     },
+
+    // DELETE /templates/:id — hard-delete one of the shop's generated templates
+    // (image in DO Spaces + the ledger row). Shop-scoped via JWT + the service's
+    // `AND shop_id` guard, so a shop can only ever delete its own asset.
+    remove: async (req: Request, res: Response): Promise<void> => {
+      const shopId = (req as any).user?.shopId;
+      if (!shopId) {
+        res.status(401).json({ success: false, error: "Shop ID required" });
+        return;
+      }
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ success: false, error: "Invalid template id" });
+        return;
+      }
+      try {
+        const r = await templates.deleteTemplate(shopId, id);
+        if (!r.ok) {
+          res
+            .status(r.status)
+            .json({ success: false, error: r.error || "Couldn't delete template." });
+          return;
+        }
+        res.json({ success: true });
+      } catch (err) {
+        logger.error("BrandTemplateController.remove failed", err);
+        res.status(503).json({
+          success: false,
+          error: "Couldn't delete the template right now. Please try again.",
+        });
+      }
+    },
   };
 }
 
@@ -153,4 +185,7 @@ export function listBrandTemplates(req: Request, res: Response): Promise<void> {
 }
 export function generateShopBanner(req: Request, res: Response): Promise<void> {
   return getDefaults().generateBanner(req, res);
+}
+export function deleteBrandTemplate(req: Request, res: Response): Promise<void> {
+  return getDefaults().remove(req, res);
 }
