@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { TIER_LABELS, getRequiredTier } from "@/config/featureTiers";
 
@@ -25,7 +24,13 @@ export const FeatureLockedCard: React.FC<FeatureLockedCardProps> = ({
   description,
   className = "",
 }) => {
-  const router = useRouter();
+  // Full navigation (not router.push): this card can render INSIDE a Sheet
+  // overlay (e.g. the Insights launcher), where a client-side route change would
+  // switch the tab underneath while the Sheet stays open on top. A hard nav
+  // tears the overlay down and lands on the plans/upgrade surface.
+  const goToPlans = () => {
+    window.location.href = "/shop?tab=plans";
+  };
   const requiredTier = getRequiredTier(feature);
   const planLabel = requiredTier ? TIER_LABELS[requiredTier] : "a higher";
 
@@ -44,7 +49,7 @@ export const FeatureLockedCard: React.FC<FeatureLockedCardProps> = ({
           "This feature isn’t included in your current plan. Upgrade to unlock it."}
       </p>
       <button
-        onClick={() => router.push("/shop?tab=settings")}
+        onClick={goToPlans}
         className="mt-4 px-5 py-2.5 rounded-lg font-medium text-sm bg-[#FFCC00] hover:bg-[#E6B800] text-black transition-colors"
       >
         Upgrade plan
