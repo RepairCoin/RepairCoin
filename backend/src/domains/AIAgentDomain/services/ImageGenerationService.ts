@@ -142,7 +142,7 @@ export class ImageGenerationService {
 
   /** Shared gates for generate + edit: kill-switch → spend cap → daily rate
    *  limit. Returns a blocking outcome, or null when all gates pass. */
-  private async checkGates(shopId: string): Promise<GenerateOutcome | null> {
+  private async checkGates(shopId: string, useCase: string): Promise<GenerateOutcome | null> {
     try {
       const r = await this.pool.query<{ ai_images_enabled: boolean }>(
         `SELECT ai_images_enabled FROM ai_shop_settings WHERE shop_id = $1`,
@@ -161,12 +161,21 @@ export class ImageGenerationService {
       return { ok: false, status: 503, error: "Image generation is temporarily unavailable. Please try again." };
     }
 
+    // WS3 soft-landing: text chat degrades to a cheaper model past the cap, but
+    // image generation is expensive and CAN'T degrade — so, like BrandKit's vision
+    // endpoints, it hard-stops at the cap. `allowed` stays true under soft-landing,
+    // so we must also block on `limitReached` (else images keep spending past cap).
+    // EXCEPTION: ads creative (useCase 'ads') is COGS, metered separately in
+    // ad_ai_costs and exempt from the shop's included allowance (T3.3) — it must
+    // NOT be blocked by the shop's AI cap.
+    const isAds = useCase === "ads";
     const spendCheck = await this.spendCap.canSpend(shopId);
-    if (!spendCheck.allowed) {
+    if (!isAds && (!spendCheck.allowed || spendCheck.limitReached)) {
       return {
         ok: false,
         status: 429,
-        error: "AI budget for this month is exhausted. Try again next month or contact RepairCoin support.",
+        error:
+          "You've reached your plan's monthly AI limit. Upgrade your plan or add AI Usage overage to generate more images.",
       };
     }
 
@@ -192,7 +201,7 @@ export class ImageGenerationService {
     const logoPlacement: LogoPlacement = params.logoPlacement ?? "auto";
 
     // 1-3. Gates: kill-switch → spend cap → daily rate limit.
-    const gate = await this.checkGates(shopId);
+    const gate = await this.checkGates(shopId, useCase);
     if (gate) return gate;
 
     // 4. Moderation — reject flagged prompts BEFORE spending (audited).
@@ -271,7 +280,9 @@ export class ImageGenerationService {
       return { ok: false, status: 503, error: "Image generation is temporarily unavailable. Please try again in a moment." };
     }
 
-    await this.spendCap.recordSpend(shopId, costUsd);
+    // Ads creative is COGS (metered in ad_ai_costs), NOT part of the shop's
+    // included AI allowance — don't drain the $10/$30/$75 pool with it (T3.3).
+    if (useCase !== "ads") await this.spendCap.recordSpend(shopId, costUsd);
     return {
       ok: true, status: 200, imageUrl, imageKey: imageKey ?? undefined,
       dimensions, costUsd: Number(costUsd.toFixed(6)), revisedPrompt,
@@ -320,7 +331,7 @@ export class ImageGenerationService {
     const overlayLogo = params.overlayLogo !== false;
     const useCase = params.useCase ?? "marketing";
 
-    const gate = await this.checkGates(shopId);
+    const gate = await this.checkGates(shopId, useCase);
     if (gate) return gate;
 
     const mod = await this.moderation.check(prompt);
@@ -384,7 +395,9 @@ export class ImageGenerationService {
       return { ok: false, status: 503, error: "Image editing is temporarily unavailable. Please try again in a moment." };
     }
 
-    await this.spendCap.recordSpend(shopId, costUsd);
+    // Ads creative is COGS (metered in ad_ai_costs), exempt from the shop's
+    // included AI allowance — don't drain the pool with it (T3.3).
+    if (useCase !== "ads") await this.spendCap.recordSpend(shopId, costUsd);
     return {
       ok: true, status: 200, imageUrl, imageKey: imageKey ?? undefined,
       dimensions: dimensions ?? undefined,

@@ -131,10 +131,20 @@
   $10/$30/$75 pool.
 
 ## Follow-ups (not in this slice)
-- **Hide/remove the admin "set monthly AI budget" control** (`SettingsController` / `SpendController` + its UI).
-  It's now **inert** — the enforcer computes the cap from the tier and ignores any stored `monthly_budget_usd`.
-  A dead setting is confusing; remove it. (Small.)
-- **Surface the limit message in the chat UIs** — text features (Insights/Marketing/Unified) currently degrade to
-  Haiku *silently* at the cap. Show "You've reached your plan's AI limit — upgrade for more AI" in the UI. Best
-  done with **T3.4** (usage-meter UI). BrandKit already shows it (block path).
-- **T3.2** overage / pay-as-you-grow (3× metered billing) — deferred by decision (upgrade-only first).
+- ✅ **DONE (WS3 commit, 2026-07-14) — Hide/remove the admin "set monthly AI budget" control.**
+  `monthlyBudgetUsd` is no longer settable (`SettingsController`: "NO LONGER settable… tier-derived + read-only…
+  any value in the body is ignored"); the AdminAISettingsTab column is a read-only display.
+- ✅ **DONE (2026-07-15) — Surface the limit message in the chat UIs.** The backend now returns
+  `limitReached` + `budgetUsd`/`spentUsd` on the SUCCESS payload of all three chat controllers (Insights,
+  Marketing, Unified) — previously it was computed but only used to pick the model, so the cap was a silent
+  Haiku downgrade. New shared `AiLimitNotice` banner renders in each panel when `limitReached`: a non-blocking
+  amber nudge — *"You've reached your plan's monthly AI limit ($X of $Y used). Replies now run on a lighter
+  model — upgrade your plan or add AI Usage overage to restore full-power AI."* + a **View plans & add-ons**
+  button → `/shop?tab=plans` (the hub carries both the upgrade path and the `ai_overage` add-on card). Per
+  management (2026-07-15) the message offers **both** upgrade AND the overage add-on.
+  ⚠️ NOTE the `ai_overage` add-on itself still resolves to **`coming_soon`** in `addonRegistry`/`addons.ts` —
+  the banner *offers* overage and funnels to the hub, but actually **activating** overage (metered Usage×3
+  billing that raises the cap) is the deferred **T3.2** build. Until T3.2, Haiku-only remains the real ceiling.
+- **T3.2** overage / pay-as-you-grow (3× metered billing) — deferred build; the limit banner now points to it.
+- **T3.4** usage-meter UI ("$X of $Y used") — the banner already shows the spent/budget inline; a persistent
+  meter (add-on hub bar) is still a small optional follow-up.

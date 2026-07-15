@@ -27,6 +27,7 @@ import { InsightsToolCallCard } from "./InsightsToolCallCard";
 import { InsightsAnomalyBanner } from "./InsightsAnomalyBanner";
 import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
 import { InlineVoiceMic } from "@/components/voice/InlineVoiceMic";
+import { AiLimitNotice } from "@/components/shop/AiLimitNotice";
 
 /**
  * Suggested first-time-user questions per impl-doc Phase 4.3. Each maps
@@ -108,6 +109,8 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // WS3 soft-landing — set once a reply reports the monthly AI allowance is spent.
+  const [aiLimit, setAiLimit] = useState<{ budgetUsd?: number; spentUsd?: number } | null>(null);
   // Voice dispatch — single subscription for the useEffect below.
   const voicePendingDispatchId = useVoiceDispatchStore(
     (s) => s.pending?.dispatchId
@@ -223,6 +226,9 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
           toolCalls: res.toolCalls ?? [],
         },
       ]);
+      setAiLimit(
+        res.limitReached ? { budgetUsd: res.budgetUsd, spentUsd: res.spentUsd } : null
+      );
 
       // Phase 7.3 — if this submit originated from a pinned-tap,
       // refresh the pin's last_run_at + excerpt server-side AND
@@ -500,6 +506,16 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
           <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-red-300 leading-relaxed">{error}</p>
         </div>
+      )}
+
+      {/* WS3 soft-landing — non-blocking upgrade/overage nudge once the AI
+          allowance is spent (the reply still came through on a lighter model). */}
+      {activeTab === "chat" && aiLimit && (
+        <AiLimitNotice
+          className="mt-3"
+          budgetUsd={aiLimit.budgetUsd}
+          spentUsd={aiLimit.spentUsd}
+        />
       )}
 
       {/* Active range chip — only renders when the most recent assistant

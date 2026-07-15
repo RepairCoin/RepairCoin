@@ -119,6 +119,15 @@ export interface InsightsResponse {
    * in the conversation). Render one card per entry.
    */
   toolCalls: InsightsToolCall[];
+  /**
+   * WS3 soft-landing: true once the shop has spent its full monthly AI
+   * allowance. The reply still came through (on a lighter model); the panel
+   * shows a non-blocking upgrade/overage notice. `budgetUsd`/`spentUsd` power
+   * the "$X of $Y used" line.
+   */
+  limitReached?: boolean;
+  budgetUsd?: number;
+  spentUsd?: number;
 }
 
 /**

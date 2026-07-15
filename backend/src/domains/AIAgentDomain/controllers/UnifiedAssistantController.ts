@@ -337,6 +337,11 @@ export interface UnifiedResponseData {
   cached: boolean;
   latencyMs: number;
   toolCalls: UnifiedToolCallSummary[];
+  // WS3 soft-landing — see InsightsResponseData. True once the monthly AI
+  // allowance is spent; the reply still came through on the cheaper model.
+  limitReached: boolean;
+  budgetUsd: number;
+  spentUsd: number;
 }
 
 export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) {
@@ -615,6 +620,9 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           cached: cumulative.cachedInputTokens > 0,
           latencyMs: cumulative.latencyMs,
           toolCalls,
+          limitReached: spendCheck.limitReached ?? false,
+          budgetUsd: spendCheck.monthlyBudgetUsd,
+          spentUsd: spendCheck.currentSpendUsd,
         };
         res.json({ success: true, data });
       } catch (err) {
