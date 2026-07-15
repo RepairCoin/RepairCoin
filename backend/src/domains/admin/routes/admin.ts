@@ -50,9 +50,30 @@ router.get('/customers/:address/balance',
 );
 
 // Shop management
-router.get('/shops', 
+router.get('/shops',
   requirePermission('manage_shops'),
   asyncHandler(adminController.getShops.bind(adminController))
+);
+
+// Active admins assignable as a shop's account manager (for the assign dropdown)
+router.get('/assignable-managers',
+  requirePermission('manage_shops'),
+  asyncHandler(adminController.getAssignableManagers.bind(adminController))
+);
+
+// Shops assigned to the requesting admin as account manager ("My Shops" view).
+// Any admin can view their own assigned shops — no manage_shops needed.
+router.get('/my-assigned-shops',
+  asyncHandler(adminController.getMyAssignedShops.bind(adminController))
+);
+
+// The requesting admin's own contact profile (name/email/phone). Self-service — any admin can
+// read/update their own; this is the contact shown to shops they manage as account manager.
+router.get('/profile/me',
+  asyncHandler(adminController.getMyProfile.bind(adminController))
+);
+router.patch('/profile/me',
+  asyncHandler(adminController.updateMyProfile.bind(adminController))
 );
 
 // Manual token minting (emergency function)

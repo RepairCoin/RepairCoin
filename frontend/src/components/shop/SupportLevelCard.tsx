@@ -64,8 +64,15 @@ function toSupportTier(tier: string | undefined): SupportTier {
  * Priority Support on Business, Priority Email on Growth, Standard otherwise),
  * with an upgrade nudge for lower tiers. Self-contained — fetches its own tier.
  */
+interface AccountManagerContact {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
 export function SupportLevelCard() {
   const [tier, setTier] = useState<SupportTier | null>(null);
+  const [accountManager, setAccountManager] = useState<AccountManagerContact | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -81,6 +88,22 @@ export function SupportLevelCard() {
       active = false;
     };
   }, []);
+
+  // Fetch the assigned account manager only on Business (the only tier that has one).
+  useEffect(() => {
+    if (tier !== "business") return;
+    let active = true;
+    apiClient
+      .get("/shops/subscription/account-manager")
+      .then((res) => {
+        if (!active) return;
+        setAccountManager(res?.data?.accountManager ?? null);
+      })
+      .catch(() => active && setAccountManager(null));
+    return () => {
+      active = false;
+    };
+  }, [tier]);
 
   if (!tier) return null;
   const level = LEVELS[tier];
@@ -131,10 +154,34 @@ export function SupportLevelCard() {
             <Crown className="w-4 h-4 text-emerald-400" />
             <span className="text-sm font-semibold text-white">Your Dedicated Account Manager</span>
           </div>
-          <p className="text-sm text-gray-400">
-            Your account manager handles onboarding, best-practices, and any escalations. They'll reach out after you
-            subscribe — or open a <span className="text-white">high-priority</span> ticket below and they'll respond first.
-          </p>
+          {accountManager && (accountManager.name || accountManager.email || accountManager.phone) ? (
+            <div className="text-sm text-gray-300 space-y-1">
+              {accountManager.name && (
+                <p className="text-white font-medium">{accountManager.name}</p>
+              )}
+              {accountManager.email && (
+                <p className="flex items-center gap-2">
+                  <Mail className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                  <a href={`mailto:${accountManager.email}`} className="hover:text-white break-all">
+                    {accountManager.email}
+                  </a>
+                </p>
+              )}
+              {accountManager.phone && (
+                <p className="flex items-center gap-2">
+                  <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                  <a href={`tel:${accountManager.phone}`} className="hover:text-white">
+                    {accountManager.phone}
+                  </a>
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">
+              Your account manager handles onboarding, best-practices, and any escalations. They'll reach out after you
+              subscribe — or open a <span className="text-white">high-priority</span> ticket below and they'll respond first.
+            </p>
+          )}
         </div>
       )}
     </div>
