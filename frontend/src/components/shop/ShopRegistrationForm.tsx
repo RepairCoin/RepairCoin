@@ -299,7 +299,7 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
       {/* Location Information Section */}
       <div className="bg-[#1C1C1C] p-6 rounded-2xl shadow-sm">
         <p className="text-lg font-bold text-[#FFCC00] mb-4">
-          Wallet Information
+          Account Information
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
@@ -307,7 +307,7 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
             name="reimbursementAddress"
             value={formData.reimbursementAddress}
             onChange={onChange}
-            placeholder="0x... (defaults to connected wallet)"
+            placeholder="Defaults to your connected account"
             disabled
           />
           <FormField
