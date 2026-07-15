@@ -42,6 +42,7 @@ export interface Admin {
   walletAddress: string;
   name?: string;
   email?: string;
+  phone?: string;
   role?: string;
   permissions: string[];
   isActive: boolean;
@@ -1211,8 +1212,9 @@ export class AdminRepository extends BaseRepository {
   }
 
   async updateAdmin(walletAddress: string, updates: {
-    name?: string;
-    email?: string;
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
     role?: string;
     permissions?: string[];
     isActive?: boolean;
@@ -1235,6 +1237,12 @@ export class AdminRepository extends BaseRepository {
         paramCount++;
         fields.push(`email = $${paramCount}`);
         values.push(updates.email);
+      }
+
+      if (updates.phone !== undefined) {
+        paramCount++;
+        fields.push(`phone = $${paramCount}`);
+        values.push(updates.phone);
       }
 
       if (updates.role !== undefined) {
@@ -1429,6 +1437,7 @@ export class AdminRepository extends BaseRepository {
       walletAddress: row.wallet_address,
       name: row.name,
       email: row.email,
+      phone: row.phone,
       role: row.role || (row.is_super_admin ? 'super_admin' : 'admin'),
       permissions: row.permissions || [],
       isActive: row.is_active,

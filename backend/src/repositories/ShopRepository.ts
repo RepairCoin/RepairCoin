@@ -69,6 +69,7 @@ interface ShopData {
   totalReviews?: number;
   stripeCustomerId?: string; // Stripe customer ID for payment methods
   defaultPaymentMethodId?: string; // Default Stripe payment method ID
+  accountManagerAddress?: string; // Wallet of the admin assigned as this shop's account manager (Business perk)
 }
 
 export interface ShopFilters {
@@ -151,6 +152,7 @@ export class ShopRepository extends BaseRepository {
         aboutText: row.about_text,
         avgRating: parseFloat(row.shop_avg_rating || 0),
         totalReviews: parseInt(row.shop_total_reviews || 0),
+        accountManagerAddress: row.account_manager_address,
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -328,6 +330,42 @@ export class ShopRepository extends BaseRepository {
    * @param updates Partial shop data to update
    * @param client Optional PoolClient for transaction support
    */
+  /**
+   * Lean list of the shops assigned to a given account manager (admin wallet). Used by the
+   * admin "My Shops" view — returns only the fields that view needs, not the full ShopData.
+   */
+  async getShopsByAccountManager(managerAddress: string): Promise<Array<{
+    shopId: string;
+    name: string;
+    email: string;
+    active: boolean;
+    verified: boolean;
+    city?: string;
+    country?: string;
+  }>> {
+    try {
+      const result = await this.pool.query(
+        `SELECT shop_id, name, email, active, verified, location_city, country
+           FROM shops
+          WHERE LOWER(account_manager_address) = LOWER($1)
+          ORDER BY name ASC`,
+        [managerAddress]
+      );
+      return result.rows.map((row) => ({
+        shopId: row.shop_id,
+        name: row.name,
+        email: row.email,
+        active: row.active,
+        verified: row.verified,
+        city: row.location_city,
+        country: row.country,
+      }));
+    } catch (error) {
+      logger.error('Error fetching shops by account manager:', error);
+      throw new Error('Failed to fetch assigned shops');
+    }
+  }
+
   async updateShop(shopId: string, updates: Partial<ShopData>, client?: PoolClient): Promise<void> {
     const fields: string[] = [];
     const values: any[] = [];
@@ -383,6 +421,7 @@ export class ShopRepository extends BaseRepository {
         lastName: 'last_name',
         category: 'category',
         country: 'country',
+        accountManagerAddress: 'account_manager_address',
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -390,7 +429,7 @@ export class ShopRepository extends BaseRepository {
           paramCount++;
           fields.push(`${fieldMappings[key]} = $${paramCount}`);
 
-          if (key === 'walletAddress' || key === 'reimbursementAddress') {
+          if (key === 'walletAddress' || key === 'reimbursementAddress' || key === 'accountManagerAddress') {
             values.push(value ? (value as string).toLowerCase() : null);
           } else {
             values.push(value);
@@ -551,7 +590,8 @@ export class ShopRepository extends BaseRepository {
         city: row.location_city, // Map location_city to city
         country: row.country,
         website: row.website,
-        logoUrl: row.logo_url
+        logoUrl: row.logo_url,
+        accountManagerAddress: row.account_manager_address
       }));
 
       const totalPages = Math.ceil(totalItems / filters.limit);

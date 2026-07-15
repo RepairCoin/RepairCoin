@@ -126,6 +126,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       customers,
       shops,
       { title: "Subscriptions", href: "/admin?tab=subscriptions", icon: <CreditCard className="w-5 h-5" />, tabId: "subscriptions" },
+      { title: "My Shops", href: "/admin?tab=my-shops", icon: <ShieldCheck className="w-5 h-5" />, tabId: "my-shops" },
       { title: "Waitlist", href: "/admin?tab=waitlist", icon: <ClipboardList className="w-5 h-5" />, tabId: "waitlist" },
 
       section("Finance & Tokens"),

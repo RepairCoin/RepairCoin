@@ -140,6 +140,92 @@ export class AdminService {
   }
 
   /**
+   * Active admins eligible to be assigned as a shop's account manager. Minimal shape for the
+   * assignment dropdown — never exposes permissions/metadata.
+   */
+  async getAssignableManagers(): Promise<Array<{
+    address: string;
+    name: string | null;
+    email: string | null;
+    role: string;
+  }>> {
+    const admins = await adminRepository.getAllAdmins();
+    return admins
+      .filter((a) => a.isActive !== false)
+      .map((a) => ({
+        address: a.walletAddress,
+        name: a.name ?? null,
+        email: a.email ?? null,
+        role: a.isSuperAdmin ? 'super_admin' : (a.role ?? 'admin'),
+      }));
+  }
+
+  /** Shops assigned to a given account manager (admin wallet). */
+  async getShopsByAccountManager(managerAddress: string) {
+    return shopRepository.getShopsByAccountManager(managerAddress);
+  }
+
+  /**
+   * The requesting admin's own contact profile (name/email/phone). This is the contact a shop
+   * sees when this admin is their assigned account manager, so admins can self-serve it.
+   */
+  async getMyProfile(address: string): Promise<{
+    address: string;
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+  }> {
+    const admin = await adminRepository.getAdmin(address);
+    if (!admin) {
+      throw new Error('Admin profile not found');
+    }
+    return {
+      address: admin.walletAddress,
+      name: admin.name ?? null,
+      email: admin.email ?? null,
+      phone: admin.phone ?? null,
+    };
+  }
+
+  /**
+   * Update the requesting admin's own contact profile. Scoped to self — an admin can only edit
+   * their own name/email/phone; permissions/role are never touched here.
+   */
+  async updateMyProfile(
+    address: string,
+    updates: { name?: string | null; email?: string | null; phone?: string | null }
+  ): Promise<{ address: string; name: string | null; email: string | null; phone: string | null }> {
+    const admin = await adminRepository.getAdmin(address);
+    if (!admin) {
+      throw new Error('Admin profile not found');
+    }
+
+    const clean = (v: string | null | undefined) =>
+      v === undefined ? undefined : v === null ? null : v.trim() === '' ? null : v.trim();
+
+    const name = clean(updates.name);
+    const email = clean(updates.email);
+    const phone = clean(updates.phone);
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error('Please enter a valid email address');
+    }
+
+    const updated = await adminRepository.updateAdmin(admin.walletAddress, {
+      ...(name !== undefined ? { name } : {}),
+      ...(email !== undefined ? { email } : {}),
+      ...(phone !== undefined ? { phone } : {}),
+    });
+
+    return {
+      address: admin.walletAddress,
+      name: updated?.name ?? null,
+      email: updated?.email ?? null,
+      phone: updated?.phone ?? null,
+    };
+  }
+
+  /**
    * Get customer balance information including blockchain balance
    */
   async getCustomerBalanceInfo(address: string) {
