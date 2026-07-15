@@ -582,7 +582,8 @@ export type SkipReason =
   | "spend_cap_exceeded" // hit monthly_budget_usd
   | "no_shop_settings" // no ai_shop_settings row for this shop (shouldn't happen post-migration 110 backfill, but guard anyway)
   | "service_shop_mismatch" // serviceId belongs to a different shop than conversation.shopId — defends against spoofed metadata.serviceId
-  | "ai_paused"; // conversations.ai_paused_until is in the future — either the 30s auto race window from a recent non-AI shop message, or an explicit "Take Over" hold set via the shop dashboard. See docs/tasks/strategy/ai-human-handoff-clash.md Phase 2.
+  | "ai_paused" // conversations.ai_paused_until is in the future — either the 30s auto race window from a recent non-AI shop message, or an explicit "Take Over" hold set via the shop dashboard. See docs/tasks/strategy/ai-human-handoff-clash.md Phase 2.
+  | "autoreply_tier_not_included"; // WS2 — AI Auto-Replies is a Business feature; the shop's plan doesn't include it (only enforced when ENFORCE_AI_AUTOREPLY_TIER=true).
 
 // ============================================================================
 // AuditLogger — what gets persisted into ai_agent_messages

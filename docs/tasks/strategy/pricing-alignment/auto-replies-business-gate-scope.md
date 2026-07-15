@@ -138,12 +138,48 @@ earns the Business tier — rather than pretending a gate alone delivers the Bus
 
 ---
 
-## Open decisions (need sign-off before build)
-- **D1** — Option A / **B (recommended)** / C: what `aiAutoReplies` gates, and whether inbound text reply
-  moves to Growth or Business.
-- **D2** — ads-lead auto-answer: Ads-product-governed (recommended exempt) vs subscription-gated.
-- **D3** — grandfathering existing Starter/Growth auto-repliers.
-- **D4** — gate the manual `/auto-answer` endpoints (only relevant if D2 = not exempt).
-- **Build note:** the Business differentiator per pricing ("+ Voice") = inbound AI voice answering, which is
-  **unbuilt**. Decide whether Business "Auto-Replies" ships as a gate now (Option B closes the leak) with
-  Voice as a fast-follow build, or waits for the Voice build to land first.
+## Decisions — LOCKED 2026-07-15 (management, via WhatsApp — see pricing.jpeg screenshot)
+
+Management clarified what "AI Auto-Replies (Voice + Text)" means:
+> "Not voice… auto response" · "There ai voice.." · "With twilio." · "With gohighlevel" ·
+> "AI answers calls 📞" · "We don't need to have yet…"
+
+Read: **the auto-response is TEXT** for now; **AI VOICE (answering calls, built via Twilio / GoHighLevel)
+is a separate future capability we don't need yet.** So:
+
+- **D1 — LOCKED = Option A (direction-based).** `aiAutoReplies` (Business) gates the **reactive TEXT
+  auto-reply** — the AI auto-responding to an inbound customer message. Proactive **follow-up** nudges stay
+  **Growth** (`aiLeadFollowUp`, already gated in `AISalesFollowUpHandler`). The upsell ladder: Growth = the
+  AI reaches out; Business = the AI answers back.
+- **Voice half = DEFERRED build** ("don't need yet") — AI answering inbound calls via Twilio / GoHighLevel.
+  Not gated because it doesn't exist. When built, gate its entry with `requireTier('aiAutoReplies')`.
+- **D2 — LOCKED = exempt.** Ads-lead auto-answer (`LeadAutoAnswerService`) stays Ads-product-governed
+  (COGS), NOT subscription-gated. No change there.
+- **D3 — grandfathering:** shipped behind a flag (below) so nothing changes until a deliberate, audited
+  rollout. Audit affected Starter/Growth shops before flipping on.
+- **D4 — n/a** (ads exempt, so the manual `/auto-answer` endpoints aren't gated).
+
+## Built 2026-07-15 (flag-gated, default OFF — zero behavior change until enabled)
+
+- **Enforcement point:** `AgentOrchestrator.handleCustomerMessage` — right after the `ai_global_enabled`
+  kill-switch skip, a new gate:
+  ```ts
+  if (process.env.ENFORCE_AI_AUTOREPLY_TIER === "true" &&
+      !(await shopHasFeature(shopId, "aiAutoReplies"))) {
+    return { outcome: "skipped", reason: "autoreply_tier_not_included" };
+  }
+  ```
+  Silent skip (same shape as the other skips — the customer never sees an error). It's the single chokepoint
+  for the inbound auto-reply, so `MessageService.fireAiAutoReply` and any other caller inherit it.
+- **New `SkipReason`:** `autoreply_tier_not_included` (types.ts).
+- **Flag `ENFORCE_AI_AUTOREPLY_TIER` (default off).** OFF = today's behavior (Starter+ auto-reply). Turning
+  it ON removes the auto-reply from Starter/Growth shops → do the affected-shop audit first, then enable on
+  staging, then prod.
+- **Tests:** `AgentOrchestrator.test.ts` — flag ON + below tier → skipped `autoreply_tier_not_included`
+  (no reply posted); flag OFF → auto-reply still fires below tier; flag ON + entitled → replies. 109/109.
+- **Not touched:** `LeadAutoAnswerService` (ads, D2 exempt), `AISalesFollowUpHandler` (follow-up already
+  Growth). Voice = not built.
+
+### Remaining (not this slice)
+- The affected-shop **audit** + staged rollout (flip the flag) — a business/ops step.
+- **Voice auto-replies** build (Twilio / GoHighLevel, AI answers calls) — deferred per management.
