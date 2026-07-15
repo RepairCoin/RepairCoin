@@ -32,6 +32,7 @@ import { SupportDomain } from './domains/support';
 import { InventoryDomain } from './domains/InventoryDomain';
 import { AIAgentDomain } from './domains/AIAgentDomain';
 import { AdsDomain } from './domains/AdsDomain';
+import { AgencyDomain } from './domains/agency';
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
@@ -402,6 +403,7 @@ class RepairCoinApp {
     domainRegistry.register(new InventoryDomain());
     domainRegistry.register(new AIAgentDomain());
     domainRegistry.register(new AdsDomain());
+    domainRegistry.register(new AgencyDomain());
 
     // Initialize all domains (sets up event subscriptions)
     await domainRegistry.initializeAll();

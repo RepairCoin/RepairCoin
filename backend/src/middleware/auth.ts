@@ -9,8 +9,9 @@ import { getCookieDomain } from '../utils/cookies';
 
 interface BaseJWTPayload {
   address: string;
-  role: 'admin' | 'shop' | 'customer';
+  role: 'admin' | 'shop' | 'customer' | 'agency';
   shopId?: string;
+  agencyId?: string;        // present only for agency-role tokens
   permissions?: string[];   // shop members only; absent ⇒ legacy owner = ['*']
   teamMemberId?: string;    // present only for non-owner shop team members
   iat: number;
@@ -37,6 +38,7 @@ declare global {
         address: string;
         role: string;
         shopId?: string;
+        agencyId?: string;
         permissions?: string[];
         teamMemberId?: string;
         tokenId?: string;
@@ -186,6 +188,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
             address: refreshDecoded.address,
             role: refreshDecoded.role,
             shopId: refreshDecoded.shopId,
+            agencyId: refreshDecoded.agencyId,
             permissions: refreshDecoded.permissions,
             teamMemberId: refreshDecoded.teamMemberId
           }, refreshDecoded.tokenId);
@@ -400,6 +403,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       address: decoded.address,
       role: decoded.role,
       shopId: decoded.shopId,
+      agencyId: decoded.agencyId,
       permissions: decoded.role === 'shop' ? (decoded.permissions ?? ['*']) : decoded.permissions,
       teamMemberId: decoded.teamMemberId,
       tokenId
@@ -460,6 +464,9 @@ export const requireAdmin = requireRole(['admin']);
 
 // Shop or admin middleware
 export const requireShopOrAdmin = requireRole(['shop', 'admin']);
+
+// Agency-only middleware (parent account managing client shops)
+export const requireAgency = requireRole(['agency']);
 
 // Validate shop ownership for shop-specific operations
 export const requireShopOwnership = (req: Request, res: Response, next: NextFunction) => {

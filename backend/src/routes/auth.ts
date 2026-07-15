@@ -1,7 +1,7 @@
 // backend/src/routes/auth.ts
 import { Router, Response, Request } from 'express';
 import rateLimit from 'express-rate-limit';
-import { customerRepository, shopRepository, adminRepository, refreshTokenRepository, shopTeamRepository } from '../repositories';
+import { customerRepository, shopRepository, adminRepository, refreshTokenRepository, shopTeamRepository, agencyRepository } from '../repositories';
 import { logger } from '../utils/logger';
 import { generateToken, generateAccessToken, generateRefreshToken, authMiddleware } from '../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -97,7 +97,7 @@ const setAuthCookie = (res: Response, token: string) => {
 const generateAndSetTokens = async (
   res: Response,
   req: Request,
-  payload: { address: string; role: 'admin' | 'shop' | 'customer'; shopId?: string; permissions?: string[]; teamMemberId?: string }
+  payload: { address: string; role: 'admin' | 'shop' | 'customer' | 'agency'; shopId?: string; agencyId?: string; permissions?: string[]; teamMemberId?: string }
 ): Promise<{ accessToken: string; refreshToken: string; tokenId: string }> => {
   // Generate unique token ID for refresh token
   const tokenId = uuidv4();
@@ -318,6 +318,23 @@ router.post('/token', async (req, res) => {
           }
         } catch (error) {
           logger.debug('Shop resolution failed in /token', { address: normalizedAddress });
+        }
+      }
+
+      if (!userType) {
+        // Check if the wallet owns an agency (parent account managing client shops)
+        try {
+          const agency = await agencyRepository.getAgencyByOwner(normalizedAddress);
+          if (agency) {
+            userType = 'agency';
+            userData = {
+              address: normalizedAddress,
+              role: 'agency',
+              agencyId: agency.id
+            };
+          }
+        } catch (error) {
+          logger.debug('Agency resolution failed in /token', { address: normalizedAddress });
         }
       }
     }
@@ -1616,6 +1633,7 @@ router.post('/refresh', async (req, res) => {
       address: decoded.address,
       role: decoded.role,
       shopId: decoded.shopId,
+      agencyId: decoded.agencyId,
       permissions: decoded.permissions,
       teamMemberId: decoded.teamMemberId
     }, decoded.tokenId);
