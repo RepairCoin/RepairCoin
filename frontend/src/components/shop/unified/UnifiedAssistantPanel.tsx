@@ -43,6 +43,7 @@ import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
 import { unlockAudioPlayback, getPrimedAudio } from "@/lib/audioUnlock";
 import { useVoiceEnabled } from "@/hooks/useVoiceEnabled";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { AiLimitNotice } from "@/components/shop/AiLimitNotice";
 
 /**
  * UnifiedAssistantPanel (v2)
@@ -96,6 +97,8 @@ export const UnifiedAssistantPanel: React.FC<{
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // WS3 soft-landing — set once a reply reports the monthly AI allowance is spent.
+  const [aiLimit, setAiLimit] = useState<{ budgetUsd?: number; spentUsd?: number } | null>(null);
   const [voiceOut, setVoiceOut] = useState(false);
   // Phase 9 — an image the owner attached via the paperclip, pending send.
   // Uploaded to shops/{shopId}/ai-uploads; its URL rides along with the next
@@ -312,6 +315,9 @@ export const UnifiedAssistantPanel: React.FC<{
           toolCalls: res.toolCalls ?? [],
         },
       ]);
+      setAiLimit(
+        res.limitReached ? { budgetUsd: res.budgetUsd, spentUsd: res.spentUsd } : null
+      );
       if ((opts?.speak ?? voiceOut) && res.reply && res.reply.trim()) {
         void playSpeech(res.reply);
       }
@@ -669,6 +675,16 @@ export const UnifiedAssistantPanel: React.FC<{
           <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-red-300 leading-relaxed">{displayError}</p>
         </div>
+      )}
+
+      {/* WS3 soft-landing — non-blocking upgrade/overage nudge once the AI
+          allowance is spent (the reply still came through on a lighter model). */}
+      {aiLimit && (
+        <AiLimitNotice
+          className="mt-3"
+          budgetUsd={aiLimit.budgetUsd}
+          spentUsd={aiLimit.spentUsd}
+        />
       )}
 
       {listening ? (

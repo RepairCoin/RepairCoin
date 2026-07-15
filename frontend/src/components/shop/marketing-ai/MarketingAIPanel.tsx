@@ -18,6 +18,7 @@ import {
 import { MarketingToolCallCard } from "./MarketingToolCallCard";
 import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
 import { InlineVoiceMic } from "@/components/voice/InlineVoiceMic";
+import { AiLimitNotice } from "@/components/shop/AiLimitNotice";
 
 /**
  * Static starter prompts for the empty-panel state. Each covers a
@@ -65,6 +66,8 @@ export const MarketingAIPanel: React.FC = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // WS3 soft-landing — set once a reply reports the monthly AI allowance is spent.
+  const [aiLimit, setAiLimit] = useState<{ budgetUsd?: number; spentUsd?: number } | null>(null);
   const voicePendingDispatchId = useVoiceDispatchStore(
     (s) => s.pending?.dispatchId
   );
@@ -146,6 +149,9 @@ export const MarketingAIPanel: React.FC = () => {
           toolCalls: res.toolCalls ?? [],
         },
       ]);
+      setAiLimit(
+        res.limitReached ? { budgetUsd: res.budgetUsd, spentUsd: res.spentUsd } : null
+      );
     } catch (err) {
       const ax = err as {
         response?: { status?: number; data?: { error?: string } };
@@ -224,6 +230,16 @@ export const MarketingAIPanel: React.FC = () => {
           <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-red-300 leading-relaxed">{error}</p>
         </div>
+      )}
+
+      {/* WS3 soft-landing — non-blocking upgrade/overage nudge once the AI
+          allowance is spent (the reply still came through on a lighter model). */}
+      {aiLimit && (
+        <AiLimitNotice
+          className="mt-3"
+          budgetUsd={aiLimit.budgetUsd}
+          spentUsd={aiLimit.spentUsd}
+        />
       )}
 
       <div className="mt-3 flex items-end gap-2">

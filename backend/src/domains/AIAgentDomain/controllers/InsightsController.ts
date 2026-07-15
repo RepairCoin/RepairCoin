@@ -81,6 +81,13 @@ export interface InsightsResponseData {
   cached: boolean;
   latencyMs: number;
   toolCalls: InsightsToolCallSummary[];
+  // WS3 soft-landing: true once the shop has spent its full monthly AI allowance.
+  // The reply still came through (on the cheaper model) — the UI shows an
+  // upgrade/overage notice rather than blocking. `budgetUsd`/`spentUsd` power the
+  // "$X of $Y used" line.
+  limitReached: boolean;
+  budgetUsd: number;
+  spentUsd: number;
 }
 
 // ----- Validation bounds -----
@@ -448,6 +455,9 @@ export function makeInsightsController(deps: InsightsControllerDeps = {}) {
             args: t.args,
             display: t.display,
           })),
+          limitReached: spendCheck.limitReached ?? false,
+          budgetUsd: spendCheck.monthlyBudgetUsd,
+          spentUsd: spendCheck.currentSpendUsd,
         };
         res.json({ success: true, data });
       } catch (err) {

@@ -76,6 +76,11 @@ export interface MarketingResponseData {
   cached: boolean;
   latencyMs: number;
   toolCalls: MarketingToolCallSummary[];
+  // WS3 soft-landing — see InsightsResponseData. True once the monthly AI
+  // allowance is spent; the reply still came through on the cheaper model.
+  limitReached: boolean;
+  budgetUsd: number;
+  spentUsd: number;
 }
 
 // ----- Validation bounds (mirror Insights) -----
@@ -448,6 +453,9 @@ export function makeMarketingChatController(
             args: t.args,
             display: t.display,
           })),
+          limitReached: spendCheck.limitReached ?? false,
+          budgetUsd: spendCheck.monthlyBudgetUsd,
+          spentUsd: spendCheck.currentSpendUsd,
         };
         res.json({ success: true, data });
       } catch (err) {
