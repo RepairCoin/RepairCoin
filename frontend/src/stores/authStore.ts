@@ -10,6 +10,7 @@ export interface UserProfile {
   address: string;
   type: 'customer' | 'shop' | 'admin';
   name?: string;
+  memberName?: string;   // team member's own name; shown in the header greeting (name stays the shop's)
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -289,6 +290,7 @@ export const useAuthStore = create<AuthState>()(
             address: userData.walletAddress || userData.address || address,
             type: userCheck.type as 'customer' | 'shop' | 'admin',
             name: userData.name || userData.shopName,
+            memberName: userData.memberName,
             firstName: userData.firstName,
             lastName: userData.lastName,
             email: userData.email,

@@ -31,6 +31,7 @@ import {
 import { verifyMetaWebhook, receiveMetaWebhook } from './controllers/MetaWebhookController';
 import { receiveResendWebhook } from './controllers/ResendWebhookController';
 import { receiveResendInbound } from './controllers/ResendInboundController';
+import { receiveTwilioWebhook } from './controllers/TwilioWebhookController';
 import {
   createExperiment, listExperiments, getExperimentReport, setExperimentWinner,
 } from './controllers/ExperimentController';
@@ -109,6 +110,10 @@ export function initializeRoutes(): Router {
   // PUBLIC — Resend INBOUND email webhook (lead replies → app). Svix-signed; raw body in app.ts.
   // Resolves the lead by reply-token, cleans the reply, hands to the auto-answer loop.
   router.post('/webhooks/resend-inbound', receiveResendInbound);
+
+  // PUBLIC — Twilio SMS webhook (shared): X-Twilio-Signature verified. Inbound texts + STOP/START
+  // opt-out + delivery-status callbacks. Form-encoded → parsed by global express.urlencoded.
+  router.post('/webhooks/twilio', receiveTwilioWebhook);
 
   // PUBLIC — Meta OAuth callback (browser redirect from Facebook). shopId is read from the
   // signed `state`, never a param; on success stores the token and bounces to the picker.

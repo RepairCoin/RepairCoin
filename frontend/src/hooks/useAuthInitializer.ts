@@ -118,6 +118,7 @@ interface CachedSession {
     address: string;
     type: 'customer' | 'shop' | 'admin';
     name?: string;
+    memberName?: string;
     email?: string;
     avatarUrl?: string;
     isActive: boolean;
@@ -388,6 +389,7 @@ export function useAuthInitializer() {
             address: userData.address || userData.walletAddress,
             type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
             name: userData.name || userData.shopName,
+            memberName: userData.memberName,
             email: userData.email,
             avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
             isActive: userData.active !== false,
@@ -580,6 +582,7 @@ export function useAuthInitializer() {
               address: userData.address || userData.walletAddress || currentAddress,
               type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
               name: userData.name || userData.shopName,
+              memberName: userData.memberName,
               email: userData.email,
               avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
               isActive: userData.active !== false,

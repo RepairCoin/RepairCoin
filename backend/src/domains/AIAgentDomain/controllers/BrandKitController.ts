@@ -127,11 +127,12 @@ export function makeBrandKitController(deps: BrandKitControllerDeps = {}) {
       }
 
       const spend = await spendCap.canSpend(shopId);
-      if (!spend.allowed) {
+      // Vision can't cheaply degrade to Haiku, so the soft-landing limit is a hard stop here.
+      if (!spend.allowed || spend.limitReached) {
         res.status(429).json({
           success: false,
           error:
-            "AI budget for this month is exhausted. Try again next month or enter colors manually.",
+            "You've reached your plan's AI limit — upgrade your plan for more AI, or enter colors manually.",
         });
         return;
       }
@@ -183,11 +184,12 @@ export function makeBrandKitController(deps: BrandKitControllerDeps = {}) {
       }
 
       const spend = await spendCap.canSpend(shopId);
-      if (!spend.allowed) {
+      // Vision can't cheaply degrade to Haiku, so the soft-landing limit is a hard stop here.
+      if (!spend.allowed || spend.limitReached) {
         res.status(429).json({
           success: false,
           error:
-            "AI budget for this month is exhausted. Try again next month or fill in your brand details manually.",
+            "You've reached your plan's AI limit — upgrade your plan for more AI, or fill in your brand details manually.",
         });
         return;
       }

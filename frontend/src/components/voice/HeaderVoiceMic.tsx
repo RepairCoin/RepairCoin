@@ -12,17 +12,23 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Mic, X } from "lucide-react";
+import { Mic, X, Sparkles } from "lucide-react";
 import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
 import { unlockAudioPlayback } from "@/lib/audioUnlock";
+import { useVoiceEnabled } from "@/hooks/useVoiceEnabled";
 
 // Once seen/used, never show the header-mic coach-mark again.
 const MIC_COACH_KEY = "rc_header_mic_coach_seen";
 
 export const HeaderVoiceMic: React.FC<{ variant?: 'default' | 'subtle' }> = ({ variant = 'default' }) => {
   const openWithMic = useUnifiedAssistantStore((s) => s.openWithMic);
+  const openAssistant = useUnifiedAssistantStore((s) => s.open);
   const [showCoach, setShowCoach] = useState(false);
   const subtle = variant === 'subtle';
+  // WS2: voice is Growth+. Below tier this slot becomes a SPARKLE that opens the
+  // (text-only) assistant instead of a mic — and the standalone ✨ launcher hides
+  // itself below tier so there's no duplicate sparkle.
+  const voiceEnabled = useVoiceEnabled();
 
   // First-visit coach-mark. Set in an effect (not initial state) to avoid an
   // SSR/client hydration mismatch; storage access guarded for private mode.
@@ -47,6 +53,22 @@ export const HeaderVoiceMic: React.FC<{ variant?: 'default' | 'subtle' }> = ({ v
       /* ignore */
     }
   };
+
+  // Starter (voice off): a sparkle that opens the text assistant — same slot,
+  // no mic, no voice coach-mark or listening pulse.
+  if (!voiceEnabled) {
+    return (
+      <button
+        type="button"
+        onClick={() => openAssistant()}
+        aria-label="Open your assistant"
+        title="Open your assistant"
+        className={`relative ${subtle ? 'p-2' : 'p-2.5'} rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg transition-shadow hover:shadow-xl`}
+      >
+        <Sparkles className={subtle ? 'w-5 h-5' : 'w-6 h-6'} />
+      </button>
+    );
+  }
 
   return (
     <div className="relative">

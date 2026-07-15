@@ -25,6 +25,31 @@ export const requireShopPermission = (permission: string) => {
   };
 };
 
+/**
+ * Gate a shop route on ANY of several team permissions (owner '*' and admins bypass).
+ * Use for reads that several roles legitimately need — e.g. listing locations is needed
+ * both to manage them (shop:manage) and to pick one when booking (bookings:manage).
+ */
+export const requireAnyShopPermission = (permissions: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return ResponseHelper.error(res, 'Authentication required', 401);
+    }
+    if (req.user.role === 'admin') {
+      return next();
+    }
+    const perms = req.user.permissions ?? ['*'];
+    if (permissions.some((p) => hasPermission(perms, p))) {
+      return next();
+    }
+    return ResponseHelper.error(
+      res,
+      `Permission denied. Required one of: ${permissions.join(', ')}`,
+      403
+    );
+  };
+};
+
 export const requirePermission = (permission: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {

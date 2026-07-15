@@ -32,12 +32,14 @@ import { WebhookMonitorTab } from "@/components/admin/tabs/WebhookMonitorTab";
 import { RcgManagementTab } from "@/components/admin/tabs/RcgManagementTab";
 import { AnnouncementsTab } from "@/components/admin/tabs/AnnouncementsTab";
 import { ReferralAnalyticsTab } from "@/components/admin/tabs/ReferralAnalyticsTab";
+import { CommissionsAnalyticsTab } from "@/components/admin/tabs/CommissionsAnalyticsTab";
 import ServiceMarketplaceAnalyticsSection from "@/components/admin/ServiceMarketplaceAnalyticsSection";
 import { AffiliateGroupsTab } from "@/components/admin/tabs/AffiliateGroupsTab";
 import { AdminAISettingsTab } from "@/components/admin/tabs/AdminAISettingsTab";
 import { SmartCommandBar } from "@/components/admin/SmartCommandBar";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
 const client = createThirdwebClient({
   clientId:
@@ -49,6 +51,7 @@ export default function AdminDashboardClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
+  const blockchainEnabled = useBlockchainEnabled();
   const [authInitialized, setAuthInitialized] = useState(false);
 
   // Delayed loading modal - prevents flash when cache loads quickly
@@ -483,8 +486,8 @@ export default function AdminDashboardClient() {
             </LazyTabWrapper>
           )}
 
-          {/* RCG Management Tab */}
-          {activeTab === "rcg" && hasAdminAccess && (
+          {/* RCG Management Tab — blockchain-only; hidden in database-only mode */}
+          {activeTab === "rcg" && hasAdminAccess && blockchainEnabled && (
             <LazyTabWrapper isActive={activeTab === "rcg"}>
               <RcgManagementTab />
             </LazyTabWrapper>
@@ -501,6 +504,12 @@ export default function AdminDashboardClient() {
           {activeTab === "referrals" && hasAdminAccess && (
             <LazyTabWrapper isActive={activeTab === "referrals"}>
               <ReferralAnalyticsTab />
+            </LazyTabWrapper>
+          )}
+
+          {activeTab === "commissions" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "commissions"}>
+              <CommissionsAnalyticsTab />
             </LazyTabWrapper>
           )}
 

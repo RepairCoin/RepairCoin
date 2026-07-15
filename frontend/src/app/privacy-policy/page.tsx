@@ -119,7 +119,6 @@ export default function PrivacyPolicyPage() {
             <li><strong>Account data</strong> — Retained while your account is active</li>
             <li><strong>Transaction records</strong> — Retained for 7 years for financial compliance</li>
             <li><strong>Messages</strong> — Retained while your account is active</li>
-            <li><strong>Blockchain records</strong> — On-chain data is permanent and cannot be deleted</li>
             <li><strong>Location data</strong> — Not stored; used ephemerally for nearby shop search</li>
           </ul>
         </Section>

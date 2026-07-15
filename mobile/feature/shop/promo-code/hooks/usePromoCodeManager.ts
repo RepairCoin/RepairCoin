@@ -71,7 +71,7 @@ export function usePromoCodeManager(
         clearTimeout(timeoutId);
       }
     };
-  }, [promoCode, customerAddress, baseReward, tierBonus, validatePromo]);
+  }, [promoCode, customerAddress, baseReward, tierBonus]);
 
   return {
     promoCode,

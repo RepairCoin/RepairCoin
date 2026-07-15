@@ -38,7 +38,7 @@ export default function DeleteAccountPage() {
               </li>
               <li className="flex items-start">
                 <span className="text-[#FFCC00] mr-2">2.</span>
-                Your wallet address
+                Your RepairCoin ID
               </li>
               <li className="flex items-start">
                 <span className="text-[#FFCC00] mr-2">3.</span>

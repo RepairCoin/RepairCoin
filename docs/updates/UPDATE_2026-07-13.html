@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 13, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+    --amber: #b45309; --amber-bg: #fef3e2; --red: #b91c1c; --red-bg: #fdecec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-done { background: var(--green-bg); color: #14753b; }
+  .tag-new { background: var(--violet-bg); color: var(--violet); }
+  .tag-verify { background: #e4eeff; color: #1d4ed8; }
+  .tag-block { background: var(--red-bg); color: var(--red); }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  td .warn { color: var(--amber); font-weight: 700; }
+  td .fail { color: var(--red); font-weight: 700; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.amber { background: var(--amber-bg); border: 1px solid #f6d9a8; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+  .callout.amber strong { color: var(--amber); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Go-Live Verification &amp; Blockchain-Leak Cleanup</h1>
+    <p class="sub">Ran the launch checklist against the live build, closed the last blockchain leaks, and flagged two production billing blockers.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 13, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Delivered &amp; Pushed to main</span></span>
+      <span class="meta-pill"><strong>Focus:</strong>&nbsp; Go-live checklist §0 / §1 / §3</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      Pulled the latest <code class="inline">main</code> and executed the go-live checklist against the running app —
+      config sanity, the "blockchain hidden" launch requirement, and the trial + billing flow. The config wiring and
+      shop surface held up clean, but the audit surfaced a set of leftover blockchain leaks (admin RCG/Treasury,
+      two customer QR headings, and stray public-page wording) that the July 9 pass didn't reach. All are now fixed,
+      type-checked, and pushed. Two production billing blockers were identified and handed off.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">0</span> Config Sanity <span class="tag tag-verify">VERIFIED</span></h2>
+    <p>Booted the backend against the live database and confirmed the launch config end-to-end:</p>
+    <ul>
+      <li><code class="inline">GET /api/config</code> returns <code class="inline">{ blockchainEnabled: false }</code> — verified live, not just in source.</li>
+      <li>The frontend config context <strong>fails closed</strong>: it defaults to blockchain-hidden and stays hidden if the config call ever errors, so nothing crypto can flash on a slow network.</li>
+      <li>Wallet <strong>login is confirmed independent of the flag</strong> — Thirdweb connect renders unconditionally, exactly as intended (we keep login, hide everything else blockchain).</li>
+      <li><code class="inline">ANTHROPIC</code> / <code class="inline">OPENAI</code> keys present; Stripe keys present (test locally — prod needs live keys, see blockers).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Blockchain Hidden — Leak Audit &amp; Fixes <span class="tag tag-done">FIXED</span></h2>
+    <p>
+      Audited every user-facing surface for wallet/blockchain/token UI that could still render with the flag off.
+      The <strong>shop surface was already fully gated</strong> (Wallet &amp; Payouts, staking, RCG, mint, crypto pay —
+      all correctly hidden). The following leaks were found and closed:
+    </p>
+    <ul>
+      <li><strong>Admin (largest gap):</strong> the <strong>RCG</strong> nav link + tab still rendered, and inside
+          Treasury the <strong>Stakers (10%) / DAO (10%) revenue-share</strong> cards and the <strong>RCG Metrics</strong>
+          sub-tab were ungated. Now all gated behind the blockchain flag; the legitimate RCN-sales, pricing and
+          analytics content in Treasury stays visible.</li>
+      <li><strong>Customer:</strong> two QR modal headings were hardcoded "Wallet Address QR Code" — now use the shared
+          label and read <strong>"RepairCoin ID QR Code"</strong> (redemption + settings).</li>
+      <li><strong>Public / legal:</strong> dropped leftover blockchain/crypto/staking wording from the privacy policy,
+          delete-account page, the sign-in "choose" page, the team-invite page, the tier explainer, and the public
+          shop tier cards.</li>
+    </ul>
+    <div class="callout green">
+      <strong>Reversible:</strong> the admin and customer fixes are behind <code class="inline">ENABLE_BLOCKCHAIN_MINTING</code>
+      and restore automatically when the flag flips back on; the public copy is neutral in both modes.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Trial + Billing <span class="tag tag-verify">VERIFIED</span> <span class="tag tag-block">2 BLOCKERS</span></h2>
+    <p>Traced the tier/trial/checkout flow across frontend and backend:</p>
+    <ul>
+      <li>Prices match front-to-back — <strong>Starter $80 / Growth $299 / Business $599</strong>, 14-day trial constant,
+          and the plan-comparison UI is wired into the working checkout. ✓</li>
+      <li><strong>Blocker 1 — Stripe tier price IDs:</strong> <code class="inline">STRIPE_PRICE_STARTER / _GROWTH / _BUSINESS</code>
+          are not set; checkout silently falls back to the single legacy price, so <strong>all three tiers would bill the
+          same amount</strong>. Create the three prices in Stripe and set them in prod env.</li>
+      <li><strong>Blocker 2 — Live Stripe keys:</strong> production must use live keys + webhook secret (local is test mode).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Go-Live checklist — verification status</h2>
+    <table>
+      <thead><tr><th>§</th><th>Item</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>Config / env sanity (<code class="inline">blockchainEnabled:false</code>, keys, wallet login kept)</td><td><span class="ok">✓ Verified</span></td></tr>
+        <tr><td>1</td><td>Blockchain/wallet hidden — shop surface</td><td><span class="ok">✓ Clean</span></td></tr>
+        <tr><td>1</td><td>Blockchain/wallet hidden — admin / customer / public</td><td><span class="ok">✓ Fixed &amp; pushed</span></td></tr>
+        <tr><td>3</td><td>Trial + plan pricing config</td><td><span class="ok">✓ Verified</span></td></tr>
+        <tr><td>3</td><td>Stripe tier price IDs in prod</td><td><span class="fail">✗ Blocker — hand-off</span></td></tr>
+        <tr><td>3</td><td>Live Stripe keys in prod</td><td><span class="warn">⚠ Deploy step</span></td></tr>
+      </tbody>
+    </table>
+    <div class="callout green" style="margin-top:18px;">
+      <strong>Verification:</strong> 11 files changed across the leak fixes; <strong>0 new type errors</strong> in any modified
+      file (checked with <code class="inline">tsc --noEmit</code>). Shipped as one focused commit on <code class="inline">main</code>
+      (<code class="inline">3aa70e67</code>).
+    </div>
+  </section>
+
+  <section>
+    <h2>Also landed on <code class="inline">main</code> (other tracks)</h2>
+    <p>Today's pull brought in teammates' work — reviewed for overlap with the launch loop, no conflicts with the Web/UI changes:</p>
+    <ul>
+      <li><strong>Ads / AI:</strong> Twilio SMS integration + inbound webhook, channel-aware AI first-contact, Facebook lead attribution.</li>
+      <li><strong>Shop:</strong> staff commissions (accrual, config, reporting) and team-member identity persistence across token refresh.</li>
+      <li><strong>Fixes:</strong> imported customers now visible across shop surfaces; manual-booking branch selection.</li>
+      <li><strong>Mobile:</strong> subscription tier selection + plan change without cancelling; Play Store demo mode.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>
+      The launch config is verified live and the "blockchain invisible" requirement now genuinely holds across
+      <em>every</em> surface — the admin RCG/Treasury and public-page leaks that slipped past the first pass are closed and
+      reversible. Billing logic is sound; the only remaining launch gate on this lane is the two Stripe production
+      settings, which are ops/env work handed off to be set before go-live.
+    </p>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 13, 2026</footer>
+</div>
+</body>
+</html>

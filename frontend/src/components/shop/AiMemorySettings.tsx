@@ -30,6 +30,8 @@ import {
   type AiMemory,
   type AiMemoryKind,
 } from "@/services/api/aiMemory";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { FeatureLockedCard } from "@/components/shop/FeatureLockedCard";
 
 const KIND_LABEL: Record<AiMemoryKind, string> = {
   instruction: "Instruction",
@@ -60,6 +62,11 @@ export const AiMemorySettings: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
 
+  // WS2: AI Memory is a Business-only feature. When the plan doesn't include it
+  // we show the upgrade card and skip the (server-gated) list request entirely.
+  const { can, loading: featureLoading } = useFeatureAccess();
+  const locked = !featureLoading && !can("aiMemory");
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -74,8 +81,13 @@ export const AiMemorySettings: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (featureLoading) return; // wait until the tier resolves
+    if (locked) {
+      setLoading(false); // below tier — don't fire the gated request
+      return;
+    }
     load();
-  }, [load]);
+  }, [featureLoading, locked, load]);
 
   const parseTags = (raw: string): string[] =>
     raw
@@ -133,11 +145,23 @@ export const AiMemorySettings: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (featureLoading || loading) {
     return (
       <div className="flex items-center gap-2 text-gray-400 text-sm">
         <Loader2 className="w-4 h-4 animate-spin" /> Loading memory…
       </div>
+    );
+  }
+
+  // WS2: plan doesn't include AI Memory → upgrade prompt (not the "contact
+  // support" copy below, which is for the flag being off on an entitled plan).
+  if (locked) {
+    return (
+      <FeatureLockedCard
+        feature="aiMemory"
+        title="Assistant Memory is a Business feature"
+        description="Give your assistant standing instructions it remembers across conversations — available on the Business plan."
+      />
     );
   }
 

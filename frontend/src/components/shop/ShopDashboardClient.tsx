@@ -39,6 +39,8 @@ import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTa
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { TeamTab } from "@/components/shop/tabs/TeamTab";
+import { CommissionsTab } from "@/components/shop/tabs/CommissionsTab";
+import { MyCommissionsTab } from "@/components/shop/tabs/MyCommissionsTab";
 import { LocationsTab } from "@/components/shop/tabs/LocationsTab";
 import { LocationSwitcher } from "@/components/shop/LocationSwitcher";
 import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
@@ -1704,6 +1706,14 @@ export default function ShopDashboardClient() {
             <SubscriptionGuard shopData={shopData}>
               <TierGate feature="teamManagement">
                 <TeamTab shopId={shopData.shopId} />
+              </TierGate>
+            </SubscriptionGuard>
+          )}
+
+          {activeTab === "commissions" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <TierGate feature="teamManagement">
+                {hasPermission("shop:manage") ? <CommissionsTab /> : <MyCommissionsTab />}
               </TierGate>
             </SubscriptionGuard>
           )}

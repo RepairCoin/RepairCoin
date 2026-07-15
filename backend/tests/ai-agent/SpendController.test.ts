@@ -3,6 +3,9 @@
 // Phase 3 Task 12 — verify the GET /api/ai/spend (shop) and
 // GET /api/ai/admin/cost-summary (admin) endpoints.
 
+// Budget is now tier-derived (getShopAiBudget) — mock it deterministically ($30 = growth).
+jest.mock("../../src/utils/shopTier", () => ({ getShopAiBudget: jest.fn().mockResolvedValue(30) }));
+
 import { makeSpendControllers } from "../../src/domains/AIAgentDomain/controllers/SpendController";
 
 const makeReq = (opts: { user?: any } = {}) =>
@@ -53,8 +56,8 @@ describe("SpendController.getOwnShopSpend", () => {
       success: true,
       data: expect.objectContaining({
         currentMonthSpendUsd: 1.25,
-        monthlyBudgetUsd: 20,
-        percentUsed: 1.25 / 20,
+        monthlyBudgetUsd: 30,
+        percentUsed: 1.25 / 30,
         callsThisMonth: 42,
       }),
     });
@@ -72,7 +75,7 @@ describe("SpendController.getOwnShopSpend", () => {
       success: true,
       data: {
         currentMonthSpendUsd: 0,
-        monthlyBudgetUsd: 20,
+        monthlyBudgetUsd: 30,
         percentUsed: 0,
         monthStartedAt: null,
         callsThisMonth: 0,

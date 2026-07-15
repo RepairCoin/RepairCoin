@@ -39,9 +39,16 @@ describe('LeadInitiationService.onLeadCaptured', () => {
     expect(ai.draftOutreach).not.toHaveBeenCalled();
   });
 
-  it('skips a lead with no email (only wired channel in v1)', async () => {
-    const { svc } = makeSvc({ lead: { ...baseLead, email: null } });
+  it('skips a lead with NO contactable channel (no email, phone, messenger, or whatsapp)', async () => {
+    const { svc } = makeSvc({ lead: { ...baseLead, email: null, phone: null, messengerId: null, whatsappId: null } });
     expect(await svc.onLeadCaptured('l1', 'c1')).toBe('no_channel');
+  });
+
+  it('TEXTS a phone-only lead first (channel-aware): sends via sms, records channel sms', async () => {
+    const { svc, channel, messages } = makeSvc({ lead: { ...baseLead, email: null, phone: '+15551234567' } });
+    expect(await svc.onLeadCaptured('l1', 'c1')).toBe('sent');
+    expect(channel.deliver).toHaveBeenCalledWith('sms', expect.objectContaining({ phone: '+15551234567' }), expect.any(String));
+    expect(messages.append).toHaveBeenCalledWith(expect.objectContaining({ channel: 'sms' }));
   });
 
   it('skips an already-worked lead (not new / has first response)', async () => {

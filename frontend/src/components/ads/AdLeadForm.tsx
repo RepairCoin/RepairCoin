@@ -50,7 +50,7 @@ export const AdLeadForm: React.FC<AdLeadFormProps> = ({
       setError("Please add a phone number or email so we can reach you.");
       return;
     }
-    const { utm, clickId, gclid } = getStoredUtm();
+    const { utm, clickId, gclid, fbclid } = getStoredUtm();
     const resolvedCampaign = campaignId || utm.utm_campaign;
     if (!resolvedCampaign) {
       setError("This form isn't linked to a campaign yet.");
@@ -66,6 +66,7 @@ export const AdLeadForm: React.FC<AdLeadFormProps> = ({
         utm,
         clickId,
         gclid,
+        fbclid,
       });
       // Fire the Meta Pixel "Lead" conversion (no-op if the landing page didn't load a pixel).
       try { (window as any).fbq?.("track", "Lead"); } catch { /* ignore */ }

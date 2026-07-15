@@ -4,6 +4,7 @@ import { authMiddleware, requireRole } from '../../../middleware/auth';
 import { requireShopPermission } from '../../../middleware/permissions';
 import { requireTier } from '../../../middleware/tierGuard';
 import { shopTeamRepository, shopRepository } from '../../../repositories';
+import { getSharedPool } from '../../../utils/database-pool';
 import { resendEmailService } from '../../../services/ResendEmailService';
 import { EmailService } from '../../../services/EmailService';
 import { logger } from '../../../utils/logger';
@@ -58,6 +59,7 @@ const sanitizeMember = (m: any) => ({
   walletAddress: m.walletAddress,
   role: m.role,
   permissions: m.permissions,
+  commissionPercent: m.commissionPercent,
   status: m.status,
   invitedAt: m.invitedAt,
   acceptedAt: m.acceptedAt,
@@ -76,6 +78,110 @@ router.get('/me', authMiddleware, requireRole(['shop']), (req: Request, res: Res
       isOwner: !req.user?.teamMemberId,
     },
   });
+});
+
+// GET /api/shops/team/assignable — minimal roster for the completion picker.
+// Auth + shop role only (no team:manage): staff/managers who complete orders can't read
+// the full roster but must be able to attribute a completion. Returns names only, plus
+// whether commissions are on and which member is the caller (for the default selection).
+router.get('/assignable', authMiddleware, requireRole(['shop']), async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user!.shopId!;
+    const pool = getSharedPool();
+    const [members, shop] = await Promise.all([
+      pool.query(
+        `SELECT id, name, email, wallet_address FROM shop_team_members
+         WHERE shop_id = $1 AND status = 'active'
+         ORDER BY (role = 'owner') DESC, name ASC NULLS LAST`,
+        [shopId]
+      ),
+      pool.query(`SELECT commissions_enabled FROM shops WHERE shop_id = $1`, [shopId]),
+    ]);
+
+    const addr = req.user!.address?.toLowerCase();
+    let currentMemberId: string | null = req.user!.teamMemberId ?? null;
+    if (!currentMemberId && addr) {
+      const self = members.rows.find((m) => (m.wallet_address || '').toLowerCase() === addr);
+      currentMemberId = self ? self.id : null;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        commissionsEnabled: shop.rows[0]?.commissions_enabled === true,
+        currentMemberId,
+        members: members.rows.map((m) => ({ id: m.id, name: m.name || m.email })),
+      },
+    });
+  } catch (error) {
+    logger.error('Error listing assignable members:', error);
+    res.status(500).json({ success: false, error: 'Failed to load assignable members' });
+  }
+});
+
+// GET /api/shops/team/my-commissions?from&to — the caller's OWN commission, for transparency.
+// Auth + shop role only: a staff member can't read the shop-wide report (shop:manage) but must
+// be able to see what they personally earned. Strictly self-scoped to the caller's member id.
+router.get('/my-commissions', authMiddleware, requireRole(['shop']), async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user!.shopId!;
+    const pool = getSharedPool();
+
+    // Resolve the caller's own member id: teamMemberId for non-owners, else the owner's row by wallet.
+    let memberId: string | null = req.user!.teamMemberId ?? null;
+    if (!memberId && req.user!.address) {
+      const self = await shopTeamRepository.getActiveMemberByWallet(req.user!.address);
+      if (self && self.shopId === shopId) memberId = self.id;
+    }
+
+    const { from, to } = req.query as { from?: string; to?: string };
+    const shopRow = await pool.query(`SELECT commissions_enabled FROM shops WHERE shop_id = $1`, [shopId]);
+    const commissionsEnabled = shopRow.rows[0]?.commissions_enabled === true;
+
+    if (!memberId) {
+      return res.json({
+        success: true,
+        data: { commissionsEnabled, summary: { accrued: 0, paid: 0, total: 0, count: 0 }, rows: [] },
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT sc.id, sc.order_id, sc.base_amount, sc.rate_percent, sc.amount, sc.status, sc.created_at, sc.paid_at
+         FROM staff_commissions sc
+        WHERE sc.shop_id = $1 AND sc.member_id = $2
+          AND ($3::date IS NULL OR sc.created_at >= $3::date)
+          AND ($4::date IS NULL OR sc.created_at < ($4::date + INTERVAL '1 day'))
+        ORDER BY sc.created_at DESC`,
+      [shopId, memberId, from || null, to || null]
+    );
+
+    const rows = result.rows.map((r) => ({
+      id: r.id,
+      orderId: r.order_id,
+      baseAmount: parseFloat(r.base_amount),
+      ratePercent: parseFloat(r.rate_percent),
+      amount: parseFloat(r.amount),
+      status: r.status,
+      createdAt: r.created_at,
+      paidAt: r.paid_at,
+    }));
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const accrued = round2(rows.filter((r) => r.status === 'accrued').reduce((s, r) => s + r.amount, 0));
+    const paid = round2(rows.filter((r) => r.status === 'paid').reduce((s, r) => s + r.amount, 0));
+
+    res.json({
+      success: true,
+      data: {
+        commissionsEnabled,
+        summary: { accrued, paid, total: round2(accrued + paid), count: rows.length },
+        rows,
+      },
+    });
+  } catch (error) {
+    logger.error('Error loading own commissions:', error);
+    res.status(500).json({ success: false, error: 'Failed to load your commissions' });
+  }
 });
 
 // GET /api/shops/team — list members
@@ -178,7 +284,7 @@ router.put('/:memberId', teamManage, async (req: Request, res: Response) => {
   try {
     const shopId = req.user!.shopId!;
     const { memberId } = req.params;
-    const { role, permissions, name } = req.body;
+    const { role, permissions, name, commissionPercent } = req.body;
 
     const member = await shopTeamRepository.getMemberById(memberId);
     if (!member || member.shopId !== shopId) {
@@ -206,6 +312,18 @@ router.put('/:memberId', teamManage, async (req: Request, res: Response) => {
       }
     } else if (permissions !== undefined) {
       updates.permissions = sanitizePermissions(permissions);
+    }
+
+    if (commissionPercent !== undefined) {
+      if (commissionPercent === null) {
+        updates.commissionPercent = null;
+      } else {
+        const n = Number(commissionPercent);
+        if (!Number.isFinite(n) || n < 0 || n > 100) {
+          return res.status(400).json({ success: false, error: 'commissionPercent must be between 0 and 100, or null to inherit' });
+        }
+        updates.commissionPercent = n;
+      }
     }
 
     const updated = await shopTeamRepository.updateMember(memberId, updates);

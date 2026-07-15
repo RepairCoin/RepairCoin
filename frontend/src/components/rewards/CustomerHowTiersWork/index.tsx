@@ -12,9 +12,9 @@ const columns = [
       "Your tier progression is based on how often you visit partner services and interact using RCN.",
   },
   {
-    title: "Governance-Defined",
+    title: "Fair & Consistent",
     description:
-      "The rules and structure are voted and refined through RCG governance to ensure fairness and long-term sustainability.",
+      "The rules and structure are reviewed and refined by the RepairCoin team to ensure fairness and long-term sustainability.",
   },
   {
     title: "Fully Transparent",

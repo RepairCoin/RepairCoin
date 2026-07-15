@@ -1061,6 +1061,11 @@ export const adminApi = {
   getAffiliateGroups: async () => {
     return apiClient.get('/admin/affiliate-groups');
   },
+
+  // Platform-wide staff-commission roll-up (read-only)
+  getPlatformCommissions: async () => {
+    return apiClient.get('/admin/analytics/commissions');
+  },
 } as const;
 
 // Platform Settings Types

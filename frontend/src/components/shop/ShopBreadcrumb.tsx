@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuthStore } from "@/stores/authStore";
-import { useRCGBalance } from "@/hooks/useRCGBalance";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { CartIcon } from "@/components/ui/CartIcon";
 import { MessageIcon } from "@/components/messaging/MessageIcon";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -219,20 +219,22 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
   onTabChange,
 }) => {
   const name = useAuthStore((s) => s.userProfile?.name);
+  const memberName = useAuthStore((s) => s.userProfile?.memberName);
   const profileFirstName = useAuthStore((s) => s.userProfile?.firstName);
   const avatarUrl = useAuthStore((s) => s.userProfile?.avatarUrl);
-  const shopId = useAuthStore((s) => s.userProfile?.shopId);
-  const { rcgInfo } = useRCGBalance(shopId);
+  // Header badge shows the SUBSCRIPTION plan (Starter/Growth/Business) — the tier
+  // that governs feature access — not the RCG governance-token tier (which is a
+  // blockchain concept and is hidden in DB-only mode).
+  const { tier: planTier } = useFeatureAccess();
   const [avatarError, setAvatarError] = useState(false);
 
   const tabConfig = TAB_CONFIG[activeTab] || DEFAULT_TAB;
   const isHome = activeTab === "overview";
-  // Greet the person, not the shop: owners carry firstName/lastName; team members
-  // carry their own name. Fall back to the shop name, then "there".
-  const personName = profileFirstName || name;
+  // Greet the person, not the shop: team members carry their own name (memberName),
+  // owners carry firstName/lastName. Fall back to the shop name, then "there".
+  const personName = memberName || profileFirstName || name;
   const firstName = (personName || "there").split(" ")[0];
-  const tier =
-    rcgInfo?.tier && rcgInfo.tier !== "none" ? capitalize(rcgInfo.tier) : null;
+  const tier = planTier ? capitalize(planTier) : null;
   const showAvatar = avatarUrl && !avatarError;
 
   const handleHomeClick = () => {
@@ -285,7 +287,7 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
           )}
           <div className="leading-tight">
             <p className="text-sm font-medium text-white">Hi, {firstName}</p>
-            {tier && <p className="text-xs text-[#FFCC00]">{tier} Tier</p>}
+            {tier && <p className="text-xs text-[#FFCC00]">{tier} Plan</p>}
           </div>
         </div>
       </div>

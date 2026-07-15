@@ -239,8 +239,12 @@ export async function importCustomers(req: Request, res: Response): Promise<void
         source: typeof req.body.source === 'string' ? req.body.source.trim().slice(0, 40) : undefined,
         // Confirmed AI/explicit column mapping (JSON string in multipart form).
         columnMapping: parseColumnMapping(req.body.columnMapping),
-        // Target shop these customers belong to (admin-picked) → stamped on home_shop_id.
-        homeShopId: typeof req.body.homeShopId === 'string' && req.body.homeShopId.trim() ? req.body.homeShopId.trim() : undefined
+        // Target shop these customers belong to → stamped on home_shop_id. Admin picks it
+        // explicitly; a shop importing its own list defaults to the caller's shop, otherwise
+        // the rows have no shop attribution and never show in that shop's customer list.
+        homeShopId: (typeof req.body.homeShopId === 'string' && req.body.homeShopId.trim())
+          ? req.body.homeShopId.trim()
+          : (shopId ?? undefined)
       }
     );
 

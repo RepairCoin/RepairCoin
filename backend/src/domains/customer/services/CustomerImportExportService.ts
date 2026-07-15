@@ -619,7 +619,9 @@ export class CustomerImportExportService {
   }
 
   /**
-   * Get all shop customers (customers who have placed orders at this shop)
+   * Get all shop customers: those who have ordered here, plus imported/migrated customers
+   * homed here (home_shop_id) with no orders yet — otherwise a shop can't export the very
+   * list it just imported.
    */
   private async getShopCustomers(shopId: string): Promise<Customer[]> {
     const client = await this.pool.connect();
@@ -628,8 +630,8 @@ export class CustomerImportExportService {
       const result = await client.query(
         `SELECT DISTINCT c.*
          FROM customers c
-         INNER JOIN service_orders o ON o.customer_address = c.address
-         WHERE o.shop_id = $1
+         LEFT JOIN service_orders o ON o.customer_address = c.address AND o.shop_id = $1
+         WHERE (o.order_id IS NOT NULL OR LOWER(c.home_shop_id) = LOWER($1))
          ORDER BY c.created_at DESC`,
         [shopId]
       );

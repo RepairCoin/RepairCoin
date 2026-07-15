@@ -23,7 +23,7 @@ export interface CampaignTotals {
   totalBookings: number;
 }
 
-export type LeadChannel = 'messenger' | 'whatsapp' | 'google' | 'meta_form' | 'webform';
+export type LeadChannel = 'messenger' | 'whatsapp' | 'facebook' | 'google' | 'meta_form' | 'webform';
 
 export interface ChannelRow {
   channel: LeadChannel;
@@ -72,7 +72,10 @@ export class PerformanceRepository extends BaseRepository {
             WHEN l.messenger_id  IS NOT NULL THEN 'messenger'
             WHEN l.whatsapp_id   IS NOT NULL THEN 'whatsapp'
             WHEN l.gclid         IS NOT NULL THEN 'google'
+            WHEN l.fbclid        IS NOT NULL THEN 'facebook'
             WHEN l.meta_lead_id  IS NOT NULL THEN 'meta_form'
+            WHEN cam.platform = 'google'     THEN 'google'
+            WHEN cam.platform = 'meta'       THEN 'facebook'
             ELSE 'webform'
           END AS channel,
           count(DISTINCT l.id)::int AS leads,
@@ -84,6 +87,7 @@ export class PerformanceRepository extends BaseRepository {
                  THEN o.final_amount_usd ELSE 0 END
           ), 0) * 100)::int AS revenue_cents
          FROM ad_leads l
+         JOIN ad_campaigns cam ON cam.id = l.campaign_id
          LEFT JOIN service_orders o ON o.ad_lead_id = l.id
         WHERE l.campaign_id = $1 AND l.is_duplicate = false
         GROUP BY 1`,

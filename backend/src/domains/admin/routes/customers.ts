@@ -193,8 +193,9 @@ router.get('/without-shops',
           c.referral_code,
           c.referred_by
         FROM customers c
-        WHERE NOT EXISTS (
-          SELECT 1 
+        WHERE c.home_shop_id IS NULL
+          AND NOT EXISTS (
+          SELECT 1
           FROM transactions t 
           WHERE t.customer_address = c.wallet_address 
           AND t.type = 'mint'
@@ -210,8 +211,9 @@ router.get('/without-shops',
       const countQuery = `
         SELECT COUNT(*) as count
         FROM customers c
-        WHERE NOT EXISTS (
-          SELECT 1 
+        WHERE c.home_shop_id IS NULL
+          AND NOT EXISTS (
+          SELECT 1
           FROM transactions t 
           WHERE t.customer_address = c.wallet_address 
           AND t.type = 'mint'

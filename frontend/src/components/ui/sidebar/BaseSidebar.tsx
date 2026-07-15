@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ChevronDown, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Lock } from "lucide-react";
 import { SidebarItem } from "./useSidebar";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -386,6 +386,10 @@ export const SectionMenuItem: React.FC<SectionMenuItemProps> = ({
             }`}>
               {item.badge.count > 99 ? '99+' : item.badge.count}
             </span>
+          )}
+          {/* WS2: tier-locked tab — a lock hint (content shows the upgrade prompt on click) */}
+          {item.locked && !isActive && (
+            <Lock className="ml-auto w-3.5 h-3.5 text-gray-500 flex-shrink-0" aria-label="Upgrade to unlock" />
           )}
         </Link>
 

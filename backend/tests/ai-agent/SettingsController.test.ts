@@ -2,13 +2,20 @@
 //
 // Verify GET /api/ai/settings + PUT /api/ai/settings (shop) and the
 // pure validation. The key guarantee: a shop can only edit the two
-// behavior fields — gate fields in the body are never trusted.
+// behavior fields — gate fields in the body are never trusted. Budget is
+// tier-derived + read-only (getShopAiBudget, mocked to $30 = growth).
+
+jest.mock("../../src/utils/shopTier", () => ({
+  getShopAiBudget: jest.fn().mockResolvedValue(30),
+  getShopTier: jest.fn().mockResolvedValue("growth"), // $30 tier; override per test for gating
+}));
 
 import {
   makeSettingsControllers,
   validateShopAiSettingsUpdate,
   validateAdminShopAiSettingsUpdate,
 } from "../../src/domains/AIAgentDomain/controllers/SettingsController";
+import { getShopTier } from "../../src/utils/shopTier";
 
 const makeReq = (opts: { user?: any; body?: any; params?: any } = {}) =>
   ({ user: opts.user ?? {}, body: opts.body, params: opts.params ?? {} } as any);
@@ -177,7 +184,7 @@ describe("SettingsController.getOwnShopAiSettings", () => {
         aiFollowupEnabled: false,
         aiImagesEnabled: false,
         campaignRewardsEnabled: false,
-        monthlyBudgetUsd: 20,
+        monthlyBudgetUsd: 30,
         currentMonthSpendUsd: 3.5,
         escalationThreshold: 5,
         aiFollowupDelayMinutes: 20,
@@ -289,18 +296,21 @@ describe("validateAdminShopAiSettingsUpdate", () => {
     expect(r.value).toEqual({ aiFollowupEnabled: true });
   });
 
-  it("accepts all three gate fields", () => {
+  it("accepts the boolean gate fields", () => {
     const r = validateAdminShopAiSettingsUpdate({
       aiGlobalEnabled: true,
       aiFollowupEnabled: false,
-      monthlyBudgetUsd: 50,
     });
     expect(r.ok).toBe(true);
-    expect(r.value).toEqual({
-      aiGlobalEnabled: true,
-      aiFollowupEnabled: false,
-      monthlyBudgetUsd: 50,
-    });
+    expect(r.value).toEqual({ aiGlobalEnabled: true, aiFollowupEnabled: false });
+  });
+
+  it("IGNORES monthlyBudgetUsd — the AI budget is tier-derived + read-only, not settable", () => {
+    const r = validateAdminShopAiSettingsUpdate({ aiGlobalEnabled: true, monthlyBudgetUsd: 50 });
+    expect(r.ok).toBe(true);
+    expect(r.value).toEqual({ aiGlobalEnabled: true }); // monthlyBudgetUsd dropped
+    // A body with ONLY monthlyBudgetUsd has no settable field → rejected as empty.
+    expect(validateAdminShopAiSettingsUpdate({ monthlyBudgetUsd: 50 }).ok).toBe(false);
   });
 
   it("rejects an empty body (no gate fields provided)", () => {
@@ -312,20 +322,6 @@ describe("validateAdminShopAiSettingsUpdate", () => {
   it.each([1, "true", null])("rejects non-boolean aiGlobalEnabled = %p", (bad) => {
     const r = validateAdminShopAiSettingsUpdate({ aiGlobalEnabled: bad });
     expect(r.ok).toBe(false);
-  });
-
-  it.each([-1, 1001, "20", NaN, Infinity])(
-    "rejects out-of-range monthlyBudgetUsd = %p",
-    (bad) => {
-      const r = validateAdminShopAiSettingsUpdate({ monthlyBudgetUsd: bad });
-      expect(r.ok).toBe(false);
-      expect(r.error).toMatch(/monthlyBudgetUsd/);
-    }
-  );
-
-  it("accepts budget boundary values 0 and 1000", () => {
-    expect(validateAdminShopAiSettingsUpdate({ monthlyBudgetUsd: 0 }).ok).toBe(true);
-    expect(validateAdminShopAiSettingsUpdate({ monthlyBudgetUsd: 1000 }).ok).toBe(true);
   });
 
   it("rejects a non-object body", () => {
@@ -364,7 +360,8 @@ describe("SettingsController.listShopAiSettings", () => {
           aiFollowupEnabled: false,
           aiImagesEnabled: false,
           campaignRewardsEnabled: false,
-          monthlyBudgetUsd: 20,
+          tier: "growth",
+          monthlyBudgetUsd: 30,
           currentMonthSpendUsd: 9.36,
           escalationThreshold: 5,
           aiFollowupDelayMinutes: 15,
@@ -439,6 +436,31 @@ describe("SettingsController.adminUpdateShopAiSettings", () => {
       success: true,
       data: expect.objectContaining({ shopId: "peanut", aiFollowupEnabled: true }),
     });
+  });
+
+  it("WS2: rejects (403) enabling a feature the shop's tier doesn't include — and writes nothing", async () => {
+    (getShopTier as jest.Mock).mockResolvedValueOnce("starter"); // below Growth
+    const pool = makePool([]);
+    const controllers = makeSettingsControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.adminUpdateShopAiSettings(
+      makeReq({ user: { role: "admin" }, params: { shopId: "peanut" }, body: { aiImagesEnabled: true } }),
+      res
+    );
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(pool.query).not.toHaveBeenCalled(); // no upsert
+  });
+
+  it("WS2: allows enabling the Starter+ master AI toggle on any tier", async () => {
+    (getShopTier as jest.Mock).mockResolvedValueOnce("starter");
+    const pool = makePool([[], [{ shop_id: "peanut", shop_name: "P", ai_global_enabled: true, current_month_spend_usd: "0" }]]);
+    const controllers = makeSettingsControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.adminUpdateShopAiSettings(
+      makeReq({ user: { role: "admin" }, params: { shopId: "peanut" }, body: { aiGlobalEnabled: true } }),
+      res
+    );
+    expect(res.status).not.toHaveBeenCalledWith(403);
   });
 
   it("returns 404 when the shop row can't be found after the upsert", async () => {

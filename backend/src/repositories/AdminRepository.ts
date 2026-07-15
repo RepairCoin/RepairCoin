@@ -688,6 +688,66 @@ export class AdminRepository extends BaseRepository {
     }
   }
 
+  // Platform-wide staff-commission visibility (read-only admin oversight).
+  // Cross-shop roll-up over the staff_commissions ledger (migration 213) joined to
+  // each shop's commission settings. Includes any shop that has commissions enabled
+  // (even with zero accrued — adoption signal) OR has ledger rows (so a shop that
+  // toggled commissions back off still surfaces its outstanding liability). Platform
+  // totals are summed from the same row set so the header always ties out to the table.
+  async getPlatformCommissions(): Promise<{
+    totals: { accrued: number; paid: number };
+    shops: Array<{
+      shopId: string;
+      shopName: string;
+      enabled: boolean;
+      defaultPercent: number;
+      accrued: number;
+      paid: number;
+    }>;
+  }> {
+    try {
+      const query = `
+        SELECT
+          s.shop_id,
+          s.name AS shop_name,
+          s.commissions_enabled,
+          s.default_commission_percent,
+          COALESCE(SUM(CASE WHEN sc.status = 'accrued' THEN sc.amount ELSE 0 END), 0) AS accrued,
+          COALESCE(SUM(CASE WHEN sc.status = 'paid' THEN sc.amount ELSE 0 END), 0) AS paid
+        FROM shops s
+        LEFT JOIN staff_commissions sc ON sc.shop_id = s.shop_id
+        GROUP BY s.shop_id, s.name, s.commissions_enabled, s.default_commission_percent
+        HAVING s.commissions_enabled = true OR COUNT(sc.id) > 0
+        ORDER BY accrued DESC, s.name ASC
+      `;
+
+      const result = await this.pool.query(query);
+
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const shops = result.rows.map((row) => ({
+        shopId: row.shop_id,
+        shopName: row.shop_name,
+        enabled: row.commissions_enabled === true,
+        defaultPercent: parseFloat(row.default_commission_percent ?? 0),
+        accrued: round2(parseFloat(row.accrued)),
+        paid: round2(parseFloat(row.paid)),
+      }));
+
+      const totals = shops.reduce(
+        (acc, s) => ({ accrued: acc.accrued + s.accrued, paid: acc.paid + s.paid }),
+        { accrued: 0, paid: 0 }
+      );
+
+      return {
+        totals: { accrued: round2(totals.accrued), paid: round2(totals.paid) },
+        shops,
+      };
+    } catch (error) {
+      logger.error('Error getting platform commissions:', error);
+      throw new Error('Failed to get platform commissions');
+    }
+  }
+
   // Enhanced Alert Management
   async getAlerts(filters: {
     unreadOnly?: boolean;

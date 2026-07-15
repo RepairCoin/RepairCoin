@@ -15,6 +15,9 @@ export interface StoredUtm {
   /** Google click id specifically (Google auto-tagging). Kept separate from clickId (which may be
    *  an fbclid) so the Google offline-conversion upload can key on it. */
   gclid?: string;
+  /** Facebook click id (FB auto-appends it on ad-click landing URLs) — attributes the lead to
+   *  Facebook rather than the generic "Web form" bucket. */
+  fbclid?: string;
   capturedAt?: number;
 }
 
@@ -29,9 +32,10 @@ export function captureUtmFromUrl(): void {
       if (v) utm[k] = v;
     });
     const gclid = sp.get("gclid") || undefined;
-    const clickId = sp.get("fbclid") || gclid || undefined;
-    if (Object.keys(utm).length > 0 || clickId || gclid) {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ utm, clickId, gclid, capturedAt: Date.now() }));
+    const fbclid = sp.get("fbclid") || undefined;
+    const clickId = fbclid || gclid || undefined;
+    if (Object.keys(utm).length > 0 || clickId || gclid || fbclid) {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ utm, clickId, gclid, fbclid, capturedAt: Date.now() }));
     }
   } catch {
     /* sessionStorage unavailable (SSR / privacy mode) — attribution falls back to manual */

@@ -63,6 +63,25 @@ router.get('/shop-rankings', requireAdmin, async (req: Request, res: Response) =
   }
 });
 
+// Get platform-wide staff-commission roll-up (read-only oversight)
+router.get('/commissions', requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const adminRepository = new AdminRepository();
+    const data = await adminRepository.getPlatformCommissions();
+
+    res.json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    logger.error('Error getting platform commissions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve platform commissions'
+    });
+  }
+});
+
 // Get admin activity logs
 router.get('/activity-logs', requireAdmin, async (req: Request, res: Response) => {
   try {

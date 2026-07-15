@@ -78,7 +78,7 @@ export class LeadAIService {
         model: DRAFT_MODEL,
         maxTokens: 300,
       });
-      await this.spendCap.recordSpend(shopId, resp.costUsd);
+      // Ads-AI is COGS (ad_ai_costs), not the shop's included AI allowance — don't drain the shop pool (T3.3).
       // Q6: attribute this COGS to the campaign for the admin true-margin panel.
       // Best-effort — bookkeeping must never break the draft it's measuring.
       try {

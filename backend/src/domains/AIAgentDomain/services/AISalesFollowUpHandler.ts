@@ -32,6 +32,7 @@ import { Pool } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { getSharedPool } from "../../../utils/database-pool";
 import { logger } from "../../../utils/logger";
+import { shopHasFeature } from "../../../utils/shopTier";
 import { MessageRepository, Message } from "../../../repositories/MessageRepository";
 import { ShopRepository } from "../../../repositories/ShopRepository";
 import { CustomerRepository } from "../../../repositories/CustomerRepository";
@@ -148,6 +149,8 @@ export class AISalesFollowUpHandler {
     if (!settings) return;
     if (settings.ai_global_enabled !== true) return;
     if (settings.ai_followup_enabled !== true) return; // staged rollout
+    // WS2 tier entitlement — AI Lead Follow-Up is Growth+; a stale flag can't bypass it.
+    if (!(await shopHasFeature(conv.shop_id, "aiLeadFollowUp"))) return;
     const delayMinutes = settings.ai_followup_delay_minutes ?? DEFAULT_DELAY_MINUTES;
 
     // 3. Focused service must belong to the shop and have AI selling on.

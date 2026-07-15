@@ -15,6 +15,8 @@ import {
   type TeamRole,
   type InviteResult,
 } from "@/services/api/team";
+import { CommissionSettings } from "@/components/shop/CommissionSettings";
+import { type CommissionSettings as CommissionSettingsData } from "@/services/api/commissions";
 
 interface TeamTabProps {
   shopId: string;
@@ -46,6 +48,7 @@ export function TeamTab({ shopId }: TeamTabProps) {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [inviteLink, setInviteLink] = useState<InviteResult | null>(null);
+  const [commission, setCommission] = useState<CommissionSettingsData | null>(null);
 
   useEffect(() => {
     loadMembers();
@@ -128,6 +131,8 @@ export function TeamTab({ shopId }: TeamTabProps) {
           </button>
         </div>
 
+        <CommissionSettings onSettingsChange={setCommission} />
+
         {inviteLink && (
           <div className="bg-[#101010] border border-[#303236] rounded-lg p-4">
             <div className="flex items-start justify-between gap-3">
@@ -173,6 +178,7 @@ export function TeamTab({ shopId }: TeamTabProps) {
                   <th className="px-4 py-3 font-medium">Role</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Permissions</th>
+                  {commission?.enabled && <th className="px-4 py-3 font-medium">Commission</th>}
                   <th className="px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
@@ -196,6 +202,15 @@ export function TeamTab({ shopId }: TeamTabProps) {
                     <td className="px-4 py-3 text-sm text-gray-400">
                       {m.permissions.includes("*") ? "All permissions" : `${m.permissions.length} permission${m.permissions.length === 1 ? "" : "s"}`}
                     </td>
+                    {commission?.enabled && (
+                      <td className="px-4 py-3 text-sm">
+                        {m.commissionPercent != null ? (
+                          <span className="text-white">{m.commissionPercent}%</span>
+                        ) : (
+                          <span className="text-gray-500">Default ({commission.defaultPercent}%)</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         {m.role !== "owner" && (
@@ -247,6 +262,8 @@ export function TeamTab({ shopId }: TeamTabProps) {
       {showModal && (
         <MemberModal
           member={editing}
+          commissionsEnabled={commission?.enabled ?? false}
+          defaultPercent={commission?.defaultPercent ?? 0}
           onClose={() => setShowModal(false)}
           onSaved={(result) => {
             setShowModal(false);
@@ -290,11 +307,13 @@ function CopyLink({ url }: { url: string }) {
 
 interface MemberModalProps {
   member: TeamMember | null;
+  commissionsEnabled: boolean;
+  defaultPercent: number;
   onClose: () => void;
   onSaved: (result?: InviteResult) => void;
 }
 
-function MemberModal({ member, onClose, onSaved }: MemberModalProps) {
+function MemberModal({ member, commissionsEnabled, defaultPercent, onClose, onSaved }: MemberModalProps) {
   const isEdit = !!member;
   const [email, setEmail] = useState(member?.email || "");
   const [name, setName] = useState(member?.name || "");
@@ -303,6 +322,9 @@ function MemberModal({ member, onClose, onSaved }: MemberModalProps) {
   );
   const [permissions, setPermissions] = useState<string[]>(
     member ? member.permissions.filter((p) => p !== "*") : []
+  );
+  const [commissionInput, setCommissionInput] = useState(
+    member?.commissionPercent != null ? String(member.commissionPercent) : ""
   );
   const [saving, setSaving] = useState(false);
 
@@ -321,6 +343,21 @@ function MemberModal({ member, onClose, onSaved }: MemberModalProps) {
       toast.error("Select at least one permission for a custom role");
       return;
     }
+    let commissionPercent: number | null | undefined;
+    if (isEdit && commissionsEnabled) {
+      const trimmed = commissionInput.trim();
+      if (trimmed === "") {
+        commissionPercent = null;
+      } else {
+        const n = Number(trimmed);
+        if (!Number.isFinite(n) || n < 0 || n > 100) {
+          toast.error("Commission rate must be between 0 and 100, or blank to use the default.");
+          return;
+        }
+        commissionPercent = n;
+      }
+    }
+
     setSaving(true);
     try {
       if (isEdit) {
@@ -328,6 +365,7 @@ function MemberModal({ member, onClose, onSaved }: MemberModalProps) {
           name: name || undefined,
           role,
           permissions: role === "custom" ? permissions : undefined,
+          commissionPercent,
         });
         toast.success("Member updated");
         onSaved();
@@ -425,6 +463,25 @@ function MemberModal({ member, onClose, onSaved }: MemberModalProps) {
                   </label>
                 ))}
               </div>
+            </div>
+          )}
+
+          {isEdit && commissionsEnabled && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Commission rate (%)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={commissionInput}
+                onChange={(e) => setCommissionInput(e.target.value)}
+                placeholder={`Default: ${defaultPercent}%`}
+                className="w-full px-3 py-2 rounded-md bg-[#101010] border border-[#303236] text-white focus:border-[#FFCC00] outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Leave blank to use the shop default ({defaultPercent}%).
+              </p>
             </div>
           )}
         </div>

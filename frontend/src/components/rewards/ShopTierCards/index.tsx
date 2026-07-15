@@ -23,7 +23,7 @@ const shopTiers: ShopTier[] = [
   {
     name: "Standard Tier",
     description:
-      "Plug into RepairCoin with zero staking. Great for new partner shops testing loyalty rewards.",
+      "Plug into RepairCoin with no upfront commitment. Great for new partner shops testing loyalty rewards.",
     rcgStake: "None",
     rcnShopRate: "Pay $0.10 per RCN",
     redemptionCap: "$50 in RCN per customer, per visit.",

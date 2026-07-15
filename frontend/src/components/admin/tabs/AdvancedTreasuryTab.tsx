@@ -667,7 +667,8 @@ export const AdvancedTreasuryTab: React.FC = () => {
         <div className="flex overflow-x-auto scrollbar-hide space-x-1">
           {[
             { id: 'overview', label: 'Overview', icon: DollarSign },
-            { id: 'rcg', label: 'RCG Metrics', icon: PieChart },
+            // RCG is a blockchain-only metric; hide the sub-tab in database-only mode.
+            ...(blockchainEnabled ? [{ id: 'rcg', label: 'RCG Metrics', icon: PieChart }] : []),
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
             { id: 'operations', label: 'Operations', icon: Settings },
             { id: 'pricing', label: 'Pricing', icon: TrendingUp }
@@ -726,12 +727,12 @@ export const AdvancedTreasuryTab: React.FC = () => {
 
           </div>
 
-          {/* Revenue Sharing Breakdown */}
-          <RevenueShareSection />
+          {/* Revenue Sharing Breakdown — 10% stakers / 10% DAO is blockchain-only */}
+          {blockchainEnabled && <RevenueShareSection />}
         </div>
       )}
 
-      {activeTab === 'rcg' && rcgMetrics && (
+      {activeTab === 'rcg' && blockchainEnabled && rcgMetrics && (
         <div className="space-y-4 sm:space-y-6">
           {/* RCG Token Overview */}
           <div className="bg-gray-800 rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-700">

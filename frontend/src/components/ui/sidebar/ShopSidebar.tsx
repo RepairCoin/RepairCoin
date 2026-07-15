@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { appointmentsApi } from "@/services/api/appointments";
+import { getAssignableMembers } from "@/services/api/team";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import {
   Settings,
@@ -31,12 +32,26 @@ import {
   Megaphone,
   Package,
   CreditCard,
+  Percent,
 } from "lucide-react";
 import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem, SidebarSection } from "./useSidebar";
 import { useAuthStore } from "@/stores/authStore";
 import { SHOP_TAB_PERMISSIONS } from "@/config/shopTabPermissions";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+
+// WS2: sidebar tabs whose content is tier-gated → the feature key that unlocks them.
+// Mirrors the <TierGate feature="…"> wrappers on the tab content. A lock hint shows
+// in the nav when the shop's plan doesn't include the feature (click still routes to
+// the tab, where the upgrade prompt explains why).
+const TAB_FEATURE: Record<string, string> = {
+  inventory: "inventoryManagement",
+  reports: "advancedReports",
+  marketing: "campaignBuilder",
+  team: "teamManagement",
+  locations: "multiLocation",
+};
 
 interface ShopSidebarProps {
   isOpen?: boolean;
@@ -55,9 +70,13 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingRescheduleCount, setPendingRescheduleCount] = useState(0);
+  // Whether the shop has staff commissions turned on — gates the Commissions nav item.
+  const [commissionsEnabled, setCommissionsEnabled] = useState(false);
   // Subscribe to userProfile so the nav re-filters when permissions load.
   const userProfile = useAuthStore((s) => s.userProfile);
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  // WS2: plan-tier feature access — drives the nav lock hints (loading = no lock).
+  const { can, loading: featureAccessLoading } = useFeatureAccess();
   // Collapsed-state hover flyout: which group is open + its vertical anchor
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   const [flyoutTop, setFlyoutTop] = useState(0);
@@ -80,6 +99,24 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     window.addEventListener('reschedule-count-changed', handler);
     return () => window.removeEventListener('reschedule-count-changed', handler);
   }, [fetchPendingCount]);
+
+  // The Commissions nav item only appears when the shop has commissions on. Re-checked when
+  // the owner toggles it (CommissionSettings dispatches 'commissions-changed').
+  const fetchCommissionsEnabled = useCallback(async () => {
+    try {
+      const data = await getAssignableMembers();
+      setCommissionsEnabled(data.commissionsEnabled);
+    } catch {
+      setCommissionsEnabled(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCommissionsEnabled();
+    const handler = () => fetchCommissionsEnabled();
+    window.addEventListener('commissions-changed', handler);
+    return () => window.removeEventListener('commissions-changed', handler);
+  }, [fetchCommissionsEnabled]);
 
   const {
     isCollapsed,
@@ -224,6 +261,16 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           icon: <UsersIcon className="w-5 h-5" />,
           tabId: "team",
         },
+        ...(commissionsEnabled
+          ? [
+              {
+                title: "Commissions",
+                href: "/shop?tab=commissions",
+                icon: <Percent className="w-5 h-5" />,
+                tabId: "commissions",
+              },
+            ]
+          : []),
         // Ads is reached via the Plans & Billing hub (AI Ads card → ?tab=ads),
         // so the standalone sidebar link is removed to avoid a duplicate entry.
         {
@@ -316,8 +363,20 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     const required = SHOP_TAB_PERMISSIONS[tabId];
     return !required || hasPermission(required);
   };
+  // WS2: a tab is "locked" when it's tier-gated and the shop's plan doesn't include it.
+  // Suppressed while feature access is loading so tabs don't flash a lock on first paint.
+  const isTabLocked = (tabId?: string) => {
+    if (featureAccessLoading || !tabId) return false;
+    const feature = TAB_FEATURE[tabId];
+    return !!feature && !can(feature);
+  };
   const shopSections: SidebarSection[] = shopSectionsRaw
-    .map((section) => ({ ...section, items: section.items.filter((i) => canViewTab(i.tabId)) }))
+    .map((section) => ({
+      ...section,
+      items: section.items
+        .filter((i) => canViewTab(i.tabId))
+        .map((i) => ({ ...i, locked: isTabLocked(i.tabId) })),
+    }))
     .filter((section) => section.items.length > 0);
   const bottomMenuItems: SidebarItem[] = bottomMenuItemsRaw.filter((i) => canViewTab(i.tabId));
 

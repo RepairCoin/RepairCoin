@@ -63,6 +63,8 @@ export const updateAssistantName = async (
 export interface AdminShopAiSettings extends ShopAiSettings {
   shopId: string;
   shopName: string;
+  /** Plan tier — used to lock feature toggles the tier doesn't include (WS2). */
+  tier: "starter" | "growth" | "business";
 }
 
 /** The admin-editable gate fields — a partial update. */

@@ -1787,11 +1787,15 @@ export class ShopRepository extends BaseRepository {
       const periodStart = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
       const previousPeriodStart = new Date(periodStart.getTime() - periodDays * 24 * 60 * 60 * 1000);
 
-      // Get current total customers
+      // Total customers = the shop's whole base: anyone who earned RCN here (mint tx) OR is
+      // homed here via import/migration. Matches the Customers-tab list (home_shop_id OR tx),
+      // so imported customers with no transactions yet are still counted.
       const totalCustomersQuery = `
-        SELECT COUNT(DISTINCT customer_address) as count
-        FROM transactions
-        WHERE shop_id = $1 AND type = 'mint'
+        SELECT COUNT(*)::int as count FROM (
+          SELECT LOWER(address) AS a FROM customers WHERE LOWER(home_shop_id) = LOWER($1)
+          UNION
+          SELECT LOWER(customer_address) AS a FROM transactions WHERE shop_id = $1 AND type = 'mint'
+        ) u
       `;
       const totalResult = await this.pool.query(totalCustomersQuery, [shopId]);
       const totalCustomers = parseInt(totalResult.rows[0].count || 0);

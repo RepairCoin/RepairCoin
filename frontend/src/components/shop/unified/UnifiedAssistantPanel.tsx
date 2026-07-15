@@ -41,6 +41,8 @@ import { ListeningBars } from "@/components/voice/ListeningBars";
 import { speakText } from "@/services/api/voice";
 import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
 import { unlockAudioPlayback, getPrimedAudio } from "@/lib/audioUnlock";
+import { useVoiceEnabled } from "@/hooks/useVoiceEnabled";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
 /**
  * UnifiedAssistantPanel (v2)
@@ -66,6 +68,15 @@ const STARTER_PROMPTS: readonly string[] = [
   "Why does it feel slower lately?",
   "Win back the customers who've gone quiet",
   "What's running low in inventory?",
+] as const;
+
+// WS2: on the Starter "basic" assistant the data/marketing/inventory tools are
+// gated out, so the prompts above would just get declined. Show what the basic
+// assistant CAN actually do — how-to / product help — instead.
+const HELP_PROMPTS: readonly string[] = [
+  "How do I create a service?",
+  "Where do I set my appointment hours?",
+  "How do I issue a reward?",
 ] as const;
 
 type Turn =
@@ -119,6 +130,17 @@ export const UnifiedAssistantPanel: React.FC<{
   // setting state, so closing the panel can't leave a reply speaking — or stack
   // overlapping voices when it's reopened and asked again.
   const aliveRef = useRef(true);
+  // WS2: voice (dictation + spoken replies) is a Growth+ feature. Below tier the
+  // assistant stays open as TEXT chat — the mic button and voice auto-listen are
+  // suppressed, so /ai/voice/* is never called.
+  const voiceEnabled = useVoiceEnabled();
+  // WS2: the orchestrator strips insights/marketing/inventory tools below tier.
+  // Mirror that here so the empty-state prompts + Attach don't advertise things
+  // the basic (Starter) assistant will just decline.
+  const { can } = useFeatureAccess();
+  const marketingEnabled = can("aiMarketingSuite");
+  const basicOnly =
+    !can("aiInsights") && !marketingEnabled && !can("inventoryManagement");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -471,6 +493,12 @@ export const UnifiedAssistantPanel: React.FC<{
   const pendingMic = useUnifiedAssistantStore((s) => s.pendingMic);
   useEffect(() => {
     if (!pendingMic) return;
+    // WS2: never auto-listen below tier (the mic triggers are hidden, but a
+    // stale pendingMic flag shouldn't reach the gated /voice/transcribe route).
+    if (!voiceEnabled) {
+      useUnifiedAssistantStore.getState().consumePendingMic();
+      return;
+    }
     if (!useUnifiedAssistantStore.getState().consumePendingMic()) return;
     if (recorder.state === "listening" || recorder.state === "transcribing") {
       return;
@@ -596,7 +624,19 @@ export const UnifiedAssistantPanel: React.FC<{
       )}
       <div className="flex-1 overflow-y-auto pr-1 space-y-3" aria-live="polite">
         {turns.length === 0 && !loading && !error && !greeting && (
-          <EmptyState onPick={handleStarterClick} disabled={loading} />
+          <EmptyState
+            onPick={handleStarterClick}
+            disabled={loading}
+            prompts={basicOnly ? HELP_PROMPTS : STARTER_PROMPTS}
+            headline={
+              basicOnly ? "Ask me about using FixFlow." : "Just talk to your business."
+            }
+            subcopy={
+              basicOnly
+                ? "How-to help and quick answers — try:"
+                : "Ask a question, or tell me to do something — try:"
+            }
+          />
         )}
 
         {/* Assistant's spoken greeting (voice opens, first time per session). */}
@@ -703,7 +743,9 @@ export const UnifiedAssistantPanel: React.FC<{
           placeholder={
             atMessageLimit
               ? "Conversation full — close to start fresh"
-              : "Type your question, or tap “Talk” to speak…"
+              : voiceEnabled
+              ? "Type your question, or tap “Talk” to speak…"
+              : "Type your question…"
           }
           className="w-full bg-[#1A1A1A] border border-gray-700 rounded-lg px-3 py-2 text-base text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Ask your business assistant anything"
@@ -712,6 +754,10 @@ export const UnifiedAssistantPanel: React.FC<{
             are self-explanatory (no hover-only tooltips). Bigger tap targets
             for accessibility. */}
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          {/* WS2: the voice controls (Talk + spoken-reply toggle) are Growth+.
+              Below tier the assistant is text-only; Attach + Send stay. */}
+          {voiceEnabled && (
+            <>
           {/* Talk — the headline voice affordance, given a warm yellow outline
               so it reads as "you can just speak to me". */}
           <div className="relative">
@@ -788,9 +834,14 @@ export const UnifiedAssistantPanel: React.FC<{
             )}
             <span>{voiceOut ? "Voice on" : "Voice off"}</span>
           </button>
+            </>
+          )}
 
           {/* Attach — drop in a photo (storefront, product, draft ad) for the
-              assistant to analyze or edit (Phase 9). */}
+              assistant to analyze or edit (Phase 9). WS2: the image analyze/edit
+              tools are part of the Marketing suite (Growth+), so hide Attach when
+              the plan doesn't include it — otherwise it's a dead button. */}
+          {marketingEnabled && (
           <button
             type="button"
             onClick={handleAttachClick}
@@ -806,6 +857,7 @@ export const UnifiedAssistantPanel: React.FC<{
             )}
             <span>Attach</span>
           </button>
+          )}
 
           {/* Send — primary action, pushed to the right. */}
           <button
@@ -831,8 +883,9 @@ export const UnifiedAssistantPanel: React.FC<{
       )}
 
       <p className="mt-2 text-xs text-gray-400 text-center">
-        I answer and draft — I never send, order, or charge anything without your
-        tap.
+        {basicOnly
+          ? "I answer questions and help you use FixFlow."
+          : "I answer and draft — I never send, order, or charge anything without your tap."}
       </p>
     </div>
   );
@@ -892,16 +945,15 @@ function pickGreeting(name: string | null): string {
 const EmptyState: React.FC<{
   onPick: (prompt: string) => void;
   disabled: boolean;
-}> = ({ onPick, disabled }) => (
+  prompts: readonly string[];
+  headline: string;
+  subcopy: string;
+}> = ({ onPick, disabled, prompts, headline, subcopy }) => (
   <div className="flex flex-col px-1 py-6">
-    <p className="text-base text-gray-300 mb-1 text-center">
-      Just talk to your business.
-    </p>
-    <p className="text-sm text-gray-500 mb-5 text-center">
-      Ask a question, or tell me to do something — try:
-    </p>
+    <p className="text-base text-gray-300 mb-1 text-center">{headline}</p>
+    <p className="text-sm text-gray-500 mb-5 text-center">{subcopy}</p>
     <div className="w-full space-y-2">
-      {STARTER_PROMPTS.map((p) => (
+      {prompts.map((p) => (
         <button
           key={p}
           type="button"
