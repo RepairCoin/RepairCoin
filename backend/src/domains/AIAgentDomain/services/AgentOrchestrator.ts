@@ -1030,6 +1030,15 @@ export class AgentOrchestrator {
       // frontend "Currently discussing" chip reflects what's actually
       // being talked about (e.g., customer pivots from AQua Tech to
       // I Robot mid-thread → chip flips, anchor stays).
+      // Safety net for the plain-text rule (PromptTemplates rule #6): strip any
+      // markdown emphasis the model still slips in. The customer sees RAW text in
+      // the chat (and over SMS/email), so "**Friday**" renders as literal
+      // asterisks. Only touches emphasis markers — content is preserved.
+      customerFacingText = customerFacingText
+        .replace(/\*\*(.+?)\*\*/gs, "$1")
+        .replace(/__(.+?)__/gs, "$1")
+        .replace(/\*\*/g, "");
+
       const discussedServiceId = resolveDiscussedServiceId(
         bookingSuggestions,
         customerFacingText,
