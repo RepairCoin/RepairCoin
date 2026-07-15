@@ -1,6 +1,7 @@
 // backend/src/repositories/MessageRepository.ts
 import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
+import { shopHasFeature } from '../utils/shopTier';
 
 export interface Conversation {
   conversationId: string;
@@ -294,7 +295,9 @@ export class MessageRepository extends BaseRepository {
       const result = await this.pool.query(query, [...params, limit, offset]);
 
       return {
-        items: result.rows.map(row => this.mapConversationRow(row)),
+        items: await this.applyAutoReplyTierGate(
+          result.rows.map(row => this.mapConversationRow(row))
+        ),
         pagination: {
           page,
           limit,
@@ -307,6 +310,32 @@ export class MessageRepository extends BaseRepository {
       logger.error('Error in getCustomerConversations:', error);
       throw error;
     }
+  }
+
+  /**
+   * WS2 — the customer-side "AI is typing" indicator gates on aiEnabled. The SQL
+   * computes aiEnabled = ai_global_enabled AND ai_sales_enabled, which doesn't
+   * know the AI Auto-Replies TIER gate. When that gate is enforced
+   * (ENFORCE_AI_AUTOREPLY_TIER=true), a below-Business shop's AI won't auto-reply,
+   * so aiEnabled must be forced false here — otherwise the customer sees a typing
+   * loader that never resolves. Flag-gated: zero work + zero behavior change when
+   * the flag is off (the default). Deduped per shop so a multi-shop customer list
+   * costs one entitlement lookup per shop, not per conversation.
+   */
+  private async applyAutoReplyTierGate(items: Conversation[]): Promise<Conversation[]> {
+    if (process.env.ENFORCE_AI_AUTOREPLY_TIER !== 'true') return items;
+    const shopIds = [...new Set(items.filter(i => i.aiEnabled).map(i => i.shopId))];
+    if (shopIds.length === 0) return items;
+    const entitled = new Map<string, boolean>();
+    await Promise.all(
+      shopIds.map(async id => { entitled.set(id, await shopHasFeature(id, 'aiAutoReplies')); })
+    );
+    for (const item of items) {
+      if (item.aiEnabled && entitled.get(item.shopId) === false) {
+        item.aiEnabled = false;
+      }
+    }
+    return items;
   }
 
   /**
@@ -370,7 +399,9 @@ export class MessageRepository extends BaseRepository {
       const result = await this.pool.query(query, [...params, limit, offset]);
 
       return {
-        items: result.rows.map(row => this.mapConversationRow(row)),
+        items: await this.applyAutoReplyTierGate(
+          result.rows.map(row => this.mapConversationRow(row))
+        ),
         pagination: {
           page,
           limit,
