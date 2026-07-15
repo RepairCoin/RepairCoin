@@ -54,7 +54,7 @@ export function getShopAccessMessage(code: ShopAccessErrorCode): {
       return {
         title: 'Subscription required',
         message:
-          'An active subscription or RCG qualification (10K+ tokens) is required to perform this action.',
+          'An active FixFlow subscription is required to perform this action.',
       };
   }
 }

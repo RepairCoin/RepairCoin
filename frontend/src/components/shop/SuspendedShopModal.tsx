@@ -214,7 +214,7 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
                   Active subscription required
                 </h3>
                 <p className="text-gray-300 text-sm">
-                  Your shop subscription is currently inactive. An active monthly subscription ($500/month) is required to use RepairCoin shop features.
+                  Your shop subscription is currently inactive. An active monthly subscription is required to use FixFlow shop features.
                 </p>
               </div>
 
@@ -353,7 +353,7 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
                 <ul className="space-y-2 text-sm text-gray-300">
                   <li className="flex items-start gap-2">
                     <span className="text-[#FFCC00] mt-1">✓</span>
-                    <span>Subscribe to activate your shop ($500/month)</span>
+                    <span>Subscribe to activate your shop</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-[#FFCC00] mt-1">✓</span>
