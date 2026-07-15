@@ -7,6 +7,12 @@
 //   - Happy path posts message + audit + spend record
 //   - Claude call failure logs error to audit and returns failed result
 
+// WS2 auto-reply gate — mock the tier entitlement so we can drive the flag path
+// without a DB. Defaults to true so the existing tests are unaffected.
+jest.mock("../../src/utils/shopTier", () => ({
+  shopHasFeature: jest.fn().mockResolvedValue(true),
+}));
+
 import {
   AgentOrchestrator,
   detectMentionedServices,
@@ -15,6 +21,9 @@ import {
   isLikelyDuplicateText,
   resolveDiscussedServiceId,
 } from "../../src/domains/AIAgentDomain/services/AgentOrchestrator";
+import { shopHasFeature } from "../../src/utils/shopTier";
+
+const mockShopHasFeature = shopHasFeature as jest.MockedFunction<typeof shopHasFeature>;
 
 function makeMocks(opts: {
   service?: any;
@@ -3059,5 +3068,39 @@ describe("AgentOrchestrator — propose_cancellation + propose_reschedule_reques
     expect(callArgs.metadata.booking_suggestion_dropped).toContain(
       "dropped_for_destructive_action_in_same_turn"
     );
+  });
+});
+
+describe("AgentOrchestrator — AI Auto-Replies tier gate (WS2)", () => {
+  const original = process.env.ENFORCE_AI_AUTOREPLY_TIER;
+  afterEach(() => {
+    if (original === undefined) delete process.env.ENFORCE_AI_AUTOREPLY_TIER;
+    else process.env.ENFORCE_AI_AUTOREPLY_TIER = original;
+    mockShopHasFeature.mockResolvedValue(true);
+  });
+
+  it("skips the auto-reply when the flag is ON and the plan lacks aiAutoReplies", async () => {
+    process.env.ENFORCE_AI_AUTOREPLY_TIER = "true";
+    mockShopHasFeature.mockResolvedValue(false);
+    const { orch, messageRepo } = makeMocks();
+    const result = await orch.handleCustomerMessage(sampleInput());
+    expect(result).toEqual({ outcome: "skipped", reason: "autoreply_tier_not_included" });
+    expect(messageRepo.createMessage).not.toHaveBeenCalled(); // no AI reply posted
+  });
+
+  it("does NOT gate when the flag is OFF (default) — auto-reply still fires below tier", async () => {
+    delete process.env.ENFORCE_AI_AUTOREPLY_TIER;
+    mockShopHasFeature.mockResolvedValue(false);
+    const { orch } = makeMocks();
+    const result = await orch.handleCustomerMessage(sampleInput());
+    expect(result.outcome).toBe("ai_replied");
+  });
+
+  it("allows the auto-reply when the flag is ON and the plan includes aiAutoReplies", async () => {
+    process.env.ENFORCE_AI_AUTOREPLY_TIER = "true";
+    mockShopHasFeature.mockResolvedValue(true);
+    const { orch } = makeMocks();
+    const result = await orch.handleCustomerMessage(sampleInput());
+    expect(result.outcome).toBe("ai_replied");
   });
 });

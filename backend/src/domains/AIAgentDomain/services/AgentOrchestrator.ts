@@ -29,6 +29,7 @@ import { Pool } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { getSharedPool } from "../../../utils/database-pool";
 import { logger } from "../../../utils/logger";
+import { shopHasFeature } from "../../../utils/shopTier";
 import { ServiceRepository } from "../../../repositories/ServiceRepository";
 import { MessageRepository } from "../../../repositories/MessageRepository";
 import { AnthropicClient } from "./AnthropicClient";
@@ -163,6 +164,21 @@ export class AgentOrchestrator {
       }
       if (shopSettings.rows[0].ai_global_enabled !== true) {
         return { outcome: "skipped", reason: "shop_ai_disabled" };
+      }
+
+      // WS2 — AI Auto-Replies (the AI auto-responding to inbound customer
+      // messages) is a Business-tier feature per pricing.jpeg. Management
+      // (2026-07-15) confirmed "auto response" = TEXT now; voice (AI answering
+      // calls via Twilio/GoHighLevel) is a separate deferred build ("don't need
+      // yet"). This gate is behind ENFORCE_AI_AUTOREPLY_TIER (default OFF) because
+      // turning it on REMOVES a behavior Starter/Growth shops have today — it must
+      // be a deliberate, audited rollout, not a silent flip. Outbound follow-up
+      // nudges stay Growth (aiLeadFollowUp, gated in AISalesFollowUpHandler).
+      if (
+        process.env.ENFORCE_AI_AUTOREPLY_TIER === "true" &&
+        !(await shopHasFeature(shopId, "aiAutoReplies"))
+      ) {
+        return { outcome: "skipped", reason: "autoreply_tier_not_included" };
       }
 
       const escalationThreshold =
