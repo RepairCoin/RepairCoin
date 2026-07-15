@@ -1062,6 +1062,24 @@ export const adminApi = {
     return apiClient.get('/admin/affiliate-groups');
   },
 
+  // Active admins assignable as a shop's account manager (assign dropdown)
+  getAssignableManagers: async () => {
+    return apiClient.get('/admin/assignable-managers');
+  },
+
+  // Shops assigned to the current admin as their account manager ("My Shops")
+  getMyAssignedShops: async () => {
+    return apiClient.get('/admin/my-assigned-shops');
+  },
+
+  // The current admin's own contact profile (name/email/phone) — shown to shops they manage
+  getMyProfile: async () => {
+    return apiClient.get('/admin/profile/me');
+  },
+  updateMyProfile: async (data: { name?: string; email?: string; phone?: string }) => {
+    return apiClient.patch('/admin/profile/me', data);
+  },
+
   // Platform-wide staff-commission roll-up (read-only)
   getPlatformCommissions: async () => {
     return apiClient.get('/admin/analytics/commissions');

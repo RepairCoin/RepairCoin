@@ -18,6 +18,39 @@ router.use(authMiddleware);
 // Create a separate router for public endpoints
 const publicRouter = Router();
 
+// GET /api/shops/subscription/account-manager — the shop's assigned account manager (a Business
+// perk surfaced by SupportLevelCard). Returns { accountManager: {name,email,phone} | null }.
+// Self-contained direct join so it never touches the multi-branch /status handler; returns null
+// when unassigned or the assigned admin is inactive.
+router.get('/subscription/account-manager', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    if (!shopId) {
+      return res.status(401).json({ success: false, error: 'Shop ID not found in token' });
+    }
+    const db = DatabaseService.getInstance();
+    const result = await db.query(
+      `SELECT a.name, a.email, a.phone
+         FROM shops s
+         JOIN admins a ON LOWER(a.wallet_address) = LOWER(s.account_manager_address)
+        WHERE s.shop_id = $1 AND a.is_active = true`,
+      [shopId]
+    );
+    const am = result.rows[0];
+    return res.json({
+      success: true,
+      data: {
+        accountManager: am
+          ? { name: am.name ?? null, email: am.email ?? null, phone: am.phone ?? null }
+          : null,
+      },
+    });
+  } catch (error) {
+    logger.error('Error fetching shop account manager:', error);
+    return res.status(500).json({ success: false, error: 'Failed to fetch account manager' });
+  }
+});
+
 
 /**
  * @swagger

@@ -47,6 +47,68 @@ export class AdminController {
     }
   }
 
+  // Active admins that can be assigned as a shop's account manager (for the assign dropdown).
+  async getAssignableManagers(req: Request, res: Response) {
+    try {
+      const managers = await this.adminService.getAssignableManagers();
+      ResponseHelper.success(res, managers);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
+  // The requesting admin's own contact profile (name/email/phone) — what shops see when this
+  // admin is their assigned account manager.
+  async getMyProfile(req: Request, res: Response) {
+    try {
+      const address = req.user?.address;
+      if (!address) {
+        ResponseHelper.error(res, 'Admin address not found', 401);
+        return;
+      }
+      const profile = await this.adminService.getMyProfile(address);
+      ResponseHelper.success(res, profile);
+    } catch (error: any) {
+      const status = error?.message === 'Admin profile not found' ? 404 : 500;
+      ResponseHelper.error(res, error.message, status);
+    }
+  }
+
+  // Update the requesting admin's own contact profile (self-service, scoped to req.user).
+  async updateMyProfile(req: Request, res: Response) {
+    try {
+      const address = req.user?.address;
+      if (!address) {
+        ResponseHelper.error(res, 'Admin address not found', 401);
+        return;
+      }
+      const { name, email, phone } = req.body ?? {};
+      const profile = await this.adminService.updateMyProfile(address, { name, email, phone });
+      ResponseHelper.success(res, profile);
+    } catch (error: any) {
+      const clientErrors = ['Admin profile not found', 'Please enter a valid email address'];
+      const status = error?.message === 'Admin profile not found'
+        ? 404
+        : clientErrors.includes(error?.message) ? 400 : 500;
+      ResponseHelper.error(res, error.message, status);
+    }
+  }
+
+  // Shops assigned to the requesting admin as their account manager ("My Shops").
+  async getMyAssignedShops(req: Request, res: Response) {
+    try {
+      const address = req.user?.address;
+      if (!address) {
+        ResponseHelper.error(res, 'Admin address not found', 401);
+        return;
+      }
+      const shops = await this.adminService.getShopsByAccountManager(address);
+      ResponseHelper.success(res, shops);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
   async getCustomerBalance(req: Request, res: Response) {
     try {
       const { address } = req.params;
