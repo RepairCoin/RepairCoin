@@ -124,14 +124,6 @@ export function useShopsData() {
     await refreshData();
   };
 
-  const verifyShop = async (shopId: string) => {
-    const success = await adminApi.verifyShop(shopId);
-    if (!success) {
-      throw new Error("Failed to verify shop");
-    }
-    await refreshData();
-  };
-
   const approveShop = async (shopId: string) => {
     try {
       const success = await adminApi.approveShop(shopId);
@@ -191,7 +183,6 @@ export function useShopsData() {
     shopActions: {
       suspend: suspendShop,
       unsuspend: unsuspendShop,
-      verify: verifyShop,
       approve: approveShop,
       reject: rejectShop,
       mintBalance: mintShopBalance,

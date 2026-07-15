@@ -136,8 +136,9 @@ router.put('/admins/:adminId/permissions',
   asyncHandler(adminController.updateAdminPermissions.bind(adminController))
 );
 
-// Shop approval
-router.post('/shops/:shopId/approve', 
+// Reactivate a shop (moderation): re-verify + re-activate + clear suspension.
+// Signup no longer needs approval — this is retained to reconsider a rejected/suspended shop.
+router.post('/shops/:shopId/approve',
   requirePermission('manage_shops'),
   asyncHandler(adminController.approveShop.bind(adminController))
 );
@@ -178,11 +179,6 @@ router.use('/shops/:shopId/team',
   adminTeamRoutes
 );
 
-// Shop verification
-router.post('/shops/:shopId/verify',
-  requirePermission('manage_shops'),
-  asyncHandler(adminController.verifyShop.bind(adminController))
-);
 
 // Sell RCN to shops ($0.10 per token)
 router.post('/shops/:shopId/sell-rcn',

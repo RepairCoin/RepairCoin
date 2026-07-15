@@ -766,16 +766,6 @@ export const createAdmin = async (data: {
   }
 };
 
-export const verifyShop = async (shopId: string): Promise<boolean> => {
-  try {
-    await apiClient.post(`/admin/shops/${shopId}/verify`, {});
-    return true;
-  } catch (error) {
-    console.error('Error verifying shop:', error);
-    return false;
-  }
-};
-
 export const getShopPendingMintAmount = async (shopId: string): Promise<{
   pendingMintAmount: number;
   hasPendingMints: boolean;
@@ -867,7 +857,6 @@ export const adminApi = {
   createShop,
   suspendShop,
   unsuspendShop,
-  verifyShop,
   getShopPendingMintAmount,
   mintShopBalance,
   

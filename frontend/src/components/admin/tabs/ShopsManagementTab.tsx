@@ -91,17 +91,14 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
 }) => {
   const {
     shops: activeShops,
-    pendingShops,
     rejectedShops,
     shopActions,
     loading,
     loadDashboardData,
   } = useAdminDashboard();
 
-  const onEditShop = (shop: Shop) => console.log("Edit shop:", shop);
   const onApproveShop = shopActions.approve;
   const onRejectShop = shopActions.reject;
-  const onVerifyShop = shopActions.verify;
   const onSuspendShop = shopActions.suspend;
   const onUnsuspendShop = shopActions.unsuspend;
   const onMintBalance = shopActions.mintBalance;
@@ -226,11 +223,10 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   // Combine all shops for unified view. The dashboard hook's shop shape is a
   // superset of what we read here but typed loosely, so cast to the local Shop.
   type CombinedShop = Shop & {
-    status: "active" | "pending" | "suspended" | "rejected";
+    status: "active" | "suspended" | "rejected";
   };
   const allShops: CombinedShop[] = [
     ...activeShops.map((s) => ({ ...(s as unknown as Shop), status: "active" as const })),
-    ...pendingShops.map((s) => ({ ...(s as unknown as Shop), status: "pending" as const })),
     ...rejectedShops.map((s) => {
       const shop = s as unknown as Shop;
       return {
@@ -282,16 +278,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
         <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
           <XCircle className="w-3 h-3 flex-shrink-0" />
           <span>Rejected</span>
-        </span>
-      );
-    }
-
-    if (shop.status === "pending") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
-          <Clock className="w-3 h-3 flex-shrink-0" />
-          <span className="hidden md:inline">Pending Approval</span>
-          <span className="md:hidden">Pending</span>
         </span>
       );
     }
@@ -491,52 +477,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
         const shopId = shop.shopId || shop.shop_id || "";
         return (
           <div className="flex items-center gap-1.5 md:gap-2">
-            {shop.status === "pending" && (
-              <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAction(
-                      () => onApproveShop(shopId),
-                      "Shop approved successfully"
-                    );
-                  }}
-                  disabled={isProcessing}
-                  className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
-                  title="Approve"
-                >
-                  <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setReviewModal({ isOpen: true, shop });
-                  }}
-                  className="p-1 md:p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
-                  title="Review"
-                >
-                  <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                </button>
-                {onRejectShop && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAction(
-                        () =>
-                          onRejectShop(shopId, "Does not meet requirements"),
-                        "Shop rejected"
-                      );
-                    }}
-                    disabled={isProcessing}
-                    className="p-1 md:p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
-                    title="Reject"
-                  >
-                    <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  </button>
-                )}
-              </>
-            )}
-
             {shop.status === "active" && (
               <>
                 <button
@@ -559,22 +499,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                 >
                   <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </button>
-                {!shop.verified && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAction(
-                        () => onVerifyShop(shopId),
-                        "Shop verified successfully"
-                      );
-                    }}
-                    disabled={isProcessing}
-                    className="p-1 md:p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors disabled:opacity-50"
-                    title="Verify"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  </button>
-                )}
                 {shop.active ? (
                   <button
                     onClick={(e) => {
@@ -1035,26 +959,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     toast.success("Shop data exported successfully");
   };
 
-  // Statistics
-  const stats = {
-    total: allShops.length,
-    active: activeShops.filter((s) => s.active && s.verified).length,
-    pending: pendingShops.length,
-    suspended: rejectedShops.filter((s) => s.suspended_at || (s as unknown as Shop).suspendedAt).length,
-    rejected: rejectedShops.filter((s) => !s.suspended_at && !(s as unknown as Shop).suspendedAt).length,
-    verified: activeShops.filter((s) => s.verified).length,
-    totalTokensIssued: activeShops.reduce(
-      (sum, s) => sum + (s.totalTokensIssued || 0),
-      0
-    ),
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <DashboardHeader
         title="Shop Management"
-        subtitle="Manage all shop applications and active shops"
+        subtitle="Manage active, suspended, and rejected shops"
       />
 
       {/* Main Content */}
@@ -1090,7 +1000,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
             tabs={[
               { value: "all", label: "All Shops" },
               { value: "active", label: "Active" },
-              { value: "pending", label: "Pending" },
               { value: "suspended", label: "Suspended" },
               { value: "rejected", label: "Rejected" },
             ]}
