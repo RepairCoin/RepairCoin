@@ -460,6 +460,25 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
       )
     : 0;
 
+  // The backend status response carries the monthly amount but not the plan
+  // name — resolve it from the tier config (prices are distinct: 80/299/599).
+  const currentPlanMeta = SUBSCRIPTION_PLANS.find(
+    (p) => p.tier === subscription?.tier || p.price === subscription?.monthlyAmount
+  );
+  const currentPlanName =
+    currentPlanMeta?.label ??
+    subscription?.planLabel ??
+    (subscription?.monthlyAmount
+      ? `$${subscription.monthlyAmount}/mo plan`
+      : "Subscription");
+  // The next tier up, for a clear "upgrade to X" nudge.
+  const nextPlanUp = currentPlanMeta
+    ? SUBSCRIPTION_PLANS.filter((p) => p.price > currentPlanMeta.price).sort(
+        (a, b) => a.price - b.price
+      )[0]
+    : undefined;
+  const renewalDate = subscription?.currentPeriodEnd || subscription?.nextPaymentDate;
+
   return (
     <div className="bg-[#212121] rounded-2xl shadow-xl p-6">
       <h3 className="text-2xl font-bold text-[#FFCC00] mb-6">
@@ -583,6 +602,56 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
               </div>
             </div>
           )}
+
+          {/* Current Plan */}
+          <div className="bg-gradient-to-br from-[#2b2718] to-gray-800 border border-[#FFCC00]/30 rounded-lg p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <span className="text-xs uppercase tracking-wide text-gray-400">
+                  Current Plan
+                </span>
+                <div className="flex items-center gap-3 mt-1">
+                  <h4 className="text-2xl font-bold text-white">
+                    {currentPlanName}
+                  </h4>
+                  {subscription?.monthlyAmount ? (
+                    <span className="text-sm font-medium text-[#FFCC00]">
+                      ${subscription.monthlyAmount}/mo
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-sm text-gray-400 mt-1">
+                  {subscription?.cancelAtPeriodEnd
+                    ? `Access ends ${
+                        renewalDate
+                          ? new Date(renewalDate).toLocaleDateString()
+                          : "at period end"
+                      }`
+                    : renewalDate
+                    ? `Renews ${new Date(renewalDate).toLocaleDateString()}`
+                    : "Active"}
+                </p>
+                {(subscription?.activatedAt || subscription?.enrolledAt) && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Subscribed since{" "}
+                    {new Date(
+                      subscription.activatedAt || subscription.enrolledAt || ""
+                    ).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+              {!isSuspended && !isPaused && !subscription?.cancelAtPeriodEnd && (
+                <Button
+                  onClick={() => setShowChangePlanModal(true)}
+                  className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold px-5 py-2.5 rounded-lg whitespace-nowrap"
+                >
+                  {nextPlanUp
+                    ? `Upgrade to ${nextPlanUp.label}`
+                    : "Compare Plans"}
+                </Button>
+              )}
+            </div>
+          </div>
 
           {/* Subscription Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
