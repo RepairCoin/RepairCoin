@@ -3,7 +3,7 @@
 // Ads System Stage 4 — pure tests for the Meta webhook helpers (no DB / no Meta).
 
 import crypto from 'crypto';
-import { verifyMetaSignature, parseLeadEvents } from '../../src/domains/AdsDomain/services/MetaWebhookService';
+import { verifyMetaSignature, parseLeadEvents, parseWhatsAppEvents } from '../../src/domains/AdsDomain/services/MetaWebhookService';
 
 const sign = (body: string, secret: string) =>
   'sha256=' + crypto.createHmac('sha256', secret).update(Buffer.from(body)).digest('hex');
@@ -60,5 +60,56 @@ describe('parseLeadEvents', () => {
     expect(parseLeadEvents(null)).toEqual([]);
     expect(parseLeadEvents({})).toEqual([]);
     expect(parseLeadEvents({ entry: 'nope' })).toEqual([]);
+  });
+});
+
+describe('parseWhatsAppEvents', () => {
+  const waPayload = (over: any = {}) => ({
+    object: 'whatsapp_business_account',
+    entry: [{
+      id: 'WABA1',
+      changes: [{
+        field: 'messages',
+        value: {
+          messaging_product: 'whatsapp',
+          metadata: { display_phone_number: '15551230000', phone_number_id: 'PNID_1' },
+          contacts: [{ profile: { name: 'Deo' }, wa_id: '15551112222' }],
+          messages: [{ from: '15551112222', id: 'wamid.abc', type: 'text', text: { body: 'Do you fix screens?' } }],
+          ...over,
+        },
+      }],
+    }],
+  });
+
+  it('extracts a text message with phone_number_id, from, and profile name', () => {
+    const evs = parseWhatsAppEvents(waPayload());
+    expect(evs).toHaveLength(1);
+    expect(evs[0]).toMatchObject({
+      phoneNumberId: 'PNID_1',
+      from: '15551112222',
+      text: 'Do you fix screens?',
+      messageId: 'wamid.abc',
+      name: 'Deo',
+    });
+  });
+
+  it('skips non-text messages (media/reactions/status)', () => {
+    const evs = parseWhatsAppEvents(waPayload({
+      messages: [{ from: '15551112222', id: 'wamid.img', type: 'image', image: { id: 'x' } }],
+    }));
+    expect(evs).toEqual([]);
+  });
+
+  it('ignores non-whatsapp / page payloads', () => {
+    expect(parseWhatsAppEvents({ object: 'page', entry: [{ id: 'p', messaging: [] }] })).toEqual([]);
+    expect(parseWhatsAppEvents({})).toEqual([]);
+    expect(parseWhatsAppEvents({ entry: 'nope' })).toEqual([]);
+  });
+
+  it('skips messages with an empty body', () => {
+    const evs = parseWhatsAppEvents(waPayload({
+      messages: [{ from: '15551112222', id: 'wamid.blank', type: 'text', text: { body: '   ' } }],
+    }));
+    expect(evs).toEqual([]);
   });
 });
