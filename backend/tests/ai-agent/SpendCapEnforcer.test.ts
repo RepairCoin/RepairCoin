@@ -120,6 +120,37 @@ describe("SpendCapEnforcer.canSpend — AI Usage Overage (T3.2)", () => {
   });
 });
 
+describe("SpendCapEnforcer.canSpend — overage bill-shock guardrail (T3.2 Slice 2.5)", () => {
+  const ORIG_FLAG = process.env.ENABLE_AI_OVERAGE;
+  const ORIG_CAP = process.env.AI_OVERAGE_MONTHLY_CAP_USD;
+  beforeEach(() => { process.env.ENABLE_AI_OVERAGE = "true"; });
+  afterEach(() => { process.env.ENABLE_AI_OVERAGE = ORIG_FLAG; process.env.AI_OVERAGE_MONTHLY_CAP_USD = ORIG_CAP; });
+
+  const row = (v: string, overage: boolean) => [{ current_month_spend_usd: v, ai_overage_enabled: overage }];
+
+  it("reverts to Haiku once the billable overage reaches the cap (growth $30, spent $40 → $30 billable ≥ $5 cap)", async () => {
+    process.env.AI_OVERAGE_MONTHLY_CAP_USD = "5";
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true); // guardrail → degraded
+    expect(r.overageCapReached).toBe(true);
+    expect(r.limitReached).toBe(true);
+  });
+
+  it("keeps the full model while under the cap ($40 → $30 billable < $100 default)", async () => {
+    delete process.env.AI_OVERAGE_MONTHLY_CAP_USD; // default 100
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true))).canSpend("s");
+    expect(r.useCheaperModel).toBe(false);
+    expect(r.overageCapReached).toBeFalsy();
+  });
+
+  it("treats cap=0 as unlimited (huge spend still full model)", async () => {
+    process.env.AI_OVERAGE_MONTHLY_CAP_USD = "0";
+    const r = await new SpendCapEnforcer(mockPool(row("1000.00", true))).canSpend("s");
+    expect(r.useCheaperModel).toBe(false);
+    expect(r.overageCapReached).toBeFalsy();
+  });
+});
+
 describe("SpendCapEnforcer.recordSpend — overage accrual (T3.2 Slice 2)", () => {
   const ORIG = process.env.ENABLE_AI_OVERAGE;
   beforeEach(() => { process.env.ENABLE_AI_OVERAGE = "true"; mockedGetShopTier.mockResolvedValue("growth"); }); // $30

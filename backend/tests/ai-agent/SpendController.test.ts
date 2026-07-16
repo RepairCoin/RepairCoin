@@ -237,24 +237,37 @@ describe("SpendController.setOwnShopOverage (AI Usage Overage, T3.2)", () => {
     expect(res.status).toHaveBeenCalledWith(400);
   });
 
-  it("upserts the flag and echoes the new state (enable)", async () => {
+  it("requires consent to ENABLE (400 without it, no DB write)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const pool = makePool([]);
+    const controllers = makeSpendControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverage(reqWith("peanut", { enabled: true }), res); // no consent
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("enables with consent + stamps the consent timestamp", async () => {
     process.env.ENABLE_AI_OVERAGE = "true";
     const pool = makePool([[]]);
     const controllers = makeSpendControllers({ pool: pool as any });
     const res = makeRes();
-    await controllers.setOwnShopOverage(reqWith("peanut", { enabled: true }), res);
+    await controllers.setOwnShopOverage(reqWith("peanut", { enabled: true, consent: true }), res);
     const upsert = pool.query.mock.calls.find((c: any) => String(c[0]).includes("INSERT INTO ai_shop_settings"));
     expect(upsert).toBeDefined();
     expect(upsert[1]).toEqual(["peanut", true]);
+    expect(String(upsert[0])).toContain("ai_overage_consent_at = NOW()"); // stamped on enable
     expect(res.json).toHaveBeenCalledWith({ success: true, data: { overageEnabled: true } });
   });
 
-  it("upserts the flag (disable)", async () => {
+  it("disables without needing consent", async () => {
     process.env.ENABLE_AI_OVERAGE = "true";
     const pool = makePool([[]]);
     const controllers = makeSpendControllers({ pool: pool as any });
     const res = makeRes();
     await controllers.setOwnShopOverage(reqWith("peanut", { enabled: false }), res);
+    const upsert = pool.query.mock.calls.find((c: any) => String(c[0]).includes("INSERT INTO ai_shop_settings"));
+    expect(String(upsert[0])).not.toContain("ai_overage_consent_at = NOW()"); // not stamped on disable
     expect(res.json).toHaveBeenCalledWith({ success: true, data: { overageEnabled: false } });
   });
 });

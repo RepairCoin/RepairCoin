@@ -58,9 +58,10 @@ export async function getOverageState(): Promise<{ enabled: boolean; available: 
   }
 }
 
-/** Enable/disable the AI Usage Overage add-on for the current shop (POST /ai/overage). */
-export async function setOverage(enabled: boolean): Promise<void> {
-  await apiClient.post('/ai/overage', { enabled });
+/** Enable/disable the AI Usage Overage add-on (POST /ai/overage). Enabling requires `consent:true`
+ *  (acknowledgement of the Usage x3 terms); the backend rejects an enable without it. */
+export async function setOverage(enabled: boolean, consent?: boolean): Promise<void> {
+  await apiClient.post('/ai/overage', { enabled, consent });
 }
 
 export interface AiUsageSummary {

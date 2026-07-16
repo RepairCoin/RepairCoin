@@ -34,6 +34,17 @@ const CHEAPER_MODEL_THRESHOLD = 0.7; // ≥ 70% of budget → switch to Haiku
 // regardless of a shop's ai_overage_enabled toggle.
 const overageFeatureEnabled = (): boolean => process.env.ENABLE_AI_OVERAGE === "true";
 
+// "Usage x3" — the billable multiplier on overage cost. Kept in sync with AiOverageChargeRepository's default.
+const OVERAGE_MULTIPLIER = 3;
+
+// Bill-shock guardrail (Slice 2.5): a per-shop monthly cap on the BILLABLE overage (dollars the shop
+// would be invoiced). Once reached, overage stops lifting the model — reverts to the Haiku soft-landing
+// so a runaway session can't produce a surprise invoice. 0 = unlimited (no guardrail). Default $100.
+const overageMonthlyCapUsd = (): number => {
+  const n = Number(process.env.AI_OVERAGE_MONTHLY_CAP_USD ?? "100");
+  return Number.isFinite(n) && n >= 0 ? n : 100;
+};
+
 /** Accrue the marginal overage (USD beyond the allowance) — injectable for tests. Default = the
  *  ai_overage_charges ledger repo, lazily built (avoids a DB touch at import). */
 export type OverageAccrueFn = (shopId: string, overageCostUsd: number) => Promise<void>;
@@ -88,10 +99,17 @@ export class SpendCapEnforcer {
     const percentUsed = budget > 0 ? spent / budget : 0;
 
     // AI Usage Overage (T3.2): the shop opted to keep full-power AI past the cap (billed Usage x3).
-    // The limit is no longer "reached" in the actionable sense — full model, and no upgrade/overage
-    // nag (limitReached=false suppresses the banner across all panels). `overageEnabled` still flows
-    // for a future "overage active" indicator.
     if (spent >= budget && overageOn) {
+      // Bill-shock guardrail (Slice 2.5): everything beyond the allowance is overage, so the billable
+      // this month = (spent - budget) x multiplier — computed here with no extra query. Once it reaches
+      // the cap, STOP lifting the model (revert to Haiku) to prevent a runaway invoice.
+      const cap = overageMonthlyCapUsd();
+      const billableOverageUsd = (spent - budget) * OVERAGE_MULTIPLIER;
+      if (cap > 0 && billableOverageUsd >= cap) {
+        return { allowed: true, useCheaperModel: true, limitReached: true, overageEnabled: true, overageCapReached: true, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
+      }
+      // Under the guardrail — keep the FULL model. The limit is no longer "reached" in the actionable
+      // sense, so limitReached=false suppresses the upgrade/overage nag across all panels.
       return { allowed: true, useCheaperModel: false, limitReached: false, overageEnabled: true, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
     }
 

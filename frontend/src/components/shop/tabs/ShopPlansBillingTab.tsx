@@ -81,9 +81,19 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
   // AI Usage Overage (T3.2 Slice 1): inline enable/disable from the card, then refresh statuses.
   const [togglingOverage, setTogglingOverage] = useState(false);
   const handleOverageToggle = useCallback(async (enabled: boolean) => {
+    // Consent-at-enable (Slice 2.5): explicit acknowledgement of the Usage x3 terms before turning it on.
+    if (enabled) {
+      const ok = window.confirm(
+        "Enable AI Usage Overage?\n\n" +
+          "Full-power AI keeps running past your monthly allowance. Any usage beyond it is billed at " +
+          "3× the AI cost (pay as you grow), up to a monthly cap. You can turn this off anytime.\n\n" +
+          "Click OK to agree and enable."
+      );
+      if (!ok) return;
+    }
     setTogglingOverage(true);
     try {
-      await setOverage(enabled);
+      await setOverage(enabled, enabled ? true : undefined);
       toast.success(enabled ? "AI Usage overage enabled" : "AI Usage overage disabled");
       await load();
     } catch {

@@ -8,7 +8,9 @@ add-on that keeps full-power AI running past the cap, billed at 3× the actual A
 which was deferred behind the WS3 soft-landing (T3.1b). Builds on the shipped per-tier allowances
 ($10/$30/$75) and the soft-landing cap.
 
-**Status:** SCOPED (this doc). Not started. Author: 2026-07-16.
+**Status (2026-07-16):** Slices 1 (behavior) + 2 (metering) + 2.5 (guardrail + consent) BUILT + COMMITTED on
+`deo/ads-system`. Slice 3 (Stripe charging) is the only piece left — and its real gate is **business/legal
+sign-off on the "Usage ×3" terms**, NOT Stripe Connect (see the corrected Slice 3 below).
 
 ---
 
@@ -50,9 +52,11 @@ which was deferred behind the WS3 soft-landing (T3.1b). Builds on the shipped pe
   cap):** ads-lead AI (billed to `ad_ai_costs`) and — decide — the customer SMS/WhatsApp auto-replies
   (currently they DO draw on the shop cap via `SpendCapEnforcer.recordSpend`). **CONFIRM whether
   off-channel auto-replies count toward overage.**
-- **D4 — Billing mechanism.** Accrue overage to a ledger, then invoice via Stripe. This overlaps the
-  **Payments/Stripe-Connect add-on (also `coming_soon`, legal-gated D4 of WS0)** — actual charging is
-  gated on that path. **Slices 1–2 are buildable now; Slice 3 (charging) waits on Stripe/legal.**
+- **D4 — Billing mechanism.** Accrue to a ledger (Slice 2), then invoice via `StripeService.
+  createImmediateInvoice` — a DIRECT invoice to the shop's existing `stripe_customer_id` (from the $500
+  subscription). **This does NOT need Stripe Connect** (Connect = the Payments add-on / customer payments +
+  payouts, a different thing). The real gate on charging is **business/legal sign-off on the Usage ×3
+  terms** + a card-on-file + the bill-shock cap (Slice 2.5). Slices 1/2/2.5 are all buildable now.
 - **D5 — Model while in overage.** When overage is ON and past the cap, restore the **full model**
   (Sonnet/default), not Haiku — that's the value the shop is paying for. Below the cap, unchanged.
 - **D6 — Who can enable.** Shop self-serve toggle (activationType `toggle`), gated to tiers that have a
@@ -105,17 +109,44 @@ Records how much overage each shop accrues so the 3× charge is computable, with
 - **Tests:** accrual math (marginal-beyond-cap only, ×3), idempotency per month, no accrual when
   overage off.
 
+> **Status: Slices 1 + 2 BUILT + COMMITTED** on `deo/ads-system` (`d260d5258`, `69f9f84de`), migrations 221/222.
+
 ---
 
-## Slice 3 — Charging via Stripe (GATED on Payments/Stripe path + legal)
+## Slice 2.5 — Bill-shock guardrail + consent-at-enable (BUILT, no legal gate)
 
-- Invoice each month's `pending` overage rows at `amount_cents` via `StripeService.createImmediateInvoice`
-  (the same one the ads billing uses), behind master flag **`AI_OVERAGE_STRIPE_ENABLED`** (default off).
-  Resolve the shop's `stripe_customer_id`; mark rows `invoiced/paid` + store `stripe_invoice_id`.
-- Reconciliation via the existing `invoice.payment_succeeded` webhook (shared with ads billing).
-- **Blocked on:** WS0 **D4** (Stripe Connect + legal sign-off) — same gate as the Payments add-on.
-  Until then, Slices 1–2 run (behavior + metering) with charging off; the accrual ledger is the record
-  to bill from once charging is live.
+Two of Slice 3's prerequisites are buildable now (they're safety/consent, not charging) and de-risk the
+sign-off conversation:
+- **Monthly overage guardrail.** A per-shop cap on the *billable* overage (`AI_OVERAGE_MONTHLY_CAP_USD`).
+  `SpendCapEnforcer.canSpend` computes billable = `(spent − allowance) × 3` (no extra query — it already
+  has spent+allowance); once it reaches the cap, overage STOPS lifting the model (reverts to the Haiku
+  soft-landing) so a runaway session can't produce a surprise invoice. `SpendCheckResult` gains
+  `overageCapReached`.
+- **Consent-at-enable.** `POST /api/ai/overage` requires `consent:true` to ENABLE (not to disable) and
+  stamps `ai_shop_settings.ai_overage_consent_at` (audit trail — proof of agreement to "Usage ×3").
+  The Plans-hub toggle shows a confirmation dialog stating the terms before enabling.
+
+---
+
+## Slice 3 — Charging via Stripe (the real remaining gate = terms sign-off, NOT Connect)
+
+**Correction:** charging a shop for overage is FixFlow **invoicing its own customer** — it does NOT need
+Stripe Connect (Connect is for the Payments add-on: shops accepting *their* customers' payments/payouts).
+The direct-invoice path already exists and is proven by the ads billing.
+
+- Invoice each month's `pending` `ai_overage_charges` rows at `amount_cents` via
+  `StripeService.createImmediateInvoice` (same call the ads billing uses), behind **`AI_OVERAGE_STRIPE_ENABLED`**
+  (default off). Resolve the shop's `stripe_customer_id` (shops already have one from the $500 subscription);
+  mark rows `invoiced/paid` + store `stripe_invoice_id`. Reuse `AdBillingStripeService.invoiceShopPending` as
+  the template + a monthly runner + the shared `invoice.payment_succeeded` webhook for reconciliation.
+- **Prereq (card on file):** require a saved payment method before enabling overage (add to Slice 2.5's
+  consent gate once wired) so a charge never fails.
+- **The actual gate = business/legal sign-off on the TERMS**, not Stripe Connect:
+  1. Enable-time consent/disclosure (Slice 2.5 delivers the mechanism)
+  2. The bill-shock cap (Slice 2.5 delivers it)
+  3. A refund/dispute policy for overage charges
+  4. Confirm monthly cadence + card-required-to-enable
+  Once signed off, Slice 3 is a small build reusing the ads billing pattern — no new external infra.
 
 ---
 

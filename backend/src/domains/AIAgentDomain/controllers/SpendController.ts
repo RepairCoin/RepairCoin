@@ -136,17 +136,25 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
           res.status(409).json({ success: false, error: "AI Usage Overage is not available yet" });
           return;
         }
-        const enabled = (req.body ?? {}).enabled;
+        const body = req.body ?? {};
+        const enabled = body.enabled;
         if (typeof enabled !== "boolean") {
           res.status(400).json({ success: false, error: "`enabled` (boolean) is required" });
           return;
         }
+        // Consent-at-enable (Slice 2.5): enabling requires an explicit acknowledgement of the
+        // "Usage x3, pay as you grow" terms. Disabling doesn't. We stamp ai_overage_consent_at as the
+        // audit trail. Consent is preserved on disable (historical record).
+        if (enabled && body.consent !== true) {
+          res.status(400).json({ success: false, error: "Consent to the Usage x3 overage terms is required to enable" });
+          return;
+        }
 
         await pool.query(
-          `INSERT INTO ai_shop_settings (shop_id, ai_overage_enabled, current_month_started_at)
-           VALUES ($1, $2, NOW())
+          `INSERT INTO ai_shop_settings (shop_id, ai_overage_enabled, ai_overage_consent_at, current_month_started_at)
+           VALUES ($1, $2, ${enabled ? "NOW()" : "NULL"}, NOW())
            ON CONFLICT (shop_id)
-             DO UPDATE SET ai_overage_enabled = EXCLUDED.ai_overage_enabled, updated_at = NOW()`,
+             DO UPDATE SET ai_overage_enabled = EXCLUDED.ai_overage_enabled${enabled ? ", ai_overage_consent_at = NOW()" : ""}, updated_at = NOW()`,
           [shopId, enabled]
         );
 
