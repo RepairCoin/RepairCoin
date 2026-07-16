@@ -120,6 +120,54 @@ describe("SpendCapEnforcer.canSpend — AI Usage Overage (T3.2)", () => {
   });
 });
 
+describe("SpendCapEnforcer.recordSpend — overage accrual (T3.2 Slice 2)", () => {
+  const ORIG = process.env.ENABLE_AI_OVERAGE;
+  beforeEach(() => { process.env.ENABLE_AI_OVERAGE = "true"; mockedGetShopTier.mockResolvedValue("growth"); }); // $30
+  afterEach(() => { process.env.ENABLE_AI_OVERAGE = ORIG; });
+
+  // UPDATE ... RETURNING returns the post-increment spend + the opt-in flag.
+  const recordPool = (afterSpend: string, overage: boolean) =>
+    ({ query: jest.fn().mockResolvedValue({ rows: [{ current_month_spend_usd: afterSpend, ai_overage_enabled: overage }] }) } as any);
+
+  it("accrues only the slice of the increment that crossed the cap ($28→$33 on $30 → $3)", async () => {
+    const accrue = jest.fn().mockResolvedValue(undefined);
+    await new SpendCapEnforcer(recordPool("33.00", true), accrue).recordSpend("s", 5); // before $28
+    expect(accrue).toHaveBeenCalledWith("s", 3);
+  });
+
+  it("accrues the whole cost when already over the cap ($35→$37 → $2)", async () => {
+    const accrue = jest.fn().mockResolvedValue(undefined);
+    await new SpendCapEnforcer(recordPool("37.00", true), accrue).recordSpend("s", 2);
+    expect(accrue).toHaveBeenCalledWith("s", 2);
+  });
+
+  it("does not accrue when the increment stays under the cap ($10→$15 on $30)", async () => {
+    const accrue = jest.fn().mockResolvedValue(undefined);
+    await new SpendCapEnforcer(recordPool("15.00", true), accrue).recordSpend("s", 5);
+    expect(accrue).not.toHaveBeenCalled();
+  });
+
+  it("does not accrue when the shop has NOT opted into overage", async () => {
+    const accrue = jest.fn().mockResolvedValue(undefined);
+    await new SpendCapEnforcer(recordPool("40.00", false), accrue).recordSpend("s", 5);
+    expect(accrue).not.toHaveBeenCalled();
+  });
+
+  it("does not accrue when the master flag is OFF", async () => {
+    process.env.ENABLE_AI_OVERAGE = "false";
+    const accrue = jest.fn().mockResolvedValue(undefined);
+    await new SpendCapEnforcer(recordPool("40.00", true), accrue).recordSpend("s", 5);
+    expect(accrue).not.toHaveBeenCalled();
+  });
+
+  it("never lets an accrual failure break recordSpend", async () => {
+    const accrue = jest.fn().mockRejectedValue(new Error("ledger down"));
+    await expect(
+      new SpendCapEnforcer(recordPool("40.00", true), accrue).recordSpend("s", 5)
+    ).resolves.toBeUndefined();
+  });
+});
+
 describe("SpendCapEnforcer.recordSpend", () => {
   it("issues an UPDATE with the cost amount", async () => {
     const pool = mockPool(spend("5.00"));

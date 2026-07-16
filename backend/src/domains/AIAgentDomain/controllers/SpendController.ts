@@ -89,6 +89,18 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
           [shopId]
         );
 
+        // AI Usage Overage (T3.2 Slice 2) — the shop's accrued overage this month (billable Usage x3).
+        // Only queried when the feature is live, so a normal shop pays no extra query cost.
+        let overageChargeUsd = 0;
+        if (overageAvailable) {
+          const ov = await pool.query<{ amount_cents: string }>(
+            `SELECT amount_cents FROM ai_overage_charges
+             WHERE shop_id = $1 AND period_month = DATE_TRUNC('month', now())::date`,
+            [shopId]
+          );
+          overageChargeUsd = ov.rows.length ? (parseFloat(ov.rows[0].amount_cents) || 0) / 100 : 0;
+        }
+
         res.json({
           success: true,
           data: {
@@ -99,6 +111,7 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
             callsThisMonth: parseInt(calls.rows[0]?.count ?? "0", 10),
             overageEnabled: row.ai_overage_enabled === true,
             overageAvailable,
+            overageChargeUsd,
           },
         });
       } catch (err) {
