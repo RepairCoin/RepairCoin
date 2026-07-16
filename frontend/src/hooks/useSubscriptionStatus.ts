@@ -105,7 +105,7 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
     } else if (isExpired) {
       statusMessage = 'Your subscription has expired. Please renew your subscription to continue operations.';
     } else if (isNotQualified) {
-      statusMessage = 'An active RepairCoin subscription or RCG qualification (10K+ tokens) is required to perform operations.';
+      statusMessage = 'An active FixFlow subscription is required to perform operations.';
     } else if (isCancelled && !isExpired) {
       // Cancelled but still in billing period - allow operations with warning
       const endsAt = shopData.subscriptionEndsAt ? new Date(shopData.subscriptionEndsAt) : null;

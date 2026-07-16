@@ -50,9 +50,35 @@ router.get('/customers/:address/balance',
 );
 
 // Shop management
-router.get('/shops', 
+router.get('/shops',
   requirePermission('manage_shops'),
   asyncHandler(adminController.getShops.bind(adminController))
+);
+
+// Active admins assignable as a shop's account manager (for the assign dropdown)
+router.get('/assignable-managers',
+  requirePermission('manage_shops'),
+  asyncHandler(adminController.getAssignableManagers.bind(adminController))
+);
+
+// Shops assigned to the requesting admin as account manager ("My Shops" view).
+// Any admin can view their own assigned shops — no manage_shops needed.
+router.get('/my-assigned-shops',
+  asyncHandler(adminController.getMyAssignedShops.bind(adminController))
+);
+
+// Agencies assigned to the requesting admin as account manager (same "My Shops" view).
+router.get('/my-assigned-agencies',
+  asyncHandler(adminController.getMyAssignedAgencies.bind(adminController))
+);
+
+// The requesting admin's own contact profile (name/email/phone). Self-service — any admin can
+// read/update their own; this is the contact shown to shops they manage as account manager.
+router.get('/profile/me',
+  asyncHandler(adminController.getMyProfile.bind(adminController))
+);
+router.patch('/profile/me',
+  asyncHandler(adminController.updateMyProfile.bind(adminController))
 );
 
 // Manual token minting (emergency function)
@@ -115,8 +141,9 @@ router.put('/admins/:adminId/permissions',
   asyncHandler(adminController.updateAdminPermissions.bind(adminController))
 );
 
-// Shop approval
-router.post('/shops/:shopId/approve', 
+// Reactivate a shop (moderation): re-verify + re-activate + clear suspension.
+// Signup no longer needs approval — this is retained to reconsider a rejected/suspended shop.
+router.post('/shops/:shopId/approve',
   requirePermission('manage_shops'),
   asyncHandler(adminController.approveShop.bind(adminController))
 );
@@ -157,11 +184,6 @@ router.use('/shops/:shopId/team',
   adminTeamRoutes
 );
 
-// Shop verification
-router.post('/shops/:shopId/verify',
-  requirePermission('manage_shops'),
-  asyncHandler(adminController.verifyShop.bind(adminController))
-);
 
 // Sell RCN to shops ($0.10 per token)
 router.post('/shops/:shopId/sell-rcn',

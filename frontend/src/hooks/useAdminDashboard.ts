@@ -31,7 +31,6 @@ export function useAdminDashboard(options?: {
     // Shop actions
     suspendShop,
     unsuspendShop,
-    verifyShop,
     approveShop,
     rejectShop,
     mintShopBalance,
@@ -80,7 +79,6 @@ export function useAdminDashboard(options?: {
     shopActions: {
       suspend: suspendShop,
       unsuspend: unsuspendShop,
-      verify: verifyShop,
       approve: approveShop,
       reject: rejectShop,
       mintBalance: mintShopBalance,
@@ -96,7 +94,6 @@ export function useAdminDashboard(options?: {
     // Individual action exports for backward compatibility
     suspendShop,
     unsuspendShop,
-    verifyShop,
     approveShop,
     rejectShop,
     mintShopBalance,

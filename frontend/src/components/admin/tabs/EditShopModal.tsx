@@ -20,6 +20,14 @@ interface Shop {
   country?: string;
   website?: string;
   verified?: boolean;
+  accountManagerAddress?: string | null;
+}
+
+interface AssignableManager {
+  address: string;
+  name: string | null;
+  email: string | null;
+  role: string;
 }
 
 interface EditShopModalProps {
@@ -28,6 +36,13 @@ interface EditShopModalProps {
   shop: Shop | null;
   onRefresh: () => void;
 }
+
+// "super_admin" -> "Super Admin"
+const formatRole = (role: string) =>
+  role
+    .split("_")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ");
 
 export const EditShopModal: React.FC<EditShopModalProps> = ({
   isOpen,
@@ -43,9 +58,26 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
     city: "",
     country: "",
     website: "",
+    accountManagerAddress: "",
     // crossShopEnabled removed - universal redemption is now always enabled
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [managers, setManagers] = useState<AssignableManager[]>([]);
+
+  // Load the admins that can be assigned as this shop's account manager.
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch(`${getApiBaseUrl()}/admin/assignable-managers`, {
+      credentials: "include",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.data) setManagers(data.data as AssignableManager[]);
+      })
+      .catch(() => {
+        /* non-fatal — the dropdown just stays empty */
+      });
+  }, [isOpen]);
 
   useEffect(() => {
     if (shop) {
@@ -66,6 +98,7 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
         city: shop.city || "",
         country: shop.country || "",
         website: shop.website || "",
+        accountManagerAddress: shop.accountManagerAddress || "",
         // crossShopEnabled removed - universal redemption is now always enabled
       });
     }
@@ -86,6 +119,7 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
         city: formData.city,
         country: formData.country,
         website: formData.website,
+        accountManagerAddress: formData.accountManagerAddress,
         // cross_shop_enabled removed - universal redemption is now always enabled
       };
 
@@ -295,6 +329,41 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
                     disabled={isLoading}
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Account Manager */}
+            <div className="border-b border-gray-700 pb-6">
+              <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
+                Account Manager
+              </h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Assigned Account Manager
+                </label>
+                <select
+                  name="accountManagerAddress"
+                  value={formData.accountManagerAddress}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      accountManagerAddress: e.target.value,
+                    }))
+                  }
+                  disabled={isLoading}
+                  className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                >
+                  <option value="">Unassigned</option>
+                  {managers.map((m) => (
+                    <option key={m.address} value={m.address}>
+                      {(m.name || m.email || m.address) + ` (${formatRole(m.role)})`}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-2">
+                  The shop sees their assigned manager on the Business support card. Leave
+                  &quot;Unassigned&quot; to remove.
+                </p>
               </div>
             </div>
 

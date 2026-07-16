@@ -10,6 +10,7 @@ import { shopRepository } from '../repositories';
 import { logger } from '../utils/logger';
 import { getSharedPool } from '../utils/database-pool';
 import { getShopStatus } from '../utils/shopStatus';
+import { isEntitledByAgency } from '../utils/agencyEntitlement';
 
 export interface SubscriptionGuardOptions {
   allowRcgQualified?: boolean;  // Allow RCG-qualified shops (default: true)
@@ -27,8 +28,6 @@ function getBlockedMessage(status: string): string {
     // Shop lifecycle statuses (see utils/shopStatus.ts)
     case 'suspended':
       return 'Your shop account has been suspended by the administrator. Please contact support or submit an unsuspend request.';
-    case 'pending_verification':
-      return 'Your shop is awaiting admin approval. You will be notified once your account is verified.';
     case 'rejected':
       return 'Your shop account is inactive. Please contact support.';
     // Subscription/operational_status keys (distinct from shop lifecycle above)
@@ -108,6 +107,17 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
         });
       }
 
+      // Agency-managed shops are covered by their agency's subscription — bypass the per-shop
+      // subscription/operational gate (suspension above still blocks them). Only while the
+      // agency's own subscription is live: a cancelled agency de-entitles its clients.
+      if (shop.agencyId && (await isEntitledByAgency(shopId))) {
+        logger.debug('Subscription guard: agency-managed shop, allowing operation', {
+          shopId,
+          agencyId: shop.agencyId
+        });
+        return next();
+      }
+
       // Check if shop is RCG qualified (bypass subscription check)
       if (opts.allowRcgQualified) {
         const rcgBalance = shop.rcg_balance ? parseFloat(shop.rcg_balance.toString()) : 0;
@@ -121,24 +131,6 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
           });
           return next();
         }
-      }
-
-      if (shopStatus === 'pending') {
-        logger.warn('Subscription guard: Shop pending verification', {
-          shopId,
-          endpoint: req.path,
-          method: req.method
-        });
-
-        return res.status(403).json({
-          success: false,
-          error: 'Shop pending verification',
-          code: 'SHOP_NOT_VERIFIED',
-          details: {
-            status: 'pending',
-            message: getBlockedMessage('pending_verification')
-          }
-        });
       }
 
       if (shopStatus === 'rejected') {

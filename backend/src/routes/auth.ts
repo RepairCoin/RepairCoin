@@ -2,6 +2,7 @@
 import { Router, Response, Request } from 'express';
 import rateLimit from 'express-rate-limit';
 import { customerRepository, shopRepository, adminRepository, refreshTokenRepository, shopTeamRepository } from '../repositories';
+import { agencyService } from '../domains/agency/services/AgencyService';
 import { logger } from '../utils/logger';
 import { generateToken, generateAccessToken, generateRefreshToken, authMiddleware } from '../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -97,7 +98,7 @@ const setAuthCookie = (res: Response, token: string) => {
 const generateAndSetTokens = async (
   res: Response,
   req: Request,
-  payload: { address: string; role: 'admin' | 'shop' | 'customer'; shopId?: string; permissions?: string[]; teamMemberId?: string }
+  payload: { address: string; role: 'admin' | 'shop' | 'customer'; shopId?: string; homeShopId?: string; permissions?: string[]; teamMemberId?: string }
 ): Promise<{ accessToken: string; refreshToken: string; tokenId: string }> => {
   // Generate unique token ID for refresh token
   const tokenId = uuidv4();
@@ -320,6 +321,7 @@ router.post('/token', async (req, res) => {
           logger.debug('Shop resolution failed in /token', { address: normalizedAddress });
         }
       }
+
     }
 
     if (!userType || !userData) {
@@ -359,6 +361,97 @@ router.post('/token', async (req, res) => {
       error: 'Internal server error'
     });
   }
+});
+
+/**
+ * Agency "act as client": an agency-owning shop swaps to a shop-scoped session on one of its
+ * client shops. The minted client-shop token carries homeShopId (the owner shop) so the UI can
+ * show a "managing client" banner and /agency/resume can swap back.
+ * POST /api/auth/agency/enter  { shopId }
+ */
+router.post('/agency/enter', authMiddleware, async (req, res) => {
+  try {
+    const ownerShopId = req.user?.shopId;
+    if (req.user?.role !== 'shop' || !ownerShopId) {
+      return res.status(403).json({ success: false, error: 'Shop session required' });
+    }
+    const { shopId } = req.body ?? {};
+    if (!shopId) {
+      return res.status(400).json({ success: false, error: 'shopId is required' });
+    }
+
+    const canActAs = await agencyService.ownerCanActAsClient(ownerShopId, shopId);
+    if (!canActAs) {
+      return res.status(404).json({ success: false, error: 'Shop is not a client of your agency' });
+    }
+
+    const shop = await shopRepository.getShop(shopId);
+    if (!shop) {
+      return res.status(404).json({ success: false, error: 'Client shop not found' });
+    }
+
+    // Owner-level session on the client shop (permissions omitted ⇒ '*'), tagged with the owner
+    // shop to return to via homeShopId.
+    const { accessToken } = await generateAndSetTokens(res, req, {
+      address: shop.walletAddress,
+      role: 'shop',
+      shopId,
+      homeShopId: ownerShopId
+    });
+
+    logger.info('Agency entered client shop', { ownerShopId, shopId });
+    return res.json({ success: true, data: { shopId, accessToken, role: 'shop' } });
+  } catch (error) {
+    logger.error('Agency enter failed:', error);
+    return res.status(500).json({ success: false, error: 'Failed to enter client shop' });
+  }
+});
+
+/**
+ * Resume the agency-owner session from a "managing client" session (the client-shop token carries
+ * homeShopId). Swaps back to the owner shop's session.
+ * POST /api/auth/agency/resume
+ */
+router.post('/agency/resume', authMiddleware, async (req, res) => {
+  try {
+    const homeShopId = req.user?.homeShopId;
+    if (!homeShopId) {
+      return res.status(403).json({ success: false, error: 'Not in a managed-client session' });
+    }
+    const ownerShop = await shopRepository.getShop(homeShopId);
+    if (!ownerShop) {
+      return res.status(404).json({ success: false, error: 'Owner shop not found' });
+    }
+
+    const { accessToken } = await generateAndSetTokens(res, req, {
+      address: ownerShop.walletAddress,
+      role: 'shop',
+      shopId: homeShopId
+    });
+
+    logger.info('Agency owner session resumed', { ownerShopId: homeShopId });
+    return res.json({ success: true, data: { accessToken, role: 'shop', shopId: homeShopId } });
+  } catch (error) {
+    logger.error('Agency resume failed:', error);
+    return res.status(500).json({ success: false, error: 'Failed to resume agency session' });
+  }
+});
+
+/**
+ * Whether the current session is an agency owner acting as one of its client shops (a shop token
+ * carrying homeShopId). Drives the "managing client" banner + Exit control.
+ * GET /api/auth/agency/context
+ */
+router.get('/agency/context', authMiddleware, async (req, res) => {
+  const actingAsAgencyClient = req.user?.role === 'shop' && !!req.user?.homeShopId;
+  return res.json({
+    success: true,
+    data: {
+      actingAsAgencyClient,
+      shopId: actingAsAgencyClient ? req.user?.shopId ?? null : null,
+      homeShopId: req.user?.homeShopId ?? null
+    }
+  });
 });
 
 /**
@@ -621,7 +714,8 @@ router.post('/check-user', async (req, res) => {
               shopId: staffShop.shopId,
               address: normalizedAddress,
               walletAddress: normalizedAddress,
-              name: staff.name || staffShop.name,
+              name: staffShop.name,
+              memberName: staff.name || undefined,
               shopName: staffShop.name,
               email: staff.email,
               role: 'shop',
@@ -1031,6 +1125,20 @@ router.get('/session', authMiddleware, async (req, res) => {
     } else if (role === 'shop' && shopId) {
       const shop = await shopRepository.getShop(shopId);
       if (shop) {
+        // The shop identity (name/email/logo) stays the shop's — that's what the sidebar
+        // footer shows. A team member's own name rides a separate `memberName` field (the
+        // header greeting uses it). Permissions come from the member record (authoritative,
+        // reflects current grants) rather than the token, so a refreshed staff member can't
+        // silently inherit the owner's '*'.
+        let memberName: string | null = null;
+        let permissions = req.user.permissions ?? ['*'];
+        if (req.user.teamMemberId) {
+          const member = await shopTeamRepository.getMemberById(req.user.teamMemberId);
+          if (member && member.shopId === shopId) {
+            memberName = member.name;
+            permissions = member.permissions;
+          }
+        }
         userData = {
           id: shop.shopId,
           address: shop.walletAddress,
@@ -1039,11 +1147,14 @@ router.get('/session', authMiddleware, async (req, res) => {
           role: 'shop',
           shopName: shop.name,
           name: shop.name,
+          memberName: memberName || undefined,
           email: shop.email,
           logoUrl: shop.logoUrl,
           active: shop.active,
           shopId: shop.shopId,
-          permissions: req.user.permissions ?? ['*'],
+          // Present only in an agency "act as client" session — the owner shop to return to.
+          homeShopId: req.user.homeShopId,
+          permissions,
           isTeamMember: !!req.user.teamMemberId,
           createdAt: shop.joinDate,
           created_at: shop.joinDate
@@ -1416,8 +1527,10 @@ router.post('/shop', authLimiter, async (req, res) => {
           address: shop.walletAddress, // Original registered wallet (has RCG tokens)
           walletAddress: shop.walletAddress,
           connectedWallet: linkedByEmail ? normalizedAddress : shop.walletAddress, // Current session wallet
-          // Staff are greeted by their own name, but keep the shop logo as the avatar.
-          name: resolved.memberName || shop.name,
+          // Identity stays the shop's (sidebar footer); the member's own name rides
+          // memberName, which the header greeting prefers.
+          name: shop.name,
+          memberName: resolved.memberName || undefined,
           email: shop.email,
           logoUrl: shop.logoUrl,
           role: 'shop',
@@ -1433,9 +1546,9 @@ router.post('/shop', authLimiter, async (req, res) => {
             suspensionReason: shop.suspensionReason
           })
         },
-        // Include warning if shop is not verified/active
-        ...((!shop.active || !shop.verified) && {
-          warning: 'Shop is pending verification. Some features may be limited.',
+        // Include warning if shop has been deactivated by an admin
+        ...(!shop.active && {
+          warning: 'Your shop is inactive. Please contact support.',
           limitedAccess: true
         }),
         // Include note about email-linked login
@@ -1591,11 +1704,16 @@ router.post('/refresh', async (req, res) => {
     // Update last used timestamp
     await refreshTokenRepository.updateLastUsed(decoded.tokenId);
 
-    // Generate new access token (refresh token stays the same)
+    // Generate new access token (refresh token stays the same).
+    // Carry forward the team-member claims — without them authMiddleware defaults a shop
+    // token to owner ('*'), silently escalating a team member to owner after a refresh.
     const newAccessToken = generateAccessToken({
       address: decoded.address,
       role: decoded.role,
-      shopId: decoded.shopId
+      shopId: decoded.shopId,
+      homeShopId: decoded.homeShopId,
+      permissions: decoded.permissions,
+      teamMemberId: decoded.teamMemberId
     }, decoded.tokenId);
 
     const isProduction = process.env.NODE_ENV === 'production';

@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck, ScrollText, DollarSign, Webhook, Gem, Share2, MessageSquare } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck, ScrollText, DollarSign, Webhook, Gem, Share2, MessageSquare, Building2 } from "lucide-react";
 import { SettingsIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
 interface AdminSidebarProps {
   isOpen?: boolean;
@@ -46,6 +47,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     onTabChange,
     onCollapseChange,
   });
+
+  const blockchainEnabled = useBlockchainEnabled();
 
   // Collapsed-state hover flyout: which group is open + its vertical anchor
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
@@ -124,13 +127,17 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       customers,
       shops,
       { title: "Subscriptions", href: "/admin?tab=subscriptions", icon: <CreditCard className="w-5 h-5" />, tabId: "subscriptions" },
+      { title: "My Shops", href: "/admin?tab=my-shops", icon: <ShieldCheck className="w-5 h-5" />, tabId: "my-shops" },
+      { title: "Agencies", href: "/admin?tab=agencies", icon: <Building2 className="w-5 h-5" />, tabId: "agencies" },
       { title: "Waitlist", href: "/admin?tab=waitlist", icon: <ClipboardList className="w-5 h-5" />, tabId: "waitlist" },
 
       section("Finance & Tokens"),
       { title: "Treasury", href: "/admin?tab=treasury", icon: <Coins className="w-5 h-5" />, tabId: "treasury" },
       { title: "Revenue", href: "/admin?tab=revenue", icon: <DollarSign className="w-5 h-5" />, tabId: "revenue" },
-      { title: "RCG", href: "/admin?tab=rcg", icon: <Gem className="w-5 h-5" />, tabId: "rcg" },
+      // RCG governance is blockchain-only; hide the nav link in database-only mode.
+      ...(blockchainEnabled ? [{ title: "RCG", href: "/admin?tab=rcg", icon: <Gem className="w-5 h-5" />, tabId: "rcg" }] : []),
       { title: "Promo Codes", href: "/admin?tab=promo-codes", icon: <Tag className="w-5 h-5" />, tabId: "promo-codes" },
+      { title: "Commissions", href: "/admin?tab=commissions", icon: <DollarSign className="w-5 h-5" />, tabId: "commissions" },
 
       section("Growth & Analytics"),
       { title: "Analytics", href: "/admin?tab=analytics", icon: <BarChart3 className="w-5 h-5" />, tabId: "analytics" },

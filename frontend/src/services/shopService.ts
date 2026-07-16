@@ -95,7 +95,7 @@ export class ShopService {
   /**
    * Register a new shop
    */
-  static async registerShop(walletAddress: string, formData: ShopRegistrationFormData, captchaToken?: string | null) {
+  static async registerShop(walletAddress: string, formData: ShopRegistrationFormData, captchaToken?: string | null, agencyInviteToken?: string | null) {
     const registrationData = {
       shopId: formData.shopId,
       name: formData.name,
@@ -125,7 +125,8 @@ export class ShopService {
       },
       acceptTerms: formData.acceptTerms,
       walletAddress: walletAddress,
-      captchaToken: captchaToken || undefined
+      captchaToken: captchaToken || undefined,
+      agencyInviteToken: agencyInviteToken || undefined
     };
 
     console.log("Submitting shop registration:", registrationData);

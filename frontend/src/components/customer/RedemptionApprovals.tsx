@@ -35,6 +35,7 @@ export function RedemptionApprovals() {
   const blockchainEnabled = useBlockchainEnabled();
   // The address is the redemption identity; drop the crypto framing when off.
   const idLabel = blockchainEnabled ? "wallet address" : "RepairCoin ID";
+  const idLabelTitle = blockchainEnabled ? "Wallet Address" : "RepairCoin ID";
   const { balanceData, fetchCustomerData } = useCustomer();
   const [sessions, setSessions] = useState<RedemptionSession[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -566,7 +567,7 @@ export function RedemptionApprovals() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-[#212121] rounded-2xl max-w-md w-full mx-4">
             <div className="flex justify-between items-center p-6 border-b border-gray-700">
-              <h3 className="text-xl font-semibold text-white">Wallet Address QR Code</h3>
+              <h3 className="text-xl font-semibold text-white">{idLabelTitle} QR Code</h3>
               <button
                 onClick={() => setShowQRModal(false)}
                 className="text-gray-400 hover:text-white transition-colors"
@@ -580,7 +581,7 @@ export function RedemptionApprovals() {
                 <div className="space-y-4">
                   <img
                     src={qrCodeData}
-                    alt="Wallet Address QR Code"
+                    alt={`${idLabelTitle} QR Code`}
                     className="mx-auto bg-white p-4 rounded-lg"
                   />
 

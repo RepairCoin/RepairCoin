@@ -8,7 +8,9 @@ import {
   Shield,
   Database,
   Mail,
+  User,
 } from "lucide-react";
+import { MyProfileContent } from "./MyProfileContent";
 import { GeneralSettingsContent } from "./GeneralSettingsContent";
 import { NotificationSettingsContent } from "./NotificationSettingsContent";
 import { SecuritySettingsContent } from "./SecuritySettingsContent";
@@ -18,6 +20,7 @@ import { EmailTemplatesContent } from "./EmailTemplatesContent";
 export const AdminSettingsTab: React.FC = () => {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<
+    | "my-profile"
     | "general"
     | "notifications"
     | "security"
@@ -29,6 +32,7 @@ export const AdminSettingsTab: React.FC = () => {
   useEffect(() => {
     const section = searchParams?.get('section');
     if (section && (
+      section === "my-profile" ||
       section === "general" ||
       section === "notifications" ||
       section === "security" ||
@@ -41,6 +45,7 @@ export const AdminSettingsTab: React.FC = () => {
 
   // Tab menu items configuration
   const mainTabs = [
+    { id: "my-profile" as const, label: "My Profile", icon: User },
     { id: "general" as const, label: "General Settings", icon: Settings },
     { id: "notifications" as const, label: "Notifications", icon: Bell },
   ];
@@ -109,6 +114,9 @@ export const AdminSettingsTab: React.FC = () => {
 
         {/* Content Area */}
         <div className="flex-1 p-4 sm:p-6 lg:p-8">
+          {/* My Profile Tab Content */}
+          {activeTab === "my-profile" && <MyProfileContent />}
+
           {/* General Settings Tab Content */}
           {activeTab === "general" && <GeneralSettingsContent />}
 

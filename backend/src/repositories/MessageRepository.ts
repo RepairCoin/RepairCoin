@@ -2,7 +2,6 @@
 import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
 import { shopHasFeature } from '../utils/shopTier';
-
 /**
  * Which transport a conversation / message lives on. Phase 0 of the AI
  * Auto-Replies multi-channel expansion (see

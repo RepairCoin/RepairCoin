@@ -2,6 +2,7 @@ import { SubscriptionTier, isValidTier, AI_TIER_ALLOWANCE } from '../config/subs
 import { tierAllowsFeature } from '../config/featureTiers';
 import { shopSubscriptionRepository } from '../repositories';
 import { getSharedPool } from './database-pool';
+import { isEntitledByAgency } from './agencyEntitlement';
 import { logger } from './logger';
 
 // Legacy pre-3-tier plans that paid the top historical price; grandfather to business.
@@ -32,6 +33,7 @@ async function isShopInTrial(shopId: string): Promise<boolean> {
 export async function getShopTier(shopId: string): Promise<SubscriptionTier> {
   try {
     if (await isShopInTrial(shopId)) return 'business';
+    if (await isEntitledByAgency(shopId)) return 'growth';
     const sub = await shopSubscriptionRepository.getActiveSubscriptionByShopId(shopId);
     return normalizeTier(sub?.subscriptionType);
   } catch (error) {

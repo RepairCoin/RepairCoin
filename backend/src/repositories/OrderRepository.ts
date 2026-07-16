@@ -525,6 +525,78 @@ export class OrderRepository extends BaseRepository {
   }
 
   /**
+   * Mark an order completed and, when commissions are enabled, accrue the performing
+   * member's commission in the same transaction. Idempotent via UNIQUE (order_id).
+   */
+  async completeOrder(
+    orderId: string,
+    opts: { completedByMemberId?: string } = {}
+  ): Promise<ServiceOrder> {
+    const { completedByMemberId } = opts;
+    return this.withTransaction(async (client) => {
+      const updateResult = await client.query(
+        `UPDATE service_orders
+         SET status = 'completed', completed_at = NOW(), updated_at = NOW(),
+             completed_by_member_id = COALESCE($2, completed_by_member_id)
+         WHERE order_id = $1
+         RETURNING *`,
+        [orderId, completedByMemberId ?? null]
+      );
+
+      if (updateResult.rows.length === 0) {
+        throw new Error('Order not found');
+      }
+      const row = updateResult.rows[0];
+
+      if (completedByMemberId) {
+        const cfg = await client.query(
+          `SELECT m.shop_id, m.status,
+                  m.commission_percent AS member_rate,
+                  s.commissions_enabled,
+                  s.default_commission_percent
+           FROM shop_team_members m
+           JOIN shops s ON s.shop_id = m.shop_id
+           WHERE m.id = $1`,
+          [completedByMemberId]
+        );
+        const c = cfg.rows[0];
+
+        if (
+          c &&
+          c.commissions_enabled &&
+          c.status === 'active' &&
+          c.shop_id === row.shop_id
+        ) {
+          const rate = parseFloat(c.member_rate ?? c.default_commission_percent ?? 0);
+          const base = row.final_amount_usd != null
+            ? parseFloat(row.final_amount_usd)
+            : parseFloat(row.total_amount);
+
+          if (rate > 0 && base > 0) {
+            const amount = Math.round(base * rate) / 100;
+            const inserted = await client.query(
+              `INSERT INTO staff_commissions
+                 (shop_id, order_id, member_id, base_amount, rate_percent, amount)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (order_id) DO NOTHING
+               RETURNING id`,
+              [row.shop_id, orderId, completedByMemberId, base, rate, amount]
+            );
+            if ((inserted.rowCount ?? 0) > 0) {
+              logger.info('Staff commission accrued', {
+                orderId, memberId: completedByMemberId, base, rate, amount
+              });
+            }
+          }
+        }
+      }
+
+      logger.info('Order status updated', { orderId, status: 'completed' });
+      return this.mapOrderRow(row);
+    });
+  }
+
+  /**
    * Update Stripe Payment Intent ID
    */
   async updatePaymentIntent(orderId: string, paymentIntentId: string): Promise<ServiceOrder> {

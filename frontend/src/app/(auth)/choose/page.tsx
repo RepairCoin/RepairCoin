@@ -152,7 +152,7 @@ export default function ChoosePage() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
             <h2 className="text-xl font-semibold text-white mb-2">
-              Loading RepairCoin...
+              Loading FixFlow...
             </h2>
             <p className="text-gray-300">Checking your authentication status</p>
           </div>
@@ -198,11 +198,10 @@ export default function ChoosePage() {
         {/* Header */}
         <div className="w-full flex flex-col  items-center md:gap-6 gap-4">
           <p className="md:text-5xl text-3xl text-center font-bold text-white tracking-wide">
-            Welcome to RepairCoin
+            Welcome to FixFlow
           </p>
           <p className="text-white text-xs md:text-base mb-6 xl:w-2/3 md:w-2/4 text-center tracking-wide">
-            Choose how you'd like to join our blockchain-powered repair
-            ecosystem
+            Choose how you'd like to join our rewards-powered ecosystem
           </p>
         </div>
 
@@ -433,7 +432,7 @@ export default function ChoosePage() {
                   </div>
                   <div className="flex flex-col flex-grow p-5 sm:p-6 gap-2">
                     <p className="text-2xl font-semibold text-white mb-2 sm:mb-3">
-                      I'm a Repair Shop Owner
+                      I'm a Shop Owner
                     </p>
                     <p className="text-gray-400 text-xs mb-4">
                       Checking registration status...
@@ -563,7 +562,7 @@ export default function ChoosePage() {
                     </div>
                     <div className="flex flex-col flex-grow p-5 sm:p-6 gap-2">
                       <p className="text-2xl font-semibold text-white mb-2 sm:mb-3 line-clamp-2">
-                        I'm a Repair Shop Owner
+                        I'm a Shop Owner
                       </p>
                       <p className="text-gray-300 text-xs mb-4 line-clamp-3">
                         Join our network to offer loyalty tokens to your
@@ -662,10 +661,10 @@ export default function ChoosePage() {
                 />
               </div>
               <h3 className="text-[#FFCC00] text-lg font-semibold mb-2 text-center tracking-wide">
-                1. Get Repairs
+                1. Get Services
               </h3>
               <p className="text-gray-300 text-sm tracking-wide text-center">
-                Customers get their devices repaired at participating shops.
+                Customers get services from participating shops.
               </p>
             </div>
 
@@ -682,7 +681,7 @@ export default function ChoosePage() {
                 2. Earn Tokens
               </h3>
               <p className="text-gray-300 text-sm tracking-wide text-center">
-                Receive RepairCoin tokens based on repair value and tier.
+                Receive RCN tokens based on service value and tier.
               </p>
             </div>
 

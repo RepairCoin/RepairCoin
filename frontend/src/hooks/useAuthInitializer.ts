@@ -118,6 +118,7 @@ interface CachedSession {
     address: string;
     type: 'customer' | 'shop' | 'admin';
     name?: string;
+    memberName?: string;
     email?: string;
     avatarUrl?: string;
     isActive: boolean;
@@ -388,11 +389,13 @@ export function useAuthInitializer() {
             address: userData.address || userData.walletAddress,
             type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
             name: userData.name || userData.shopName,
+            memberName: userData.memberName,
             email: userData.email,
             avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
             isActive: userData.active !== false,
             tier: userData.tier,
             shopId: userData.shopId,
+            homeShopId: userData.homeShopId,
             registrationDate: userData.createdAt || userData.created_at,
             suspended: userData.suspended || false,
             suspendedAt: userData.suspendedAt,
@@ -522,8 +525,11 @@ export function useAuthInitializer() {
             const sessionAddress = (userData.address || userData.walletAddress || '').toLowerCase();
             const connectedAddress = currentAddress?.toLowerCase();
 
-            // Check for wallet change - auto-switch to new account
-            if (sessionAddress && connectedAddress && sessionAddress !== connectedAddress) {
+            // Check for wallet change - auto-switch to new account.
+            // Exception: an agency "act as client" session (homeShopId present) intentionally runs
+            // a shop whose wallet differs from the connected (owner) wallet — don't treat that as a
+            // wallet change or it would clobber the acting session back to the owner.
+            if (sessionAddress && connectedAddress && sessionAddress !== connectedAddress && !userData.homeShopId) {
               let connectedWalletEmail: string | undefined;
               try {
                 connectedWalletEmail = await getUserEmail({ client });
@@ -580,11 +586,13 @@ export function useAuthInitializer() {
               address: userData.address || userData.walletAddress || currentAddress,
               type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
               name: userData.name || userData.shopName,
+              memberName: userData.memberName,
               email: userData.email,
               avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
               isActive: userData.active !== false,
               tier: userData.tier,
               shopId: userData.shopId,
+              homeShopId: userData.homeShopId,
               registrationDate: userData.createdAt || userData.created_at,
               suspended: userData.suspended || false,
               suspendedAt: userData.suspendedAt,

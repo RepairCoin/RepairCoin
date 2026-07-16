@@ -2,6 +2,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership, requireActiveSubscription } from '../../../middleware/auth';
 import { requireShopPermission } from '../../../middleware/permissions';
+import { requireTier } from '../../../middleware/tierGuard';
 import { optionalAuthMiddleware } from '../../../middleware/optionalAuth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric, validateStringType } from '../../../middleware/errorHandler';
 import { validateShopUniqueness } from '../../../middleware/validation';
@@ -21,6 +22,7 @@ import { DatabaseService } from '../../../services/DatabaseService';
 import { RoleValidator } from '../../../utils/roleValidator';
 import { validateShopRoleConflict } from '../../../middleware/roleConflictValidator';
 import { ReferralService } from '../../../services/ReferralService';
+import { agencyService } from '../../agency/services/AgencyService';
 import { PromoCodeService } from '../../../services/PromoCodeService';
 import { PromoCodeRepository } from '../../../repositories/PromoCodeRepository';
 import rcgRoutes from './rcg';
@@ -70,6 +72,7 @@ import paymentMethodsRoutes from './paymentMethods';
 import moderationRoutes from './moderation';
 import welcomeRcnRoutes from './welcomeRcn';
 import teamRoutes from './team';
+import commissionsRoutes from './commissions';
 import locationsRoutes from './locations';
 import featureAccessRoutes from './featureAccess';
 import calendarRoutes from '../../ShopDomain/routes/calendar.routes';
@@ -90,6 +93,7 @@ router.use('/team', teamRoutes); // Team management (auth handled per-route: acc
 router.use('/locations', locationsRoutes); // Multi-location management (Business tier; auth + gate per-route)
 router.use('/feature-access', authMiddleware, requireRole(['shop']), featureAccessRoutes); // Tier-based feature access map
 router.use('/welcome-rcn', authMiddleware, requireRole(['shop']), requireShopPermission('shop:manage'), welcomeRcnRoutes); // Welcome-RCN-on-claim settings
+router.use('/commissions', authMiddleware, requireRole(['shop']), requireShopPermission('shop:manage'), requireTier('teamManagement'), commissionsRoutes); // Staff-commission settings (Business tier)
 router.use('/calendar', calendarRoutes); // Calendar integration routes (auth handled in route file)
 router.use('/gmail', gmailRoutes); // Gmail integration routes (auth handled in route file)
 
@@ -595,7 +599,8 @@ router.post('/register',
         twitter,
         instagram,
         acceptTerms,
-        category
+        category,
+        agencyInviteToken
       } = req.body;
 
       // Check if shop already exists
@@ -635,8 +640,8 @@ router.post('/register',
         email,
         walletAddress: walletAddress.toLowerCase(),
         reimbursementAddress: (reimbursementAddress || walletAddress).toLowerCase(),
-        verified: false, // Requires admin approval
-        active: false,   // Activated after verification
+        verified: true, // Auto-active on signup — no admin approval step
+        active: true,   // Live immediately (subscription still gates transacting)
         crossShopEnabled: false, // Default to false, can be enabled later
         totalTokensIssued: 0,
         totalRedemptions: 0,
@@ -668,9 +673,23 @@ router.post('/register',
         email
       });
 
+      // If this signup came through an agency invite link, link the new shop to that agency.
+      // Best-effort: a bad/expired token never blocks registration.
+      if (agencyInviteToken) {
+        try {
+          const { linked } = await agencyService.acceptInvite(agencyInviteToken, shopId);
+          if (linked) logger.info('Shop linked to agency via invite', { shopId });
+        } catch (inviteError: any) {
+          logger.error('Agency invite linking failed during registration', {
+            shopId,
+            error: inviteError?.message
+          });
+        }
+      }
+
       res.status(201).json({
         success: true,
-        message: 'Shop registered successfully. Awaiting admin verification.',
+        message: 'Shop registered successfully. Subscribe to start issuing rewards.',
         data: {
           shopId: newShop.shopId,
           name: newShop.name,
@@ -1015,54 +1034,6 @@ router.post('/:shopId/cross-shop',
   }
 );
 
-// Verify shop (admin only)
-router.post('/:shopId/verify',
-  requireRole(['admin']),
-  async (req: Request, res: Response) => {
-    try {
-      const { shopId } = req.params;
-      
-      const shop = await shopRepository.getShop(shopId);
-      if (!shop) {
-        return res.status(404).json({
-          success: false,
-          error: 'Shop not found'
-        });
-      }
-
-      if (shop.verified) {
-        return res.status(400).json({
-          success: false,
-          error: 'Shop already verified'
-        });
-      }
-
-      await shopRepository.updateShop(shopId, {
-        verified: true,
-        active: true,
-        lastActivity: new Date().toISOString()
-      });
-
-      logger.info('Shop verified', {
-        shopId,
-        adminAddress: req.user?.address
-      });
-
-      res.json({
-        success: true,
-        message: 'Shop verified and activated successfully'
-      });
-
-    } catch (error: any) {
-      logger.error('Shop verification error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to verify shop'
-      });
-    }
-  }
-);
-
 // Deactivate shop (admin only)
 router.post('/:shopId/deactivate',
   requireRole(['admin']),
@@ -1106,32 +1077,6 @@ router.post('/:shopId/deactivate',
       res.status(500).json({
         success: false,
         error: 'Failed to deactivate shop'
-      });
-    }
-  }
-);
-
-// Get pending shop registrations (admin only)
-router.get('/admin/pending',
-  requireRole(['admin']),
-  async (req: Request, res: Response) => {
-    try {
-      const allShops = await shopRepository.getActiveShops();
-      const pendingShops = allShops.filter(shop => !shop.verified);
-
-      res.json({
-        success: true,
-        data: {
-          shops: pendingShops,
-          count: pendingShops.length
-        }
-      });
-
-    } catch (error: any) {
-      logger.error('Error getting pending shops:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve pending shops'
       });
     }
   }

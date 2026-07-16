@@ -82,7 +82,7 @@ export function SubscriptionSettings({ userType = 'shop' }: SubscriptionSettings
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">Subscription</h3>
-              <p className="text-sm text-gray-400">Manage your RepairCoin subscription</p>
+              <p className="text-sm text-gray-400">Manage your FixFlow subscription</p>
             </div>
           </div>
         </div>
@@ -102,7 +102,7 @@ export function SubscriptionSettings({ userType = 'shop' }: SubscriptionSettings
           </div>
           <div>
             <h3 className="text-lg font-semibold text-white">Subscription</h3>
-            <p className="text-sm text-gray-400">Manage your RepairCoin subscription</p>
+            <p className="text-sm text-gray-400">Manage your FixFlow subscription</p>
           </div>
         </div>
 
@@ -278,7 +278,7 @@ export function SubscriptionSettings({ userType = 'shop' }: SubscriptionSettings
                   No Active Subscription
                 </p>
                 <p className="text-xs text-gray-400">
-                  Subscribe for $500/month to operate without RCG tokens
+                  Subscribe to activate your shop
                 </p>
               </div>
             </div>

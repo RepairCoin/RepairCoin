@@ -26,6 +26,8 @@ import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
 import { ToolsTab } from "@/components/shop/tabs/ToolsTab";
 import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
 import { WalletPayoutsTab } from "@/components/shop/tabs/WalletPayoutsTab";
+import { AgencyManagingBanner } from "@/components/agency/AgencyManagingBanner";
+import { AgencyTab } from "@/components/shop/tabs/AgencyTab";
 import { SupportTab } from "@/components/shop/tabs/SupportTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
@@ -39,6 +41,8 @@ import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTa
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { TeamTab } from "@/components/shop/tabs/TeamTab";
+import { CommissionsTab } from "@/components/shop/tabs/CommissionsTab";
+import { MyCommissionsTab } from "@/components/shop/tabs/MyCommissionsTab";
 import { LocationsTab } from "@/components/shop/tabs/LocationsTab";
 import { LocationSwitcher } from "@/components/shop/LocationSwitcher";
 import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
@@ -1418,6 +1422,7 @@ export default function ShopDashboardClient() {
       onTabChange={handleTabChange}
       fullHeight={isMessagesFullHeight}
     >
+      <AgencyManagingBanner />
       <div
         className={
           isMessagesFullHeight
@@ -1708,6 +1713,14 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
 
+          {activeTab === "commissions" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <TierGate feature="teamManagement">
+                {hasPermission("shop:manage") ? <CommissionsTab /> : <MyCommissionsTab />}
+              </TierGate>
+            </SubscriptionGuard>
+          )}
+
           {activeTab === "locations" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <LocationsTab shopId={shopData.shopId} />
@@ -1728,6 +1741,8 @@ export default function ShopDashboardClient() {
               subscriptionCancelledAt={shopData.subscriptionCancelledAt}
             />
           )}
+
+          {activeTab === "agency" && shopData && <AgencyTab />}
 
           {activeTab === "profile" && shopData && (
             <div className="space-y-6">

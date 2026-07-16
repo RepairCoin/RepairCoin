@@ -387,6 +387,24 @@ export class ShopManagementService {
       // Filter out protected fields that shouldn't be updated directly
       const { shopId: _, walletAddress: __, ...safeUpdates } = updates;
 
+      // Account-manager assignment: an empty value unassigns; a non-empty value must be a
+      // real, active admin (the column is a bare wallet pointer with no DB FK to enforce it).
+      if (safeUpdates.accountManagerAddress !== undefined) {
+        const amAddress =
+          typeof safeUpdates.accountManagerAddress === "string"
+            ? safeUpdates.accountManagerAddress.trim()
+            : "";
+        if (amAddress === "") {
+          safeUpdates.accountManagerAddress = null;
+        } else {
+          const manager = await adminRepository.getAdmin(amAddress);
+          if (!manager || manager.isActive === false) {
+            throw new Error("Account manager must be an active admin");
+          }
+          safeUpdates.accountManagerAddress = amAddress;
+        }
+      }
+
       await shopRepository.updateShop(shopId, safeUpdates);
 
       // Log admin activity

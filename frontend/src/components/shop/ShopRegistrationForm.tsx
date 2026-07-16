@@ -299,7 +299,7 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
       {/* Location Information Section */}
       <div className="bg-[#1C1C1C] p-6 rounded-2xl shadow-sm">
         <p className="text-lg font-bold text-[#FFCC00] mb-4">
-          Wallet Information
+          Account Information
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
@@ -307,7 +307,7 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
             name="reimbursementAddress"
             value={formData.reimbursementAddress}
             onChange={onChange}
-            placeholder="0x... (defaults to connected wallet)"
+            placeholder="Defaults to your connected account"
             disabled
           />
           <FormField
@@ -330,12 +330,11 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
 
           <ul className="space-y-4 mb-6">
             {[
-              "Your shop will need admin verification before activation",
+              "Your shop is active as soon as you register",
               "You'll be able to purchase RCN at $0.10 each",
               "Tier bonuses will be automatically deducted from your RCN Balance",
-              "Cross hop redemption can be enabled after verification",
-              "All transactions are recorded on the blockchain",
-              "You agree to comply with all RepairCoin network policies",
+              "Cross shop redemption can be enabled anytime",
+              "You agree to comply with all FixFlow platform policies",
             ].map((item, index) => (
               <li key={index} className="flex items-start">
                 <svg

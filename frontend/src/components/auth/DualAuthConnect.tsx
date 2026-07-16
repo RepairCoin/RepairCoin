@@ -199,6 +199,7 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
                       address: userData.walletAddress || userData.address || account.address,
                       type: 'shop',
                       name: userData.name,
+                      memberName: userData.memberName,
                       email: userData.email,
                       avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
                       isActive: userData.active,

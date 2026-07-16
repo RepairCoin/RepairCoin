@@ -304,9 +304,9 @@ export default function AffiliateShopGroupsClient() {
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-orange-400 font-semibold text-sm sm:text-base mb-1">Subscription or RCG Qualification Required</h3>
+                      <h3 className="text-orange-400 font-semibold text-sm sm:text-base mb-1">Subscription Required</h3>
                       <p className="text-orange-300 text-xs sm:text-sm mb-3">
-                        You need an active RepairCoin subscription ($500/month) or RCG qualification (10K+ RCG tokens) to create or join affiliate shop groups.
+                        You need an active FixFlow subscription to create or join affiliate shop groups.
                       </p>
                       <button
                         onClick={() => router.push('/shop/subscription-form')}

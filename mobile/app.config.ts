@@ -8,7 +8,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: "FixFlow",
     slug: "repaircoin-app",
     owner: "repaircoin",
-    version: "1.0.2",
+    version: "1.0.3",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "repaircoin",
@@ -38,7 +38,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#ffffff",
       },
-      versionCode: 3,
+      versionCode: 4,
       googleServicesFile: "./google-services.json",
       package: "com.repaircoin.app",
       runtimeVersion: {
@@ -56,6 +56,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ],
       blockedPermissions: [
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        // Auto-injected by expo-media-library but never used — the app only
+        // ever handles images (all image-picker calls are mediaTypes: Images).
+        // Blocked to clear Google Play's Photo & Video Permissions flag.
+        "android.permission.READ_MEDIA_VIDEO",
       ],
     },
     web: {

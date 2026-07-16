@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { appointmentsApi } from "@/services/api/appointments";
+import { getAssignableMembers } from "@/services/api/team";
+import { agencyApi } from "@/services/api/agency";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import {
   Settings,
@@ -31,6 +33,7 @@ import {
   Megaphone,
   Package,
   CreditCard,
+  Percent,
 } from "lucide-react";
 import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionMenuItem } from "./BaseSidebar";
@@ -68,6 +71,10 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingRescheduleCount, setPendingRescheduleCount] = useState(0);
+  // Whether the shop has staff commissions turned on — gates the Commissions nav item.
+  const [commissionsEnabled, setCommissionsEnabled] = useState(false);
+  // Whether this shop has activated the Agency Program add-on — gates the Agency nav item.
+  const [hasAgency, setHasAgency] = useState(false);
   // Subscribe to userProfile so the nav re-filters when permissions load.
   const userProfile = useAuthStore((s) => s.userProfile);
   const hasPermission = useAuthStore((s) => s.hasPermission);
@@ -95,6 +102,37 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     window.addEventListener('reschedule-count-changed', handler);
     return () => window.removeEventListener('reschedule-count-changed', handler);
   }, [fetchPendingCount]);
+
+  // The Commissions nav item only appears when the shop has commissions on. Re-checked when
+  // the owner toggles it (CommissionSettings dispatches 'commissions-changed').
+  const fetchCommissionsEnabled = useCallback(async () => {
+    try {
+      const data = await getAssignableMembers();
+      setCommissionsEnabled(data.commissionsEnabled);
+    } catch {
+      setCommissionsEnabled(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCommissionsEnabled();
+    const handler = () => fetchCommissionsEnabled();
+    window.addEventListener('commissions-changed', handler);
+    return () => window.removeEventListener('commissions-changed', handler);
+  }, [fetchCommissionsEnabled]);
+
+  // The Agency nav item only appears when this shop has activated the Agency Program add-on
+  // (i.e. GET /agency/me resolves an agency for it).
+  useEffect(() => {
+    let active = true;
+    agencyApi
+      .getMe()
+      .then(() => active && setHasAgency(true))
+      .catch(() => active && setHasAgency(false));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const {
     isCollapsed,
@@ -239,6 +277,25 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           icon: <UsersIcon className="w-5 h-5" />,
           tabId: "team",
         },
+        ...(commissionsEnabled
+          ? [
+              {
+                title: "Commissions",
+                href: "/shop?tab=commissions",
+                icon: <Percent className="w-5 h-5" />,
+                tabId: "commissions",
+              },
+            ]
+          : []),
+        ...(hasAgency
+          ? [
+              {
+                title: "Agency",
+                href: "/shop?tab=agency",
+                icon: <Store className="w-5 h-5" />,
+              },
+            ]
+          : []),
         // Ads is reached via the Plans & Billing hub (AI Ads card → ?tab=ads),
         // so the standalone sidebar link is removed to avoid a duplicate entry.
         {

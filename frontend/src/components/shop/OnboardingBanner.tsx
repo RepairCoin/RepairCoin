@@ -111,7 +111,7 @@ export function OnboardingBanner({ shopData }: OnboardingBannerProps) {
                     )}
                   </div>
                   <p className="text-sm text-gray-300 mb-3">
-                    Pay $500/month to operate without RCG tokens. Cancel anytime.
+                    Subscribe to activate your shop. Cancel anytime.
                   </p>
                   <div className="space-y-1 mb-3 text-sm text-gray-400">
                     <div>• Monthly payment plan</div>

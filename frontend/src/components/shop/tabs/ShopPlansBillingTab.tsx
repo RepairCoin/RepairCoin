@@ -10,9 +10,10 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Sparkles, CreditCard } from "lucide-react";
 import toast from "react-hot-toast";
+import { Loader2, Sparkles, CreditCard } from "lucide-react";
 import { ADDON_REGISTRY, type AddonDef } from "@/config/addonRegistry";
+import { agencyApi } from "@/services/api/agency";
 import {
   resolveAddonStatuses,
   getAiUsageSummary,
@@ -62,6 +63,48 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
   const [usage, setUsage] = useState<AiUsageSummary | null>(null);
   const [card, setCard] = useState<PaymentMethodSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkoutBusy, setCheckoutBusy] = useState<string | null>(null);
+  const [cancelingAgency, setCancelingAgency] = useState(false);
+
+  const cancelAgency = async () => {
+    if (
+      !window.confirm(
+        "Cancel the Agency Program? It stays active until your billing period ends, then your client shops lose Growth coverage and each will need its own subscription."
+      )
+    ) {
+      return;
+    }
+    setCancelingAgency(true);
+    try {
+      const res: any = await agencyApi.cancel();
+      const end = res?.data?.currentPeriodEnd
+        ? new Date(res.data.currentPeriodEnd).toLocaleDateString()
+        : null;
+      toast.success(end ? `Agency Program will cancel on ${end}` : "Agency Program will cancel at period end");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to cancel the Agency Program");
+    } finally {
+      setCancelingAgency(false);
+    }
+  };
+
+  const handleCheckout = async (addon: AddonDef) => {
+    if (addon.id !== "agency") return;
+    setCheckoutBusy(addon.id);
+    try {
+      const res: any = await agencyApi.activate({});
+      const url = res?.data?.paymentUrl;
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast.error("Couldn't start checkout. Please try again.");
+        setCheckoutBusy(null);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to start activation");
+      setCheckoutBusy(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -192,7 +235,10 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
               addon={addon}
               status={statuses[addon.id] ?? "coming_soon"}
               onToggle={addon.id === "ai_overage" ? handleOverageToggle : undefined}
-              busy={addon.id === "ai_overage" && togglingOverage}
+              onCheckout={handleCheckout}
+              onCancel={addon.id === "agency" ? cancelAgency : undefined}
+              canceling={cancelingAgency}
+              busy={addon.id === "ai_overage" ? togglingOverage : checkoutBusy === addon.id}
             />
           ))}
         </div>
@@ -234,6 +280,7 @@ interface CtaSpec {
   label: string;
   href?: string;
   disabled?: boolean;
+  checkout?: boolean;
 }
 
 /** Dispatch the card's CTA by status, then activation type. Keeping this declarative
@@ -246,6 +293,8 @@ function ctaFor(addon: AddonDef, status: AddonStatus): CtaSpec {
 
   // status === 'off' → route by how this add-on is activated.
   switch (addon.activationType) {
+    case "checkout":
+      return { label: addon.ctaLabel, checkout: true };
     case "request": // request → admin approves (deep-link to the feature's request UI)
     case "onboarding": // external onboarding (e.g. Stripe Connect) lives in the feature
     case "toggle": // inline enable handled on the feature's settings page in v1
@@ -263,8 +312,11 @@ const AddonCard: React.FC<{
   /** When provided (functional toggle add-ons like AI Usage Overage), the card renders an inline
    *  Enable/Disable button that calls this, instead of the deep-link CTA. */
   onToggle?: (enabled: boolean) => void | Promise<void>;
+  onCheckout?: (addon: AddonDef) => void | Promise<void>;
   busy?: boolean;
-}> = ({ addon, status, onToggle, busy }) => {
+  onCancel?: () => void | Promise<void>;
+  canceling?: boolean;
+}> = ({ addon, status, onToggle, onCheckout, busy, onCancel, canceling }) => {
   const badge = STATUS_BADGE[status];
   const cta = ctaFor(addon, status);
   // Inline toggle is available once the add-on is live for this shop (status off/active).
@@ -283,7 +335,7 @@ const AddonCard: React.FC<{
         </span>
       </div>
       <p className="text-sm text-gray-300 leading-relaxed">{addon.description}</p>
-      <div className="mt-auto pt-1">
+      <div className="mt-auto pt-1 flex items-center gap-3">
         {canToggle ? (
           <button
             onClick={() => onToggle!(!isOn)}
@@ -295,6 +347,15 @@ const AddonCard: React.FC<{
             }`}
           >
             {busy ? "Saving…" : isOn ? "Disable" : addon.ctaLabel}
+          </button>
+        ) : cta.checkout ? (
+          <button
+            onClick={() => onCheckout?.(addon)}
+            disabled={busy}
+            className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-yellow-400 text-gray-900 font-medium hover:bg-yellow-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {cta.label}
           </button>
         ) : cta.disabled || !cta.href ? (
           <button
@@ -310,6 +371,18 @@ const AddonCard: React.FC<{
           >
             {cta.label}
           </Link>
+        )}
+
+        {/* Cancel action (agency add-on when active) */}
+        {onCancel && status === "active" && (
+          <button
+            onClick={onCancel}
+            disabled={canceling}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+          >
+            {canceling && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Cancel
+          </button>
         )}
       </div>
     </div>

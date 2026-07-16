@@ -51,14 +51,14 @@ export const customerTierDistribution: BusinessInsightsTool = {
     additionalProperties: false,
   },
   async execute(_args: unknown, ctx: ToolContext): Promise<ToolResult> {
-    // Shop-scope via the JOIN to service_orders. customers.tier is
-    // global (lifetime RCN driven), but we restrict to customers who
-    // have actually transacted with this shop.
+    // Shop-scope = the shop's whole base: customers who ordered here OR are homed here via
+    // import (home_shop_id). customers.tier is global (lifetime RCN driven); imported-but-
+    // inactive customers default to BRONZE and still count toward the shop's total.
     const res = await ctx.pool.query<{ tier: string | null; n: string }>(
       `SELECT c.tier, COUNT(DISTINCT c.address)::text AS n
        FROM customers c
-       JOIN service_orders o ON o.customer_address = c.address
-       WHERE o.shop_id = $1
+       LEFT JOIN service_orders o ON o.customer_address = c.address AND o.shop_id = $1
+       WHERE (o.order_id IS NOT NULL OR LOWER(c.home_shop_id) = LOWER($1))
        GROUP BY c.tier`,
       [ctx.shopId]
     );

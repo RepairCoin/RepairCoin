@@ -61,8 +61,8 @@ function AcceptInner() {
         ) : !account ? (
           <>
             <p className="text-gray-400 mb-6">
-              Sign in with the email your invitation was sent to. We&apos;ll set up a secure wallet
-              for you automatically — no crypto experience needed.
+              Sign in with the email your invitation was sent to. We&apos;ll set up your secure account
+              automatically — no technical experience needed.
             </p>
             <div className="flex justify-center">
               <ConnectButton client={client} theme="dark" connectModal={{ size: "compact" }} />

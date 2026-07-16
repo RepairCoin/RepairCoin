@@ -766,16 +766,6 @@ export const createAdmin = async (data: {
   }
 };
 
-export const verifyShop = async (shopId: string): Promise<boolean> => {
-  try {
-    await apiClient.post(`/admin/shops/${shopId}/verify`, {});
-    return true;
-  } catch (error) {
-    console.error('Error verifying shop:', error);
-    return false;
-  }
-};
-
 export const getShopPendingMintAmount = async (shopId: string): Promise<{
   pendingMintAmount: number;
   hasPendingMints: boolean;
@@ -867,7 +857,6 @@ export const adminApi = {
   createShop,
   suspendShop,
   unsuspendShop,
-  verifyShop,
   getShopPendingMintAmount,
   mintShopBalance,
   
@@ -1060,6 +1049,49 @@ export const adminApi = {
   // Affiliate shop groups oversight
   getAffiliateGroups: async () => {
     return apiClient.get('/admin/affiliate-groups');
+  },
+
+  // Active admins assignable as a shop's account manager (assign dropdown)
+  getAssignableManagers: async () => {
+    return apiClient.get('/admin/assignable-managers');
+  },
+
+  // Shops assigned to the current admin as their account manager ("My Shops")
+  getMyAssignedShops: async () => {
+    return apiClient.get('/admin/my-assigned-shops');
+  },
+
+  // Agencies assigned to the current admin as their account manager ("My Shops" → Agencies)
+  getMyAssignedAgencies: async () => {
+    return apiClient.get('/admin/my-assigned-agencies');
+  },
+
+  // All agencies platform-wide (admin roster)
+  getAllAgencies: async () => {
+    return apiClient.get('/agency');
+  },
+
+  // A given agency's client shops (admin)
+  getAgencyClients: async (agencyId: string) => {
+    return apiClient.get(`/agency/${agencyId}/clients`);
+  },
+
+  // Assign or clear an agency's account manager (admin); pass "" to unassign
+  assignAgencyManager: async (agencyId: string, accountManagerAddress: string) => {
+    return apiClient.patch(`/agency/${agencyId}/account-manager`, { accountManagerAddress });
+  },
+
+  // The current admin's own contact profile (name/email/phone) — shown to shops they manage
+  getMyProfile: async () => {
+    return apiClient.get('/admin/profile/me');
+  },
+  updateMyProfile: async (data: { name?: string; email?: string; phone?: string }) => {
+    return apiClient.patch('/admin/profile/me', data);
+  },
+
+  // Platform-wide staff-commission roll-up (read-only)
+  getPlatformCommissions: async () => {
+    return apiClient.get('/admin/analytics/commissions');
   },
 } as const;
 

@@ -768,7 +768,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   Subscription
                 </h2>
                 <p className="text-sm text-gray-400 mb-6">
-                  Manage your RepairCoin subscription
+                  Manage your FixFlow subscription
                 </p>
                 {shopData && shopData.operational_status !== "rcg_qualified" && (
                   <SubscriptionManagement
