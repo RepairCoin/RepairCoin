@@ -32,7 +32,35 @@ export async function resolveAddonStatuses(): Promise<AddonStatusMap> {
     // leave ai_ads at 'off' — ads not enrolled / endpoint unavailable
   }
 
+  // AI Usage Overage (T3.2 Slice 1): resolve the real per-shop state when the feature is live.
+  // Stays 'coming_soon' until NEXT_PUBLIC_AI_OVERAGE_ENABLED is on AND the backend reports it available
+  // (ENABLE_AI_OVERAGE). active = opted in; off = available but not enabled.
+  if (process.env.NEXT_PUBLIC_AI_OVERAGE_ENABLED === 'true') {
+    try {
+      const ov = await getOverageState();
+      if (ov.available) map.ai_overage = ov.enabled ? 'active' : 'off';
+    } catch {
+      // leave at 'coming_soon'
+    }
+  }
+
   return map;
+}
+
+/** Per-shop AI Usage Overage state, read from GET /ai/spend. Best-effort (defaults to off/unavailable). */
+export async function getOverageState(): Promise<{ enabled: boolean; available: boolean }> {
+  try {
+    const body: any = await apiClient.get('/ai/spend');
+    const d = body?.data ?? body ?? {};
+    return { enabled: !!d.overageEnabled, available: !!d.overageAvailable };
+  } catch {
+    return { enabled: false, available: false };
+  }
+}
+
+/** Enable/disable the AI Usage Overage add-on for the current shop (POST /ai/overage). */
+export async function setOverage(enabled: boolean): Promise<void> {
+  await apiClient.post('/ai/overage', { enabled });
 }
 
 export interface AiUsageSummary {

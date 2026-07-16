@@ -8,14 +8,16 @@
 // Style matches the dark dashboard tabs (sibling ShopAdsTab); shadcn Card would clash
 // with the dark surface, so raw Tailwind is used for visual consistency.
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, Sparkles, CreditCard } from "lucide-react";
+import toast from "react-hot-toast";
 import { ADDON_REGISTRY, type AddonDef } from "@/config/addonRegistry";
 import {
   resolveAddonStatuses,
   getAiUsageSummary,
   getPaymentMethod,
+  setOverage,
   type AddonStatusMap,
   type AddonStatus,
   type AiUsageSummary,
@@ -61,25 +63,35 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
   const [card, setCard] = useState<PaymentMethodSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      const [s, u, pm] = await Promise.all([
-        resolveAddonStatuses(),
-        getAiUsageSummary(),
-        getPaymentMethod(),
-      ]);
-      if (!active) return;
-      setStatuses(s);
-      setUsage(u);
-      setCard(pm);
-      setLoading(false);
-    })();
-    return () => {
-      active = false;
-    };
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [s, u, pm] = await Promise.all([
+      resolveAddonStatuses(),
+      getAiUsageSummary(),
+      getPaymentMethod(),
+    ]);
+    setStatuses(s);
+    setUsage(u);
+    setCard(pm);
+    setLoading(false);
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // AI Usage Overage (T3.2 Slice 1): inline enable/disable from the card, then refresh statuses.
+  const [togglingOverage, setTogglingOverage] = useState(false);
+  const handleOverageToggle = useCallback(async (enabled: boolean) => {
+    setTogglingOverage(true);
+    try {
+      await setOverage(enabled);
+      toast.success(enabled ? "AI Usage overage enabled" : "AI Usage overage disabled");
+      await load();
+    } catch {
+      toast.error("Couldn't update overage — please try again");
+    } finally {
+      setTogglingOverage(false);
+    }
+  }, [load]);
 
   if (loading) {
     return (
@@ -164,7 +176,13 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
               dynamic lookup won't work in the browser bundle. No flagged entries
               today; the whole hub is gated at the sidebar via NEXT_PUBLIC_ADDON_HUB_ENABLED. */}
           {ADDON_REGISTRY.map((addon) => (
-            <AddonCard key={addon.id} addon={addon} status={statuses[addon.id] ?? "coming_soon"} />
+            <AddonCard
+              key={addon.id}
+              addon={addon}
+              status={statuses[addon.id] ?? "coming_soon"}
+              onToggle={addon.id === "ai_overage" ? handleOverageToggle : undefined}
+              busy={addon.id === "ai_overage" && togglingOverage}
+            />
           ))}
         </div>
       </section>
@@ -228,9 +246,19 @@ function ctaFor(addon: AddonDef, status: AddonStatus): CtaSpec {
   }
 }
 
-const AddonCard: React.FC<{ addon: AddonDef; status: AddonStatus }> = ({ addon, status }) => {
+const AddonCard: React.FC<{
+  addon: AddonDef;
+  status: AddonStatus;
+  /** When provided (functional toggle add-ons like AI Usage Overage), the card renders an inline
+   *  Enable/Disable button that calls this, instead of the deep-link CTA. */
+  onToggle?: (enabled: boolean) => void | Promise<void>;
+  busy?: boolean;
+}> = ({ addon, status, onToggle, busy }) => {
   const badge = STATUS_BADGE[status];
   const cta = ctaFor(addon, status);
+  // Inline toggle is available once the add-on is live for this shop (status off/active).
+  const canToggle = !!onToggle && (status === "off" || status === "active");
+  const isOn = status === "active";
 
   return (
     <div className="rounded-xl border border-gray-700 bg-gray-800/40 p-5 flex flex-col gap-3">
@@ -245,7 +273,19 @@ const AddonCard: React.FC<{ addon: AddonDef; status: AddonStatus }> = ({ addon, 
       </div>
       <p className="text-sm text-gray-300 leading-relaxed">{addon.description}</p>
       <div className="mt-auto pt-1">
-        {cta.disabled || !cta.href ? (
+        {canToggle ? (
+          <button
+            onClick={() => onToggle!(!isOn)}
+            disabled={busy}
+            className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-60 ${
+              isOn
+                ? "bg-gray-700 text-white hover:bg-gray-600"
+                : "bg-yellow-400 text-gray-900 hover:bg-yellow-300"
+            }`}
+          >
+            {busy ? "Saving…" : isOn ? "Disable" : addon.ctaLabel}
+          </button>
+        ) : cta.disabled || !cta.href ? (
           <button
             disabled
             className="text-sm px-3 py-1.5 rounded-lg bg-gray-700/50 text-gray-500 cursor-not-allowed"

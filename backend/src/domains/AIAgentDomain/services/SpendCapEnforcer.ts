@@ -29,6 +29,10 @@ import { SpendCheckResult } from "../types";
 
 const CHEAPER_MODEL_THRESHOLD = 0.7; // ≥ 70% of budget → switch to Haiku
 
+// AI Usage Overage (T3.2) master flag. When off, overage never lifts the cap (behavior unchanged),
+// regardless of a shop's ai_overage_enabled toggle.
+const overageFeatureEnabled = (): boolean => process.env.ENABLE_AI_OVERAGE === "true";
+
 export class SpendCapEnforcer {
   constructor(private readonly pool: Pool = getSharedPool()) {}
 
@@ -45,8 +49,8 @@ export class SpendCapEnforcer {
     // Budget = the shop's CURRENT tier allowance ($10/$30/$75). Computed at read; not stored/editable.
     const budget = AI_TIER_ALLOWANCE[await this.resolveTier(shopId)];
 
-    const result = await this.pool.query<{ current_month_spend_usd: string }>(
-      `SELECT current_month_spend_usd FROM ai_shop_settings WHERE shop_id = $1`,
+    const result = await this.pool.query<{ current_month_spend_usd: string; ai_overage_enabled: boolean }>(
+      `SELECT current_month_spend_usd, ai_overage_enabled FROM ai_shop_settings WHERE shop_id = $1`,
       [shopId]
     );
 
@@ -67,13 +71,22 @@ export class SpendCapEnforcer {
     }
 
     const spent = parseFloat(result.rows[0].current_month_spend_usd);
+    const overageOn = overageFeatureEnabled() && result.rows[0].ai_overage_enabled === true;
     const percentUsed = budget > 0 ? spent / budget : 0;
+
+    // AI Usage Overage (T3.2): the shop opted to keep full-power AI past the cap (billed Usage x3).
+    // The limit is no longer "reached" in the actionable sense — full model, and no upgrade/overage
+    // nag (limitReached=false suppresses the banner across all panels). `overageEnabled` still flows
+    // for a future "overage active" indicator.
+    if (spent >= budget && overageOn) {
+      return { allowed: true, useCheaperModel: false, limitReached: false, overageEnabled: true, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
+    }
 
     // Soft landing (D2): at/over 100% the call is STILL allowed — never a dead-end — but MUST run
     // Haiku-only, and the caller surfaces "upgrade your plan for more AI". Expensive/vision ops that
     // can't cheaply degrade treat limitReached as a block instead.
     if (spent >= budget) {
-      return { allowed: true, useCheaperModel: true, limitReached: true, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
+      return { allowed: true, useCheaperModel: true, limitReached: true, overageEnabled: false, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
     }
 
     return {

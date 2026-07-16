@@ -81,6 +81,45 @@ describe("SpendCapEnforcer.canSpend — thresholds", () => {
   });
 });
 
+describe("SpendCapEnforcer.canSpend — AI Usage Overage (T3.2)", () => {
+  const ORIG = process.env.ENABLE_AI_OVERAGE;
+  afterEach(() => { process.env.ENABLE_AI_OVERAGE = ORIG; });
+
+  // rows carry both spend + the overage opt-in flag
+  const row = (v: string, overage: boolean) => [{ current_month_spend_usd: v, ai_overage_enabled: overage }];
+
+  it("keeps the FULL model past the cap when overage is enabled AND the flag is on (no nag)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true))).canSpend("s"); // $40 on $30
+    expect(r.allowed).toBe(true);
+    expect(r.useCheaperModel).toBe(false); // NOT degraded
+    expect(r.overageEnabled).toBe(true);
+    expect(r.limitReached).toBe(false); // limit no longer actionable → banner suppressed
+  });
+
+  it("still soft-lands to Haiku when the shop has NOT opted into overage (flag on)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", false))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true);
+    expect(r.limitReached).toBe(true);
+    expect(r.overageEnabled).toBe(false);
+  });
+
+  it("ignores the opt-in when the master flag is OFF (soft-lands to Haiku)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "false";
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true);
+    expect(r.overageEnabled).toBe(false);
+  });
+
+  it("does nothing below the cap even with overage on", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const r = await new SpendCapEnforcer(mockPool(row("9.00", true))).canSpend("s"); // 30%
+    expect(r.limitReached).toBeFalsy();
+    expect(r.useCheaperModel).toBe(false);
+  });
+});
+
 describe("SpendCapEnforcer.recordSpend", () => {
   it("issues an UPDATE with the cost amount", async () => {
     const pool = mockPool(spend("5.00"));

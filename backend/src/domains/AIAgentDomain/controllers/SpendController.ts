@@ -44,12 +44,16 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
         const settings = await pool.query<{
           current_month_spend_usd: string;
           current_month_started_at: Date | null;
+          ai_overage_enabled: boolean;
         }>(
-          `SELECT current_month_spend_usd, current_month_started_at
+          `SELECT current_month_spend_usd, current_month_started_at, ai_overage_enabled
            FROM ai_shop_settings
            WHERE shop_id = $1`,
           [shopId]
         );
+
+        // AI Usage Overage add-on availability (T3.2) — the toggle is inert until the master flag is on.
+        const overageAvailable = process.env.ENABLE_AI_OVERAGE === "true";
 
         if (settings.rows.length === 0) {
           // Shop has no AI settings row yet — treat as zero spend against the tier budget.
@@ -62,6 +66,8 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
               percentUsed: 0,
               monthStartedAt: null,
               callsThisMonth: 0,
+              overageEnabled: false,
+              overageAvailable,
             },
           });
           return;
@@ -91,11 +97,50 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
             percentUsed,
             monthStartedAt: row.current_month_started_at,
             callsThisMonth: parseInt(calls.rows[0]?.count ?? "0", 10),
+            overageEnabled: row.ai_overage_enabled === true,
+            overageAvailable,
           },
         });
       } catch (err) {
         logger.error("SpendController.getOwnShopSpend failed", err);
         res.status(500).json({ success: false, error: "Failed to load spend" });
+      }
+    },
+
+    /**
+     * POST /api/ai/overage — shop enables/disables the AI Usage Overage add-on (T3.2 Slice 1).
+     * Body: { enabled: boolean }. Gated by ENABLE_AI_OVERAGE (409 when the feature isn't live).
+     * Upserts ai_shop_settings so a shop with no row yet can still opt in.
+     */
+    setOwnShopOverage: async (req: Request, res: Response): Promise<void> => {
+      try {
+        const shopId = (req as any).user?.shopId;
+        if (!shopId) {
+          res.status(401).json({ success: false, error: "Shop ID required" });
+          return;
+        }
+        if (process.env.ENABLE_AI_OVERAGE !== "true") {
+          res.status(409).json({ success: false, error: "AI Usage Overage is not available yet" });
+          return;
+        }
+        const enabled = (req.body ?? {}).enabled;
+        if (typeof enabled !== "boolean") {
+          res.status(400).json({ success: false, error: "`enabled` (boolean) is required" });
+          return;
+        }
+
+        await pool.query(
+          `INSERT INTO ai_shop_settings (shop_id, ai_overage_enabled, current_month_started_at)
+           VALUES ($1, $2, NOW())
+           ON CONFLICT (shop_id)
+             DO UPDATE SET ai_overage_enabled = EXCLUDED.ai_overage_enabled, updated_at = NOW()`,
+          [shopId, enabled]
+        );
+
+        res.json({ success: true, data: { overageEnabled: enabled } });
+      } catch (err) {
+        logger.error("SpendController.setOwnShopOverage failed", err);
+        res.status(500).json({ success: false, error: "Failed to update overage setting" });
       }
     },
 
@@ -209,4 +254,7 @@ export function getOwnShopSpend(req: Request, res: Response): Promise<void> {
 }
 export function getAdminCostSummary(req: Request, res: Response): Promise<void> {
   return getDefaults().getAdminCostSummary(req, res);
+}
+export function setOwnShopOverage(req: Request, res: Response): Promise<void> {
+  return getDefaults().setOwnShopOverage(req, res);
 }
