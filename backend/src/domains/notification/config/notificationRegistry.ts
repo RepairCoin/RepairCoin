@@ -19,7 +19,7 @@ import { NotificationChannels } from '../../../services/ExpoPushService';
  * Do NOT hand-wire createNotification + wsManager + pushDispatcher anymore.
  */
 
-export type DeliveryChannel = 'persist' | 'ws' | 'push';
+export type DeliveryChannel = 'persist' | 'ws' | 'push' | 'sms';
 
 /**
  * Display chrome sent to the clients via `metadata.display`. The web and mobile
@@ -53,6 +53,16 @@ export interface NotificationPushConfig {
   imageUrl?: (metadata: Record<string, any>) => string | undefined;
 }
 
+/**
+ * SMS payload builder. Required when `channels` includes 'sms'. The gateway
+ * resolves the recipient's phone from their address, enforces opt-out + E.164,
+ * and only sends when Twilio is configured — this just supplies the text.
+ * Keep bodies short (ideally < 160 chars) and end with "Reply STOP to opt out".
+ */
+export interface NotificationSmsConfig {
+  body: (metadata: Record<string, any>) => string;
+}
+
 export interface NotificationTypeConfig {
   /** Which delivery legs fire for this type. */
   channels: DeliveryChannel[];
@@ -66,6 +76,8 @@ export interface NotificationTypeConfig {
   display: NotificationDisplay;
   /** Push payload builder. Required when `channels` includes 'push'. */
   push?: NotificationPushConfig;
+  /** SMS payload builder. Required when `channels` includes 'sms'. */
+  sms?: NotificationSmsConfig;
 }
 
 /**
@@ -143,7 +155,7 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
 
   // ── Appointment reminders (migrated from AppointmentReminderService) ──────
   booking_confirmed: {
-    channels: ['persist', 'ws', 'push'],
+    channels: ['persist', 'ws', 'push', 'sms'],
     display: { title: 'Booking Confirmed', icon: 'calendar', color: '#3B82F6' },
     push: {
       channelId: NotificationChannels.APPOINTMENTS,
@@ -151,9 +163,13 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
         `Your ${m.serviceName} at ${m.shopName} is confirmed for ${m.bookingDateLabel} at ${m.bookingTimeLabel}`,
       imageUrl: (m) => m.imageUrl,
     },
+    sms: {
+      body: (m) =>
+        `${m.shopName}: your ${m.serviceName} is booked for ${m.bookingDateLabel} at ${m.bookingTimeLabel}. Reply STOP to opt out.`,
+    },
   },
   appointment_reminder: {
-    channels: ['persist', 'ws', 'push'],
+    channels: ['persist', 'ws', 'push', 'sms'],
     display: { title: 'Appointment Reminder', icon: 'alarm', color: '#8B5CF6' },
     push: {
       channelId: NotificationChannels.APPOINTMENTS,
@@ -161,14 +177,21 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
       title: () => 'Appointment Tomorrow',
       body: (m) => `Reminder: ${m.serviceName} at ${m.shopName} at ${m.bookingTimeLabel}`,
     },
+    sms: {
+      body: (m) =>
+        `Reminder from ${m.shopName}: your ${m.serviceName} is tomorrow at ${m.bookingTimeLabel}. Reply STOP to opt out.`,
+    },
   },
-  // NOTE: the _2h and upcoming_* reminders are persist+ws only — they have
-  // never sent a native push. Channels here deliberately MATCH that existing
-  // behavior so this migration changes nothing. Adding push to them is a
-  // separate, intentional decision (just add 'push' + a push block).
+  // NOTE: the _2h and upcoming_* reminders were persist+ws only. SMS is added to
+  // the customer-facing 2h reminder as an intentional new channel (the whole
+  // point of SMS reminders); the shop-facing upcoming_* stay in-app only.
   appointment_reminder_2h: {
-    channels: ['persist', 'ws'],
+    channels: ['persist', 'ws', 'sms'],
     display: { title: 'Appointment Reminder', icon: 'alarm', color: '#8B5CF6' },
+    sms: {
+      body: (m) =>
+        `Reminder from ${m.shopName}: your ${m.serviceName} is today at ${m.bookingTimeLabel}. See you soon! Reply STOP to opt out.`,
+    },
   },
   upcoming_appointment: {
     channels: ['persist', 'ws'],
