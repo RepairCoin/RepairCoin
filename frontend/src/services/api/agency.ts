@@ -65,6 +65,9 @@ export const agencyApi = {
   // Self-serve activation → returns a Stripe checkout URL to redirect to.
   activate: async (data: ActivateAgencyInput = {}) =>
     apiClient.post('/agency/activate', data),
+
+  // Self-serve cancel → schedules cancellation at the end of the billing period.
+  cancel: async () => apiClient.post('/agency/cancel', {}),
   getClients: async () => apiClient.get('/agency/clients'),
   createClient: async (data: CreateClientInput) => apiClient.post('/agency/clients', data),
   removeClient: async (shopId: string) => apiClient.delete(`/agency/clients/${shopId}`),

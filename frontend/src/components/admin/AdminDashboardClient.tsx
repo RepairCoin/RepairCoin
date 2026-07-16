@@ -34,6 +34,7 @@ import { AnnouncementsTab } from "@/components/admin/tabs/AnnouncementsTab";
 import { ReferralAnalyticsTab } from "@/components/admin/tabs/ReferralAnalyticsTab";
 import { CommissionsAnalyticsTab } from "@/components/admin/tabs/CommissionsAnalyticsTab";
 import { MyAssignedShopsTab } from "@/components/admin/tabs/MyAssignedShopsTab";
+import { AgenciesTab } from "@/components/admin/tabs/AgenciesTab";
 import ServiceMarketplaceAnalyticsSection from "@/components/admin/ServiceMarketplaceAnalyticsSection";
 import { AffiliateGroupsTab } from "@/components/admin/tabs/AffiliateGroupsTab";
 import { AdminAISettingsTab } from "@/components/admin/tabs/AdminAISettingsTab";
@@ -517,6 +518,12 @@ export default function AdminDashboardClient() {
           {activeTab === "my-shops" && hasAdminAccess && (
             <LazyTabWrapper isActive={activeTab === "my-shops"}>
               <MyAssignedShopsTab />
+            </LazyTabWrapper>
+          )}
+
+          {activeTab === "agencies" && hasAdminAccess && (
+            <LazyTabWrapper isActive={activeTab === "agencies"}>
+              <AgenciesTab />
             </LazyTabWrapper>
           )}
 

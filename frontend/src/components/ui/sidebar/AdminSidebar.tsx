@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck, ScrollText, DollarSign, Webhook, Gem, Share2 } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck, ScrollText, DollarSign, Webhook, Gem, Share2, Building2 } from "lucide-react";
 import { SettingsIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
@@ -127,6 +127,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       shops,
       { title: "Subscriptions", href: "/admin?tab=subscriptions", icon: <CreditCard className="w-5 h-5" />, tabId: "subscriptions" },
       { title: "My Shops", href: "/admin?tab=my-shops", icon: <ShieldCheck className="w-5 h-5" />, tabId: "my-shops" },
+      { title: "Agencies", href: "/admin?tab=agencies", icon: <Building2 className="w-5 h-5" />, tabId: "agencies" },
       { title: "Waitlist", href: "/admin?tab=waitlist", icon: <ClipboardList className="w-5 h-5" />, tabId: "waitlist" },
 
       section("Finance & Tokens"),

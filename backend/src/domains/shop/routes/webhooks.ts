@@ -549,6 +549,13 @@ async function handleSubscriptionCreated(event: Stripe.Event, subscriptionServic
     status: subscription.status
   });
 
+  // Agency Program subscriptions share the owner shop's Stripe customer but are not the shop's
+  // plan — ignore them here (they're provisioned via checkout.session.completed + agencies.status).
+  if (subscription.metadata?.type === 'agency_activation') {
+    logger.debug('Ignoring agency subscription in subscription.created', { subscriptionId: subscription.id });
+    return;
+  }
+
   // Update subscription in database if needed
   // This might already be handled by the API endpoint, but webhook ensures consistency
   eventBus.publish({
@@ -1196,6 +1203,16 @@ async function logWebhookEvent(event: Stripe.Event) {
  */
 async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
   try {
+    // The Agency Program subscription lives on the SAME Stripe customer as the owner shop, but it
+    // is NOT the shop's plan — never write it into the shop subscription tables (agencies.status is
+    // synced separately). Identified by the metadata we stamp at activation.
+    if (subscription.metadata?.type === 'agency_activation') {
+      logger.debug('Skipping shop-subscription DB write for agency subscription', {
+        subscriptionId: subscription.id,
+      });
+      return;
+    }
+
     const db = DatabaseService.getInstance();
 
     // Extract period dates - check items.data[0] if not directly on subscription (newer Stripe API)
