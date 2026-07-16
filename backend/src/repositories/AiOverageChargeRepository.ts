@@ -10,7 +10,7 @@ export interface AiOverageMonth {
 }
 
 /**
- * Monthly AI Usage Overage accrual ledger (table ai_overage_charges, migration 222). T3.2 Slice 2.
+ * Monthly AI Usage Overage accrual ledger (table ai_overage_charges, migration 225). T3.2 Slice 2.
  * One row per shop per month; SpendCapEnforcer accrues the marginal cost beyond the allowance and the
  * billable amount (Usage x3) accumulates here. Slice 3 invoices the pending rows.
  */

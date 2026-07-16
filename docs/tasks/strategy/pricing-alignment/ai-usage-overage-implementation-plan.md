@@ -71,7 +71,7 @@ Makes the banner's promise real for *behavior*: enabling overage restores full-p
 Metering/charging come in Slices 2–3, so ship Slice 1 behind a flag with charging still off.
 
 **Backend:**
-- **Migration** (next-free — 221 at time of writing, re-verify): add
+- **Migration 224** (`ai_overage_enabled`; originally 221, renumbered after main's Agency Program merge): add
   `ai_shop_settings.ai_overage_enabled BOOLEAN NOT NULL DEFAULT false`.
 - `SpendCapEnforcer.canSpend`: read `ai_overage_enabled`. When spend ≥ 100% **and** overage enabled →
   return `{ allowed: true, useCheaperModel: false, limitReached: true, overageEnabled: true }` (full
@@ -109,7 +109,8 @@ Records how much overage each shop accrues so the 3× charge is computable, with
 - **Tests:** accrual math (marginal-beyond-cap only, ×3), idempotency per month, no accrual when
   overage off.
 
-> **Status: Slices 1 + 2 BUILT + COMMITTED** on `deo/ads-system` (`d260d5258`, `69f9f84de`), migrations 221/222.
+> **Status: Slices 1 + 2 BUILT + COMMITTED** on `deo/ads-system` (`d260d5258`, `69f9f84de`), migrations 224/225
+> (renumbered from 221/222 after a merge with main's Agency Program, which took 221/222).
 
 ---
 
