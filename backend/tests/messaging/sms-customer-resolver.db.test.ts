@@ -4,7 +4,12 @@
  * known-customer attach end-to-end (FK to customers, UNIQUE(customer_address, shop_id), channel
  * identity). Imports the app first for env (no .env.test — see Phase 0 note).
  */
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
+// Mock env-heavy modules so importing src/app for env loading doesn't crash the suite when the CI
+// unit job hasn't set STRIPE_SECRET_KEY (mirrors send-message-button.test.ts).
+jest.mock('../../src/services/StripeService');
+jest.mock('../../src/contracts/RCGTokenReader');
+jest.mock('thirdweb');
 import '../../src/app';
 import { CustomerRepository } from '../../src/repositories/CustomerRepository';
 import { MessageRepository } from '../../src/repositories/MessageRepository';

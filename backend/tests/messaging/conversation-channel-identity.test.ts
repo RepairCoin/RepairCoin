@@ -7,7 +7,13 @@
  *
  * Scope: docs/tasks/strategy/pricing-alignment/auto-replies-channel-expansion-scope.md
  */
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
+// StripeService (and other blockchain/env-heavy modules) throw on import when their env isn't set —
+// the CI unit job doesn't set STRIPE_SECRET_KEY. Mock them so importing src/app for env loading below
+// doesn't crash the suite. Same guard the other app-importing DB suites use (send-message-button).
+jest.mock('../../src/services/StripeService');
+jest.mock('../../src/contracts/RCGTokenReader');
+jest.mock('thirdweb');
 // This suite talks to the DB through the repositories directly. The shared pool
 // reads process.env at first-query time; there's no .env.test, so importing the
 // app first runs its top-level dotenv.config() (loading the real .env/staging)
