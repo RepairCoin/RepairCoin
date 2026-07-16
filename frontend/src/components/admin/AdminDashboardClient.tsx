@@ -24,6 +24,7 @@ import { AdminSupportTab } from "@/components/admin/tabs/AdminSupportTab";
 import { AdminWaitlistTab } from "@/components/admin/tabs/AdminWaitlistTab";
 import AdminDisputeTab from "@/components/admin/tabs/AdminDisputeTab";
 import AdminAdsTab from "@/components/admin/tabs/AdminAdsTab";
+import AdminMessagingCostsTab from "@/components/admin/tabs/AdminMessagingCostsTab";
 import { AdminSettingsTab } from "@/components/admin/tabs/AdminSettingsTab";
 import { BugReportsTab } from "@/components/admin/tabs/BugReportsTab";
 import { AuditLogTab } from "@/components/admin/tabs/AuditLogTab";
@@ -529,6 +530,11 @@ export default function AdminDashboardClient() {
           {activeTab === "ads" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "ads"}>
                 <AdminAdsTab />
+              </LazyTabWrapper>
+            )}
+          {activeTab === "messaging-costs" && hasAdminAccess && (
+              <LazyTabWrapper isActive={activeTab === "messaging-costs"}>
+                <AdminMessagingCostsTab />
               </LazyTabWrapper>
             )}
 

@@ -18,6 +18,11 @@ export interface ShopMessagingCostTotals {
   replyCount: number;
 }
 
+export interface ShopMessagingCostRow extends ShopMessagingCostTotals {
+  shopId: string;
+  shopName: string | null;
+}
+
 /**
  * Ledger of off-app AI-reply costs (SMS/WhatsApp) — table `customer_messaging_costs` (migration 219).
  * One row per AI reply on an off-channel conversation. See D5 in the channel-expansion scope.
@@ -68,6 +73,61 @@ export class CustomerMessagingCostRepository extends BaseRepository {
       return { aiCostCents: ai, carrierCostCents: carrier, totalCents: ai + carrier, replyCount: Number(r.replies) || 0 };
     } catch (error) {
       logger.error('Error in CustomerMessagingCostRepository.getShopTotals:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Admin view: per-shop cost rows (name-joined) + the platform grand total, ordered by total spend.
+   * Optionally scoped to costs since a date.
+   */
+  async getAllShopsSummary(
+    since?: Date
+  ): Promise<{ shops: ShopMessagingCostRow[]; grandTotal: ShopMessagingCostTotals }> {
+    try {
+      const params: any[] = [];
+      let sinceClause = '';
+      if (since) {
+        params.push(since);
+        sinceClause = ` WHERE c.created_at >= $${params.length}`;
+      }
+      const result = await this.pool.query(
+        `SELECT c.shop_id,
+                s.name AS shop_name,
+                COUNT(*)::int                                 AS replies,
+                COALESCE(SUM(c.ai_cost_cents), 0)::float8      AS ai,
+                COALESCE(SUM(c.carrier_cost_cents), 0)::float8 AS carrier
+           FROM customer_messaging_costs c
+           LEFT JOIN shops s ON c.shop_id = s.shop_id
+           ${sinceClause}
+          GROUP BY c.shop_id, s.name
+          ORDER BY (COALESCE(SUM(c.ai_cost_cents), 0) + COALESCE(SUM(c.carrier_cost_cents), 0)) DESC`,
+        params
+      );
+      const shops: ShopMessagingCostRow[] = result.rows.map((r: any) => {
+        const ai = Number(r.ai) || 0;
+        const carrier = Number(r.carrier) || 0;
+        return {
+          shopId: r.shop_id,
+          shopName: r.shop_name ?? null,
+          aiCostCents: ai,
+          carrierCostCents: carrier,
+          totalCents: ai + carrier,
+          replyCount: Number(r.replies) || 0,
+        };
+      });
+      const grandTotal = shops.reduce<ShopMessagingCostTotals>(
+        (acc, s) => ({
+          aiCostCents: acc.aiCostCents + s.aiCostCents,
+          carrierCostCents: acc.carrierCostCents + s.carrierCostCents,
+          totalCents: acc.totalCents + s.totalCents,
+          replyCount: acc.replyCount + s.replyCount,
+        }),
+        { aiCostCents: 0, carrierCostCents: 0, totalCents: 0, replyCount: 0 }
+      );
+      return { shops, grandTotal };
+    } catch (error) {
+      logger.error('Error in CustomerMessagingCostRepository.getAllShopsSummary:', error);
       throw error;
     }
   }

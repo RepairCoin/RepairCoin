@@ -25,6 +25,22 @@ export class CustomerConsentRepository extends BaseRepository {
     }
   }
 
+  /** Admin view: consent counts grouped by channel + status (platform-wide; consent is phone-keyed). */
+  async getSummary(): Promise<Array<{ channel: string; status: string; count: number }>> {
+    try {
+      const result = await this.pool.query(
+        `SELECT channel, status, COUNT(*)::int AS count
+           FROM customer_messaging_consent
+          GROUP BY channel, status
+          ORDER BY channel, status`
+      );
+      return result.rows.map((r: any) => ({ channel: r.channel, status: r.status, count: Number(r.count) || 0 }));
+    } catch (error) {
+      logger.error('Error in CustomerConsentRepository.getSummary:', error);
+      throw error;
+    }
+  }
+
   /** True when (phone, channel) has an active 'granted' consent row. */
   async hasConsent(phone: string, channel: ConsentChannel): Promise<boolean> {
     try {
