@@ -4,8 +4,64 @@
 pricing.jpeg Business line **"AI Auto-Replies (Voice + Text)"**.
 **Goal:** let the AI auto-respond to a shop's **regular customers over SMS and WhatsApp**, not just the in-app
 chat — reusing the same AI engine, gated to Business.
-**Status:** scoped, NOT started. This is a **large, multi-phase build** (the in-app auto-reply already
-shipped, flag-gated; this is a different, bigger lift).
+**Status:** ✅ **CODE-COMPLETE (all phases), committed on `deo/ads-system`, 2026-07-16.** Flag-gated (all default
+off); live-prod still gated on external steps (per-shop numbers/senders, Twilio KYC, Meta approval, legal sign-off
+for consent enforcement). See **Build status** below.
+
+---
+
+## Build status (2026-07-16)
+
+Commits on `deo/ads-system`: `6cb64488a` (P0) · `f97891d52` (P1 SMS) · `ba8180d4d` (P2 WhatsApp) · `4e53b8646`
+(P3 cost+consent). Migrations **217–220** applied to staging. Backend `tsc` clean; ~90 unit/integration tests
+added; the in-app AI hot path (`handleCustomerMessage`) is untouched (proven by the 850-test AI-agent regression).
+
+**✅ Done in code (all behind flags):**
+- **Phase 0 — channel foundation.** `channel` on conversations/messages + `conversation_channel_identities` map.
+- **Phase 1 — SMS end-to-end.** Inbound webhook → To→shop → resolve/mint customer + sms conversation → serviceless
+  shop-level AI reply (`handleShopLevelMessage`, a NEW sibling method — the service-bound orchestrator is untouched)
+  → relay back over SMS. Opt-out honored.
+- **Phase 2 — WhatsApp end-to-end.** Same pipeline reused (a wa_id is an E.164 phone); Meta webhook parser +
+  free-form 24h-window reply.
+- **Phase 3 — cost + consent.** Per-reply cost ledger (AI + estimated carrier) for who-pays economics (D5);
+  opt-IN consent recorded on every inbound + enforced-when-flagged (D6).
+
+**⏳ Left — EXTERNAL gates only (not code):**
+- **SMS multi-shop (D2):** per-shop Twilio numbers must be provisioned + written into `shop_sms_numbers` (table +
+  reader done; the provisioning writer/flow is unbuilt) — management decision A vs B. A shared number can't
+  attribute inbound across 2+ shops.
+- **Twilio Trust Hub KYC** + A2P 10DLC (US) before real SMS sending at scale.
+- **WhatsApp per-shop senders (the WhatsApp "D2"):** today one global number via `WHATSAPP_DEFAULT_SHOP_ID`;
+  per-shop WhatsApp Business connect + Meta Business verification is unbuilt.
+- **Meta approval:** subscribe the `messages` field on the WhatsApp Business Account; per-shop Page/WABA setup.
+- **Legal sign-off** before flipping `ENFORCE_MESSAGING_CONSENT=true`; **carrier-rate calibration** for the ledger.
+- **Optional follow-ups:** WhatsApp name enrichment; the `shop_sms_numbers` / `shop_whatsapp_numbers` provisioning
+  writers; a cost/consent admin dashboard.
+
+## Environment variables
+
+**New flags introduced by this workstream (all default OFF):**
+- `ENABLE_CUSTOMER_SMS` — master switch for customer SMS auto-replies (Phase 1).
+- `ENABLE_CUSTOMER_WHATSAPP` — master switch for customer WhatsApp auto-replies (Phase 2).
+- `WHATSAPP_DEFAULT_SHOP_ID` — until per-shop senders exist, attributes inbound WhatsApp on the single platform
+  number to this shop. Empty ⇒ WhatsApp inbound is skipped.
+- `SMS_CARRIER_COST_CENTS` (default `0.79`) / `WHATSAPP_CARRIER_COST_CENTS` (default `0`) — flat per-message carrier
+  estimate written to the cost ledger; calibrate to real billing.
+- `ENFORCE_MESSAGING_CONSENT` (default `false`) — turns ON consent *enforcement* (recording always happens); flip
+  only after legal sign-off. Fails closed when on.
+
+**Existing platform env this feature depends on:**
+- SMS transport (Twilio): `TWILIO_SMS_ENABLED=true`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`
+  (shared fallback number), optional `TWILIO_WEBHOOK_URL`.
+- WhatsApp transport (Meta): `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_API_VERSION`
+  (default `v18.0`).
+- Meta webhook (WhatsApp inbound rides the existing Meta app webhook): `META_WEBHOOK_VERIFY_TOKEN`, `META_APP_SECRET`.
+- Business-tier gate: `ENFORCE_AI_AUTOREPLY_TIER=true` restricts auto-replies to shops with the `aiAutoReplies`
+  (Business) entitlement. Also each shop needs `ai_shop_settings.ai_global_enabled=true`.
+
+**Minimum to smoke-test SMS on one shop (staging):** `ENABLE_CUSTOMER_SMS=true` + `TWILIO_SMS_ENABLED=true` +
+Twilio creds/`TWILIO_SMS_FROM` + a `shop_sms_numbers` row (or use the shared number). **WhatsApp:**
+`ENABLE_CUSTOMER_WHATSAPP=true` + `WHATSAPP_*` creds + `WHATSAPP_DEFAULT_SHOP_ID` + `META_*` webhook config.
 
 ---
 
