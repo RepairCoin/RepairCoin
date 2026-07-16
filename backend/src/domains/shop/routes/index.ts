@@ -22,6 +22,7 @@ import { DatabaseService } from '../../../services/DatabaseService';
 import { RoleValidator } from '../../../utils/roleValidator';
 import { validateShopRoleConflict } from '../../../middleware/roleConflictValidator';
 import { ReferralService } from '../../../services/ReferralService';
+import { agencyService } from '../../agency/services/AgencyService';
 import { PromoCodeService } from '../../../services/PromoCodeService';
 import { PromoCodeRepository } from '../../../repositories/PromoCodeRepository';
 import rcgRoutes from './rcg';
@@ -598,7 +599,8 @@ router.post('/register',
         twitter,
         instagram,
         acceptTerms,
-        category
+        category,
+        agencyInviteToken
       } = req.body;
 
       // Check if shop already exists
@@ -670,6 +672,20 @@ router.post('/register',
         walletAddress,
         email
       });
+
+      // If this signup came through an agency invite link, link the new shop to that agency.
+      // Best-effort: a bad/expired token never blocks registration.
+      if (agencyInviteToken) {
+        try {
+          const { linked } = await agencyService.acceptInvite(agencyInviteToken, shopId);
+          if (linked) logger.info('Shop linked to agency via invite', { shopId });
+        } catch (inviteError: any) {
+          logger.error('Agency invite linking failed during registration', {
+            shopId,
+            error: inviteError?.message
+          });
+        }
+      }
 
       res.status(201).json({
         success: true,

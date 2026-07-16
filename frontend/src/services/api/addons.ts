@@ -8,6 +8,7 @@
 import apiClient from './client';
 import { getMyEnrollment } from './ads';
 import { getShopAiSettings } from './aiSettings';
+import { agencyApi } from './agency';
 
 export type AddonStatus = 'off' | 'pending' | 'active' | 'coming_soon';
 export type AddonStatusMap = Record<string, AddonStatus>;
@@ -19,7 +20,7 @@ export async function resolveAddonStatuses(): Promise<AddonStatusMap> {
     ai_ads: 'off',
     payments: 'coming_soon',   // until the Payments/Connect scope ships
     ai_overage: 'coming_soon', // until the AI-overage scope ships
-    agency: 'coming_soon',     // until the Agency scope ships
+    agency: 'off',             // activatable via in-hub checkout; resolved below
   };
 
   try {
@@ -30,6 +31,16 @@ export async function resolveAddonStatuses(): Promise<AddonStatusMap> {
     }
   } catch {
     // leave ai_ads at 'off' — ads not enrolled / endpoint unavailable
+  }
+
+  try {
+    // GET /agency/me 404s when the shop hasn't activated the add-on → stays 'off' (activatable).
+    const me: any = await agencyApi.getMe();
+    const st = me?.data?.agency?.status;
+    map.agency =
+      st === 'active' ? 'active' : st === 'pending' || st === 'past_due' ? 'pending' : 'off';
+  } catch {
+    // no agency for this shop → leave at 'off'
   }
 
   return map;

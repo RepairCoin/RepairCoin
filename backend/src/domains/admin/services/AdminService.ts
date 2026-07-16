@@ -6,7 +6,8 @@ import {
   adminRepository,
   webhookRepository,
   treasuryRepository,
-  refreshTokenRepository
+  refreshTokenRepository,
+  agencyRepository
 } from '../../../repositories';
 import { getContractAdminService } from '../../../services/ContractAdminService';
 import { TierManager, CustomerData, TierLevel } from '../../../contracts/TierManager';
@@ -163,6 +164,11 @@ export class AdminService {
   /** Shops assigned to a given account manager (admin wallet). */
   async getShopsByAccountManager(managerAddress: string) {
     return shopRepository.getShopsByAccountManager(managerAddress);
+  }
+
+  /** Agencies assigned to a given account manager (admin wallet). */
+  async getAgenciesByAccountManager(managerAddress: string) {
+    return agencyRepository.getAgenciesByAccountManager(managerAddress);
   }
 
   /**

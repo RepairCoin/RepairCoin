@@ -1061,6 +1061,11 @@ export const adminApi = {
     return apiClient.get('/admin/my-assigned-shops');
   },
 
+  // Agencies assigned to the current admin as their account manager ("My Shops" → Agencies)
+  getMyAssignedAgencies: async () => {
+    return apiClient.get('/admin/my-assigned-agencies');
+  },
+
   // The current admin's own contact profile (name/email/phone) — shown to shops they manage
   getMyProfile: async () => {
     return apiClient.get('/admin/profile/me');

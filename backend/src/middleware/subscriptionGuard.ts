@@ -10,6 +10,7 @@ import { shopRepository } from '../repositories';
 import { logger } from '../utils/logger';
 import { getSharedPool } from '../utils/database-pool';
 import { getShopStatus } from '../utils/shopStatus';
+import { isEntitledByAgency } from '../utils/agencyEntitlement';
 
 export interface SubscriptionGuardOptions {
   allowRcgQualified?: boolean;  // Allow RCG-qualified shops (default: true)
@@ -104,6 +105,17 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
             message: getBlockedMessage('suspended')
           }
         });
+      }
+
+      // Agency-managed shops are covered by their agency's subscription — bypass the per-shop
+      // subscription/operational gate (suspension above still blocks them). Only while the
+      // agency's own subscription is live: a cancelled agency de-entitles its clients.
+      if (shop.agencyId && (await isEntitledByAgency(shopId))) {
+        logger.debug('Subscription guard: agency-managed shop, allowing operation', {
+          shopId,
+          agencyId: shop.agencyId
+        });
+        return next();
       }
 
       // Check if shop is RCG qualified (bypass subscription check)

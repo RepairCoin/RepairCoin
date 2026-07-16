@@ -15,6 +15,7 @@ import { EmailService } from '../../../services/EmailService';
 import { generalNotificationPreferencesRepository } from '../../../repositories/GeneralNotificationPreferencesRepository';
 import { shopRepository } from '../../../repositories';
 import { getPlanByPriceId } from '../../../config/subscriptionPlans';
+import { agencyService } from '../../agency/services/AgencyService';
 import Stripe from 'stripe';
 
 const router = Router();
@@ -579,7 +580,15 @@ async function handleSubscriptionUpdated(event: Stripe.Event, subscriptionServic
   // Update subscription status in database
   try {
     await updateSubscriptionInDatabase(subscription);
-    
+
+    // Also sync agency status if this is an agency subscription (no-op otherwise).
+    await agencyService.syncSubscriptionStatus(subscription.id, subscription.status).catch((e) =>
+      logger.error('Agency status sync failed (updated)', {
+        subscriptionId: subscription.id,
+        error: e instanceof Error ? e.message : 'Unknown error',
+      })
+    );
+
     eventBus.publish({
       type: 'subscription.webhook.updated',
       aggregateId: subscription.metadata?.shopId || 'unknown',
@@ -613,7 +622,15 @@ async function handleSubscriptionDeleted(event: Stripe.Event, subscriptionServic
 
   try {
     await updateSubscriptionInDatabase(subscription);
-    
+
+    // Cancelled agency subscription → flip the agency to cancelled (no-op for shop plans).
+    await agencyService.syncSubscriptionStatus(subscription.id, subscription.status).catch((e) =>
+      logger.error('Agency status sync failed (deleted)', {
+        subscriptionId: subscription.id,
+        error: e instanceof Error ? e.message : 'Unknown error',
+      })
+    );
+
     eventBus.publish({
       type: 'subscription.webhook.deleted',
       aggregateId: subscription.metadata?.shopId || 'unknown',
@@ -1404,6 +1421,27 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
     if (!shopId) {
       logger.error('No shopId found in checkout session metadata', { sessionId: session.id });
       return;
+    }
+
+    // Agency Program self-serve activation — provision/activate the agency on payment.
+    // This checkout is the agency's OWN $999/mo subscription, not a shop plan, so it must not
+    // flow into the shop_subscriptions logic below.
+    if (session.metadata?.type === 'agency_activation') {
+      const stripeCustomerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+      const stripeSubscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+      if (!stripeCustomerId || !stripeSubscriptionId) {
+        logger.error('Agency activation session missing customer/subscription', { sessionId: session.id });
+        return;
+      }
+      await agencyService.activateFromCheckout({
+        ownerShopId: shopId,
+        name: session.metadata?.agencyName || '',
+        contactEmail: session.customer_details?.email ?? null,
+        stripeCustomerId,
+        stripeSubscriptionId,
+      });
+      logger.info('Agency activated via checkout webhook', { shopId, sessionId: session.id });
+      return; // Exit early for agency activation
     }
 
     // Check if this is an RCN purchase

@@ -158,9 +158,9 @@ durable comms, §9 money safeguards), currency-aware display, Safeguards 1–5.
 
 ## WS6 — Add-on: Agency Program ($999/mo · ≤10 clients @ $50)
 
-Today: ❌ none. Affiliate groups are **peer coalitions**, not managed-client accounts. **Unscoped.**
+Today: ❌ none. Affiliate groups are **peer coalitions**, not managed-client accounts. **Scoped** (see plan below).
 
-- ❌ **T6.0** Write the engineering scope (data model + billing rollup + white-label question). *(Architect/PM, S)*
+- ✅ **T6.0** Write the engineering scope (data model + billing rollup + white-label question). *(Architect/PM, S)* — **DONE**, see [`../agency-program/agency-program-implementation-plan.md`](../agency-program/agency-program-implementation-plan.md) (v1 defaults locked: $999 replaces client subs, Growth-tier clients, agency-created clients, new `agency` role, FixFlow-branded, generic parent→child hierarchy).
 - ❌ **T6.1** Parent→client account hierarchy (agency owns ≤10 shop accounts). *(Backend-Platform, L)*
 - ❌ **T6.2** Agency dashboard — manage/switch between client accounts. *(Frontend, L)*
 - ❌ **T6.3** Agency billing rollup — $999 base + $50/client metering. *(Backend-Billing, M)*

@@ -11,6 +11,7 @@ interface BaseJWTPayload {
   address: string;
   role: 'admin' | 'shop' | 'customer';
   shopId?: string;
+  homeShopId?: string;      // set on an agency "act as client" session — the owner shop to return to
   permissions?: string[];   // shop members only; absent ⇒ legacy owner = ['*']
   teamMemberId?: string;    // present only for non-owner shop team members
   iat: number;
@@ -37,6 +38,7 @@ declare global {
         address: string;
         role: string;
         shopId?: string;
+        homeShopId?: string;
         permissions?: string[];
         teamMemberId?: string;
         tokenId?: string;
@@ -186,6 +188,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
             address: refreshDecoded.address,
             role: refreshDecoded.role,
             shopId: refreshDecoded.shopId,
+            homeShopId: refreshDecoded.homeShopId,
             permissions: refreshDecoded.permissions,
             teamMemberId: refreshDecoded.teamMemberId
           }, refreshDecoded.tokenId);
@@ -400,6 +403,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       address: decoded.address,
       role: decoded.role,
       shopId: decoded.shopId,
+      homeShopId: decoded.homeShopId,
       permissions: decoded.role === 'shop' ? (decoded.permissions ?? ['*']) : decoded.permissions,
       teamMemberId: decoded.teamMemberId,
       tokenId

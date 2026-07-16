@@ -10,6 +10,7 @@ export type AddonActivation =
   | 'toggle'       // instant in-app toggle
   | 'request'      // request → admin approves
   | 'onboarding'   // external onboarding flow (e.g. Stripe Connect)
+  | 'checkout'     // in-hub Stripe checkout (redirect to pay, provisioned on webhook)
   | 'contact'      // sales-assisted
   | 'coming_soon'; // placeholder until built
 
@@ -67,8 +68,8 @@ export const ADDON_REGISTRY: AddonDef[] = [
     description: 'Manage multiple shop accounts under one roof with a single dashboard.',
     priceLabel: '$999/mo · up to 10 clients',
     category: 'agency',
-    activationType: 'contact',
-    manageLink: '/shop?tab=support',
-    ctaLabel: 'Contact us',
+    activationType: 'checkout',
+    manageLink: '/shop?tab=agency',
+    ctaLabel: 'Activate — $999/mo',
   },
 ];
