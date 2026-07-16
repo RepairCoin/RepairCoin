@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createThirdwebClient } from "thirdweb";
-import { ConnectButton, useActiveAccount, useActiveWallet } from "thirdweb/react";
+import { ConnectButton, useActiveAccount, useActiveWallet, useDisconnect } from "thirdweb/react";
 import { getUserEmail } from "thirdweb/wallets/in-app";
 import { inAppWallet, createWallet } from "thirdweb/wallets";
 import { useRouter, usePathname } from "next/navigation";
@@ -20,7 +20,8 @@ const Header: React.FC = () => {
   const account = useActiveAccount();
   const wallet = useActiveWallet();
   const { isAuthenticated, isLoading, userType } = useAuth();
-  const { setUserProfile } = useAuthStore();
+  const { setUserProfile, resetAuth } = useAuthStore();
+  const { disconnect } = useDisconnect();
   const [sessionChecked, setSessionChecked] = useState(false);
   const [hasValidSession, setHasValidSession] = useState(false);
   const [sessionUserType, setSessionUserType] = useState<string | null>(null);
@@ -71,6 +72,34 @@ const Header: React.FC = () => {
     ],
     []
   );
+
+  // Full log out / switch account: clears the app session, disconnects the
+  // wallet, wipes auth localStorage, clears the backend cookie, then reloads to
+  // home so the user can sign in with a different account. Mirrors the sidebar
+  // logout so behaviour is consistent across the app.
+  const handleSwitchAccount = useCallback(async () => {
+    try {
+      resetAuth();
+      if (wallet && disconnect) {
+        try {
+          disconnect(wallet);
+        } catch (e) {
+          console.warn("Wallet disconnect error (non-blocking):", e);
+        }
+      }
+      const keysToPreserve = ["accessibility-storage"];
+      Object.keys(localStorage).forEach((key) => {
+        if (!keysToPreserve.includes(key)) localStorage.removeItem(key);
+      });
+      try {
+        await authApi.logout();
+      } catch (e) {
+        console.warn("Backend logout error (non-blocking):", e);
+      }
+    } finally {
+      if (typeof window !== "undefined") window.location.href = "/";
+    }
+  }, [resetAuth, wallet, disconnect]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -440,12 +469,19 @@ const Header: React.FC = () => {
                     <Spinner className="w-5 h-5" />
                   </button>
                 ) : account?.address ? (
-                  <div className="flex justify-center items-center">
+                  <div className="flex justify-center items-center gap-2">
                     <ConnectButton
                       client={client}
                       wallets={loginWallets}
                       connectModal={{ size: "wide" }}
                     />
+                    <button
+                      onClick={handleSwitchAccount}
+                      title="Log out and switch account"
+                      className="text-[#F7CC00] border border-[#F7CC00] hover:bg-[#F7CC00]/10 px-3 py-2 rounded-md text-sm font-semibold transition-all duration-200 whitespace-nowrap"
+                    >
+                      Switch
+                    </button>
                   </div>
                 ) : (isAuthenticated && userType) || (hasValidSession && sessionUserType) ? (
                   <button
@@ -511,12 +547,18 @@ const Header: React.FC = () => {
                         <Spinner className="w-5 h-5" />
                       </button>
                     ) : account?.address ? (
-                      <div className="flex justify-center items-center">
+                      <div className="flex flex-col items-stretch gap-2">
                         <ConnectButton
                           client={client}
                           wallets={loginWallets}
                           connectModal={{ size: "wide" }}
                         />
+                        <button
+                          onClick={handleSwitchAccount}
+                          className="w-full px-4 py-3 text-base font-semibold text-center text-[#F7CC00] border border-[#F7CC00] hover:bg-[#F7CC00]/10 rounded-md transition-colors duration-200"
+                        >
+                          Switch Account
+                        </button>
                       </div>
                     ) : (isAuthenticated && userType) || (hasValidSession && sessionUserType) ? (
                       <button
