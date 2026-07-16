@@ -72,3 +72,23 @@ export function getPlanByPriceId(
 export function getMonthlyAmountForPriceId(priceId: string | null | undefined): number {
   return getPlanByPriceId(priceId)?.amount ?? 0;
 }
+
+// Agency Program (add-on) — a flat $999/mo base plan billed on its own Stripe price,
+// separate from the shop subscription tiers above. Per-extra-client metering ($50/client
+// beyond the client_limit) lands in a later slice; only the base is wired here.
+export const AGENCY_BASE_AMOUNT = 999;
+export const AGENCY_EXTRA_CLIENT_AMOUNT = 50;
+
+export function resolveAgencyBasePriceId(): string {
+  const priceId = process.env.STRIPE_PRICE_AGENCY_BASE;
+  if (!priceId) {
+    throw new Error(
+      'No Stripe price configured for the Agency Program (set STRIPE_PRICE_AGENCY_BASE)'
+    );
+  }
+  return priceId;
+}
+
+export function getAgencyExtraClientPriceId(): string | undefined {
+  return process.env.STRIPE_PRICE_AGENCY_EXTRA_CLIENT || undefined;
+}

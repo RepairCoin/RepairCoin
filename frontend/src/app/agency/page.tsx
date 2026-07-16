@@ -30,7 +30,7 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { n: 1, title: "Apply", desc: "Tell us about your agency and the clients you manage." },
+  { n: 1, title: "Activate", desc: "Subscribe to the Agency Program from your shop's Plans & Billing." },
   { n: 2, title: "Onboard your clients", desc: "We help you set up each client shop and their rewards." },
   { n: 3, title: "Manage & grow", desc: "Run everything from one dashboard and add clients as you scale." },
 ];
@@ -54,9 +54,9 @@ export default function AgencyPage() {
             account, add clients as you grow, and get priority support the whole way.
           </p>
           <div className="flex items-center justify-center gap-3 mt-8">
-            <Link href="/contact-us">
+            <Link href="/shop?tab=plans">
               <button className="inline-flex items-center gap-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold px-6 py-3 rounded-xl transition-colors">
-                Apply Now <ArrowRight className="w-4 h-4" />
+                Get Started <ArrowRight className="w-4 h-4" />
               </button>
             </Link>
             <Link href="/pricing">
@@ -111,9 +111,9 @@ export default function AgencyPage() {
               ))}
             </ul>
 
-            <Link href="/contact-us">
+            <Link href="/shop?tab=plans">
               <button className="inline-flex items-center gap-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold px-6 py-3 rounded-xl transition-colors mt-8">
-                Apply Now <ArrowRight className="w-4 h-4" />
+                Get Started <ArrowRight className="w-4 h-4" />
               </button>
             </Link>
           </div>
@@ -142,9 +142,9 @@ export default function AgencyPage() {
             <p className="text-gray-400 mt-3 max-w-xl mx-auto">
               Join the RepairCoin Agency Program and bring loyalty rewards to every shop you manage.
             </p>
-            <Link href="/contact-us">
+            <Link href="/shop?tab=plans">
               <button className="inline-flex items-center gap-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold px-7 py-3 rounded-xl transition-colors mt-6">
-                Apply Now <ArrowRight className="w-4 h-4" />
+                Get Started <ArrowRight className="w-4 h-4" />
               </button>
             </Link>
           </div>

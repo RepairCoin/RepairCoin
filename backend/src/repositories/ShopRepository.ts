@@ -70,6 +70,7 @@ interface ShopData {
   stripeCustomerId?: string; // Stripe customer ID for payment methods
   defaultPaymentMethodId?: string; // Default Stripe payment method ID
   accountManagerAddress?: string; // Wallet of the admin assigned as this shop's account manager (Business perk)
+  agencyId?: string; // Set when this shop is managed by an agency (Growth entitlement, no own subscription)
 }
 
 export interface ShopFilters {
@@ -153,6 +154,7 @@ export class ShopRepository extends BaseRepository {
         avgRating: parseFloat(row.shop_avg_rating || 0),
         totalReviews: parseInt(row.shop_total_reviews || 0),
         accountManagerAddress: row.account_manager_address,
+        agencyId: row.agency_id,
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);

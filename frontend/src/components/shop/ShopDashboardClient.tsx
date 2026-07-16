@@ -26,6 +26,8 @@ import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
 import { ToolsTab } from "@/components/shop/tabs/ToolsTab";
 import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
 import { WalletPayoutsTab } from "@/components/shop/tabs/WalletPayoutsTab";
+import { AgencyManagingBanner } from "@/components/agency/AgencyManagingBanner";
+import { AgencyTab } from "@/components/shop/tabs/AgencyTab";
 import { SupportTab } from "@/components/shop/tabs/SupportTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
@@ -1420,6 +1422,7 @@ export default function ShopDashboardClient() {
       onTabChange={handleTabChange}
       fullHeight={isMessagesFullHeight}
     >
+      <AgencyManagingBanner />
       <div
         className={
           isMessagesFullHeight
@@ -1738,6 +1741,8 @@ export default function ShopDashboardClient() {
               subscriptionCancelledAt={shopData.subscriptionCancelledAt}
             />
           )}
+
+          {activeTab === "agency" && shopData && <AgencyTab />}
 
           {activeTab === "profile" && shopData && (
             <div className="space-y-6">

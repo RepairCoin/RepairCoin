@@ -1,7 +1,8 @@
 // backend/src/routes/auth.ts
 import { Router, Response, Request } from 'express';
 import rateLimit from 'express-rate-limit';
-import { customerRepository, shopRepository, adminRepository, refreshTokenRepository, shopTeamRepository, agencyRepository } from '../repositories';
+import { customerRepository, shopRepository, adminRepository, refreshTokenRepository, shopTeamRepository } from '../repositories';
+import { agencyService } from '../domains/agency/services/AgencyService';
 import { logger } from '../utils/logger';
 import { generateToken, generateAccessToken, generateRefreshToken, authMiddleware } from '../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -97,7 +98,7 @@ const setAuthCookie = (res: Response, token: string) => {
 const generateAndSetTokens = async (
   res: Response,
   req: Request,
-  payload: { address: string; role: 'admin' | 'shop' | 'customer' | 'agency'; shopId?: string; agencyId?: string; permissions?: string[]; teamMemberId?: string }
+  payload: { address: string; role: 'admin' | 'shop' | 'customer'; shopId?: string; homeShopId?: string; permissions?: string[]; teamMemberId?: string }
 ): Promise<{ accessToken: string; refreshToken: string; tokenId: string }> => {
   // Generate unique token ID for refresh token
   const tokenId = uuidv4();
@@ -321,22 +322,6 @@ router.post('/token', async (req, res) => {
         }
       }
 
-      if (!userType) {
-        // Check if the wallet owns an agency (parent account managing client shops)
-        try {
-          const agency = await agencyRepository.getAgencyByOwner(normalizedAddress);
-          if (agency) {
-            userType = 'agency';
-            userData = {
-              address: normalizedAddress,
-              role: 'agency',
-              agencyId: agency.id
-            };
-          }
-        } catch (error) {
-          logger.debug('Agency resolution failed in /token', { address: normalizedAddress });
-        }
-      }
     }
 
     if (!userType || !userData) {
@@ -376,6 +361,97 @@ router.post('/token', async (req, res) => {
       error: 'Internal server error'
     });
   }
+});
+
+/**
+ * Agency "act as client": an agency-owning shop swaps to a shop-scoped session on one of its
+ * client shops. The minted client-shop token carries homeShopId (the owner shop) so the UI can
+ * show a "managing client" banner and /agency/resume can swap back.
+ * POST /api/auth/agency/enter  { shopId }
+ */
+router.post('/agency/enter', authMiddleware, async (req, res) => {
+  try {
+    const ownerShopId = req.user?.shopId;
+    if (req.user?.role !== 'shop' || !ownerShopId) {
+      return res.status(403).json({ success: false, error: 'Shop session required' });
+    }
+    const { shopId } = req.body ?? {};
+    if (!shopId) {
+      return res.status(400).json({ success: false, error: 'shopId is required' });
+    }
+
+    const canActAs = await agencyService.ownerCanActAsClient(ownerShopId, shopId);
+    if (!canActAs) {
+      return res.status(404).json({ success: false, error: 'Shop is not a client of your agency' });
+    }
+
+    const shop = await shopRepository.getShop(shopId);
+    if (!shop) {
+      return res.status(404).json({ success: false, error: 'Client shop not found' });
+    }
+
+    // Owner-level session on the client shop (permissions omitted ⇒ '*'), tagged with the owner
+    // shop to return to via homeShopId.
+    const { accessToken } = await generateAndSetTokens(res, req, {
+      address: shop.walletAddress,
+      role: 'shop',
+      shopId,
+      homeShopId: ownerShopId
+    });
+
+    logger.info('Agency entered client shop', { ownerShopId, shopId });
+    return res.json({ success: true, data: { shopId, accessToken, role: 'shop' } });
+  } catch (error) {
+    logger.error('Agency enter failed:', error);
+    return res.status(500).json({ success: false, error: 'Failed to enter client shop' });
+  }
+});
+
+/**
+ * Resume the agency-owner session from a "managing client" session (the client-shop token carries
+ * homeShopId). Swaps back to the owner shop's session.
+ * POST /api/auth/agency/resume
+ */
+router.post('/agency/resume', authMiddleware, async (req, res) => {
+  try {
+    const homeShopId = req.user?.homeShopId;
+    if (!homeShopId) {
+      return res.status(403).json({ success: false, error: 'Not in a managed-client session' });
+    }
+    const ownerShop = await shopRepository.getShop(homeShopId);
+    if (!ownerShop) {
+      return res.status(404).json({ success: false, error: 'Owner shop not found' });
+    }
+
+    const { accessToken } = await generateAndSetTokens(res, req, {
+      address: ownerShop.walletAddress,
+      role: 'shop',
+      shopId: homeShopId
+    });
+
+    logger.info('Agency owner session resumed', { ownerShopId: homeShopId });
+    return res.json({ success: true, data: { accessToken, role: 'shop', shopId: homeShopId } });
+  } catch (error) {
+    logger.error('Agency resume failed:', error);
+    return res.status(500).json({ success: false, error: 'Failed to resume agency session' });
+  }
+});
+
+/**
+ * Whether the current session is an agency owner acting as one of its client shops (a shop token
+ * carrying homeShopId). Drives the "managing client" banner + Exit control.
+ * GET /api/auth/agency/context
+ */
+router.get('/agency/context', authMiddleware, async (req, res) => {
+  const actingAsAgencyClient = req.user?.role === 'shop' && !!req.user?.homeShopId;
+  return res.json({
+    success: true,
+    data: {
+      actingAsAgencyClient,
+      shopId: actingAsAgencyClient ? req.user?.shopId ?? null : null,
+      homeShopId: req.user?.homeShopId ?? null
+    }
+  });
 });
 
 /**
@@ -1076,6 +1152,8 @@ router.get('/session', authMiddleware, async (req, res) => {
           logoUrl: shop.logoUrl,
           active: shop.active,
           shopId: shop.shopId,
+          // Present only in an agency "act as client" session — the owner shop to return to.
+          homeShopId: req.user.homeShopId,
           permissions,
           isTeamMember: !!req.user.teamMemberId,
           createdAt: shop.joinDate,
@@ -1633,7 +1711,7 @@ router.post('/refresh', async (req, res) => {
       address: decoded.address,
       role: decoded.role,
       shopId: decoded.shopId,
-      agencyId: decoded.agencyId,
+      homeShopId: decoded.homeShopId,
       permissions: decoded.permissions,
       teamMemberId: decoded.teamMemberId
     }, decoded.tokenId);

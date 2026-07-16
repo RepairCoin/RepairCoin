@@ -7,7 +7,7 @@ export interface RefreshToken {
   id: string;
   tokenId: string;
   userAddress: string;
-  userRole: 'admin' | 'shop' | 'customer' | 'agency';
+  userRole: 'admin' | 'shop' | 'customer';
   shopId?: string;
   tokenHash: string;
   expiresAt: Date;
@@ -25,7 +25,7 @@ export interface RefreshToken {
 export interface CreateRefreshTokenParams {
   tokenId: string;
   userAddress: string;
-  userRole: 'admin' | 'shop' | 'customer' | 'agency';
+  userRole: 'admin' | 'shop' | 'customer';
   shopId?: string;
   token: string; // The actual JWT token to hash
   expiresAt: Date;

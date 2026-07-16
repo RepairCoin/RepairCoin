@@ -47,10 +47,10 @@
 
 ## 4. Per-slice task breakdown
 
-Migrations continue from `215` → next is `216`.
+Migrations continue from `215` → this migration is `221` (216–220 were already claimed on the shared staging DB by other branches; 221 was the next free number).
 
 ### Slice 0 — Foundations: agency entity, hierarchy, role  *(Backend, L)*
-**Migration `216`:**
+**Migration `221`:**
 - `agencies` — `id`, `name`, `owner_wallet_address`, `contact_email`, `contact_phone`, `stripe_customer_id`, `stripe_subscription_id`, `status` (`pending|active|past_due|cancelled`), `client_limit` int default 10, `per_client_price_cents` default 5000, `account_manager_address` varchar(42), timestamps.
 - `agency_clients` — `id`, `agency_id` FK, `shop_id` FK, `status` (`active|removed`), `added_at`, `removed_at`, **unique(`agency_id`,`shop_id`)**. *(Generic parent→child link.)*
 - `shops` — add nullable `agency_id` + index.

@@ -109,6 +109,21 @@ export class AdminController {
     }
   }
 
+  // Agencies assigned to the requesting admin as their account manager ("My Shops" → Agencies).
+  async getMyAssignedAgencies(req: Request, res: Response) {
+    try {
+      const address = req.user?.address;
+      if (!address) {
+        ResponseHelper.error(res, 'Admin address not found', 401);
+        return;
+      }
+      const agencies = await this.adminService.getAgenciesByAccountManager(address);
+      ResponseHelper.success(res, agencies);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
   async getCustomerBalance(req: Request, res: Response) {
     try {
       const { address } = req.params;

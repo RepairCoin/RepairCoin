@@ -18,6 +18,7 @@ export interface UserProfile {
   isActive?: boolean;
   tier?: 'bronze' | 'silver' | 'gold';
   shopId?: string;
+  homeShopId?: string;   // agency "act as client" session: the owner shop to return to
   registrationDate?: string;
   suspended?: boolean;
   suspendedAt?: string;

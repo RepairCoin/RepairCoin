@@ -1,19 +1,22 @@
--- 216 — Agency Program, slice 0: schema foundations.
+-- 221 — Agency Program, slice 0: schema foundations.
 --
--- An "agency" is a parent account that manages up to N independent client shops from one login
--- ($999/mo base + $50/client beyond 10). Client shops are normal `shops` rows linked to an agency;
--- an agency-linked shop is entitled to Growth-tier features without its own subscription.
+-- The Agency Program is an ADD-ON on an existing shop account: a shop activates it (separate
+-- $999/mo charge, its own subscription) and its account gains the power to manage up to N
+-- independent client shops. Client shops are normal `shops` rows linked to the agency; an
+-- agency-linked client is entitled to Growth-tier features without its own subscription.
+--
+-- The agency is OWNED by the shop that activated the add-on (owner_shop_id). One agency per shop;
+-- the owner's own shop is NOT one of its clients.
 --
 -- This is a generic parent->child hierarchy (agencies -> agency_clients -> shops) intentionally
 -- shaped so the deferred Multi-Location feature (one owner, many branches) can reuse the pattern.
 --
--- Additive + idempotent. Nothing changes for existing shops until an admin provisions an agency
--- and links clients to it.
+-- Additive + idempotent. Nothing changes for existing shops until one activates the add-on.
 
 CREATE TABLE IF NOT EXISTS agencies (
   id                    VARCHAR(100) PRIMARY KEY,
   name                  VARCHAR(255) NOT NULL,
-  owner_wallet_address  VARCHAR(42),
+  owner_shop_id         VARCHAR(100) NOT NULL,
   contact_email         VARCHAR(255),
   contact_phone         VARCHAR(50),
   stripe_customer_id    VARCHAR(255),
@@ -29,8 +32,9 @@ CREATE TABLE IF NOT EXISTS agencies (
   CONSTRAINT chk_agency_status CHECK (status IN ('pending', 'active', 'past_due', 'cancelled'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_agencies_owner
-  ON agencies (LOWER(owner_wallet_address)) WHERE owner_wallet_address IS NOT NULL;
+-- One agency per owning shop.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agencies_owner_shop
+  ON agencies (owner_shop_id);
 
 -- Parent->child link: which shops an agency manages. Client shops stay in `shops`.
 CREATE TABLE IF NOT EXISTS agency_clients (

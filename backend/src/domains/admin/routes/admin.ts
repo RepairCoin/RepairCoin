@@ -67,6 +67,11 @@ router.get('/my-assigned-shops',
   asyncHandler(adminController.getMyAssignedShops.bind(adminController))
 );
 
+// Agencies assigned to the requesting admin as account manager (same "My Shops" view).
+router.get('/my-assigned-agencies',
+  asyncHandler(adminController.getMyAssignedAgencies.bind(adminController))
+);
+
 // The requesting admin's own contact profile (name/email/phone). Self-service — any admin can
 // read/update their own; this is the contact shown to shops they manage as account manager.
 router.get('/profile/me',

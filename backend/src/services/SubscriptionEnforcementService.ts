@@ -699,18 +699,27 @@ export class SubscriptionEnforcementService extends BaseRepository {
     action?: string;
     message: string;
   }> {
-    // FIRST: Check if shop is RCG-qualified (10K+ RCG) - no subscription needed
+    // FIRST: Check if shop is RCG-qualified (10K+ RCG) or agency-managed - no own subscription needed
     const rcgQuery = `
-      SELECT operational_status, rcg_balance
-      FROM shops
-      WHERE shop_id = $1
+      SELECT s.operational_status, s.rcg_balance, s.agency_id, a.status AS agency_status
+      FROM shops s
+      LEFT JOIN agencies a ON a.id = s.agency_id
+      WHERE s.shop_id = $1
     `;
 
     const rcgResult = await this.pool.query(rcgQuery, [shopId]);
 
     if (rcgResult.rows.length > 0) {
-      const { operational_status, rcg_balance } = rcgResult.rows[0];
+      const { operational_status, rcg_balance, agency_id, agency_status } = rcgResult.rows[0];
       const rcgBalanceNum = parseFloat(rcg_balance) || 0;
+
+      // Agency-managed shops are covered by their agency's subscription (no own subscription),
+      // but only while that subscription is live ('active'/'past_due' grace). A cancelled
+      // agency de-entitles its clients, which fall through to their own subscription check.
+      if (agency_id && (agency_status === 'active' || agency_status === 'past_due')) {
+        logger.info('Shop is agency-managed, no own subscription required', { shopId, agencyId: agency_id });
+        return { isValid: true, message: 'Shop is covered by its agency subscription' };
+      }
 
       // RCG-qualified shops (10K+ RCG) don't need subscription
       if (operational_status === 'rcg_qualified' || rcgBalanceNum >= 10000) {

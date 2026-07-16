@@ -10,8 +10,10 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import { Loader2, Sparkles, CreditCard } from "lucide-react";
 import { ADDON_REGISTRY, type AddonDef } from "@/config/addonRegistry";
+import { agencyApi } from "@/services/api/agency";
 import {
   resolveAddonStatuses,
   getAiUsageSummary,
@@ -60,6 +62,25 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
   const [usage, setUsage] = useState<AiUsageSummary | null>(null);
   const [card, setCard] = useState<PaymentMethodSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkoutBusy, setCheckoutBusy] = useState<string | null>(null);
+
+  const handleCheckout = async (addon: AddonDef) => {
+    if (addon.id !== "agency") return;
+    setCheckoutBusy(addon.id);
+    try {
+      const res: any = await agencyApi.activate({});
+      const url = res?.data?.paymentUrl;
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast.error("Couldn't start checkout. Please try again.");
+        setCheckoutBusy(null);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to start activation");
+      setCheckoutBusy(null);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -164,7 +185,13 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
               dynamic lookup won't work in the browser bundle. No flagged entries
               today; the whole hub is gated at the sidebar via NEXT_PUBLIC_ADDON_HUB_ENABLED. */}
           {ADDON_REGISTRY.map((addon) => (
-            <AddonCard key={addon.id} addon={addon} status={statuses[addon.id] ?? "coming_soon"} />
+            <AddonCard
+              key={addon.id}
+              addon={addon}
+              status={statuses[addon.id] ?? "coming_soon"}
+              onCheckout={handleCheckout}
+              busy={checkoutBusy === addon.id}
+            />
           ))}
         </div>
       </section>
@@ -205,6 +232,7 @@ interface CtaSpec {
   label: string;
   href?: string;
   disabled?: boolean;
+  checkout?: boolean;
 }
 
 /** Dispatch the card's CTA by status, then activation type. Keeping this declarative
@@ -217,6 +245,8 @@ function ctaFor(addon: AddonDef, status: AddonStatus): CtaSpec {
 
   // status === 'off' → route by how this add-on is activated.
   switch (addon.activationType) {
+    case "checkout":
+      return { label: addon.ctaLabel, checkout: true };
     case "request": // request → admin approves (deep-link to the feature's request UI)
     case "onboarding": // external onboarding (e.g. Stripe Connect) lives in the feature
     case "toggle": // inline enable handled on the feature's settings page in v1
@@ -228,7 +258,12 @@ function ctaFor(addon: AddonDef, status: AddonStatus): CtaSpec {
   }
 }
 
-const AddonCard: React.FC<{ addon: AddonDef; status: AddonStatus }> = ({ addon, status }) => {
+const AddonCard: React.FC<{
+  addon: AddonDef;
+  status: AddonStatus;
+  onCheckout?: (addon: AddonDef) => void | Promise<void>;
+  busy?: boolean;
+}> = ({ addon, status, onCheckout, busy }) => {
   const badge = STATUS_BADGE[status];
   const cta = ctaFor(addon, status);
 
@@ -245,7 +280,16 @@ const AddonCard: React.FC<{ addon: AddonDef; status: AddonStatus }> = ({ addon, 
       </div>
       <p className="text-sm text-gray-300 leading-relaxed">{addon.description}</p>
       <div className="mt-auto pt-1">
-        {cta.disabled || !cta.href ? (
+        {cta.checkout ? (
+          <button
+            onClick={() => onCheckout?.(addon)}
+            disabled={busy}
+            className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-yellow-400 text-gray-900 font-medium hover:bg-yellow-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {cta.label}
+          </button>
+        ) : cta.disabled || !cta.href ? (
           <button
             disabled
             className="text-sm px-3 py-1.5 rounded-lg bg-gray-700/50 text-gray-500 cursor-not-allowed"
