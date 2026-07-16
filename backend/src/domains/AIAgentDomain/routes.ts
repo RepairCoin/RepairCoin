@@ -9,7 +9,7 @@ import { transcribeVoice } from './controllers/VoiceTranscribeController';
 import { speakVoice } from './controllers/VoiceSpeakController';
 import { dispatchVoice } from './controllers/VoiceDispatchController';
 import { suggestServiceFaqs } from './controllers/FaqSuggestionController';
-import { getOwnShopSpend, getAdminCostSummary } from './controllers/SpendController';
+import { getOwnShopSpend, getAdminCostSummary, setOwnShopOverage } from './controllers/SpendController';
 import {
   getOwnShopAiSettings,
   updateOwnShopAiSettings,
@@ -28,7 +28,7 @@ import { askOrchestrator } from './controllers/UnifiedAssistantController';
 import { generateImage } from './controllers/ImageGenerateController';
 import { editImage } from './controllers/ImageEditController';
 import { getOwnBrandKit, updateOwnBrandKit, analyzeLogoColors, analyzeBrandProfile, completeBrandOnboarding } from './controllers/BrandKitController';
-import { generateBrandTemplates, listBrandTemplates, generateShopBanner } from './controllers/BrandTemplateController';
+import { generateBrandTemplates, listBrandTemplates, generateShopBanner, deleteBrandTemplate } from './controllers/BrandTemplateController';
 import {
   listAnomalies,
   dismissAnomaly,
@@ -125,6 +125,10 @@ export function initializeRoutes(): Router {
   // param, so a shop can never request another shop's spend).
   router.get('/spend', authMiddleware, requireRole(['shop']), getOwnShopSpend);
 
+  // AI Usage Overage (T3.2) — shop opts in/out of full-power AI past the monthly allowance.
+  // Gated by ENABLE_AI_OVERAGE inside the controller (409 until the feature is live).
+  router.post('/overage', authMiddleware, requireRole(['shop']), setOwnShopOverage);
+
   // Shop-side AI settings. Both gate on `shop` role; the controller reads
   // shopId from the JWT (no path param) so a shop can only ever read/write
   // its own settings. PUT touches only the shop-editable fields.
@@ -205,6 +209,9 @@ export function initializeRoutes(): Router {
   // Branding Studio Phase 4 — on-demand brand templates (social/poster).
   router.post('/brand-kit/templates/generate', authMiddleware, requireRole(['shop']), generateBrandTemplates);
   router.get('/brand-kit/templates', authMiddleware, requireRole(['shop']), listBrandTemplates);
+  // Hard-delete one generated template (image + row). Shop-scoped; no tier gate —
+  // a shop can always remove its own assets, even after a downgrade.
+  router.delete('/brand-kit/templates/:id', authMiddleware, requireRole(['shop']), deleteBrandTemplate);
   // Branding Studio — generate a shop banner (header) with AI → returns the URL.
   router.post('/brand-kit/generate-banner', authMiddleware, requireRole(['shop']), generateShopBanner);
 

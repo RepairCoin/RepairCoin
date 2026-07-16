@@ -36,15 +36,23 @@ export class TwilioService {
   }
 
   /** Send one SMS to an E.164 number. Best-effort — never throws; returns a status the caller records.
-   *  `statusCallback` (optional) is the public URL Twilio POSTs delivery updates to. */
-  async sendSms(to: string, body: string, statusCallback?: string): Promise<SmsSendResult> {
+   *  `statusCallback` (optional) is the public URL Twilio POSTs delivery updates to.
+   *  `from` (optional) overrides the shared TWILIO_SMS_FROM — used to send from a shop's own
+   *  dedicated number (per-shop-number, D2). Defaults to the shared number. */
+  async sendSms(
+    to: string,
+    body: string,
+    statusCallback?: string,
+    from?: string
+  ): Promise<SmsSendResult> {
     if (!this.enabled()) return { status: 'disabled' };
-    if (!this.isReady()) {
+    const fromResolved = (from || fromNumber()).trim();
+    if (!(sid() && authToken() && fromResolved)) {
       logger.warn('TwilioService.sendSms: TWILIO_SMS_ENABLED but creds/from-number missing');
       return { status: 'failed', error: 'not_configured' };
     }
     try {
-      const form = new URLSearchParams({ To: to, From: fromNumber(), Body: body });
+      const form = new URLSearchParams({ To: to, From: fromResolved, Body: body });
       if (statusCallback) form.set('StatusCallback', statusCallback);
       const res = await axios.post(
         `https://api.twilio.com/2010-04-01/Accounts/${sid()}/Messages.json`,

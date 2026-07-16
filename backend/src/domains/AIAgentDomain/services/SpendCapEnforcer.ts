@@ -26,11 +26,39 @@ import { logger } from "../../../utils/logger";
 import { getShopTier } from "../../../utils/shopTier";
 import { AI_TIER_ALLOWANCE, SubscriptionTier } from "../../../config/subscriptionPlans";
 import { SpendCheckResult } from "../types";
+import { AiOverageChargeRepository } from "../../../repositories/AiOverageChargeRepository";
 
 const CHEAPER_MODEL_THRESHOLD = 0.7; // ≥ 70% of budget → switch to Haiku
 
+// AI Usage Overage (T3.2) master flag. When off, overage never lifts the cap (behavior unchanged),
+// regardless of a shop's ai_overage_enabled toggle.
+const overageFeatureEnabled = (): boolean => process.env.ENABLE_AI_OVERAGE === "true";
+
+// "Usage x3" — the billable multiplier on overage cost. Kept in sync with AiOverageChargeRepository's default.
+const OVERAGE_MULTIPLIER = 3;
+
+// Bill-shock guardrail (Slice 2.5): a per-shop monthly cap on the BILLABLE overage (dollars the shop
+// would be invoiced). Once reached, overage stops lifting the model — reverts to the Haiku soft-landing
+// so a runaway session can't produce a surprise invoice. 0 = unlimited (no guardrail). Default $100.
+const overageMonthlyCapUsd = (): number => {
+  const n = Number(process.env.AI_OVERAGE_MONTHLY_CAP_USD ?? "100");
+  return Number.isFinite(n) && n >= 0 ? n : 100;
+};
+
+/** Accrue the marginal overage (USD beyond the allowance) — injectable for tests. Default = the
+ *  ai_overage_charges ledger repo, lazily built (avoids a DB touch at import). */
+export type OverageAccrueFn = (shopId: string, overageCostUsd: number) => Promise<void>;
+let _overageRepo: AiOverageChargeRepository | null = null;
+const defaultAccrueOverage: OverageAccrueFn = (shopId, usd) => {
+  if (!_overageRepo) _overageRepo = new AiOverageChargeRepository();
+  return _overageRepo.accrue(shopId, usd);
+};
+
 export class SpendCapEnforcer {
-  constructor(private readonly pool: Pool = getSharedPool()) {}
+  constructor(
+    private readonly pool: Pool = getSharedPool(),
+    private readonly accrueOverage: OverageAccrueFn = defaultAccrueOverage
+  ) {}
 
   /**
    * Pre-flight check: can this shop afford one more AI call?
@@ -45,8 +73,8 @@ export class SpendCapEnforcer {
     // Budget = the shop's CURRENT tier allowance ($10/$30/$75). Computed at read; not stored/editable.
     const budget = AI_TIER_ALLOWANCE[await this.resolveTier(shopId)];
 
-    const result = await this.pool.query<{ current_month_spend_usd: string }>(
-      `SELECT current_month_spend_usd FROM ai_shop_settings WHERE shop_id = $1`,
+    const result = await this.pool.query<{ current_month_spend_usd: string; ai_overage_enabled: boolean }>(
+      `SELECT current_month_spend_usd, ai_overage_enabled FROM ai_shop_settings WHERE shop_id = $1`,
       [shopId]
     );
 
@@ -67,13 +95,29 @@ export class SpendCapEnforcer {
     }
 
     const spent = parseFloat(result.rows[0].current_month_spend_usd);
+    const overageOn = overageFeatureEnabled() && result.rows[0].ai_overage_enabled === true;
     const percentUsed = budget > 0 ? spent / budget : 0;
+
+    // AI Usage Overage (T3.2): the shop opted to keep full-power AI past the cap (billed Usage x3).
+    if (spent >= budget && overageOn) {
+      // Bill-shock guardrail (Slice 2.5): everything beyond the allowance is overage, so the billable
+      // this month = (spent - budget) x multiplier — computed here with no extra query. Once it reaches
+      // the cap, STOP lifting the model (revert to Haiku) to prevent a runaway invoice.
+      const cap = overageMonthlyCapUsd();
+      const billableOverageUsd = (spent - budget) * OVERAGE_MULTIPLIER;
+      if (cap > 0 && billableOverageUsd >= cap) {
+        return { allowed: true, useCheaperModel: true, limitReached: true, overageEnabled: true, overageCapReached: true, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
+      }
+      // Under the guardrail — keep the FULL model. The limit is no longer "reached" in the actionable
+      // sense, so limitReached=false suppresses the upgrade/overage nag across all panels.
+      return { allowed: true, useCheaperModel: false, limitReached: false, overageEnabled: true, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
+    }
 
     // Soft landing (D2): at/over 100% the call is STILL allowed — never a dead-end — but MUST run
     // Haiku-only, and the caller surfaces "upgrade your plan for more AI". Expensive/vision ops that
     // can't cheaply degrade treat limitReached as a block instead.
     if (spent >= budget) {
-      return { allowed: true, useCheaperModel: true, limitReached: true, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
+      return { allowed: true, useCheaperModel: true, limitReached: true, overageEnabled: false, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
     }
 
     return {
@@ -102,13 +146,35 @@ export class SpendCapEnforcer {
   async recordSpend(shopId: string, costUsd: number): Promise<void> {
     if (costUsd <= 0) return; // nothing to record
     try {
-      await this.pool.query(
+      const upd = await this.pool.query<{ current_month_spend_usd: string; ai_overage_enabled: boolean }>(
         `UPDATE ai_shop_settings
          SET current_month_spend_usd = current_month_spend_usd + $1::numeric,
              updated_at = NOW()
-         WHERE shop_id = $2`,
+         WHERE shop_id = $2
+         RETURNING current_month_spend_usd, ai_overage_enabled`,
         [costUsd, shopId]
       );
+
+      // AI Usage Overage (T3.2 Slice 2) — when overage is on, ledger the portion of THIS spend that
+      // fell BEYOND the monthly allowance (billed Usage x3). Best-effort: accrual never affects the
+      // spend increment above (the AI reply already happened).
+      const row = upd.rows?.[0];
+      if (overageFeatureEnabled() && row?.ai_overage_enabled === true) {
+        const after = parseFloat(row.current_month_spend_usd);
+        const before = after - costUsd;
+        const budget = AI_TIER_ALLOWANCE[await this.resolveTier(shopId)];
+        // Only the slice of this increment above the allowance counts. If the call started already
+        // over the cap, the whole cost is overage; if it straddled the cap, only the part past it.
+        const overagePortion = Math.max(0, after - Math.max(before, budget));
+        if (overagePortion > 0) {
+          await this.accrueOverage(shopId, overagePortion).catch((e) => {
+            logger.error("SpendCapEnforcer: overage accrual failed", {
+              shopId,
+              error: (e as Error)?.message,
+            });
+          });
+        }
+      }
     } catch (err) {
       logger.error("SpendCapEnforcer.recordSpend failed", err);
       // Swallow — the AI reply already happened, missing one spend

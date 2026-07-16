@@ -24,6 +24,14 @@ export interface MetaMessagingEvent {
   refAdId?: string;    // click-to-Messenger referral ad id (m.me/ad ref) when the thread opened from an ad
 }
 
+export interface MetaWhatsAppEvent {
+  phoneNumberId: string; // the BUSINESS WhatsApp number id (value.metadata.phone_number_id) → maps to a shop
+  from: string;          // the customer's wa_id — E.164 digits WITHOUT '+' (e.g. "15551112222")
+  text: string;
+  messageId?: string;    // wamid (dedupe)
+  name?: string;         // the customer's WhatsApp profile name (free in the payload), if present
+}
+
 /** Verify Meta's `X-Hub-Signature-256: sha256=<hex>` against the raw body using
  *  the app secret. Constant-time compare. Returns false on any missing input. */
 export function verifyMetaSignature(
@@ -103,6 +111,44 @@ export function parseMessagingEvents(payload: any): MetaMessagingEvent[] {
         mid: ev?.message?.mid ? String(ev.message.mid) : undefined,
         refAdId: refAdId ? String(refAdId) : undefined,
       });
+    }
+  }
+  return out;
+}
+
+/** PURE: pull inbound WhatsApp TEXT messages from a Meta webhook payload
+ *  (object='whatsapp_business_account', entry[].changes[] with field='messages'). Only text messages
+ *  are returned (v1); status callbacks, reactions, and media are skipped. The customer's profile name
+ *  (from value.contacts[], matched by wa_id) is attached when present. */
+export function parseWhatsAppEvents(payload: any): MetaWhatsAppEvent[] {
+  const out: MetaWhatsAppEvent[] = [];
+  const entries = Array.isArray(payload?.entry) ? payload.entry : [];
+  for (const entry of entries) {
+    const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+    for (const change of changes) {
+      if (change?.field !== 'messages') continue;
+      const v = change?.value ?? {};
+      if (v?.messaging_product !== 'whatsapp') continue;
+      const phoneNumberId = v?.metadata?.phone_number_id ? String(v.metadata.phone_number_id) : '';
+      const messages = Array.isArray(v?.messages) ? v.messages : [];
+      const contacts = Array.isArray(v?.contacts) ? v.contacts : [];
+      const nameByWaId = new Map<string, string | undefined>();
+      for (const c of contacts) {
+        if (c?.wa_id) nameByWaId.set(String(c.wa_id), c?.profile?.name ? String(c.profile.name) : undefined);
+      }
+      for (const m of messages) {
+        if (m?.type !== 'text') continue;                 // v1 = text only (skip media/reactions/status)
+        const from = m?.from ? String(m.from) : '';
+        const text = m?.text?.body ? String(m.text.body) : '';
+        if (!phoneNumberId || !from || !text.trim()) continue;
+        out.push({
+          phoneNumberId,
+          from,
+          text,
+          messageId: m?.id ? String(m.id) : undefined,
+          name: nameByWaId.get(from),
+        });
+      }
     }
   }
   return out;

@@ -1,6 +1,7 @@
 import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { CustomerData, TierLevel } from '../contracts/TierManager';
 import { logger } from '../utils/logger';
+import { normalizePhone } from '../utils/phone';
 
 export interface CustomerFilters {
   tier?: TierLevel;
@@ -176,6 +177,64 @@ export class CustomerRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error fetching customer by referral code:', error);
       throw new Error('Failed to fetch customer by referral code');
+    }
+  }
+
+  /**
+   * Resolve a phone number (any format) to an existing customer's address, or null. Used by the
+   * SMS inbound router (D1) to attach a text to a known customer. `customers.phone` isn't stored
+   * in a canonical format, so we match on the last 10 digits in SQL, then confirm in JS by
+   * normalizing both sides — preferring an exact E.164 match, and accepting a lone last-10
+   * candidate (strong US identity signal). Ambiguous (2+ non-exact candidates) → null, so we
+   * never mis-attribute one customer's text to another.
+   */
+  async findAddressByPhone(rawPhone: string): Promise<string | null> {
+    try {
+      const normalized = normalizePhone(rawPhone);
+      if (!normalized) return null;
+      const last10 = normalized.replace(/\D/g, '').slice(-10);
+      if (last10.length < 10) return null;
+
+      const result = await this.pool.query(
+        `SELECT address, phone FROM customers
+          WHERE phone IS NOT NULL AND phone <> ''
+            AND right(regexp_replace(phone, '\\D', '', 'g'), 10) = $1
+          LIMIT 25`,
+        [last10]
+      );
+      if (result.rows.length === 0) return null;
+
+      const exact = result.rows.find((r: any) => normalizePhone(r.phone) === normalized);
+      if (exact) return exact.address;
+      // No exact E.164 match but a single last-10 candidate — treat as the same person.
+      // Multiple candidates without an exact match is ambiguous → don't guess.
+      return result.rows.length === 1 ? result.rows[0].address : null;
+    } catch (error) {
+      logger.error('Error in findAddressByPhone:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Idempotently mint a lightweight "SMS guest" customer for a phone that matches no existing
+   * customer (D1 guest path). `address`/`wallet_address` are the only NOT NULL columns; we key
+   * the synthetic address off the phone (caller derives it) so the same phone always resolves to
+   * the same guest. `auth_method='sms_guest'` marks the row for later identification/purge.
+   * Returns the address (existing or newly created).
+   */
+  async getOrCreateSmsGuest(syntheticAddress: string, phone: string): Promise<string> {
+    try {
+      const addr = syntheticAddress.toLowerCase();
+      await this.pool.query(
+        `INSERT INTO customers (address, wallet_address, phone, name, auth_method, is_active)
+         VALUES ($1, $1, $2, 'SMS Guest', 'sms_guest', true)
+         ON CONFLICT (address) DO NOTHING`,
+        [addr, phone]
+      );
+      return addr;
+    } catch (error) {
+      logger.error('Error in getOrCreateSmsGuest:', error);
+      throw error;
     }
   }
 

@@ -177,6 +177,12 @@ export const listBrandTemplates = async (): Promise<BrandTemplate[]> => {
   return (response.data.data || response.data) as BrandTemplate[];
 };
 
+/** Hard-delete one generated template (removes the image from storage + the row).
+ *  Shop-scoped server-side. Throws on failure (e.g. 404 if not the shop's own). */
+export const deleteBrandTemplate = async (id: number): Promise<void> => {
+  await apiClient.delete(`/ai/brand-kit/templates/${id}`);
+};
+
 /** Generate a shop banner (header) with AI; returns the image URL. The caller
  *  persists it as the shop banner (shops.banner_url) via updateShopProfile.
  *  Throws with the server message on a gate (403 AI off / 429 budget). */

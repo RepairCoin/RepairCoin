@@ -12,10 +12,11 @@
 
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
-import { verifyMetaSignature, parseLeadEvents, parseMessagingEvents, type MetaMessagingEvent } from '../services/MetaWebhookService';
+import { verifyMetaSignature, parseLeadEvents, parseMessagingEvents, parseWhatsAppEvents, type MetaMessagingEvent } from '../services/MetaWebhookService';
 import { leadAttributionService } from '../services/LeadAttributionService';
 import { leadAutoAnswerService } from '../services/LeadAutoAnswerService';
 import { messengerService } from '../services/MessengerService';
+import { customerWhatsAppInboundService } from '../../messaging/services/CustomerWhatsAppInboundService';
 import { decryptToken } from '../../../utils/tokenCrypto';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { LeadRepository } from '../repositories/LeadRepository';
@@ -115,6 +116,21 @@ export async function receiveMetaWebhook(req: Request, res: Response): Promise<v
     for (const ev of parseMessagingEvents(payload)) {
       try { await handleMessengerInbound(ev); }
       catch (err) { logger.error(`Meta webhook: messenger inbound failed (psid ${ev.senderPsid})`, err); }
+    }
+  }
+
+  // WhatsApp inbound (object='whatsapp_business_account' arrives on this same Meta app webhook) — route
+  // regular-customer messages into the AI conversation loop (Phase 2 Slice B). Gated by
+  // ENABLE_CUSTOMER_WHATSAPP; parseWhatsAppEvents returns [] for non-WhatsApp payloads so this is a no-op
+  // for page/leadgen posts.
+  if (process.env.ENABLE_CUSTOMER_WHATSAPP === 'true') {
+    for (const ev of parseWhatsAppEvents(payload)) {
+      try {
+        const outcome = await customerWhatsAppInboundService.handleInbound(ev.phoneNumberId, ev.from, ev.text);
+        if (outcome !== 'routed') logger.info('Meta webhook: WhatsApp inbound not routed', { outcome });
+      } catch (err) {
+        logger.error('Meta webhook: whatsapp inbound failed', err);
+      }
     }
   }
 }

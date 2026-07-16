@@ -625,6 +625,15 @@ export interface SpendCheckResult {
    *  (never a dead-end) but MUST run Haiku-only; surface an "upgrade your plan for more AI" message.
    *  Ops that can't cheaply degrade (image/vision generation) should treat this as a block. */
   limitReached?: boolean;
+  /** AI Usage Overage (T3.2): true when the shop has opted into overage AND the ENABLE_AI_OVERAGE
+   *  flag is on. At/over the cap this keeps the FULL model (useCheaperModel=false) instead of the
+   *  Haiku soft-landing — the shop pays "Usage x3" for spend beyond the allowance (metering/charging
+   *  are Slices 2-3). Undefined/false = normal soft-landing. */
+  overageEnabled?: boolean;
+  /** Bill-shock guardrail (Slice 2.5): true when the shop's monthly billable overage
+   *  (AI_OVERAGE_MONTHLY_CAP_USD) is reached — overage stops lifting the model (reverts to Haiku)
+   *  so a runaway session can't create a surprise invoice. */
+  overageCapReached?: boolean;
   currentSpendUsd: number;
   monthlyBudgetUsd: number;
   percentUsed: number;

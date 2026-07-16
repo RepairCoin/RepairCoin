@@ -79,6 +79,8 @@ describe("SpendController.getOwnShopSpend", () => {
         percentUsed: 0,
         monthStartedAt: null,
         callsThisMonth: 0,
+        overageEnabled: false,
+        overageAvailable: false, // ENABLE_AI_OVERAGE not set in test env
       },
     });
     // Should NOT have queried ai_agent_messages — early return after empty settings
@@ -200,5 +202,100 @@ describe("SpendController.getAdminCostSummary", () => {
     const res = makeRes();
     await controllers.getAdminCostSummary(makeReq(), res);
     expect(res.status).toHaveBeenCalledWith(500);
+  });
+});
+
+describe("SpendController.setOwnShopOverage (AI Usage Overage, T3.2)", () => {
+  const ORIG = process.env.ENABLE_AI_OVERAGE;
+  afterEach(() => { process.env.ENABLE_AI_OVERAGE = ORIG; });
+
+  const reqWith = (shopId: any, body: any) => ({ user: shopId ? { role: "shop", shopId } : {}, body } as any);
+
+  it("returns 401 without a shopId", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const controllers = makeSpendControllers({ pool: makePool([]) as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverage(reqWith(null, { enabled: true }), res);
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it("returns 409 when the feature flag is off", async () => {
+    process.env.ENABLE_AI_OVERAGE = "false";
+    const pool = makePool([]);
+    const controllers = makeSpendControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverage(reqWith("peanut", { enabled: true }), res);
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(pool.query).not.toHaveBeenCalled(); // no DB write when unavailable
+  });
+
+  it("returns 400 when `enabled` is not a boolean", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const controllers = makeSpendControllers({ pool: makePool([]) as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverage(reqWith("peanut", { enabled: "yes" }), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it("requires consent to ENABLE (400 without it, no DB write)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const pool = makePool([]);
+    const controllers = makeSpendControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverage(reqWith("peanut", { enabled: true }), res); // no consent
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("enables with consent + card on file, stamping the consent timestamp", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const pool = makePool([[]]);
+    const controllers = makeSpendControllers({ pool: pool as any, hasPaymentMethod: async () => true });
+    const res = makeRes();
+    await controllers.setOwnShopOverage(reqWith("peanut", { enabled: true, consent: true }), res);
+    const upsert = pool.query.mock.calls.find((c: any) => String(c[0]).includes("INSERT INTO ai_shop_settings"));
+    expect(upsert).toBeDefined();
+    expect(upsert[1]).toEqual(["peanut", true]);
+    expect(String(upsert[0])).toContain("ai_overage_consent_at = NOW()"); // stamped on enable
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { overageEnabled: true } });
+  });
+
+  it("returns 402 when enabling without a payment method on file (no DB write)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    process.env.AI_OVERAGE_REQUIRE_CARD = "true";
+    const pool = makePool([]);
+    const controllers = makeSpendControllers({ pool: pool as any, hasPaymentMethod: async () => false });
+    const res = makeRes();
+    await controllers.setOwnShopOverage(reqWith("peanut", { enabled: true, consent: true }), res);
+    expect(res.status).toHaveBeenCalledWith(402);
+    expect(pool.query).not.toHaveBeenCalled();
+    delete process.env.AI_OVERAGE_REQUIRE_CARD;
+  });
+
+  it("skips the card check when AI_OVERAGE_REQUIRE_CARD=false (staging bypass)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    process.env.AI_OVERAGE_REQUIRE_CARD = "false";
+    const pool = makePool([[]]);
+    let cardChecked = false;
+    const controllers = makeSpendControllers({
+      pool: pool as any,
+      hasPaymentMethod: async () => { cardChecked = true; return false; },
+    });
+    const res = makeRes();
+    await controllers.setOwnShopOverage(reqWith("peanut", { enabled: true, consent: true }), res);
+    expect(cardChecked).toBe(false); // bypassed
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { overageEnabled: true } });
+    delete process.env.AI_OVERAGE_REQUIRE_CARD;
+  });
+
+  it("disables without needing consent", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const pool = makePool([[]]);
+    const controllers = makeSpendControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverage(reqWith("peanut", { enabled: false }), res);
+    const upsert = pool.query.mock.calls.find((c: any) => String(c[0]).includes("INSERT INTO ai_shop_settings"));
+    expect(String(upsert[0])).not.toContain("ai_overage_consent_at = NOW()"); // not stamped on disable
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { overageEnabled: false } });
   });
 });

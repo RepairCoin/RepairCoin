@@ -1,10 +1,13 @@
 // backend/src/domains/messaging/services/MessageService.ts
-import { MessageRepository, Conversation, Message, CreateMessageParams } from '../../../repositories/MessageRepository';
+import { MessageRepository, Conversation, Message, CreateMessageParams, ConversationChannel } from '../../../repositories/MessageRepository';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { WebSocketManager } from '../../../services/WebSocketManager';
 import { conversationPresenceService } from '../../../services/ConversationPresenceService';
 import { emailCooldownService } from '../../../services/EmailCooldownService';
 import { AgentOrchestrator } from '../../AIAgentDomain/services/AgentOrchestrator';
+import { CustomerSmsReplyService } from './CustomerSmsReplyService';
+import { CustomerWhatsAppReplyService } from './CustomerWhatsAppReplyService';
+import { CustomerMessagingCostService } from './CustomerMessagingCostService';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -25,6 +28,11 @@ export interface SendMessageRequest {
   attachments?: any[];
   isEncrypted?: boolean;
   clientMessageId?: string;
+  /**
+   * Transport for this message. Omitted → inherits the conversation's channel
+   * (Phase 0 multi-channel foundation). In-app sends leave this unset → 'app'.
+   */
+  channel?: ConversationChannel;
 }
 
 // Lazy module-level AgentOrchestrator. Construction requires ANTHROPIC_API_KEY
@@ -63,10 +71,16 @@ export class MessageService {
   private messageRepo: MessageRepository;
   private notificationService: NotificationService;
   private wsManager?: WebSocketManager;
+  private smsReplyService: CustomerSmsReplyService;
+  private whatsappReplyService: CustomerWhatsAppReplyService;
+  private messagingCostService: CustomerMessagingCostService;
 
   constructor() {
     this.messageRepo = new MessageRepository();
     this.notificationService = new NotificationService();
+    this.smsReplyService = new CustomerSmsReplyService();
+    this.whatsappReplyService = new CustomerWhatsAppReplyService();
+    this.messagingCostService = new CustomerMessagingCostService();
   }
 
   public setWebSocketManager(wsManager: WebSocketManager): void {
@@ -164,7 +178,10 @@ export class MessageService {
         metadata: request.metadata || {},
         attachments: request.attachments || [],
         isEncrypted: request.isEncrypted || false,
-        clientMessageId: request.clientMessageId
+        clientMessageId: request.clientMessageId,
+        // A message inherits the conversation's channel unless the caller
+        // overrides it. Legacy in-app sends pass neither → 'app'.
+        channel: request.channel ?? conversation.channel
       };
 
       const { message, created } = await this.messageRepo.createMessage(messageParams);
@@ -338,7 +355,10 @@ export class MessageService {
       if (
         request.senderType === 'customer' &&
         !request.isEncrypted &&
-        conversation.serviceId
+        // In-app: needs a service_id (unchanged). Off-app (SMS/WhatsApp): no service context, so the
+        // serviceless shop-level path fires instead (Phase 1/2). Only off-app messages enter the
+        // second clause, so in-app behavior is untouched.
+        (conversation.serviceId || messageParams.channel === 'sms' || messageParams.channel === 'whatsapp')
       ) {
         this.fireAiAutoReply({
           messageId,
@@ -347,6 +367,10 @@ export class MessageService {
           shopId: conversation.shopId,
           serviceId: conversation.serviceId,
           customerMessageText: request.messageText.trim(),
+          // Route the reply over the channel the customer just used — NOT the conversation's
+          // stored channel. A known customer's thread stays 'app' even when they text (so in-app
+          // is untouched); the inbound message's channel is what says "reply over SMS".
+          inboundChannel: messageParams.channel ?? 'app',
         });
       }
 
@@ -392,15 +416,54 @@ export class MessageService {
     conversationId: string;
     customerAddress: string;
     shopId: string;
-    serviceId: string;
+    serviceId?: string;
     customerMessageText: string;
+    inboundChannel: ConversationChannel;
   }): void {
     setImmediate(async () => {
       try {
         const orchestrator = getOrchestrator();
         if (!orchestrator) return; // ANTHROPIC_API_KEY missing — silently skip
 
-        const result = await orchestrator.handleCustomerMessage(input);
+        const { inboundChannel, serviceId, ...rest } = input;
+        // Service-anchored (in-app) → the full booking-capable pipeline. Serviceless (SMS/WhatsApp
+        // with no service context) → the shop-level catalog-grounded reply (Slice 2B).
+        // handleCustomerMessage is untouched — the branch just picks which entry point runs.
+        const result = serviceId
+          ? await orchestrator.handleCustomerMessage({ ...rest, serviceId })
+          : await orchestrator.handleShopLevelMessage({
+              ...rest,
+              channel: inboundChannel === 'whatsapp' ? 'whatsapp' : 'sms',
+            });
+
+        // Phase 1 (AI Auto-Replies SMS) — when the conversation lives on SMS, the AI reply the
+        // orchestrator just persisted must ALSO go back out over SMS (the orchestrator only wrote
+        // it to the messages table). D2-independent: the FROM number is resolved per-shop with a
+        // shared-number fallback. In-app ('app') conversations never enter this branch, so the
+        // existing behavior is untouched. Gated further by ENABLE_CUSTOMER_SMS inside the service.
+        if (
+          result.outcome === 'ai_replied' &&
+          (inboundChannel === 'sms' || inboundChannel === 'whatsapp')
+        ) {
+          const relayOutcome =
+            inboundChannel === 'sms'
+              ? await this.smsReplyService.relay(input.conversationId, input.shopId, result.aiMessageId)
+              : await this.whatsappReplyService.relay(input.conversationId, input.shopId, result.aiMessageId);
+          logger.info(`AI reply ${inboundChannel} relay`, {
+            conversationId: input.conversationId,
+            outcome: relayOutcome,
+          });
+          // Phase 3 (D5) — ledger the reply's cost: AI inference always (it was spent regardless of
+          // send), carrier cost only when the message actually left. Best-effort, never blocks.
+          await this.messagingCostService.recordReply({
+            shopId: input.shopId,
+            conversationId: input.conversationId,
+            customerAddress: input.customerAddress,
+            channel: inboundChannel,
+            aiCostUsd: result.costUsd,
+            sent: relayOutcome === 'sent',
+          });
+        }
 
         // On successful AI reply, broadcast WS to BOTH the customer AND the
         // shop so they each see the reply land in real-time (the orchestrator

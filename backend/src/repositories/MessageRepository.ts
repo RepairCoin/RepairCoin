@@ -2,11 +2,26 @@
 import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
 import { shopHasFeature } from '../utils/shopTier';
+/**
+ * Which transport a conversation / message lives on. Phase 0 of the AI
+ * Auto-Replies multi-channel expansion (see
+ * docs/tasks/strategy/pricing-alignment/auto-replies-channel-expansion-scope.md).
+ * 'app' = the existing in-app chat (the default for every legacy row); 'sms'
+ * and 'whatsapp' are wired in later phases behind ENABLE_CUSTOMER_SMS /
+ * ENABLE_CUSTOMER_WHATSAPP.
+ */
+export type ConversationChannel = 'app' | 'sms' | 'whatsapp';
 
 export interface Conversation {
   conversationId: string;
   customerAddress: string;
   shopId: string;
+  /**
+   * The channel this conversation lives on (migration 217). Defaults to 'app'
+   * for every existing/in-app thread; SMS/WhatsApp conversations set it on
+   * creation via the inbound channel router (Phase 1/2).
+   */
+  channel: ConversationChannel;
   // Phase 3 Task 8 — the service the customer is asking about. NULL on legacy
   // conversations and on threads not initiated from a service detail page.
   // The AI auto-reply hook only fires when this is set.
@@ -74,6 +89,8 @@ export interface Message {
   senderType: 'customer' | 'shop';
   messageText: string;
   messageType: 'text' | 'booking_link' | 'service_link' | 'system' | 'encrypted';
+  /** Transport this message was sent/received on (migration 217). Defaults to 'app'. */
+  channel: ConversationChannel;
   attachments: any[];
   metadata: Record<string, any>;
   isEncrypted: boolean;
@@ -116,6 +133,8 @@ export interface CreateMessageParams {
   attachments?: any[];
   isEncrypted?: boolean;
   clientMessageId?: string;
+  /** Transport for this message. Omitted → 'app' (DB default). */
+  channel?: ConversationChannel;
 }
 
 export interface CreateMessageResult {
@@ -437,8 +456,9 @@ export class MessageRepository extends BaseRepository {
           metadata,
           attachments,
           is_encrypted,
-          client_message_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          client_message_id,
+          channel
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (conversation_id, client_message_id) WHERE client_message_id IS NOT NULL
           DO NOTHING
         RETURNING *
@@ -454,7 +474,8 @@ export class MessageRepository extends BaseRepository {
         JSON.stringify(params.metadata || {}),
         JSON.stringify(params.attachments || []),
         params.isEncrypted || false,
-        params.clientMessageId || null
+        params.clientMessageId || null,
+        params.channel || 'app'
       ]);
 
       if (insertResult.rows.length > 0) {
@@ -533,6 +554,49 @@ export class MessageRepository extends BaseRepository {
       return { message: this.mapMessageRow(selectResult.rows[0]), created: false };
     } catch (error) {
       logger.error('Error in createMessage:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch a single message by id (e.g. to read back an AI reply the orchestrator just
+   * persisted, so it can be relayed over an off-app channel like SMS). Null when not found.
+   */
+  async getMessageById(messageId: string): Promise<Message | null> {
+    try {
+      const result = await this.pool.query(
+        `SELECT * FROM messages WHERE message_id = $1 LIMIT 1`,
+        [messageId]
+      );
+      return result.rows.length > 0 ? this.mapMessageRow(result.rows[0]) : null;
+    } catch (error) {
+      logger.error('Error in getMessageById:', error);
+      throw error;
+    }
+  }
+
+  /** Stamp a conversation's channel (e.g. a guest SMS conversation is sms-only). */
+  async setConversationChannel(conversationId: string, channel: ConversationChannel): Promise<void> {
+    try {
+      await this.pool.query(
+        `UPDATE conversations SET channel = $1, updated_at = NOW() WHERE conversation_id = $2`,
+        [channel, conversationId]
+      );
+    } catch (error) {
+      logger.error('Error in setConversationChannel:', error);
+      throw error;
+    }
+  }
+
+  /** Stamp a message's channel (e.g. after relaying an AI reply over SMS). */
+  async setMessageChannel(messageId: string, channel: ConversationChannel): Promise<void> {
+    try {
+      await this.pool.query(
+        `UPDATE messages SET channel = $1, updated_at = NOW() WHERE message_id = $2`,
+        [channel, messageId]
+      );
+    } catch (error) {
+      logger.error('Error in setMessageChannel:', error);
       throw error;
     }
   }
@@ -1037,6 +1101,8 @@ export class MessageRepository extends BaseRepository {
       conversationId: row.conversation_id,
       customerAddress: row.customer_address,
       shopId: row.shop_id,
+      // Defaults to 'app' on legacy rows / queries that predate migration 217.
+      channel: (row.channel as ConversationChannel) ?? 'app',
       serviceId: row.service_id ?? undefined,
       lastMessageAt: row.last_message_at,
       lastMessagePreview: row.last_message_preview,
@@ -1079,6 +1145,7 @@ export class MessageRepository extends BaseRepository {
       senderType: row.sender_type,
       messageText: row.message_text,
       messageType: row.message_type,
+      channel: (row.channel as ConversationChannel) ?? 'app',
       attachments: row.attachments || [],
       metadata: row.metadata || {},
       isEncrypted: row.is_encrypted || false,

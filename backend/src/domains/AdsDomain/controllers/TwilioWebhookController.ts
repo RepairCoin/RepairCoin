@@ -18,6 +18,7 @@ import { normalizePhone } from '../../../utils/phone';
 import { leadAutoAnswerService } from '../services/LeadAutoAnswerService';
 import { LeadRepository } from '../repositories/LeadRepository';
 import { LeadMessageRepository } from '../repositories/LeadMessageRepository';
+import { customerSmsInboundService } from '../../messaging/services/CustomerSmsInboundService';
 
 const leads = new LeadRepository();
 const messages = new LeadMessageRepository();
@@ -74,11 +75,23 @@ export async function receiveTwilioWebhook(req: Request, res: Response): Promise
     if (STOP_RE.test(word)) { await smsOptOutRepository.optOut(from, 'stop_keyword'); logger.info(`Twilio: SMS opt-out recorded for ${from}`); return; }
     if (START_RE.test(word)) { await smsOptOutRepository.optIn(from, 'start_keyword'); logger.info(`Twilio: SMS opt-in recorded for ${from}`); return; }
 
-    // (3) Route the text into the ads lead loop (AI auto-answers if the campaign has it enabled).
     if (!body) return;
+
+    // (3) Ads lead loop first — if this phone belongs to an ad lead, AI auto-answers (when the
+    // campaign has it enabled).
     const lead = await leads.findByPhone(from);
-    if (!lead) { logger.info('Twilio: inbound SMS from an unknown phone — no lead to attach, skipped'); return; }
-    await leadAutoAnswerService.handleInbound(lead.id, body, 'sms', params.MessageSid ?? null);
+    if (lead) {
+      await leadAutoAnswerService.handleInbound(lead.id, body, 'sms', params.MessageSid ?? null);
+      return;
+    }
+
+    // (4) Not an ad lead → regular-customer SMS conversation loop (Phase 1 Slice 2C). Routes by the
+    // number the customer texted (To→shop). No-op unless ENABLE_CUSTOMER_SMS is on. Skipped cleanly
+    // ('no_shop') until the shop has its own dedicated number (D2).
+    const outcome = await customerSmsInboundService.handleInbound(params.To, from, body);
+    if (outcome !== 'routed') {
+      logger.info('Twilio: inbound SMS not routed to a customer conversation', { outcome });
+    }
   } catch (err) {
     logger.error('Twilio webhook processing failed', err);
   }

@@ -127,6 +127,26 @@ class WhatsAppService {
   }
 
   /**
+   * Send a free-form text message to a customer (Phase 1/2 AI Auto-Replies over WhatsApp).
+   *
+   * Free-form (non-template) messages are only permitted inside the 24-hour customer-service window
+   * — i.e. within 24h of the customer's last inbound message. Our auto-reply flow is REACTIVE (the
+   * customer just messaged us), so we're always inside the window and no message template is needed.
+   * Business-INITIATED messaging outside 24h would require an approved template (not this path).
+   *
+   * Best-effort — never throws; returns a coarse status the caller records.
+   */
+  public async sendText(to: string, body: string): Promise<{ status: 'sent' | 'disabled' | 'failed' }> {
+    if (!this.isEnabled()) return { status: 'disabled' };
+    const ok = await this.sendMessage({
+      to: this.formatPhoneNumber(to),
+      type: 'text',
+      text: { body },
+    });
+    return { status: ok ? 'sent' : 'failed' };
+  }
+
+  /**
    * Format phone number to E.164 format (+1234567890)
    */
   private formatPhoneNumber(phone: string): string {

@@ -81,6 +81,124 @@ describe("SpendCapEnforcer.canSpend — thresholds", () => {
   });
 });
 
+describe("SpendCapEnforcer.canSpend — AI Usage Overage (T3.2)", () => {
+  const ORIG = process.env.ENABLE_AI_OVERAGE;
+  afterEach(() => { process.env.ENABLE_AI_OVERAGE = ORIG; });
+
+  // rows carry both spend + the overage opt-in flag
+  const row = (v: string, overage: boolean) => [{ current_month_spend_usd: v, ai_overage_enabled: overage }];
+
+  it("keeps the FULL model past the cap when overage is enabled AND the flag is on (no nag)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true))).canSpend("s"); // $40 on $30
+    expect(r.allowed).toBe(true);
+    expect(r.useCheaperModel).toBe(false); // NOT degraded
+    expect(r.overageEnabled).toBe(true);
+    expect(r.limitReached).toBe(false); // limit no longer actionable → banner suppressed
+  });
+
+  it("still soft-lands to Haiku when the shop has NOT opted into overage (flag on)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", false))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true);
+    expect(r.limitReached).toBe(true);
+    expect(r.overageEnabled).toBe(false);
+  });
+
+  it("ignores the opt-in when the master flag is OFF (soft-lands to Haiku)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "false";
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true);
+    expect(r.overageEnabled).toBe(false);
+  });
+
+  it("does nothing below the cap even with overage on", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const r = await new SpendCapEnforcer(mockPool(row("9.00", true))).canSpend("s"); // 30%
+    expect(r.limitReached).toBeFalsy();
+    expect(r.useCheaperModel).toBe(false);
+  });
+});
+
+describe("SpendCapEnforcer.canSpend — overage bill-shock guardrail (T3.2 Slice 2.5)", () => {
+  const ORIG_FLAG = process.env.ENABLE_AI_OVERAGE;
+  const ORIG_CAP = process.env.AI_OVERAGE_MONTHLY_CAP_USD;
+  beforeEach(() => { process.env.ENABLE_AI_OVERAGE = "true"; });
+  afterEach(() => { process.env.ENABLE_AI_OVERAGE = ORIG_FLAG; process.env.AI_OVERAGE_MONTHLY_CAP_USD = ORIG_CAP; });
+
+  const row = (v: string, overage: boolean) => [{ current_month_spend_usd: v, ai_overage_enabled: overage }];
+
+  it("reverts to Haiku once the billable overage reaches the cap (growth $30, spent $40 → $30 billable ≥ $5 cap)", async () => {
+    process.env.AI_OVERAGE_MONTHLY_CAP_USD = "5";
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true); // guardrail → degraded
+    expect(r.overageCapReached).toBe(true);
+    expect(r.limitReached).toBe(true);
+  });
+
+  it("keeps the full model while under the cap ($40 → $30 billable < $100 default)", async () => {
+    delete process.env.AI_OVERAGE_MONTHLY_CAP_USD; // default 100
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true))).canSpend("s");
+    expect(r.useCheaperModel).toBe(false);
+    expect(r.overageCapReached).toBeFalsy();
+  });
+
+  it("treats cap=0 as unlimited (huge spend still full model)", async () => {
+    process.env.AI_OVERAGE_MONTHLY_CAP_USD = "0";
+    const r = await new SpendCapEnforcer(mockPool(row("1000.00", true))).canSpend("s");
+    expect(r.useCheaperModel).toBe(false);
+    expect(r.overageCapReached).toBeFalsy();
+  });
+});
+
+describe("SpendCapEnforcer.recordSpend — overage accrual (T3.2 Slice 2)", () => {
+  const ORIG = process.env.ENABLE_AI_OVERAGE;
+  beforeEach(() => { process.env.ENABLE_AI_OVERAGE = "true"; mockedGetShopTier.mockResolvedValue("growth"); }); // $30
+  afterEach(() => { process.env.ENABLE_AI_OVERAGE = ORIG; });
+
+  // UPDATE ... RETURNING returns the post-increment spend + the opt-in flag.
+  const recordPool = (afterSpend: string, overage: boolean) =>
+    ({ query: jest.fn().mockResolvedValue({ rows: [{ current_month_spend_usd: afterSpend, ai_overage_enabled: overage }] }) } as any);
+
+  it("accrues only the slice of the increment that crossed the cap ($28→$33 on $30 → $3)", async () => {
+    const accrue = jest.fn().mockResolvedValue(undefined);
+    await new SpendCapEnforcer(recordPool("33.00", true), accrue).recordSpend("s", 5); // before $28
+    expect(accrue).toHaveBeenCalledWith("s", 3);
+  });
+
+  it("accrues the whole cost when already over the cap ($35→$37 → $2)", async () => {
+    const accrue = jest.fn().mockResolvedValue(undefined);
+    await new SpendCapEnforcer(recordPool("37.00", true), accrue).recordSpend("s", 2);
+    expect(accrue).toHaveBeenCalledWith("s", 2);
+  });
+
+  it("does not accrue when the increment stays under the cap ($10→$15 on $30)", async () => {
+    const accrue = jest.fn().mockResolvedValue(undefined);
+    await new SpendCapEnforcer(recordPool("15.00", true), accrue).recordSpend("s", 5);
+    expect(accrue).not.toHaveBeenCalled();
+  });
+
+  it("does not accrue when the shop has NOT opted into overage", async () => {
+    const accrue = jest.fn().mockResolvedValue(undefined);
+    await new SpendCapEnforcer(recordPool("40.00", false), accrue).recordSpend("s", 5);
+    expect(accrue).not.toHaveBeenCalled();
+  });
+
+  it("does not accrue when the master flag is OFF", async () => {
+    process.env.ENABLE_AI_OVERAGE = "false";
+    const accrue = jest.fn().mockResolvedValue(undefined);
+    await new SpendCapEnforcer(recordPool("40.00", true), accrue).recordSpend("s", 5);
+    expect(accrue).not.toHaveBeenCalled();
+  });
+
+  it("never lets an accrual failure break recordSpend", async () => {
+    const accrue = jest.fn().mockRejectedValue(new Error("ledger down"));
+    await expect(
+      new SpendCapEnforcer(recordPool("40.00", true), accrue).recordSpend("s", 5)
+    ).resolves.toBeUndefined();
+  });
+});
+
 describe("SpendCapEnforcer.recordSpend", () => {
   it("issues an UPDATE with the cost amount", async () => {
     const pool = mockPool(spend("5.00"));

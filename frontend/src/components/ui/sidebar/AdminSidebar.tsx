@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck, ScrollText, DollarSign, Webhook, Gem, Share2, Building2 } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck, ScrollText, DollarSign, Webhook, Gem, Share2, MessageSquare, Building2 } from "lucide-react";
 import { SettingsIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
@@ -87,6 +87,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const getMenuItems = (): SidebarItem[] => {
     const isSuper = isSuperAdmin === true || adminRole === "super_admin";
     const adsEnabled = process.env.NEXT_PUBLIC_ADS_DASHBOARD_ENABLED === "true";
+    const messagingCostsEnabled = process.env.NEXT_PUBLIC_MESSAGING_COSTS_ENABLED === "true";
 
     // Non-clickable category header row (detected in the render by tabId).
     const section = (title: string): SidebarItem => ({
@@ -146,6 +147,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
       section("AI Tools"),
       { title: "Platform Copilot", href: "/admin?tab=copilot", icon: <Bot className="w-5 h-5" />, tabId: "copilot" },
+      ...(messagingCostsEnabled ? [{ title: "AI Messaging Costs", href: "/admin?tab=messaging-costs", icon: <MessageSquare className="w-5 h-5" />, tabId: "messaging-costs" }] : []),
       { title: "AI Agent", href: "/admin?tab=ai-agent", icon: <Bot className="w-5 h-5" />, tabId: "ai-agent" },
       { title: "Content Moderation", href: "/admin?tab=content-moderation", icon: <ShieldCheck className="w-5 h-5" />, tabId: "content-moderation" },
 

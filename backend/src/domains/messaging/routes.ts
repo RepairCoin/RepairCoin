@@ -3,11 +3,13 @@ import { Router } from 'express';
 import multer from 'multer';
 import { MessageController } from './controllers/MessageController';
 import { AutoMessageController } from './controllers/AutoMessageController';
-import { authMiddleware } from '../../middleware/auth';
+import { MessagingAdminController } from './controllers/MessagingAdminController';
+import { authMiddleware, requireRole } from '../../middleware/auth';
 
 const router = Router();
 const messageController = new MessageController();
 const autoMessageController = new AutoMessageController();
+const messagingAdminController = new MessagingAdminController();
 
 // Multer config for message attachments
 const attachmentUpload = multer({
@@ -28,6 +30,13 @@ const attachmentUpload = multer({
 
 // All messaging routes require authentication
 router.use(authMiddleware);
+
+/**
+ * @route GET /api/messages/admin/messaging-costs
+ * @description Admin: off-channel AI-messaging cost ledger (AI vs carrier per shop) + consent counts
+ * @access Admin only
+ */
+router.get('/admin/messaging-costs', requireRole(['admin']), messagingAdminController.getMessagingCostSummary);
 
 /**
  * @route POST /api/messages/send
