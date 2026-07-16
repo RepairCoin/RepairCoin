@@ -62,6 +62,26 @@ export class AgencyController {
     }
   }
 
+  // POST /api/agency/cancel — schedule the owning shop's Agency Program to cancel at period end.
+  async cancel(req: Request, res: Response) {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        ResponseHelper.error(res, 'Shop session required', 401);
+        return;
+      }
+      const result = await agencyService.cancelForShop(shopId);
+      ResponseHelper.success(res, result, 'Agency Program will cancel at the end of the billing period');
+    } catch (error: any) {
+      const clientErrors = [
+        'This shop does not have an active agency',
+        'No active agency subscription to cancel',
+      ];
+      const status = clientErrors.includes(error?.message) ? 400 : 500;
+      ResponseHelper.error(res, error.message, status);
+    }
+  }
+
   // POST /api/agency/invites — mint a client invite link for the owning shop's agency.
   async createInvite(req: Request, res: Response) {
     try {
@@ -197,10 +217,39 @@ export class AgencyController {
     }
   }
 
-  // GET /api/agency (admin) — list all agencies.
+  // GET /api/agency/:id/clients (admin) — the client shops of a given agency.
+  async getAgencyClients(req: Request, res: Response) {
+    try {
+      const clients = await agencyService.listClientsForAgencyId(req.params.id);
+      ResponseHelper.success(res, clients);
+    } catch (error: any) {
+      const status = error?.message === 'Agency not found' ? 404 : 500;
+      ResponseHelper.error(res, error.message, status);
+    }
+  }
+
+  // PATCH /api/agency/:id/account-manager (admin) — assign or clear the agency's account manager.
+  async assignAccountManager(req: Request, res: Response) {
+    try {
+      const { accountManagerAddress } = req.body ?? {};
+      const agency = await agencyService.setAccountManager(
+        req.params.id,
+        accountManagerAddress || null
+      );
+      ResponseHelper.success(res, agency, 'Account manager updated');
+    } catch (error: any) {
+      const clientErrors = ['Agency not found', 'Account manager must be an active admin'];
+      const status = error?.message === 'Agency not found'
+        ? 404
+        : clientErrors.includes(error?.message) ? 400 : 500;
+      ResponseHelper.error(res, error.message, status);
+    }
+  }
+
+  // GET /api/agency (admin) — list all agencies with display stats for the admin roster.
   async listAgencies(_req: Request, res: Response) {
     try {
-      const agencies = await agencyService.listAgencies();
+      const agencies = await agencyService.listAgenciesWithStats();
       ResponseHelper.success(res, agencies);
     } catch (error: any) {
       ResponseHelper.error(res, error.message, 500);

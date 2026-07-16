@@ -1066,6 +1066,21 @@ export const adminApi = {
     return apiClient.get('/admin/my-assigned-agencies');
   },
 
+  // All agencies platform-wide (admin roster)
+  getAllAgencies: async () => {
+    return apiClient.get('/agency');
+  },
+
+  // A given agency's client shops (admin)
+  getAgencyClients: async (agencyId: string) => {
+    return apiClient.get(`/agency/${agencyId}/clients`);
+  },
+
+  // Assign or clear an agency's account manager (admin); pass "" to unassign
+  assignAgencyManager: async (agencyId: string, accountManagerAddress: string) => {
+    return apiClient.patch(`/agency/${agencyId}/account-manager`, { accountManagerAddress });
+  },
+
   // The current admin's own contact profile (name/email/phone) — shown to shops they manage
   getMyProfile: async () => {
     return apiClient.get('/admin/profile/me');

@@ -22,6 +22,9 @@ const requireShop = requireRole(['shop']);
 // Self-serve activation: start Stripe checkout for the $999/mo Agency Program add-on.
 router.post('/activate', requireShop, asyncHandler(controller.activate.bind(controller)));
 
+// Self-serve cancel: schedule the Agency Program to cancel at the end of the billing period.
+router.post('/cancel', requireShop, asyncHandler(controller.cancel.bind(controller)));
+
 // The owning shop's agency profile (account + client usage + AM contact).
 router.get('/me', requireShop, asyncHandler(controller.getMyAgency.bind(controller)));
 
@@ -46,5 +49,11 @@ router.post('/', requireAdmin, asyncHandler(controller.provisionAgency.bind(cont
 
 // List all agencies.
 router.get('/', requireAdmin, asyncHandler(controller.listAgencies.bind(controller)));
+
+// A given agency's client shops.
+router.get('/:id/clients', requireAdmin, asyncHandler(controller.getAgencyClients.bind(controller)));
+
+// Assign or clear a given agency's account manager.
+router.patch('/:id/account-manager', requireAdmin, asyncHandler(controller.assignAccountManager.bind(controller)));
 
 export default router;

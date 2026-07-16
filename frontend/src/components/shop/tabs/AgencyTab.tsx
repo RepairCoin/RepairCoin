@@ -100,6 +100,30 @@ export function AgencyTab() {
     }
   };
 
+  const [cancelling, setCancelling] = useState(false);
+  const cancelProgram = async () => {
+    const n = clients.length;
+    if (
+      !window.confirm(
+        `Cancel the Agency Program? It stays active until the end of your billing period, then your ${n} client shop${n === 1 ? "" : "s"} lose Growth coverage and each will need its own subscription.`
+      )
+    ) {
+      return;
+    }
+    setCancelling(true);
+    try {
+      const res: any = await agencyApi.cancel();
+      const end = res?.data?.currentPeriodEnd
+        ? new Date(res.data.currentPeriodEnd).toLocaleDateString()
+        : null;
+      toast.success(end ? `Agency Program will cancel on ${end}` : "Agency Program will cancel at period end");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to cancel the Agency Program");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -271,6 +295,24 @@ export function AgencyTab() {
             No client shops yet. Invite your first client to get started.
           </p>
         )}
+      </div>
+
+      {/* Subscription / cancel */}
+      <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-white font-medium">Agency Program subscription</p>
+          <p className="text-sm text-gray-400">
+            $999/mo · cancelling keeps access until your period ends, then clients lose Growth coverage.
+          </p>
+        </div>
+        <button
+          onClick={cancelProgram}
+          disabled={cancelling}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 text-sm font-medium"
+        >
+          {cancelling && <Loader2 className="w-4 h-4 animate-spin" />}
+          Cancel Agency Program
+        </button>
       </div>
 
       {showInvite && (

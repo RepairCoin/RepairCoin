@@ -88,6 +88,34 @@ export class AgencyService {
     return agencyRepository.listAgencies();
   }
 
+  /** All agencies with display stats for the admin roster. */
+  async listAgenciesWithStats() {
+    return agencyRepository.listAgenciesWithStats();
+  }
+
+  /** Admin: the client shops of a given agency (by agency id). */
+  async listClientsForAgencyId(agencyId: string): Promise<AgencyClientShop[]> {
+    const agency = await agencyRepository.getAgency(agencyId);
+    if (!agency) throw new Error('Agency not found');
+    return agencyRepository.listClients(agencyId);
+  }
+
+  /** Admin: assign (or clear) an agency's account manager. Address must be an active admin. */
+  async setAccountManager(agencyId: string, address: string | null): Promise<Agency> {
+    const agency = await agencyRepository.getAgency(agencyId);
+    if (!agency) throw new Error('Agency not found');
+    if (address) {
+      const manager = await adminRepository.getAdmin(address);
+      if (!manager || manager.isActive === false) {
+        throw new Error('Account manager must be an active admin');
+      }
+    }
+    const updated = await agencyRepository.updateAccountManager(agencyId, address);
+    if (!updated) throw new Error('Agency not found');
+    logger.info('Agency account manager updated', { agencyId, address });
+    return updated;
+  }
+
   /** The agency owned by a shop, or null if the shop hasn't activated the add-on. */
   async getAgencyForShop(ownerShopId: string): Promise<Agency | null> {
     return agencyRepository.getAgencyByOwnerShop(ownerShopId);
@@ -383,6 +411,29 @@ export class AgencyService {
 
     logger.info('Agency activation checkout session created', { ownerShopId, sessionId: session.id });
     return { paymentUrl: session.url ?? '', sessionId: session.id };
+  }
+
+  /**
+   * Self-serve cancel of the Agency Program: schedule the $999/mo subscription to cancel at the
+   * end of the current period. The agency (and its clients' Growth coverage) stays active until
+   * then; the customer.subscription.deleted webhook flips status→cancelled + de-entitles clients.
+   */
+  async cancelForShop(ownerShopId: string): Promise<{ cancelAtPeriodEnd: boolean; currentPeriodEnd: string | null }> {
+    const agency = await this.requireAgencyForShop(ownerShopId);
+    if (!agency.stripeSubscriptionId) {
+      throw new Error('No active agency subscription to cancel');
+    }
+    const stripe = getStripeService().getStripe();
+    const sub = await stripe.subscriptions.update(agency.stripeSubscriptionId, {
+      cancel_at_period_end: true,
+    });
+    const periodEndTs =
+      (sub as any).current_period_end ?? (sub.items?.data?.[0] as any)?.current_period_end ?? null;
+    logger.info('Agency subscription set to cancel at period end', { agencyId: agency.id });
+    return {
+      cancelAtPeriodEnd: true,
+      currentPeriodEnd: periodEndTs ? new Date(periodEndTs * 1000).toISOString() : null,
+    };
   }
 
   /**

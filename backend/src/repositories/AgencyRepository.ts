@@ -235,6 +235,68 @@ export class AgencyRepository extends BaseRepository {
     }
   }
 
+  /** All agencies with display stats for the admin roster (owner shop, client count, AM). */
+  async listAgenciesWithStats(): Promise<Array<{
+    id: string;
+    name: string;
+    ownerShopId: string;
+    ownerShopName: string | null;
+    status: AgencyStatus;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    activeClientCount: number;
+    clientLimit: number;
+    accountManagerAddress: string | null;
+    accountManagerName: string | null;
+    createdAt: string;
+  }>> {
+    try {
+      const result = await this.pool.query(
+        `SELECT a.id, a.name, a.owner_shop_id, os.name AS owner_shop_name,
+                a.status, a.contact_email, a.contact_phone, a.client_limit,
+                a.account_manager_address, adm.name AS account_manager_name, a.created_at,
+                (SELECT COUNT(*)::int FROM agency_clients ac
+                  WHERE ac.agency_id = a.id AND ac.status = 'active') AS active_client_count
+           FROM agencies a
+           LEFT JOIN shops os ON os.shop_id = a.owner_shop_id
+           LEFT JOIN admins adm ON LOWER(adm.wallet_address) = LOWER(a.account_manager_address)
+          ORDER BY a.created_at DESC`
+      );
+      return result.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        ownerShopId: row.owner_shop_id,
+        ownerShopName: row.owner_shop_name,
+        status: row.status,
+        contactEmail: row.contact_email,
+        contactPhone: row.contact_phone,
+        activeClientCount: row.active_client_count,
+        clientLimit: row.client_limit,
+        accountManagerAddress: row.account_manager_address,
+        accountManagerName: row.account_manager_name,
+        createdAt: row.created_at,
+      }));
+    } catch (error) {
+      logger.error('Error listing agencies with stats:', error);
+      throw new Error('Failed to list agencies');
+    }
+  }
+
+  /** Assign or clear an agency's account manager (admin wallet, or null to unassign). */
+  async updateAccountManager(agencyId: string, address: string | null): Promise<Agency | null> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE agencies SET account_manager_address = $2, updated_at = NOW()
+          WHERE id = $1 RETURNING *`,
+        [agencyId, address ? address.toLowerCase() : null]
+      );
+      return result.rows[0] ? this.mapAgency(result.rows[0]) : null;
+    } catch (error) {
+      logger.error('Error updating agency account manager:', error);
+      throw new Error('Failed to update agency account manager');
+    }
+  }
+
   /** Active client shops for an agency (joined to shops for display). */
   async listClients(agencyId: string): Promise<AgencyClientShop[]> {
     try {
