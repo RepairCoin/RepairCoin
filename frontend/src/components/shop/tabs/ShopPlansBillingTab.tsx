@@ -96,8 +96,9 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
       await setOverage(enabled, enabled ? true : undefined);
       toast.success(enabled ? "AI Usage overage enabled" : "AI Usage overage disabled");
       await load();
-    } catch {
-      toast.error("Couldn't update overage — please try again");
+    } catch (e: any) {
+      // Surface the server reason (e.g. 402 "Add a payment method before enabling…").
+      toast.error(e?.response?.data?.error || "Couldn't update overage — please try again");
     } finally {
       setTogglingOverage(false);
     }

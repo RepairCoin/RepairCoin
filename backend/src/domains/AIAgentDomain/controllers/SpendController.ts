@@ -17,9 +17,27 @@ import { Pool } from "pg";
 import { getSharedPool } from "../../../utils/database-pool";
 import { getShopAiBudget } from "../../../utils/shopTier";
 import { logger } from "../../../utils/logger";
+import { shopRepository } from "../../../repositories";
+import { getStripeService } from "../../../services/StripeService";
 
 export interface SpendControllerDeps {
   pool?: Pool;
+  /** Whether the shop has a usable payment method on file — gate for enabling overage.
+   *  Injectable for tests; default resolves the shop's Stripe customer + lists cards. */
+  hasPaymentMethod?: (shopId: string) => Promise<boolean>;
+}
+
+/** Default card-on-file check: shop's Stripe customer (from the $500 subscription) has ≥1 payment method. */
+async function defaultHasPaymentMethod(shopId: string): Promise<boolean> {
+  try {
+    const shop = await shopRepository.getShop(shopId);
+    if (!shop?.stripeCustomerId) return false;
+    const pms = await getStripeService().listPaymentMethods(shop.stripeCustomerId);
+    return Array.isArray(pms) && pms.length > 0;
+  } catch (err) {
+    logger.error("defaultHasPaymentMethod failed", { shopId, error: (err as Error)?.message });
+    return false; // fail closed — no proof of a card ⇒ don't let them enable a billable feature
+  }
 }
 
 /**
@@ -28,6 +46,7 @@ export interface SpendControllerDeps {
  */
 export function makeSpendControllers(deps: SpendControllerDeps = {}) {
   const pool = deps.pool ?? getSharedPool();
+  const hasPaymentMethod = deps.hasPaymentMethod ?? defaultHasPaymentMethod;
 
   return {
     getOwnShopSpend: async (req: Request, res: Response): Promise<void> => {
@@ -148,6 +167,19 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
         if (enabled && body.consent !== true) {
           res.status(400).json({ success: false, error: "Consent to the Usage x3 overage terms is required to enable" });
           return;
+        }
+        // Card-required-to-enable (Slice 2.5): a billable feature needs a payment method on file so a
+        // charge never fails. Enforced by default; AI_OVERAGE_REQUIRE_CARD=false bypasses it for
+        // behavior-testing on staging (where shops may have no card).
+        if (enabled && process.env.AI_OVERAGE_REQUIRE_CARD !== "false") {
+          if (!(await hasPaymentMethod(shopId))) {
+            res.status(402).json({
+              success: false,
+              error: "Add a payment method before enabling AI Usage Overage",
+              code: "payment_method_required",
+            });
+            return;
+          }
         }
 
         await pool.query(
