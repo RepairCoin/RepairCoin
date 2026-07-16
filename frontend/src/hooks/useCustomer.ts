@@ -13,6 +13,7 @@ interface RegistrationFormData {
   first_name: string;
   last_name: string;
   email: string;
+  phone: string;
   referralCode: string;
 }
 
@@ -70,6 +71,7 @@ export const useCustomer = (): UseCustomerReturn => {
     first_name: '',
     last_name: '',
     email: '',
+    phone: '',
     referralCode: ''
   });
   
@@ -149,6 +151,7 @@ export const useCustomer = (): UseCustomerReturn => {
         first_name: registrationFormData.first_name,
         last_name: registrationFormData.last_name,
         email: registrationFormData.email,
+        phone: registrationFormData.phone,
         referralCode: registrationFormData.referralCode,
         captchaToken: captchaToken || undefined,
       };

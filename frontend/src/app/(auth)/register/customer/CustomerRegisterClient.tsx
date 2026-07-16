@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,6 +11,18 @@ import { useCustomer } from "@/hooks/useCustomer";
 import { getUserEmail } from "thirdweb/wallets";
 import { getProfiles } from "thirdweb/wallets/in-app";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
+import { getApiBaseUrl } from "@/utils/apiUrl";
+import { CountryPhoneInput } from "@/components/ui/CountryPhoneInput";
+
+type ReferralStatus = "idle" | "checking" | "valid" | "invalid";
+
+interface FieldErrors {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  referralCode?: string;
+  terms?: string;
+}
 
 const client = createThirdwebClient({
   clientId:
@@ -34,6 +47,14 @@ export default function CustomerRegisterClient() {
     clearMessages,
   } = useCustomer();
 
+  // Email is locked (read-only) when it comes from a verified social/email login,
+  // so the stored email can't drift from the account's real identity. External
+  // wallet logins have no email, so the field stays editable for them.
+  const [emailLocked, setEmailLocked] = useState(false);
+  const [referralStatus, setReferralStatus] = useState<ReferralStatus>("idle");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
   // Pre-fill email and name from the social/email login profile if available
   useEffect(() => {
     const fetchProfile = async () => {
@@ -42,6 +63,7 @@ export default function CustomerRegisterClient() {
       const email = await getUserEmail({ client });
       if (email) {
         updateRegistrationFormField("email", email);
+        setEmailLocked(true);
       }
 
       // Pre-fill name from the social (Google/Apple) profile so customers
@@ -71,10 +93,61 @@ export default function CustomerRegisterClient() {
     fetchProfile();
   }, [account?.address, updateRegistrationFormField]);
 
+  // Inline-validate the (optional) referral code against the backend, so a bad
+  // code is caught here instead of failing the whole registration on submit.
+  const validateReferral = async (rawCode: string) => {
+    const code = rawCode.trim();
+    if (!code) {
+      setReferralStatus("idle");
+      setFieldErrors((prev) => ({ ...prev, referralCode: undefined }));
+      return;
+    }
+    setReferralStatus("checking");
+    try {
+      const res = await fetch(
+        `${getApiBaseUrl()}/referrals/validate/${encodeURIComponent(code)}`
+      );
+      const body = await res.json();
+      const isValid = res.ok && body?.data?.valid === true;
+      setReferralStatus(isValid ? "valid" : "invalid");
+      setFieldErrors((prev) => ({
+        ...prev,
+        referralCode: isValid ? undefined : "This referral code isn't valid. Clear it or enter a correct one.",
+      }));
+    } catch {
+      // If the check itself fails, don't block signup — just clear the state.
+      setReferralStatus("idle");
+      setFieldErrors((prev) => ({ ...prev, referralCode: undefined }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: FieldErrors = {};
+    if (!registrationFormData.first_name.trim())
+      errors.first_name = "First name is required.";
+    if (!registrationFormData.last_name.trim())
+      errors.last_name = "Last name is required.";
+    const email = registrationFormData.email.trim();
+    if (!email) {
+      errors.email = "Email is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = "Enter a valid email address.";
+    }
+    if (registrationFormData.referralCode.trim() && referralStatus === "invalid")
+      errors.referralCode = "This referral code isn't valid. Clear it or enter a correct one.";
+    if (!agreedToTerms)
+      errors.terms = "Please accept the Privacy Policy to continue.";
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!account?.address) return;
+
+    if (!validateForm()) return;
 
     // Execute CAPTCHA before registration
     const captchaToken = await executeCaptcha('register');
@@ -151,52 +224,99 @@ export default function CustomerRegisterClient() {
                 {/* First Name */}
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-400">
-                    First Name
+                    First Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     name="first_name"
                     value={registrationFormData.first_name}
-                    onChange={(e) =>
-                      updateRegistrationFormField("first_name", e.target.value)
-                    }
+                    onChange={(e) => {
+                      updateRegistrationFormField("first_name", e.target.value);
+                      if (fieldErrors.first_name)
+                        setFieldErrors((p) => ({ ...p, first_name: undefined }));
+                    }}
                     placeholder="Enter first name"
-                    className="w-full px-4 py-3 border border-gray-600 bg-[#2F2F2F] text-white text-sm sm:text-base rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all placeholder:text-gray-500"
+                    className={`w-full px-4 py-3 border bg-[#2F2F2F] text-white text-sm sm:text-base rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all placeholder:text-gray-500 ${
+                      fieldErrors.first_name ? "border-red-500" : "border-gray-600"
+                    }`}
                   />
+                  {fieldErrors.first_name && (
+                    <p className="text-xs text-red-400">{fieldErrors.first_name}</p>
+                  )}
                 </div>
 
                 {/* Last Name */}
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-400">
-                    Last Name
+                    Last Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     name="last_name"
                     value={registrationFormData.last_name}
-                    onChange={(e) =>
-                      updateRegistrationFormField("last_name", e.target.value)
-                    }
+                    onChange={(e) => {
+                      updateRegistrationFormField("last_name", e.target.value);
+                      if (fieldErrors.last_name)
+                        setFieldErrors((p) => ({ ...p, last_name: undefined }));
+                    }}
                     placeholder="Enter last name"
-                    className="w-full px-4 py-3 border border-gray-600 bg-[#2F2F2F] text-white text-sm sm:text-base rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all placeholder:text-gray-500"
+                    className={`w-full px-4 py-3 border bg-[#2F2F2F] text-white text-sm sm:text-base rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all placeholder:text-gray-500 ${
+                      fieldErrors.last_name ? "border-red-500" : "border-gray-600"
+                    }`}
                   />
+                  {fieldErrors.last_name && (
+                    <p className="text-xs text-red-400">{fieldErrors.last_name}</p>
+                  )}
                 </div>
 
                 {/* Email */}
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-400">
-                    Email Address
+                    Email Address <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={registrationFormData.email}
-                    onChange={(e) =>
-                      updateRegistrationFormField("email", e.target.value)
-                    }
+                    onChange={(e) => {
+                      if (emailLocked) return;
+                      updateRegistrationFormField("email", e.target.value);
+                      if (fieldErrors.email)
+                        setFieldErrors((p) => ({ ...p, email: undefined }));
+                    }}
+                    readOnly={emailLocked}
                     placeholder="Enter email address"
-                    className="w-full px-4 py-3 border border-gray-600 bg-[#2F2F2F] text-white text-sm sm:text-base rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all placeholder:text-gray-500"
+                    className={`w-full px-4 py-3 border bg-[#2F2F2F] text-white text-sm sm:text-base rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all placeholder:text-gray-500 ${
+                      emailLocked ? "opacity-70 cursor-not-allowed" : ""
+                    } ${fieldErrors.email ? "border-red-500" : "border-gray-600"}`}
                   />
+                  {emailLocked ? (
+                    <p className="text-xs text-gray-500">
+                      Verified from your login — can&apos;t be changed here.
+                    </p>
+                  ) : (
+                    fieldErrors.email && (
+                      <p className="text-xs text-red-400">{fieldErrors.email}</p>
+                    )
+                  )}
+                </div>
+
+                {/* Phone Number */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-400">
+                    Phone Number{" "}
+                    <span className="text-gray-600">(Optional)</span>
+                  </label>
+                  <CountryPhoneInput
+                    value={registrationFormData.phone}
+                    onChange={(phone) =>
+                      updateRegistrationFormField("phone", phone)
+                    }
+                    placeholder="Enter phone number"
+                  />
+                  <p className="text-xs text-gray-500">
+                    For appointment reminders and reward updates.
+                  </p>
                 </div>
 
                 {/* Referral Code */}
@@ -208,17 +328,67 @@ export default function CustomerRegisterClient() {
                     type="text"
                     name="referralCode"
                     value={registrationFormData.referralCode}
-                    onChange={(e) =>
-                      updateRegistrationFormField("referralCode", e.target.value)
-                    }
+                    onChange={(e) => {
+                      updateRegistrationFormField("referralCode", e.target.value);
+                      setReferralStatus("idle");
+                      if (fieldErrors.referralCode)
+                        setFieldErrors((p) => ({ ...p, referralCode: undefined }));
+                    }}
+                    onBlur={(e) => validateReferral(e.target.value)}
                     placeholder="Enter referral code"
-                    className="w-full px-4 py-3 border border-gray-600 bg-[#2F2F2F] text-white text-sm sm:text-base rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all placeholder:text-gray-500"
+                    className={`w-full px-4 py-3 border bg-[#2F2F2F] text-white text-sm sm:text-base rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all placeholder:text-gray-500 ${
+                      referralStatus === "invalid"
+                        ? "border-red-500"
+                        : referralStatus === "valid"
+                        ? "border-green-500"
+                        : "border-gray-600"
+                    }`}
                   />
-                  <p className="text-xs sm:text-sm text-[#FFCC00] font-medium mt-2">
-                    🎁 Get 10 RCN bonus after your first repair!
-                  </p>
+                  {referralStatus === "checking" ? (
+                    <p className="text-xs text-gray-400">Checking code…</p>
+                  ) : referralStatus === "valid" ? (
+                    <p className="text-xs text-green-400">
+                      ✓ Valid code — you&apos;ll earn 10 RCN after your first qualifying repair ($50+).
+                    </p>
+                  ) : fieldErrors.referralCode ? (
+                    <p className="text-xs text-red-400">{fieldErrors.referralCode}</p>
+                  ) : (
+                    <p className="text-xs sm:text-sm text-gray-400 mt-2">
+                      🎁 Have a friend&apos;s code? Enter it to earn 10 RCN after your first qualifying repair.
+                    </p>
+                  )}
                 </div>
               </div>
+            </div>
+
+            {/* Privacy consent */}
+            <div className="mb-6 sm:mb-8">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => {
+                    setAgreedToTerms(e.target.checked);
+                    if (fieldErrors.terms)
+                      setFieldErrors((p) => ({ ...p, terms: undefined }));
+                  }}
+                  className="mt-1 h-4 w-4 shrink-0 rounded border-gray-600 bg-[#2F2F2F] text-[#FFCC00] focus:ring-[#FFCC00]"
+                />
+                <span className="text-sm text-gray-400">
+                  I agree to FixFlow&apos;s{" "}
+                  <Link
+                    href="/privacy-policy"
+                    target="_blank"
+                    className="text-[#FFCC00] underline hover:text-yellow-400"
+                  >
+                    Privacy Policy
+                  </Link>
+                  .
+                </span>
+              </label>
+              {fieldErrors.terms && (
+                <p className="text-xs text-red-400 mt-2">{fieldErrors.terms}</p>
+              )}
             </div>
 
             {/* Submit Button - Centered */}
@@ -253,7 +423,7 @@ export default function CustomerRegisterClient() {
                     <span>Creating Account...</span>
                   </div>
                 ) : (
-                  "Join RepairCoin"
+                  "Join FixFlow"
                 )}
               </button>
             </div>
