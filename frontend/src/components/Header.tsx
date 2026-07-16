@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createThirdwebClient } from "thirdweb";
 import { ConnectButton, useActiveAccount, useActiveWallet } from "thirdweb/react";
 import { getUserEmail } from "thirdweb/wallets/in-app";
+import { inAppWallet, createWallet } from "thirdweb/wallets";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -25,8 +26,20 @@ const Header: React.FC = () => {
   const [sessionUserType, setSessionUserType] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  // Which button opened the auth modal — the flow is identical (Thirdweb creates
+  // the account for new users), only the wording changes.
+  const [authIntent, setAuthIntent] = useState<"login" | "signup">("login");
   const { isWelcomeModalOpen, openWelcomeModal, closeWelcomeModal } =
     useModalStore();
+  const isSignup = authIntent === "signup";
+  const openLogin = () => {
+    setAuthIntent("login");
+    openWelcomeModal();
+  };
+  const openSignup = () => {
+    setAuthIntent("signup");
+    openWelcomeModal();
+  };
   const router = useRouter();
   const pathname = usePathname();
   const hasCheckedRef = useRef(false);
@@ -38,6 +51,26 @@ const Header: React.FC = () => {
       process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
       "1969ac335e07ba13ad0f8d1a1de4f6ab",
   });
+
+  // Login wallets. The in-app wallet is first, so the modal opens directly on the
+  // Sign in options (Google / Apple / Facebook / Email / Phone / Passkey) and
+  // creates a wallet invisibly — non-crypto users never see a wallet list.
+  // External crypto wallets stay in the list, so "Connect a wallet" remains an
+  // option below for users who want it.
+  // Note: "phone" is intentionally omitted — SMS sign-in needs a configured
+  // Thirdweb SMS provider and currently fails with "Failed to send verification
+  // code". Email + social + passkey work out of the box.
+  const loginWallets = React.useMemo(
+    () => [
+      inAppWallet({
+        auth: { options: ["email", "google", "apple", "facebook", "passkey"] },
+      }),
+      createWallet("io.metamask"),
+      createWallet("com.coinbase.wallet"),
+      createWallet("walletConnect"),
+    ],
+    []
+  );
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -318,7 +351,7 @@ const Header: React.FC = () => {
                 <div className="flex items-center relative w-[180px] h-[40px]">
                   <Image
                     src="/img/nav-logo.png"
-                    alt="RepairCoin Logo"
+                    alt="FixFlow Logo"
                     fill
                     priority
                     sizes="180px"
@@ -410,6 +443,7 @@ const Header: React.FC = () => {
                   <div className="flex justify-center items-center">
                     <ConnectButton
                       client={client}
+                      wallets={loginWallets}
                       connectModal={{ size: "wide" }}
                     />
                   </div>
@@ -421,12 +455,20 @@ const Header: React.FC = () => {
                     Dashboard
                   </button>
                 ) : (
-                  <button
-                    onClick={openWelcomeModal}
-                    className="text-black bg-[#F7CC00] hover:bg-[#E5BB00] px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center justify-center min-w-[90px]"
-                  >
-                    Login
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={openSignup}
+                      className="text-[#F7CC00] border border-[#F7CC00] hover:bg-[#F7CC00]/10 px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center justify-center min-w-[90px]"
+                    >
+                      Sign Up
+                    </button>
+                    <button
+                      onClick={openLogin}
+                      className="text-black bg-[#F7CC00] hover:bg-[#E5BB00] px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center justify-center min-w-[90px]"
+                    >
+                      Login
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -472,6 +514,7 @@ const Header: React.FC = () => {
                       <div className="flex justify-center items-center">
                         <ConnectButton
                           client={client}
+                          wallets={loginWallets}
                           connectModal={{ size: "wide" }}
                         />
                       </div>
@@ -486,12 +529,26 @@ const Header: React.FC = () => {
                         Dashboard
                       </button>
                     ) : (
-                      <button
-                        onClick={openWelcomeModal}
-                        className="w-full px-4 py-3 text-base font-semibold text-center text-black bg-[#F7CC00] hover:bg-[#E5BB00] rounded-md transition-colors duration-200 flex items-center justify-center"
-                      >
-                        Login
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            openSignup();
+                          }}
+                          className="w-full px-4 py-3 text-base font-semibold text-center text-[#F7CC00] border border-[#F7CC00] hover:bg-[#F7CC00]/10 rounded-md transition-colors duration-200 flex items-center justify-center"
+                        >
+                          Sign Up
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            openLogin();
+                          }}
+                          className="w-full px-4 py-3 text-base font-semibold text-center text-black bg-[#F7CC00] hover:bg-[#E5BB00] rounded-md transition-colors duration-200 flex items-center justify-center"
+                        >
+                          Login
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -537,23 +594,39 @@ const Header: React.FC = () => {
               <div className="flex-1 h-full flex flex-col items-center space-y-10 text-center md:text-left">
                 <div className="w-full flex flex-col items-center justify-center gap-4">
                   <h1 className="text-4xl md:text-4xl text-center font-bold text-gray-900 leading-tight">
-                    Welcome to
-                    <br />
-                    RepairCoin
+                    {isSignup ? (
+                      <>
+                        Join
+                        <br />
+                        FixFlow
+                      </>
+                    ) : (
+                      <>
+                        Welcome to
+                        <br />
+                        FixFlow
+                      </>
+                    )}
                   </h1>
                   <p className="text-gray-500 text-center text-sm">
-                    Earn. Track. Redeem. Log in to manage your rewards and
-                    repairs.
+                    {isSignup
+                      ? "Create your account to start earning rewards on every repair."
+                      : "Earn. Track. Redeem. Log in to manage your rewards and repairs."}
                   </p>
                 </div>
 
-                {/* Connect Wallet Button */}
+                {/* Auth Button */}
                 <div className="pt-4 w-full">
                   <ConnectButton
                     client={client}
-                    connectModal={{ size: "wide" }}
+                    wallets={loginWallets}
+                    connectModal={{
+                      size: "compact",
+                      title: isSignup ? "Create your account" : "Sign in to FixFlow",
+                      showThirdwebBranding: false,
+                    }}
                     connectButton={{
-                      label: "Connect Wallet",
+                      label: isSignup ? "Sign Up" : "Log In",
                       className:
                         "!bg-[#F7CC00] hover:!bg-[#E5BB00] !text-gray-900 !justify-center !w-full !font-semibold !px-8 !py-3 !rounded-full !inline-flex !items-center !gap-3 !transition-all !duration-200 !shadow-lg hover:!shadow-xl !border-none",
                       style: {
@@ -569,6 +642,11 @@ const Header: React.FC = () => {
                       },
                     }}
                   />
+                  <p className="text-center text-xs text-gray-400 mt-4">
+                    {isSignup
+                      ? "Already have an account? This is the same button — just continue."
+                      : "New here? Signing in creates your account automatically."}
+                  </p>
                 </div>
               </div>
 
@@ -576,7 +654,7 @@ const Header: React.FC = () => {
               <div className="flex-1 relative h-64 md:h-80">
                 <Image
                   src="/img/connect-modal.png"
-                  alt="RepairCoin Characters"
+                  alt="FixFlow Characters"
                   fill
                   sizes="(max-width: 768px) 100vw, 50vw"
                   className="object-contain"
