@@ -3,15 +3,10 @@
 // Admin: off-channel AI-messaging cost + consent dashboard (Phase 3). Surfaces the
 // customer_messaging_costs ledger (AI vs carrier cost per shop) + consent counts so admins can see
 // the true cost of SMS/WhatsApp auto-replies and inform the "who pays" decision. Admin-only,
-// read-only. Reads GET /api/messages/admin/messaging-costs.
+// read-only. Reads GET /api/messages/admin/messaging-costs. Dark theme to match the admin dashboard.
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw, MessageSquare, DollarSign, Truck, ShieldCheck } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import {
   getMessagingCostSummary, fmtCents, type MessagingCostSummary,
 } from "@/services/api/messagingCosts";
@@ -23,16 +18,16 @@ const PERIODS: { label: string; days?: number }[] = [
   { label: "All time" },
 ];
 
+const CARD = "rounded-xl border border-white/10 bg-[#1A1A1A]";
+
 const StatCard: React.FC<{ icon: React.ReactNode; label: string; value: string; sub?: string }> = ({
   icon, label, value, sub,
 }) => (
-  <Card>
-    <CardContent className="p-4">
-      <div className="flex items-center gap-2 text-gray-500 text-sm">{icon}<span>{label}</span></div>
-      <div className="mt-1 text-2xl font-semibold text-gray-900">{value}</div>
-      {sub && <div className="text-sm text-gray-500">{sub}</div>}
-    </CardContent>
-  </Card>
+  <div className={`${CARD} p-4`}>
+    <div className="flex items-center gap-2 text-gray-400 text-sm">{icon}<span>{label}</span></div>
+    <div className="mt-1 text-2xl font-semibold text-white">{value}</div>
+    {sub && <div className="text-sm text-gray-500">{sub}</div>}
+  </div>
 );
 
 export const AdminMessagingCostsTab: React.FC = () => {
@@ -63,35 +58,40 @@ export const AdminMessagingCostsTab: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">AI Messaging Costs</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-xl font-semibold text-white">AI Messaging Costs</h2>
+          <p className="text-sm text-gray-400">
             Off-channel AI auto-replies (SMS &amp; WhatsApp) — inference vs carrier cost per shop.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-md border border-gray-200 overflow-hidden">
+          <div className="flex rounded-md border border-white/10 overflow-hidden">
             {PERIODS.map((p) => (
               <button
                 key={p.label}
                 onClick={() => setDays(p.days)}
-                className={`px-3 py-1.5 text-sm ${days === p.days ? "bg-gray-900 text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+                className={`px-3 py-1.5 text-sm ${days === p.days ? "bg-[#FFCC00] text-black font-medium" : "bg-[#1A1A1A] text-gray-300 hover:text-white"}`}
               >
                 {p.label}
               </button>
             ))}
           </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="p-2 rounded-md border border-white/10 bg-[#1A1A1A] text-gray-300 hover:text-white disabled:opacity-50"
+            title="Refresh"
+          >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
+          </button>
         </div>
       </div>
 
       {loading && !data ? (
-        <div className="flex items-center gap-2 text-gray-500 py-12 justify-center">
+        <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
           <Loader2 className="w-5 h-5 animate-spin" /> Loading…
         </div>
       ) : error ? (
-        <div className="text-red-600 text-sm py-8 text-center">{error}</div>
+        <div className="text-red-400 text-sm py-8 text-center">{error}</div>
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -102,71 +102,63 @@ export const AdminMessagingCostsTab: React.FC = () => {
               sub={data?.periodDays ? `last ${data.periodDays} days` : "all time"} />
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Cost by shop</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {(data?.shops.length ?? 0) === 0 ? (
-                <div className="text-sm text-gray-500 py-6 text-center">
-                  No off-channel AI replies recorded for this period yet.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Shop</TableHead>
-                        <TableHead className="text-right">Replies</TableHead>
-                        <TableHead className="text-right">AI cost</TableHead>
-                        <TableHead className="text-right">Carrier (est.)</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data!.shops.map((s) => (
-                        <TableRow key={s.shopId}>
-                          <TableCell className="font-medium">{s.shopName || s.shopId}</TableCell>
-                          <TableCell className="text-right">{s.replyCount}</TableCell>
-                          <TableCell className="text-right">{fmtCents(s.aiCostCents)}</TableCell>
-                          <TableCell className="text-right">{fmtCents(s.carrierCostCents)}</TableCell>
-                          <TableCell className="text-right font-semibold">{fmtCents(s.totalCents)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-              <p className="mt-3 text-xs text-gray-400">
-                Carrier cost is an estimate (flat per-message rate); AI cost is exact. Carrier is only charged when a
-                reply actually left.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4" /> Opt-in consent
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 max-w-md">
-                <div>
-                  <div className="text-sm text-gray-500">SMS opt-ins</div>
-                  <div className="text-xl font-semibold text-gray-900">{consentGranted("sms")}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-500">WhatsApp opt-ins</div>
-                  <div className="text-xl font-semibold text-gray-900">{consentGranted("whatsapp")}</div>
-                </div>
+          <div className={`${CARD} p-5`}>
+            <h3 className="text-base font-semibold text-white mb-4">Cost by shop</h3>
+            {(data?.shops.length ?? 0) === 0 ? (
+              <div className="text-sm text-gray-400 py-6 text-center">
+                No off-channel AI replies recorded for this period yet.
               </div>
-              <p className="mt-3 text-xs text-gray-400">
-                Recorded automatically when a customer messages first (implied opt-in). Enforcement is off until legal
-                sign-off (ENFORCE_MESSAGING_CONSENT).
-              </p>
-            </CardContent>
-          </Card>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-400 border-b border-white/10">
+                      <th className="text-left font-medium py-2 pr-4">Shop</th>
+                      <th className="text-right font-medium py-2 px-4">Replies</th>
+                      <th className="text-right font-medium py-2 px-4">AI cost</th>
+                      <th className="text-right font-medium py-2 px-4">Carrier (est.)</th>
+                      <th className="text-right font-medium py-2 pl-4">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data!.shops.map((s) => (
+                      <tr key={s.shopId} className="border-b border-white/5">
+                        <td className="py-2 pr-4 text-white font-medium">{s.shopName || s.shopId}</td>
+                        <td className="py-2 px-4 text-right text-gray-300">{s.replyCount}</td>
+                        <td className="py-2 px-4 text-right text-gray-300">{fmtCents(s.aiCostCents)}</td>
+                        <td className="py-2 px-4 text-right text-gray-300">{fmtCents(s.carrierCostCents)}</td>
+                        <td className="py-2 pl-4 text-right text-white font-semibold">{fmtCents(s.totalCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="mt-3 text-xs text-gray-500">
+              Carrier cost is an estimate (flat per-message rate); AI cost is exact. Carrier is only charged when a
+              reply actually left.
+            </p>
+          </div>
+
+          <div className={`${CARD} p-5`}>
+            <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
+              <ShieldCheck className="w-4 h-4" /> Opt-in consent
+            </h3>
+            <div className="grid grid-cols-2 gap-4 max-w-md">
+              <div>
+                <div className="text-sm text-gray-400">SMS opt-ins</div>
+                <div className="text-xl font-semibold text-white">{consentGranted("sms")}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">WhatsApp opt-ins</div>
+                <div className="text-xl font-semibold text-white">{consentGranted("whatsapp")}</div>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              Recorded automatically when a customer messages first (implied opt-in). Enforcement is off until legal
+              sign-off (ENFORCE_MESSAGING_CONSENT).
+            </p>
+          </div>
         </>
       )}
     </div>
