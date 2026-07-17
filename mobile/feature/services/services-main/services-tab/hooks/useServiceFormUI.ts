@@ -23,7 +23,7 @@ export function useServiceFormUI(
   const queryClient = useQueryClient();
   const createServiceMutation = useCreateServiceMutation();
   const updateServiceMutation = useUpdateServiceMutation();
-  const { showSuccess, showError, showWarning } = useAppToast();
+  const { showSuccess, showError } = useAppToast();
 
   // Form state
   const [formData, setFormData] = useState<ServiceFormData>(INITIAL_FORM_DATA);
@@ -139,14 +139,7 @@ export function useServiceFormUI(
 
   // Handle image pick
   const handleImagePick = useCallback(async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permissionResult.granted === false) {
-      showWarning("Please allow access to your photo library");
-      return;
-    }
-
+    // System photo picker (Android 13+ / iOS) — no media-library permission needed.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,

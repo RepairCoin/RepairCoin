@@ -27,16 +27,7 @@ export default function ImagePicker({
       return;
     }
 
-    const permissionResult = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissionResult.granted) {
-      Alert.alert(
-        "Permission Required",
-        "Please allow access to your photo library to add images"
-      );
-      return;
-    }
-
+    // System photo picker (Android 13+ / iOS) — no media-library permission needed.
     const result = await ExpoImagePicker.launchImageLibraryAsync({
       mediaTypes: ExpoImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,

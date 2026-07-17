@@ -38,7 +38,9 @@ export function useQRCode() {
   const handleDownload = async () => {
     if (!walletAddress || !qrRef.current) return;
 
-    const { status } = await MediaLibrary.requestPermissionsAsync();
+    // Write-only access: saving to the gallery does not require the broad
+    // READ_MEDIA_IMAGES permission (removed for Google Play compliance).
+    const { status } = await MediaLibrary.requestPermissionsAsync(true);
     if (status !== "granted") {
       Alert.alert("Permission required", "Please allow access to your photo library to save the QR code.");
       return;
