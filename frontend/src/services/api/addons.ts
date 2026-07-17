@@ -33,16 +33,15 @@ export async function resolveAddonStatuses(): Promise<AddonStatusMap> {
     // leave ai_ads at 'off' — ads not enrolled / endpoint unavailable
   }
 
-  // AI Usage Overage (T3.2 Slice 1): resolve the real per-shop state when the feature is live.
-  // Stays 'coming_soon' until NEXT_PUBLIC_AI_OVERAGE_ENABLED is on AND the backend reports it available
-  // (ENABLE_AI_OVERAGE). active = opted in; off = available but not enabled.
-  if (process.env.NEXT_PUBLIC_AI_OVERAGE_ENABLED === 'true') {
-    try {
-      const ov = await getOverageState();
-      if (ov.available) map.ai_overage = ov.enabled ? 'active' : 'off';
-    } catch {
-      // leave at 'coming_soon'
-    }
+  // AI Usage Overage (T3.2): purely BACKEND-driven — /ai/spend reports `overageAvailable` at runtime
+  // from ENABLE_AI_OVERAGE, so there's no build-time NEXT_PUBLIC flag (a Vercel env change alone would
+  // never re-inline it → the old "still coming soon after setting the flag" trap). Stays 'coming_soon'
+  // until the backend flag is on; active = opted in; off = available but not enabled.
+  try {
+    const ov = await getOverageState();
+    if (ov.available) map.ai_overage = ov.enabled ? 'active' : 'off';
+  } catch {
+    // leave at 'coming_soon'
   }
 
   try {
