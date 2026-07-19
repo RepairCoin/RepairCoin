@@ -9,7 +9,7 @@ import {
 } from "@/shared/constants/service-categories";
 
 interface CategoryGridProps {
-  /** Number of categories to show before "See All" (default 8). */
+  /** Optional cap on how many categories to show. Defaults to all. */
   limit?: number;
 }
 
@@ -17,8 +17,10 @@ interface CategoryGridProps {
  * V2 "Explore Service Categories" grid. Each tile opens the Services page
  * (`/customer/tabs/service`) pre-filtered to that category.
  */
-function CategoryGrid({ limit = 8 }: CategoryGridProps) {
-  const categories = SERVICE_CATEGORIES.slice(0, limit);
+function CategoryGrid({ limit }: CategoryGridProps) {
+  const categories = limit
+    ? SERVICE_CATEGORIES.slice(0, limit)
+    : SERVICE_CATEGORIES;
 
   return (
     <View>

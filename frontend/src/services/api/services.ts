@@ -14,6 +14,7 @@ export type ServiceCategory =
   | 'education_classes'
   | 'tech_it_services'
   | 'food_beverage'
+  | 'legal_services'
   | 'other_local_services';
 
 export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show' | 'expired';
@@ -1225,6 +1226,7 @@ export const SERVICE_CATEGORIES: Array<{ value: ServiceCategory; label: string }
   { value: 'education_classes', label: 'Education & Classes' },
   { value: 'tech_it_services', label: 'Tech & IT Services' },
   { value: 'food_beverage', label: 'Food & Beverage' },
+  { value: 'legal_services', label: 'Legal Services' },
   { value: 'other_local_services', label: 'Other Local Services' },
 ];
 
