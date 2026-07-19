@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { getCategoryIcon } from "@/shared/constants/service-categories";
 import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import { SERVICE_GRID_ITEM_WIDTH } from "./ServiceGridItem";
@@ -24,6 +25,10 @@ const STARS = [1, 2, 3, 4, 5];
 const CARD_HEIGHT = 300;
 const CARD_MARGIN_V = 8;
 export const SERVICE_GRID_ROW_HEIGHT = CARD_HEIGHT + CARD_MARGIN_V * 2;
+
+const IMAGE_HEIGHT = 160;
+// Category fallback icon scales with the photo area, like ShopGridCard.
+const FALLBACK_ICON_SIZE = Math.round(IMAGE_HEIGHT * 0.6);
 
 /**
  * Lightweight grid card for the customer Services list.
@@ -47,6 +52,11 @@ function ServiceGridCardBase({
   // a query hook. Kept in sync with the authoritative favorites set via prop.
   const [favorited, setFavorited] = useState(isFavorited);
   useEffect(() => setFavorited(isFavorited), [isFavorited]);
+
+  // Fall back to the category icon when there's no URL OR the image fails to load.
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => setImageFailed(false), [imageUrl]);
+  const showImage = !!imageUrl && !imageFailed;
 
   const handlePress = useCallback(() => onPress(service), [onPress, service]);
 
@@ -82,20 +92,28 @@ function ServiceGridCardBase({
     >
       <TouchableOpacity onPress={handlePress} activeOpacity={0.85} className="flex-1">
         <View className="relative bg-white">
-          {imageUrl ? (
+          {showImage ? (
             // expo-image caches decoded bitmaps (memory + disk), so cells that
             // unmount/remount while scrolling don't re-decode from scratch —
             // fixes the flicker/jank when scrolling back up.
             <Image
-              source={{ uri: imageUrl }}
-              style={{ width: "100%", height: 160 }}
+              source={{ uri: imageUrl! }}
+              style={{ width: "100%", height: IMAGE_HEIGHT }}
               contentFit="cover"
               cachePolicy="memory-disk"
               transition={120}
+              onError={() => setImageFailed(true)}
             />
           ) : (
-            <View className="w-full h-40 bg-gray-100 items-center justify-center">
-              <Ionicons name="image-outline" size={32} color="#9CA3AF" />
+            <View
+              className="w-full bg-gray-100 items-center justify-center"
+              style={{ height: IMAGE_HEIGHT }}
+            >
+              <Ionicons
+                name={getCategoryIcon(category)}
+                size={FALLBACK_ICON_SIZE}
+                color="#9CA3AF"
+              />
             </View>
           )}
 
