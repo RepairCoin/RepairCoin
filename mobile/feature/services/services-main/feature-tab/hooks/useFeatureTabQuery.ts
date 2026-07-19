@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";
@@ -227,9 +228,14 @@ export function useToggleFavoriteMutation() {
     },
   });
 
-  const toggleFavorite = (serviceId: string, isFavorited: boolean) => {
-    mutation.mutate({ serviceId, isFavorited });
-  };
+  // Stable identity (mutation.mutate is referentially stable) so memoized list
+  // cards receiving this callback don't all re-render on every parent render.
+  const toggleFavorite = useCallback(
+    (serviceId: string, isFavorited: boolean) => {
+      mutation.mutate({ serviceId, isFavorited });
+    },
+    [mutation.mutate]
+  );
 
   return { toggleFavorite, isPending: mutation.isPending };
 }

@@ -45,10 +45,22 @@ export function useServicesTab(initialCategory?: string) {
     isFetchingNextPage,
   } = useInfiniteServicesQuery(apiFilters);
 
-  // Flatten paginated data into single array
+  // Flatten paginated data into a single array, de-duping by serviceId. Pages
+  // can overlap on the boundary; duplicate keys cause blank FlatList cells and
+  // accumulate memory, so keep the first occurrence of each service only.
   const servicesData = useMemo(() => {
     if (!servicesPages?.pages) return [];
-    return servicesPages.pages.flatMap(page => page.data);
+    const seen = new Set<string>();
+    const flat: ServiceData[] = [];
+    for (const page of servicesPages.pages) {
+      for (const service of page.data) {
+        if (!seen.has(service.serviceId)) {
+          seen.add(service.serviceId);
+          flat.push(service);
+        }
+      }
+    }
+    return flat;
   }, [servicesPages]);
 
   // Fetch all favorites once to avoid N API calls

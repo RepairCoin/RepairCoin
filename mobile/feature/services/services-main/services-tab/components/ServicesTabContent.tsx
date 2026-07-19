@@ -7,14 +7,15 @@ import {
   RefreshControl,
   Pressable,
 } from "react-native";
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { ServiceGridItem } from "@/shared/components/shared/ServiceGridItem";
+import { ServiceGridCard } from "@/shared/components/shared/ServiceGridCard";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
 import { ThemedText } from "@/shared/components/ui/ThemedText";
 import { useTheme } from "@/shared/hooks/theme/useTheme";
+import { useToggleFavoriteMutation } from "../../feature-tab/hooks/useFeatureTabQuery";
 import { useServicesTab } from "../../feature-tab/hooks";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../../feature-tab/components";
 import { ServiceData, ServiceSortOption } from "@/feature/services/services/service.interface";
@@ -74,14 +75,37 @@ export default function ServicesTabContent() {
   const { useThemeColor } = useTheme();
   const { theme } = useThemeColor();
 
-  const renderServiceItem = ({ item }: { item: ServiceData }) => (
-    <ServiceGridItem
-      service={item}
-      onPress={() => handleServicePress(item)}
-      showFavoriteButton
-      isFavorited={favoritedIds.has(item.serviceId)}
-    />
+  // One favorite mutation for the whole list — NOT one per card.
+  const { toggleFavorite } = useToggleFavoriteMutation();
+
+  // Stable render/key callbacks so cells don't remount on every parent render.
+  const renderServiceItem = useCallback(
+    ({ item }: { item: ServiceData }) => (
+      <ServiceGridCard
+        service={item}
+        isFavorited={favoritedIds.has(item.serviceId)}
+        onPress={handleServicePress}
+        onToggleFavorite={toggleFavorite}
+      />
+    ),
+    [handleServicePress, favoritedIds, toggleFavorite]
   );
+
+  const keyExtractor = useCallback((item: ServiceData) => item.serviceId, []);
+
+  // Guard onEndReached against a recursive multi-fetch loop: it fires on mount
+  // and repeatedly whenever the loaded rows don't fill the viewport (client-side
+  // filters can shrink a page), which would fetch every page in a tight loop.
+  // Allow exactly one load per user scroll gesture.
+  const canLoadMore = useRef(false);
+  const handleScrollBeginDrag = useCallback(() => {
+    canLoadMore.current = true;
+  }, []);
+  const handleEndReached = useCallback(() => {
+    if (!canLoadMore.current) return;
+    canLoadMore.current = false;
+    handleLoadMore();
+  }, [handleLoadMore]);
 
   return (
     <React.Fragment>
@@ -172,19 +196,26 @@ export default function ServicesTabContent() {
       ) : (
         <FlatList
           data={filteredServices}
-          keyExtractor={(item) => item.serviceId}
+          keyExtractor={keyExtractor}
           renderItem={renderServiceItem}
           numColumns={2}
-          extraData={filteredServices.length}
-          // flex-1 gives the list a bounded height so it becomes the scroller —
+          extraData={favoritedIds}
+          // flex:1 gives the list a bounded height so it becomes the scroller —
           // without it onEndReached never fires and infinite scroll won't work.
-          className="flex-1"
+          // (NativeWind className="flex-1" does not reliably apply here — use style.)
+          style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
           // Android clips rows first mounted off-screen (as appended pages are),
           // leaving blank space where the card should be — disable that here.
           removeClippedSubviews={false}
-          onEndReached={handleLoadMore}
+          // Bound the render window so long lists don't grow memory unboundedly.
+          initialNumToRender={6}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          updateCellsBatchingPeriod={50}
+          onScrollBeginDrag={handleScrollBeginDrag}
+          onEndReached={handleEndReached}
           onEndReachedThreshold={0.4}
           refreshControl={
             <RefreshControl
