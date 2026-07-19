@@ -15,6 +15,7 @@ import {
   GraduationCap,
   Laptop,
   UtensilsCrossed,
+  Scale,
   Store,
   LucideIcon,
 } from "lucide-react";
@@ -37,6 +38,7 @@ const CATEGORY_META: Record<string, { icon: LucideIcon; gradient: string }> = {
   education_classes: { icon: GraduationCap, gradient: "from-violet-500/30 to-purple-700/30" },
   tech_it_services: { icon: Laptop, gradient: "from-fuchsia-500/30 to-pink-700/30" },
   food_beverage: { icon: UtensilsCrossed, gradient: "from-lime-500/30 to-green-700/30" },
+  legal_services: { icon: Scale, gradient: "from-blue-600/30 to-slate-700/30" },
   other_local_services: { icon: Store, gradient: "from-stone-500/30 to-neutral-700/30" },
 };
 

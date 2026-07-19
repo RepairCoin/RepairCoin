@@ -247,8 +247,8 @@ describe('Category Validation — Live E2E', () => {
       expect([201, 400, 401, 403]).toContain(res.status);
     });
 
-    it('all 12 valid categories should be defined in the constant', () => {
-      expect(VALID_CATEGORIES).toHaveLength(12);
+    it('all 13 valid categories should be defined in the constant', () => {
+      expect(VALID_CATEGORIES).toHaveLength(13);
       expect(VALID_CATEGORIES).toContain('repairs');
       expect(VALID_CATEGORIES).toContain('beauty_personal_care');
       expect(VALID_CATEGORIES).toContain('health_wellness');
@@ -260,6 +260,7 @@ describe('Category Validation — Live E2E', () => {
       expect(VALID_CATEGORIES).toContain('education_classes');
       expect(VALID_CATEGORIES).toContain('tech_it_services');
       expect(VALID_CATEGORIES).toContain('food_beverage');
+      expect(VALID_CATEGORIES).toContain('legal_services');
       expect(VALID_CATEGORIES).toContain('other_local_services');
     });
   });

@@ -368,12 +368,13 @@ describe('Shop Services Tab Tests', () => {
       'education_classes',
       'tech_it_services',
       'food_beverage',
+      'legal_services',
       'other_local_services'
     ];
 
     it('should accept all valid categories', () => {
-      // Contract test: verify all 12 categories are defined
-      expect(validCategories).toHaveLength(12);
+      // Contract test: verify all 13 categories are defined
+      expect(validCategories).toHaveLength(13);
       validCategories.forEach(cat => {
         expect(typeof cat).toBe('string');
         expect(cat.length).toBeGreaterThan(0);
