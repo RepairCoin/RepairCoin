@@ -28,24 +28,51 @@ export function useAllServicesQuery(filters?: ServiceFilters) {
   });
 }
 
+const SERVICES_PAGE_SIZE = 20;
+
 export function useInfiniteServicesQuery(filters?: Omit<ServiceFilters, "page">) {
   return useInfiniteQuery({
     queryKey: ["services", "infinite", filters],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await serviceApi.getAll({ ...filters, page: pageParam, limit: 10 });
+      const response = await serviceApi.getAll({
+        ...filters,
+        page: pageParam,
+        limit: SERVICES_PAGE_SIZE,
+      });
       return {
         data: response.data || [],
         pagination: response.pagination,
       };
     },
     initialPageParam: 1,
-    getNextPageParam: (lastPage) => {
-      if (lastPage.pagination?.hasMore) {
-        return (lastPage.pagination.page || 1) + 1;
-      }
-      return undefined;
+    getNextPageParam: (lastPage, allPages) => {
+      // Stop when the API says there's no more, or the last page came back
+      // empty (real end — a safety net if hasMore is stuck true).
+      const count = lastPage.data?.length ?? 0;
+      if (count === 0) return undefined;
+      if (lastPage.pagination?.hasMore === false) return undefined;
+      // Derive the next page from how many pages we've loaded — NOT from the
+      // page number echoed by the API. If the response doesn't reflect the
+      // requested page, `lastPage.pagination.page + 1` returns the same page
+      // forever, which fetches the same rows endlessly (the infinite loop).
+      return allPages.length + 1;
     },
     staleTime: 5 * 60 * 1000,
+    // Structural sharing deep-compares the WHOLE accumulated page set on every
+    // fetchNextPage; on a long infinite list that runs on the JS thread and
+    // causes the scroll/paginate freeze. New pages are appended, not mutated,
+    // so we don't need reference preservation here.
+    structuralSharing: false,
+    // Only re-render the list on the fields it actually uses — avoids extra
+    // renders from unrelated query-state churn during scrolling.
+    notifyOnChangeProps: [
+      "data",
+      "isLoading",
+      "isFetching",
+      "isFetchingNextPage",
+      "hasNextPage",
+      "error",
+    ],
   });
 }
 

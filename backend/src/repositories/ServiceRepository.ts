@@ -320,7 +320,7 @@ export class ServiceRepository extends BaseRepository {
         FROM shop_services s
         ${favoritesJoin}
         ${whereClause}
-        ORDER BY s.created_at DESC
+        ORDER BY s.created_at DESC, s.service_id DESC
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
       `;
       params.push(limit, offset);
@@ -428,24 +428,27 @@ export class ServiceRepository extends BaseRepository {
 
       const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-      // Determine sort order
-      let orderByClause = 'ORDER BY s.created_at DESC'; // Default: newest first
+      // Determine sort order. Every clause ends with s.service_id as a unique
+      // tiebreaker: without it, rows with equal sort values (e.g. the same
+      // created_at) come back in an unstable order that differs between page
+      // queries, so OFFSET pagination repeats/skips rows across pages.
+      let orderByClause = 'ORDER BY s.created_at DESC, s.service_id DESC'; // Default: newest first
       if (filters.sortBy) {
         switch (filters.sortBy) {
           case 'price_asc':
-            orderByClause = 'ORDER BY s.price_usd ASC';
+            orderByClause = 'ORDER BY s.price_usd ASC, s.service_id DESC';
             break;
           case 'price_desc':
-            orderByClause = 'ORDER BY s.price_usd DESC';
+            orderByClause = 'ORDER BY s.price_usd DESC, s.service_id DESC';
             break;
           case 'rating_desc':
-            orderByClause = 'ORDER BY COALESCE(avg_rating, 0) DESC, review_count DESC';
+            orderByClause = 'ORDER BY COALESCE(avg_rating, 0) DESC, review_count DESC, s.service_id DESC';
             break;
           case 'newest':
-            orderByClause = 'ORDER BY s.created_at DESC';
+            orderByClause = 'ORDER BY s.created_at DESC, s.service_id DESC';
             break;
           case 'oldest':
-            orderByClause = 'ORDER BY s.created_at ASC';
+            orderByClause = 'ORDER BY s.created_at ASC, s.service_id ASC';
             break;
         }
       }

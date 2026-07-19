@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useEffect, useState } from "react";
-import { View, Text, Image, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
@@ -16,6 +17,13 @@ interface ServiceGridCardProps {
 }
 
 const STARS = [1, 2, 3, 4, 5];
+
+// Fixed card geometry so the FlatList can use getItemLayout — with a known row
+// height it skips async measurement while scrolling, which is what removes the
+// scroll jank. Keep SERVICE_GRID_ROW_HEIGHT in sync if the card layout changes.
+const CARD_HEIGHT = 300;
+const CARD_MARGIN_V = 8;
+export const SERVICE_GRID_ROW_HEIGHT = CARD_HEIGHT + CARD_MARGIN_V * 2;
 
 /**
  * Lightweight grid card for the customer Services list.
@@ -62,8 +70,9 @@ function ServiceGridCardBase({
       className="bg-white rounded-2xl overflow-hidden"
       style={{
         width: SERVICE_GRID_ITEM_WIDTH,
+        height: CARD_HEIGHT,
         marginHorizontal: 4,
-        marginVertical: 8,
+        marginVertical: CARD_MARGIN_V,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.12,
@@ -71,13 +80,18 @@ function ServiceGridCardBase({
         elevation: 3,
       }}
     >
-      <TouchableOpacity onPress={handlePress} activeOpacity={0.85}>
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.85} className="flex-1">
         <View className="relative bg-white">
           {imageUrl ? (
+            // expo-image caches decoded bitmaps (memory + disk), so cells that
+            // unmount/remount while scrolling don't re-decode from scratch —
+            // fixes the flicker/jank when scrolling back up.
             <Image
               source={{ uri: imageUrl }}
-              className="w-full h-40"
-              resizeMode="cover"
+              style={{ width: "100%", height: 160 }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={120}
             />
           ) : (
             <View className="w-full h-40 bg-gray-100 items-center justify-center">
@@ -105,7 +119,7 @@ function ServiceGridCardBase({
           </TouchableOpacity>
         </View>
 
-        <View className="p-3">
+        <View className="flex-1 p-3">
           {/* Title — fixed 2-line height so cards align regardless of wrap. */}
           <Text
             className="text-gray-900 text-[15px] font-bold leading-5"

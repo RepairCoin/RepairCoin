@@ -7,7 +7,7 @@ import {
   RefreshControl,
   Pressable,
 } from "react-native";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ServiceGridCard } from "@/shared/components/shared/ServiceGridCard";
@@ -93,6 +93,11 @@ export default function ServicesTabContent() {
 
   const keyExtractor = useCallback((item: ServiceData) => item.serviceId, []);
 
+  // NOTE: no getItemLayout here — it is unreliable with numColumns > 1 (RN maps
+  // scroll offsets to the wrong item indices, so cells render the wrong service
+  // and "shift" data while scrolling/paginating). The cards are fixed-height, so
+  // native measurement stays cheap without it.
+
   // Guard onEndReached against a recursive multi-fetch loop: it fires on mount
   // and repeatedly whenever the loaded rows don't fill the viewport (client-side
   // filters can shrink a page), which would fetch every page in a tight loop.
@@ -106,6 +111,46 @@ export default function ServicesTabContent() {
     canLoadMore.current = false;
     handleLoadMore();
   }, [handleLoadMore]);
+
+  // Memoize the list's inline props so a page append doesn't recreate them as
+  // new element objects every render (which makes FlatList reconcile more).
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={isFetching && !isFetchingNextPage}
+        onRefresh={handleRefresh}
+        tintColor={theme.tint}
+      />
+    ),
+    [isFetching, isFetchingNextPage, handleRefresh, theme.tint]
+  );
+
+  const listFooter = useMemo(
+    () =>
+      isFetchingNextPage ? (
+        <View className="py-4 items-center">
+          <ActivityIndicator size="small" color={theme.tint} />
+        </View>
+      ) : null,
+    [isFetchingNextPage, theme.tint]
+  );
+
+  const listEmpty = useMemo(() => {
+    const filtered = searchQuery.length > 0 || hasActiveFilters;
+    return (
+      <View className="flex-1 justify-center items-center pt-20">
+        <Ionicons name="briefcase-outline" size={64} color={theme.icon} />
+        <ThemedText className="text-center mt-4">
+          {filtered ? "No services match your filters" : "No services available"}
+        </ThemedText>
+        <ThemedText type="subtext" className="text-center mt-2">
+          {filtered
+            ? "Try adjusting your search or filters"
+            : "Check back later for new services"}
+        </ThemedText>
+      </View>
+    );
+  }, [searchQuery.length, hasActiveFilters, theme.icon]);
 
   return (
     <React.Fragment>
@@ -209,43 +254,18 @@ export default function ServicesTabContent() {
           // Android clips rows first mounted off-screen (as appended pages are),
           // leaving blank space where the card should be — disable that here.
           removeClippedSubviews={false}
-          // Bound the render window so long lists don't grow memory unboundedly.
+          // Windowing tuned for smooth scrolling: small per-batch/window sizes
+          // keep each frame cheap (cards are fixed-height so measurement is fast).
           initialNumToRender={6}
-          maxToRenderPerBatch={8}
+          maxToRenderPerBatch={6}
           windowSize={7}
           updateCellsBatchingPeriod={50}
           onScrollBeginDrag={handleScrollBeginDrag}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.4}
-          refreshControl={
-            <RefreshControl
-              refreshing={isFetching && !isFetchingNextPage}
-              onRefresh={handleRefresh}
-              tintColor={theme.tint}
-            />
-          }
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <View className="py-4 items-center">
-                <ActivityIndicator size="small" color={theme.tint} />
-              </View>
-            ) : null
-          }
-          ListEmptyComponent={
-            <View className="flex-1 justify-center items-center pt-20">
-              <Ionicons name="briefcase-outline" size={64} color={theme.icon} />
-              <ThemedText className="text-center mt-4">
-                {searchQuery.length > 0 || hasActiveFilters
-                  ? "No services match your filters"
-                  : "No services available"}
-              </ThemedText>
-              <ThemedText type="subtext" className="text-center mt-2">
-                {searchQuery.length > 0 || hasActiveFilters
-                  ? "Try adjusting your search or filters"
-                  : "Check back later for new services"}
-              </ThemedText>
-            </View>
-          }
+          refreshControl={refreshControl}
+          ListFooterComponent={listFooter}
+          ListEmptyComponent={listEmpty}
         />
       )}
 
