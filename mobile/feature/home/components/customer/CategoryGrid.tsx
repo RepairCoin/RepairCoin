@@ -14,8 +14,8 @@ interface CategoryGridProps {
 }
 
 /**
- * V2 "Explore Service Categories" grid. Each tile opens the category-scoped
- * Per Industry Page (`/customer/service/category/[category]`).
+ * V2 "Explore Service Categories" grid. Each tile opens the Services page
+ * (`/customer/tabs/service`) pre-filtered to that category.
  */
 function CategoryGrid({ limit = 8 }: CategoryGridProps) {
   const categories = SERVICE_CATEGORIES.slice(0, limit);
@@ -31,7 +31,10 @@ function CategoryGrid({ limit = 8 }: CategoryGridProps) {
           <Pressable
             key={cat.value}
             onPress={() =>
-              router.push(`/customer/service/category/${cat.value}`)
+              router.navigate({
+                pathname: "/customer/tabs/service",
+                params: { tab: "Services", category: cat.value },
+              })
             }
             className="w-1/4 px-1 mb-3"
           >

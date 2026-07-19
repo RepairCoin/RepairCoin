@@ -7,11 +7,14 @@ import {
   RefreshControl,
   Pressable,
 } from "react-native";
-import React from "react";
+import React, { useEffect } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ServiceGridItem } from "@/shared/components/shared/ServiceGridItem";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
+import { ThemedText } from "@/shared/components/ui/ThemedText";
+import { useTheme } from "@/shared/hooks/theme/useTheme";
 import { useServicesTab } from "../../feature-tab/hooks";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../../feature-tab/components";
 import { ServiceData, ServiceSortOption } from "@/feature/services/services/service.interface";
@@ -27,6 +30,10 @@ const SORT_LABELS: Record<ServiceSortOption, string> = {
 };
 
 export default function ServicesTabContent() {
+  // A category opened from the home grid arrives as a route param so the list
+  // lands pre-filtered on that category.
+  const { category } = useLocalSearchParams<{ category?: string }>();
+
   const {
     filteredServices,
     totalResults,
@@ -41,6 +48,7 @@ export default function ServicesTabContent() {
     setStatusFilter,
     selectedCategories,
     toggleCategory,
+    setCategoryFilter,
     clearFilters,
     hasActiveFilters,
     filterModalVisible,
@@ -53,10 +61,18 @@ export default function ServicesTabContent() {
     setSortOption,
     priceRange,
     setPriceRange,
-    hasNextPage,
     isFetchingNextPage,
     handleLoadMore,
-  } = useServicesTab();
+  } = useServicesTab(category);
+
+  // The service screen is reused across tab navigation (router.navigate), so the
+  // hook's initial state won't re-run when a new category param arrives — sync it.
+  useEffect(() => {
+    if (category) setCategoryFilter(category);
+  }, [category, setCategoryFilter]);
+
+  const { useThemeColor } = useTheme();
+  const { theme } = useThemeColor();
 
   const renderServiceItem = ({ item }: { item: ServiceData }) => (
     <ServiceGridItem
@@ -82,14 +98,13 @@ export default function ServicesTabContent() {
         {/* Filter Button */}
         <Pressable
           onPress={openFilterModal}
-          className={`p-3 rounded-full ${
-            hasActiveFilters ? "bg-[#FFCC00]" : ""
-          }`}
+          style={hasActiveFilters ? { backgroundColor: theme.tint } : undefined}
+          className="p-3 rounded-full"
         >
           <Ionicons
             name="options-outline"
             size={20}
-            color={hasActiveFilters ? "#000" : "#9CA3AF"}
+            color={hasActiveFilters ? theme.textInverted : theme.icon}
           />
         </Pressable>
       </View>
@@ -138,9 +153,9 @@ export default function ServicesTabContent() {
 
       {/* Results count when searching or filtering */}
       {(searchQuery.length > 0 || hasActiveFilters) && (
-        <Text className="text-gray-400 text-sm mb-2">
+        <ThemedText type="subtext" className="mb-2">
           {totalResults} result{totalResults !== 1 ? "s" : ""} found
-        </Text>
+        </ThemedText>
       )}
 
       {isLoading && !servicesData ? (
@@ -149,7 +164,9 @@ export default function ServicesTabContent() {
         <View className="flex-1 justify-center items-center">
           <Text className="text-red-500">Failed to load services</Text>
           <TouchableOpacity onPress={handleRefresh} className="mt-2">
-            <Text className="text-[#FFCC00]">Try Again</Text>
+            <Text style={{ color: theme.tint }} className="font-semibold">
+              Try Again
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -159,42 +176,43 @@ export default function ServicesTabContent() {
           renderItem={renderServiceItem}
           numColumns={2}
           extraData={filteredServices.length}
+          // flex-1 gives the list a bounded height so it becomes the scroller —
+          // without it onEndReached never fires and infinite scroll won't work.
+          className="flex-1"
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+          // Android clips rows first mounted off-screen (as appended pages are),
+          // leaving blank space where the card should be — disable that here.
+          removeClippedSubviews={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.4}
           refreshControl={
             <RefreshControl
               refreshing={isFetching && !isFetchingNextPage}
               onRefresh={handleRefresh}
-              tintColor="#FFCC00"
+              tintColor={theme.tint}
             />
           }
           ListFooterComponent={
-            hasNextPage ? (
+            isFetchingNextPage ? (
               <View className="py-4 items-center">
-                {isFetchingNextPage ? (
-                  <ActivityIndicator size="small" color="#FFCC00" />
-                ) : (
-                  <Pressable
-                    onPress={handleLoadMore}
-                    className="bg-zinc-800 px-6 py-3 rounded-full"
-                  >
-                    <Text className="text-[#FFCC00] font-semibold">Load More</Text>
-                  </Pressable>
-                )}
+                <ActivityIndicator size="small" color={theme.tint} />
               </View>
             ) : null
           }
           ListEmptyComponent={
             <View className="flex-1 justify-center items-center pt-20">
-              <Ionicons name="briefcase-outline" size={64} color="#666" />
-              <Text className="text-gray-400 text-center mt-4">
+              <Ionicons name="briefcase-outline" size={64} color={theme.icon} />
+              <ThemedText className="text-center mt-4">
                 {searchQuery.length > 0 || hasActiveFilters
                   ? "No services match your filters"
                   : "No services available"}
-              </Text>
-              <Text className="text-gray-500 text-sm text-center mt-2">
+              </ThemedText>
+              <ThemedText type="subtext" className="text-center mt-2">
                 {searchQuery.length > 0 || hasActiveFilters
                   ? "Try adjusting your search or filters"
                   : "Check back later for new services"}
-              </Text>
+              </ThemedText>
             </View>
           }
         />

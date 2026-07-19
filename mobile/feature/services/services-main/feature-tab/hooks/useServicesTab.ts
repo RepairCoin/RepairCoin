@@ -72,6 +72,12 @@ export function useServicesTab(initialCategory?: string) {
     );
   }, []);
 
+  // Set the category filter to exactly one category (or clear it). Used when a
+  // category is opened from the home grid so the service list lands pre-filtered.
+  const setCategoryFilter = useCallback((category: string | null) => {
+    setSelectedCategories(category ? [category] : []);
+  }, []);
+
   const clearFilters = useCallback(() => {
     setStatusFilter("all");
     setSelectedCategories([]);
@@ -183,6 +189,7 @@ export function useServicesTab(initialCategory?: string) {
     setStatusFilter,
     selectedCategories,
     toggleCategory,
+    setCategoryFilter,
     clearFilters,
     hasActiveFilters,
     filterModalVisible,
