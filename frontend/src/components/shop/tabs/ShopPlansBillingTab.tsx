@@ -15,6 +15,10 @@ import { Loader2, Sparkles, CreditCard } from "lucide-react";
 import { ADDON_REGISTRY, type AddonDef } from "@/config/addonRegistry";
 import { agencyApi } from "@/services/api/agency";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   resolveAddonStatuses,
   getAiUsageSummary,
   getPaymentMethod,
@@ -125,19 +129,12 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
 
   useEffect(() => { load(); }, [load]);
 
-  // AI Usage Overage (T3.2 Slice 1): inline enable/disable from the card, then refresh statuses.
+  // AI Usage Overage (T3.2): inline enable/disable from the card. Enabling opens a consent modal
+  // (Slice 2.5 — explicit acknowledgement of the Usage x3 terms); disabling is immediate.
   const [togglingOverage, setTogglingOverage] = useState(false);
-  const handleOverageToggle = useCallback(async (enabled: boolean) => {
-    // Consent-at-enable (Slice 2.5): explicit acknowledgement of the Usage x3 terms before turning it on.
-    if (enabled) {
-      const ok = window.confirm(
-        "Enable AI Usage Overage?\n\n" +
-          "Full-power AI keeps running past your monthly allowance. Any usage beyond it is billed at " +
-          "3× the AI cost (pay as you grow), up to a monthly cap. You can turn this off anytime.\n\n" +
-          "Click OK to agree and enable."
-      );
-      if (!ok) return;
-    }
+  const [consentOpen, setConsentOpen] = useState(false);
+
+  const doSetOverage = useCallback(async (enabled: boolean) => {
     setTogglingOverage(true);
     try {
       await setOverage(enabled, enabled ? true : undefined);
@@ -150,6 +147,11 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
       setTogglingOverage(false);
     }
   }, [load]);
+
+  const handleOverageToggle = useCallback((enabled: boolean) => {
+    if (enabled) { setConsentOpen(true); return; } // enabling → confirm the terms in the modal
+    doSetOverage(false); // disabling → immediate
+  }, [doSetOverage]);
 
   if (loading) {
     return (
@@ -288,6 +290,31 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
           </Link>
         </div>
       </section>
+
+      {/* AI Usage Overage consent modal (Slice 2.5) — replaces the old window.confirm. */}
+      <AlertDialog open={consentOpen} onOpenChange={setConsentOpen}>
+        <AlertDialogContent className="bg-[#1A1A1A] border-white/10 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Enable AI Usage Overage?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Full-power AI keeps running past your monthly allowance. Any usage beyond it is billed at
+              <span className="font-medium text-white"> 3× the AI cost</span> (pay as you grow), up to a
+              monthly cap. You can turn this off anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-transparent border-white/15 text-gray-200 hover:bg-white/5 hover:text-white">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => doSetOverage(true)}
+              className="bg-yellow-400 text-gray-900 hover:bg-yellow-300"
+            >
+              Agree &amp; enable
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

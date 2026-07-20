@@ -299,3 +299,23 @@ describe("SpendController.setOwnShopOverage (AI Usage Overage, T3.2)", () => {
     expect(res.json).toHaveBeenCalledWith({ success: true, data: { overageEnabled: false } });
   });
 });
+
+describe("SpendController.getAdminOverageSummary (T3.2 admin rollup)", () => {
+  it("returns the per-shop overage rollup + grand total", async () => {
+    const summary = {
+      shops: [{ shopId: "s1", shopName: "Alpha", overageCostCents: 4, amountCents: 12, status: "pending" }],
+      grandTotal: { overageCostCents: 4, amountCents: 12, shopCount: 1 },
+    };
+    const controllers = makeSpendControllers({ getOverageSummary: async () => summary });
+    const res = makeRes();
+    await controllers.getAdminOverageSummary(makeReq({ user: { role: "admin" } }), res);
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: summary });
+  });
+
+  it("returns 500 on a repo error", async () => {
+    const controllers = makeSpendControllers({ getOverageSummary: async () => { throw new Error("db down"); } });
+    const res = makeRes();
+    await controllers.getAdminOverageSummary(makeReq(), res);
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+});

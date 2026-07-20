@@ -19,12 +19,15 @@ import { getShopAiBudget } from "../../../utils/shopTier";
 import { logger } from "../../../utils/logger";
 import { shopRepository } from "../../../repositories";
 import { getStripeService } from "../../../services/StripeService";
+import { AiOverageChargeRepository } from "../../../repositories/AiOverageChargeRepository";
 
 export interface SpendControllerDeps {
   pool?: Pool;
   /** Whether the shop has a usable payment method on file — gate for enabling overage.
    *  Injectable for tests; default resolves the shop's Stripe customer + lists cards. */
   hasPaymentMethod?: (shopId: string) => Promise<boolean>;
+  /** Admin overage rollup — injectable for tests; default reads the ai_overage_charges ledger. */
+  getOverageSummary?: () => ReturnType<AiOverageChargeRepository["getAllShopsMonthSummary"]>;
 }
 
 /** Default card-on-file check: shop's Stripe customer (from the $500 subscription) has ≥1 payment method. */
@@ -47,6 +50,7 @@ async function defaultHasPaymentMethod(shopId: string): Promise<boolean> {
 export function makeSpendControllers(deps: SpendControllerDeps = {}) {
   const pool = deps.pool ?? getSharedPool();
   const hasPaymentMethod = deps.hasPaymentMethod ?? defaultHasPaymentMethod;
+  const getOverageSummary = deps.getOverageSummary ?? (() => new AiOverageChargeRepository().getAllShopsMonthSummary());
 
   return {
     getOwnShopSpend: async (req: Request, res: Response): Promise<void> => {
@@ -292,6 +296,17 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
         res.status(500).json({ success: false, error: "Failed to load cost summary" });
       }
     },
+
+    /** GET /api/ai/admin/overage-summary — admin: per-shop AI Usage Overage this month + grand total. */
+    getAdminOverageSummary: async (_req: Request, res: Response): Promise<void> => {
+      try {
+        const { shops, grandTotal } = await getOverageSummary();
+        res.json({ success: true, data: { shops, grandTotal } });
+      } catch (err) {
+        logger.error("SpendController.getAdminOverageSummary failed", err);
+        res.status(500).json({ success: false, error: "Failed to load overage summary" });
+      }
+    },
   };
 }
 
@@ -310,4 +325,7 @@ export function getAdminCostSummary(req: Request, res: Response): Promise<void> 
 }
 export function setOwnShopOverage(req: Request, res: Response): Promise<void> {
   return getDefaults().setOwnShopOverage(req, res);
+}
+export function getAdminOverageSummary(req: Request, res: Response): Promise<void> {
+  return getDefaults().getAdminOverageSummary(req, res);
 }

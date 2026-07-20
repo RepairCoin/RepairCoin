@@ -40,6 +40,42 @@ export class AiOverageChargeRepository extends BaseRepository {
     }
   }
 
+  /** Admin rollup: every shop's current-month overage (name-joined) + the platform grand total.
+   *  Ordered by billable amount desc. Used by the admin overage dashboard. */
+  async getAllShopsMonthSummary(): Promise<{
+    shops: Array<{ shopId: string; shopName: string | null; overageCostCents: number; amountCents: number; status: string }>;
+    grandTotal: { overageCostCents: number; amountCents: number; shopCount: number };
+  }> {
+    try {
+      const result = await this.pool.query(
+        `SELECT c.shop_id, s.name AS shop_name, c.overage_cost_cents, c.amount_cents, c.status
+           FROM ai_overage_charges c
+           LEFT JOIN shops s ON c.shop_id = s.shop_id
+          WHERE c.period_month = DATE_TRUNC('month', now())::date
+          ORDER BY c.amount_cents DESC`
+      );
+      const shops = result.rows.map((r: any) => ({
+        shopId: r.shop_id,
+        shopName: r.shop_name ?? null,
+        overageCostCents: Number(r.overage_cost_cents) || 0,
+        amountCents: Number(r.amount_cents) || 0,
+        status: r.status,
+      }));
+      const grandTotal = shops.reduce(
+        (acc, s) => ({
+          overageCostCents: acc.overageCostCents + s.overageCostCents,
+          amountCents: acc.amountCents + s.amountCents,
+          shopCount: acc.shopCount + 1,
+        }),
+        { overageCostCents: 0, amountCents: 0, shopCount: 0 }
+      );
+      return { shops, grandTotal };
+    } catch (error) {
+      logger.error('AiOverageChargeRepository.getAllShopsMonthSummary failed:', error);
+      throw error;
+    }
+  }
+
   /** The shop's current-month accrual, or null if none yet. */
   async getShopCurrentMonth(shopId: string): Promise<AiOverageMonth | null> {
     try {
