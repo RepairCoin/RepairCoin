@@ -6,9 +6,10 @@
 // read-only. Reads GET /api/messages/admin/messaging-costs. Dark theme to match the admin dashboard.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, MessageSquare, DollarSign, Truck, ShieldCheck, Zap } from "lucide-react";
+import toast from "react-hot-toast";
+import { Loader2, RefreshCw, MessageSquare, DollarSign, Truck, ShieldCheck, Zap, Receipt } from "lucide-react";
 import {
-  getMessagingCostSummary, getAdminOverageSummary, fmtCents,
+  getMessagingCostSummary, getAdminOverageSummary, invoiceOveragePending, fmtCents,
   type MessagingCostSummary, type AdminOverageSummary,
 } from "@/services/api/messagingCosts";
 
@@ -53,6 +54,29 @@ export const AdminMessagingCostsTab: React.FC = () => {
   }, [days]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Invoice pending overage (Slice 3): per-shop or all-due. `busy` holds the shopId being invoiced,
+  // or "__all__" for the batch run, so only the clicked button spins.
+  const [busy, setBusy] = useState<string | null>(null);
+  const doInvoice = useCallback(async (arg: { shopId: string } | { all: true }, key: string) => {
+    setBusy(key);
+    try {
+      const r = await invoiceOveragePending(arg);
+      if ("all" in arg) {
+        const ok = r.results?.filter((x) => x.ok).length ?? 0;
+        const failed = r.results?.filter((x) => !x.ok) ?? [];
+        toast.success(`Invoiced ${ok} shop(s)${failed.length ? `, ${failed.length} failed` : ""}`);
+        if (failed.length) toast.error(`Failed: ${failed.map((f) => f.shopId).join(", ")}`);
+      } else {
+        toast.success(`Invoiced ${arg.shopId} — ${fmtCents(r.totalCents ?? 0)} (${r.status})`);
+      }
+      await load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || e?.message || "Failed to invoice overage");
+    } finally {
+      setBusy(null);
+    }
+  }, [load]);
 
   const gt = data?.grandTotal;
   const consentGranted = (channel: string) =>
@@ -205,6 +229,77 @@ export const AdminMessagingCostsTab: React.FC = () => {
             )}
             <p className="mt-3 text-xs text-gray-500">
               Billable = AI cost beyond each shop&apos;s monthly allowance × 3 (Usage ×3). Pending until invoiced.
+            </p>
+          </div>
+
+          {/* Ready to invoice — completed-month pending overage (what the invoice button charges via
+              Stripe). Only actionable when AI_OVERAGE_STRIPE_ENABLED is on; otherwise shown read-only. */}
+          <div className={`${CARD} p-5`}>
+            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+              <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <Receipt className="w-4 h-4" /> Ready to invoice — completed months
+              </h3>
+              {overage?.stripeEnabled && (overage?.pending?.shops.length ?? 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => doInvoice({ all: true }, "__all__")}
+                  disabled={!!busy}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-yellow-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {busy === "__all__" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Receipt className="w-3.5 h-3.5" />}
+                  Invoice all due ({fmtCents(overage!.pending.grandTotal.amountCents)})
+                </button>
+              )}
+            </div>
+
+            {!overage?.stripeEnabled && (
+              <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                Charging is disabled (<code>AI_OVERAGE_STRIPE_ENABLED</code> off). Amounts below are read-only
+                until it&apos;s turned on.
+              </div>
+            )}
+
+            {(overage?.pending?.shops.length ?? 0) === 0 ? (
+              <div className="text-sm text-gray-400 py-6 text-center">
+                Nothing pending from completed months. (This month&apos;s accrual is billable after the month closes.)
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-400 border-b border-white/10">
+                      <th className="text-left font-medium py-2 pr-4">Shop</th>
+                      <th className="text-right font-medium py-2 px-4">Months</th>
+                      <th className="text-right font-medium py-2 px-4">Billable</th>
+                      <th className="text-right font-medium py-2 pl-4">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {overage!.pending.shops.map((s) => (
+                      <tr key={s.shopId} className="border-b border-white/5">
+                        <td className="py-2 pr-4 text-white font-medium">{s.shopName || s.shopId}</td>
+                        <td className="py-2 px-4 text-right text-gray-300">{s.monthCount}</td>
+                        <td className="py-2 px-4 text-right font-semibold text-amber-300">{fmtCents(s.amountCents)}</td>
+                        <td className="py-2 pl-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => doInvoice({ shopId: s.shopId }, s.shopId)}
+                            disabled={!overage?.stripeEnabled || !!busy}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {busy === s.shopId ? <Loader2 className="w-3 h-3 animate-spin" /> : <Receipt className="w-3 h-3" />}
+                            Invoice
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="mt-3 text-xs text-gray-500">
+              Bundles each shop&apos;s completed-month pending overage into one Stripe invoice to its card on file.
+              Failed charges stay pending and can be retried here.
             </p>
           </div>
         </>

@@ -76,6 +76,41 @@ export class AiOverageChargeRepository extends BaseRepository {
     }
   }
 
+  /** Admin "ready to invoice" rollup: per-shop COMPLETED-month pending overage (name-joined) + the
+   *  platform grand total. This is what the admin invoice button acts on (excludes the in-progress
+   *  month, which is still accruing). Ordered by billable amount desc. */
+  async getPendingSummary(): Promise<{
+    shops: Array<{ shopId: string; shopName: string | null; amountCents: number; monthCount: number }>;
+    grandTotal: { amountCents: number; shopCount: number };
+  }> {
+    try {
+      const result = await this.pool.query(
+        `SELECT c.shop_id, s.name AS shop_name,
+                SUM(c.amount_cents) AS amount_cents,
+                COUNT(*) AS month_count
+           FROM ai_overage_charges c
+           LEFT JOIN shops s ON c.shop_id = s.shop_id
+          WHERE c.status = 'pending' AND c.period_month < DATE_TRUNC('month', now())::date
+          GROUP BY c.shop_id, s.name
+          ORDER BY SUM(c.amount_cents) DESC`
+      );
+      const shops = result.rows.map((r: any) => ({
+        shopId: r.shop_id,
+        shopName: r.shop_name ?? null,
+        amountCents: Number(r.amount_cents) || 0,
+        monthCount: Number(r.month_count) || 0,
+      }));
+      const grandTotal = {
+        amountCents: shops.reduce((a, s) => a + s.amountCents, 0),
+        shopCount: shops.length,
+      };
+      return { shops, grandTotal };
+    } catch (error) {
+      logger.error('AiOverageChargeRepository.getPendingSummary failed:', error);
+      throw error;
+    }
+  }
+
   /** Pending overage rows for a shop from COMPLETED months (never the in-progress month, which is
    *  still accruing). These are what Slice 3 invoices. */
   async pendingForShop(shopId: string): Promise<Array<{ id: string; periodMonth: string; amountCents: number }>> {

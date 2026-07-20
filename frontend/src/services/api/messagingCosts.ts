@@ -52,13 +52,40 @@ export interface OverageShopRow {
   status: string;
 }
 
+export interface OveragePendingRow {
+  shopId: string;
+  shopName: string | null;
+  amountCents: number; // billable pending across completed months
+  monthCount: number;
+}
+
 export interface AdminOverageSummary {
   shops: OverageShopRow[];
   grandTotal: { overageCostCents: number; amountCents: number; shopCount: number };
+  /** "Ready to invoice" — completed-month pending overage (what the invoice button acts on). */
+  pending: { shops: OveragePendingRow[]; grandTotal: { amountCents: number; shopCount: number } };
+  /** Whether Stripe charging is live (AI_OVERAGE_STRIPE_ENABLED). Gates the invoice buttons. */
+  stripeEnabled: boolean;
 }
 
-/** Per-shop AI Usage Overage this month + grand total (admin). */
+/** Per-shop AI Usage Overage this month + grand total + ready-to-invoice rollup (admin). */
 export const getAdminOverageSummary = async (): Promise<AdminOverageSummary> => {
   const res = await apiClient.get('/ai/admin/overage-summary');
   return unwrap<AdminOverageSummary>(res);
+};
+
+export interface InvoiceOverageResult {
+  stripeInvoiceId?: string;
+  totalCents?: number;
+  status?: string;
+  results?: Array<{ shopId: string; ok: boolean; error?: string }>;
+}
+
+/** Invoice a shop's pending overage (shopId), or every due shop (all:true). Admin, gated by
+ *  AI_OVERAGE_STRIPE_ENABLED (501 when off). Throws with the server's status/message on failure. */
+export const invoiceOveragePending = async (
+  arg: { shopId: string } | { all: true }
+): Promise<InvoiceOverageResult> => {
+  const res = await apiClient.post('/ai/admin/overage-invoice', arg);
+  return unwrap<InvoiceOverageResult>(res);
 };

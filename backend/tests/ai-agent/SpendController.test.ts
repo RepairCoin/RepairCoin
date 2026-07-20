@@ -361,19 +361,50 @@ describe("SpendController.setOwnShopOverageCap (per-shop cap, T3.2)", () => {
 });
 
 describe("SpendController.getAdminOverageSummary (T3.2 admin rollup)", () => {
-  it("returns the per-shop overage rollup + grand total", async () => {
-    const summary = {
-      shops: [{ shopId: "s1", shopName: "Alpha", overageCostCents: 4, amountCents: 12, status: "pending" }],
-      grandTotal: { overageCostCents: 4, amountCents: 12, shopCount: 1 },
-    };
-    const controllers = makeSpendControllers({ getOverageSummary: async () => summary });
+  const ORIG = process.env.AI_OVERAGE_STRIPE_ENABLED;
+  afterEach(() => { process.env.AI_OVERAGE_STRIPE_ENABLED = ORIG; });
+
+  const summary = {
+    shops: [{ shopId: "s1", shopName: "Alpha", overageCostCents: 4, amountCents: 12, status: "pending" }],
+    grandTotal: { overageCostCents: 4, amountCents: 12, shopCount: 1 },
+  };
+  const pending = {
+    shops: [{ shopId: "s1", shopName: "Alpha", amountCents: 30, monthCount: 1 }],
+    grandTotal: { amountCents: 30, shopCount: 1 },
+  };
+
+  it("returns the this-month rollup + ready-to-invoice pending + stripeEnabled flag", async () => {
+    process.env.AI_OVERAGE_STRIPE_ENABLED = "true";
+    const controllers = makeSpendControllers({
+      getOverageSummary: async () => summary,
+      getPendingOverage: async () => pending,
+    });
     const res = makeRes();
     await controllers.getAdminOverageSummary(makeReq({ user: { role: "admin" } }), res);
-    expect(res.json).toHaveBeenCalledWith({ success: true, data: summary });
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: { ...summary, pending, stripeEnabled: true },
+    });
+  });
+
+  it("reports stripeEnabled:false when charging is off", async () => {
+    process.env.AI_OVERAGE_STRIPE_ENABLED = "false";
+    const controllers = makeSpendControllers({
+      getOverageSummary: async () => summary,
+      getPendingOverage: async () => pending,
+    });
+    const res = makeRes();
+    await controllers.getAdminOverageSummary(makeReq({ user: { role: "admin" } }), res);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ stripeEnabled: false }),
+    }));
   });
 
   it("returns 500 on a repo error", async () => {
-    const controllers = makeSpendControllers({ getOverageSummary: async () => { throw new Error("db down"); } });
+    const controllers = makeSpendControllers({
+      getOverageSummary: async () => { throw new Error("db down"); },
+      getPendingOverage: async () => pending,
+    });
     const res = makeRes();
     await controllers.getAdminOverageSummary(makeReq(), res);
     expect(res.status).toHaveBeenCalledWith(500);
