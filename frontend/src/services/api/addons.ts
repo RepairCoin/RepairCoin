@@ -58,8 +58,15 @@ export async function resolveAddonStatuses(): Promise<AddonStatusMap> {
 }
 
 /** Per-shop AI Usage Overage state, read from GET /ai/spend. Best-effort (defaults to off/unavailable).
- *  `chargeUsd` = this month's accrued billable overage (Usage x3). */
-export async function getOverageState(): Promise<{ enabled: boolean; available: boolean; chargeUsd: number }> {
+ *  `chargeUsd` = this month's accrued billable overage (Usage x3). `capUsd` = the shop's own bill-shock
+ *  ceiling (null = inherit the platform default); `capDefaultUsd` = that platform default. */
+export async function getOverageState(): Promise<{
+  enabled: boolean;
+  available: boolean;
+  chargeUsd: number;
+  capUsd: number | null;
+  capDefaultUsd: number;
+}> {
   try {
     const body: any = await apiClient.get('/ai/spend');
     const d = body?.data ?? body ?? {};
@@ -67,9 +74,11 @@ export async function getOverageState(): Promise<{ enabled: boolean; available: 
       enabled: !!d.overageEnabled,
       available: !!d.overageAvailable,
       chargeUsd: Number(d.overageChargeUsd) || 0,
+      capUsd: d.overageCapUsd == null ? null : Number(d.overageCapUsd),
+      capDefaultUsd: Number(d.overageCapDefaultUsd) || 100,
     };
   } catch {
-    return { enabled: false, available: false, chargeUsd: 0 };
+    return { enabled: false, available: false, chargeUsd: 0, capUsd: null, capDefaultUsd: 100 };
   }
 }
 
@@ -77,6 +86,12 @@ export async function getOverageState(): Promise<{ enabled: boolean; available: 
  *  (acknowledgement of the Usage x3 terms); the backend rejects an enable without it. */
 export async function setOverage(enabled: boolean, consent?: boolean): Promise<void> {
   await apiClient.post('/ai/overage', { enabled, consent });
+}
+
+/** Set the shop's per-shop bill-shock cap (POST /ai/overage/cap). Pass a positive number for a ceiling,
+ *  or null to clear it and inherit the platform default. */
+export async function setOverageCap(capUsd: number | null): Promise<void> {
+  await apiClient.post('/ai/overage/cap', { capUsd });
 }
 
 export interface AiUsageSummary {

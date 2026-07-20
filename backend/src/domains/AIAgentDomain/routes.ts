@@ -9,7 +9,7 @@ import { transcribeVoice } from './controllers/VoiceTranscribeController';
 import { speakVoice } from './controllers/VoiceSpeakController';
 import { dispatchVoice } from './controllers/VoiceDispatchController';
 import { suggestServiceFaqs } from './controllers/FaqSuggestionController';
-import { getOwnShopSpend, getAdminCostSummary, setOwnShopOverage, getAdminOverageSummary, invoiceOverage } from './controllers/SpendController';
+import { getOwnShopSpend, getAdminCostSummary, setOwnShopOverage, setOwnShopOverageCap, getAdminOverageSummary, invoiceOverage } from './controllers/SpendController';
 import {
   getOwnShopAiSettings,
   updateOwnShopAiSettings,
@@ -128,6 +128,10 @@ export function initializeRoutes(): Router {
   // AI Usage Overage (T3.2) — shop opts in/out of full-power AI past the monthly allowance.
   // Gated by ENABLE_AI_OVERAGE inside the controller (409 until the feature is live).
   router.post('/overage', authMiddleware, requireRole(['shop']), setOwnShopOverage);
+
+  // AI Usage Overage per-shop bill-shock cap — shop sets its own ceiling on billable overage
+  // (null = inherit the platform default). Gated by ENABLE_AI_OVERAGE inside the controller.
+  router.post('/overage/cap', authMiddleware, requireRole(['shop']), setOwnShopOverageCap);
 
   // Shop-side AI settings. Both gate on `shop` role; the controller reads
   // shopId from the JWT (no path param) so a shop can only ever read/write
