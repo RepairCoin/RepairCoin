@@ -23,6 +23,7 @@ import {
   getAiUsageSummary,
   getPaymentMethod,
   setOverage,
+  setOverageCap,
   getOverageState,
   type AddonStatusMap,
   type AddonStatus,
@@ -67,7 +68,7 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
   const [statuses, setStatuses] = useState<AddonStatusMap>({});
   const [usage, setUsage] = useState<AiUsageSummary | null>(null);
   const [card, setCard] = useState<PaymentMethodSummary | null>(null);
-  const [overageInfo, setOverageInfo] = useState<{ enabled: boolean; chargeUsd: number } | null>(null);
+  const [overageInfo, setOverageInfo] = useState<{ enabled: boolean; chargeUsd: number; capUsd: number | null; capDefaultUsd: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutBusy, setCheckoutBusy] = useState<string | null>(null);
   const [cancelingAgency, setCancelingAgency] = useState(false);
@@ -123,7 +124,8 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
     setStatuses(s);
     setUsage(u);
     setCard(pm);
-    setOverageInfo({ enabled: ov.enabled, chargeUsd: ov.chargeUsd });
+    setOverageInfo({ enabled: ov.enabled, chargeUsd: ov.chargeUsd, capUsd: ov.capUsd, capDefaultUsd: ov.capDefaultUsd });
+    setCapDraft(ov.capUsd != null ? String(ov.capUsd) : "");
     setLoading(false);
   }, []);
 
@@ -152,6 +154,34 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
     if (enabled) { setConsentOpen(true); return; } // enabling → confirm the terms in the modal
     doSetOverage(false); // disabling → immediate
   }, [doSetOverage]);
+
+  // Per-shop bill-shock cap (T3.2): a ceiling on billable overage this month. Empty = inherit the
+  // platform default. This is what the cap-reached banner's "raise your cap" CTA actually adjusts.
+  const [capDraft, setCapDraft] = useState("");
+  const [savingCap, setSavingCap] = useState(false);
+
+  const saveCap = useCallback(async () => {
+    const trimmed = capDraft.trim();
+    let capUsd: number | null = null;
+    if (trimmed !== "") {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || n <= 0) {
+        toast.error("Enter a positive dollar amount, or leave blank to use the default");
+        return;
+      }
+      capUsd = Math.round(n * 100) / 100;
+    }
+    setSavingCap(true);
+    try {
+      await setOverageCap(capUsd);
+      toast.success(capUsd == null ? "Overage cap reset to the default" : `Overage cap set to $${capUsd.toFixed(2)}`);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Couldn't update the overage cap — please try again");
+    } finally {
+      setSavingCap(false);
+    }
+  }, [capDraft, load]);
 
   if (loading) {
     return (
@@ -228,6 +258,49 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
               <div className="mt-2 flex items-center justify-between text-xs">
                 <span className="text-amber-300">Overage this month · billed at 3×</span>
                 <span className="font-semibold text-amber-300">${overageInfo.chargeUsd.toFixed(2)}</span>
+              </div>
+            )}
+            {/* Per-shop bill-shock cap (T3.2): the shop's own ceiling on billable overage. Shown while
+                overage is on — this is what the cap-reached banner's "raise your cap" CTA adjusts. */}
+            {overageInfo?.enabled && (
+              <div className="mt-3 rounded-lg border border-gray-700/70 bg-gray-800/40 p-3">
+                <label htmlFor="overage-cap" className="block text-xs font-medium text-gray-200">
+                  Overage safety cap
+                </label>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Pause full-power AI once this month&apos;s billable overage reaches this amount. Leave blank
+                  to use the default (${overageInfo.capDefaultUsd.toFixed(2)}).
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                    <input
+                      id="overage-cap"
+                      type="number"
+                      min="0"
+                      step="1"
+                      inputMode="decimal"
+                      value={capDraft}
+                      onChange={(e) => setCapDraft(e.target.value)}
+                      placeholder={overageInfo.capDefaultUsd.toFixed(0)}
+                      className="w-28 rounded-md border border-gray-600 bg-gray-900/60 py-1.5 pl-5 pr-2 text-sm text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={saveCap}
+                    disabled={savingCap || capDraft.trim() === (overageInfo.capUsd != null ? String(overageInfo.capUsd) : "")}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-yellow-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {savingCap && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Save cap
+                  </button>
+                </div>
+                <p className="mt-1.5 text-xs text-gray-500">
+                  In effect:{" "}
+                  <span className="text-gray-300">${(overageInfo.capUsd ?? overageInfo.capDefaultUsd).toFixed(2)}</span>
+                  {overageInfo.capUsd == null && " (default)"}
+                </p>
               </div>
             )}
             {/* Billing clarity: which AI counts toward the allowance/overage (ad-lead replies do not). */}

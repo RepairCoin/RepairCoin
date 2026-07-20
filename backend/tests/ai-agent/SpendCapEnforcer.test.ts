@@ -151,6 +151,40 @@ describe("SpendCapEnforcer.canSpend — overage bill-shock guardrail (T3.2 Slice
   });
 });
 
+describe("SpendCapEnforcer.canSpend — per-shop overage cap (T3.2)", () => {
+  const ORIG_FLAG = process.env.ENABLE_AI_OVERAGE;
+  const ORIG_CAP = process.env.AI_OVERAGE_MONTHLY_CAP_USD;
+  beforeEach(() => { process.env.ENABLE_AI_OVERAGE = "true"; });
+  afterEach(() => { process.env.ENABLE_AI_OVERAGE = ORIG_FLAG; process.env.AI_OVERAGE_MONTHLY_CAP_USD = ORIG_CAP; });
+
+  // row carries spend + opt-in + the per-shop cap column
+  const row = (v: string, overage: boolean, cap: string | null) =>
+    [{ current_month_spend_usd: v, ai_overage_enabled: overage, overage_cap_usd: cap }];
+
+  it("uses the shop's own cap over the platform default (per-shop $5 trips before the $100 default)", async () => {
+    delete process.env.AI_OVERAGE_MONTHLY_CAP_USD; // default 100
+    // growth $30, spent $40 → $30 billable ≥ $5 per-shop cap → guardrail trips
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true, "5"))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true);
+    expect(r.overageCapReached).toBe(true);
+  });
+
+  it("a HIGHER per-shop cap overrides a low platform default (per-shop $50 keeps full model)", async () => {
+    process.env.AI_OVERAGE_MONTHLY_CAP_USD = "5"; // low platform default
+    // $30 billable < $50 per-shop cap → full model despite the low global default
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true, "50"))).canSpend("s");
+    expect(r.useCheaperModel).toBe(false);
+    expect(r.overageCapReached).toBeFalsy();
+  });
+
+  it("falls back to the platform default when the shop has no cap set (null)", async () => {
+    process.env.AI_OVERAGE_MONTHLY_CAP_USD = "5";
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true, null))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true); // inherits the $5 default → $30 billable trips it
+    expect(r.overageCapReached).toBe(true);
+  });
+});
+
 describe("SpendCapEnforcer.recordSpend — overage accrual (T3.2 Slice 2)", () => {
   const ORIG = process.env.ENABLE_AI_OVERAGE;
   beforeEach(() => { process.env.ENABLE_AI_OVERAGE = "true"; mockedGetShopTier.mockResolvedValue("growth"); }); // $30

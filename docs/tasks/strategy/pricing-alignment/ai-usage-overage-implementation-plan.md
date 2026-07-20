@@ -8,8 +8,8 @@ add-on that keeps full-power AI running past the cap, billed at 3× the actual A
 which was deferred behind the WS3 soft-landing (T3.1b). Builds on the shipped per-tier allowances
 ($10/$30/$75) and the soft-landing cap.
 
-**Status (2026-07-20):** Slices 1 (behavior) + 2 (metering) + 2.5 (guardrail + consent) BUILT + COMMITTED
-on `deo/ads-system`. **Slice 3 (Stripe charging) BUILT + test-mode verified (flag OFF)** — the code path
+**Status (2026-07-20):** Slices 1 (behavior) + 2 (metering) + 2.5 (guardrail + consent) + 2.6 (per-shop
+cap, migration 228) BUILT + COMMITTED on `deo/ads-system`. **Slice 3 (Stripe charging) BUILT + test-mode verified (flag OFF)** — the code path
 is complete and proven end-to-end against staging Stripe TEST mode; it stays dark until
 `AI_OVERAGE_STRIPE_ENABLED=true`, whose real gate is **business/legal sign-off on the "Usage ×3" terms**
 (NOT Stripe Connect — it's a direct invoice to the shop's existing `stripe_customer_id`, same as ads billing).
@@ -151,6 +151,31 @@ sign-off conversation:
 
 ---
 
+## Slice 2.6 — Per-shop overage cap (BUILT 2026-07-20)
+
+Slice 2.5 shipped a single **platform-wide** guardrail (env `AI_OVERAGE_MONTHLY_CAP_USD`). That made the
+cap-reached banner's *"raise your overage cap"* CTA a promise with no control behind it — the only way to
+raise the cap was an engineer editing an env var. This closes that gap with the per-shop cap the scope
+originally specified (`ai-usage-overage-scope.md` §4/§5.5).
+
+- **Schema.** Migration **228** — `ai_shop_settings.overage_cap_usd NUMERIC(12,2)` nullable. `NULL` =
+  inherit the platform default; a positive value = that shop's ceiling on billable overage.
+- **Enforcer.** `effectiveOverageCapUsd(perShopCap)` = the shop's own cap if set, else the platform
+  default. `SpendCapEnforcer.canSpend` reads `overage_cap_usd` (no extra query) and uses it in the
+  guardrail branch. Existing behavior unchanged when a shop hasn't set one.
+- **Endpoint.** `POST /api/ai/overage/cap` (shop, gated by `ENABLE_AI_OVERAGE`): `{ capUsd: number|null }`
+  — positive sets, `null` clears (inherit default), 0/negative → 400. `GET /api/ai/spend` now returns
+  `overageCapUsd` + `overageCapDefaultUsd`.
+- **UI.** An "Overage safety cap" input on Plans & Billing (under the overage indicator, shown while
+  overage is on): `$___` + Save, placeholder = default, "In effect: $X (default)" hint. The cap-reached
+  banner's "Manage overage" button routes here — the CTA now adjusts a real control.
+- **Tests.** Enforcer (per-shop overrides default; higher per-shop beats a low default; null inherits) +
+  controller (409 flag-off, 400 non-positive, sets rounded-to-cents, clears to null). Part of 889/889 green.
+- **Admin override:** not built — a shop self-serves its own cap; an admin-set-per-shop control can reuse
+  the same column later if needed.
+
+---
+
 ## Slice 3 — Charging via Stripe (the real remaining gate = terms sign-off, NOT Connect)
 
 **Correction:** charging a shop for overage is FixFlow **invoicing its own customer** — it does NOT need
@@ -175,8 +200,10 @@ The direct-invoice path already exists and is proven by the ads billing.
 
 ## Cross-cutting
 
-**Flags (all default off):** `ENABLE_AI_OVERAGE` (backend master), `NEXT_PUBLIC_AI_OVERAGE_ENABLED`
-(frontend card), `AI_OVERAGE_STRIPE_ENABLED` (charging). Plus the per-shop `ai_overage_enabled` toggle.
+**Flags (all default off):** `ENABLE_AI_OVERAGE` (backend master — the ONLY visibility gate; there is no
+`NEXT_PUBLIC_*` flag, removed so a Vercel env change alone can't leave the card stuck "Coming soon"),
+`AI_OVERAGE_STRIPE_ENABLED` (charging). Plus `AI_OVERAGE_MONTHLY_CAP_USD` (platform-default cap),
+`AI_OVERAGE_REQUIRE_CARD`, the per-shop `ai_overage_enabled` toggle, and per-shop `overage_cap_usd`.
 
 **Reuse (proven patterns in-repo):** ads billing (`ad_billing_charges`, `BillingChargeRepository`,
 `AdBillingService.accrue`, `AdBillingStripeService.invoiceShopPending`, `StripeService.createImmediateInvoice`)

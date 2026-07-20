@@ -95,16 +95,27 @@ Example: a **Growth ($30)** shop.
 
 ---
 
-## 4. Test C — the bill-shock guardrail
+## 4. Test C — the bill-shock guardrail (platform default + per-shop cap)
 
-1. Set the cap low: `AI_OVERAGE_MONTHLY_CAP_USD=3` (redeploy backend).
+The guardrail cap is the shop's own `overage_cap_usd` if set, else the platform default
+`AI_OVERAGE_MONTHLY_CAP_USD` (default $100).
+
+**C1 — platform default:**
+1. Set the default low: `AI_OVERAGE_MONTHLY_CAP_USD=3` (redeploy backend).
 2. Seed spend so billable overage ≥ cap. Growth $30: set spend to **$32** → billable = (32−30)×3 = **$6 ≥ $3**.
    ```sql
-   UPDATE ai_shop_settings SET current_month_spend_usd = 32 WHERE shop_id='<shop>';
+   UPDATE ai_shop_settings SET current_month_spend_usd = 32, overage_cap_usd = NULL WHERE shop_id='<shop>';
    ```
-3. With overage **enabled**, send an AI message. Expect: **back on Haiku** (guardrail tripped — the model
-   drops even though overage is on) and the banner reappears.
-4. Confirm via the audit `model` (Haiku) on the latest call.
+3. With overage **enabled**, send an AI message. Expect: **back on Haiku** (guardrail tripped) + the
+   cap-reached banner ("raise your overage cap"). Confirm via the audit `model` (Haiku) on the latest call.
+
+**C2 — per-shop cap (Slice 2.6):** the shop's own cap overrides the platform default, both ways.
+1. On **Plans & Billing**, under the overage indicator, set the **Overage safety cap** input to **$2** and
+   Save (or `POST /api/ai/overage/cap { "capUsd": 2 }`). DB: `overage_cap_usd = 2.00`.
+2. With spend $32 (billable $6 ≥ $2) → **Haiku + cap-reached banner**, regardless of the platform default.
+3. Raise the cap to **$50** (billable $6 < $50) → **full model resumes**, even if the platform default is
+   lower. Clear the input (blank + Save) → `overage_cap_usd = NULL` → inherits the platform default again.
+4. Guards: `capUsd ≤ 0` → **400**; the input's "In effect: $X (default)" hint reflects the active cap.
 
 ---
 
@@ -153,7 +164,8 @@ POST /api/ai/admin/overage-invoice   {"shopId":"<shop>"}
 ```sql
 -- reset the shop's spend + overage state
 UPDATE ai_shop_settings
-   SET current_month_spend_usd = 0, ai_overage_enabled = false, ai_overage_consent_at = NULL
+   SET current_month_spend_usd = 0, ai_overage_enabled = false, ai_overage_consent_at = NULL,
+       overage_cap_usd = NULL
  WHERE shop_id='<shop>';
 -- clear the accrual ledger for this shop/month
 DELETE FROM ai_overage_charges
@@ -168,9 +180,12 @@ is default-OFF, so leaving them off restores normal soft-landing behavior.
 ## Quick reference
 
 - **Flags (all backend):** `ENABLE_AI_OVERAGE` (the only one that gates visibility), `AI_OVERAGE_REQUIRE_CARD`,
-  `AI_OVERAGE_MONTHLY_CAP_USD`, `AI_OVERAGE_STRIPE_ENABLED` (gates real charging, default OFF)
-- **Tables:** `ai_shop_settings` (`ai_overage_enabled`, `ai_overage_consent_at`, `current_month_spend_usd`),
-  `ai_overage_charges` (accrual ledger), `ai_agent_messages` (model per call)
-- **Endpoints:** `GET /api/ai/spend` (`overageEnabled`/`overageAvailable`/`overageChargeUsd`),
-  `POST /api/ai/overage {enabled, consent}`, `POST /api/ai/admin/overage-invoice {shopId | all:true}` (admin)
+  `AI_OVERAGE_MONTHLY_CAP_USD` (platform-default cap; per-shop `overage_cap_usd` overrides it),
+  `AI_OVERAGE_STRIPE_ENABLED` (gates real charging, default OFF)
+- **Tables:** `ai_shop_settings` (`ai_overage_enabled`, `ai_overage_consent_at`, `current_month_spend_usd`,
+  `overage_cap_usd`), `ai_overage_charges` (accrual ledger), `ai_agent_messages` (model per call)
+- **Endpoints:** `GET /api/ai/spend` (`overageEnabled`/`overageAvailable`/`overageChargeUsd`/`overageCapUsd`/`overageCapDefaultUsd`),
+  `POST /api/ai/overage {enabled, consent}`, `POST /api/ai/overage/cap {capUsd|null}` (shop),
+  `POST /api/ai/admin/overage-invoice {shopId | all:true}` (admin)
+- **Migrations:** 224–226 (overage core), **228** (`overage_cap_usd` per-shop cap)
 - **Migrations:** 224 (`ai_overage_enabled`), 225 (`ai_overage_charges`), 226 (`ai_overage_consent_at`)

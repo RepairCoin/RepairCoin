@@ -37,12 +37,22 @@ const overageFeatureEnabled = (): boolean => process.env.ENABLE_AI_OVERAGE === "
 // "Usage x3" — the billable multiplier on overage cost. Kept in sync with AiOverageChargeRepository's default.
 const OVERAGE_MULTIPLIER = 3;
 
-// Bill-shock guardrail (Slice 2.5): a per-shop monthly cap on the BILLABLE overage (dollars the shop
-// would be invoiced). Once reached, overage stops lifting the model — reverts to the Haiku soft-landing
-// so a runaway session can't produce a surprise invoice. 0 = unlimited (no guardrail). Default $100.
-const overageMonthlyCapUsd = (): number => {
+// Bill-shock guardrail (Slice 2.5): a monthly cap on the BILLABLE overage (dollars the shop would be
+// invoiced). Once reached, overage stops lifting the model — reverts to the Haiku soft-landing so a
+// runaway session can't produce a surprise invoice. 0 = unlimited (no guardrail).
+//
+// PLATFORM DEFAULT (env AI_OVERAGE_MONTHLY_CAP_USD, default $100) — the fallback when a shop hasn't set
+// its own. A shop can override it per-shop via ai_shop_settings.overage_cap_usd (T3.2 per-shop cap).
+const overagePlatformCapUsd = (): number => {
   const n = Number(process.env.AI_OVERAGE_MONTHLY_CAP_USD ?? "100");
   return Number.isFinite(n) && n >= 0 ? n : 100;
+};
+
+/** The cap that actually applies to a shop: its own overage_cap_usd if set (NULL = inherit), else the
+ *  platform default. A negative stored value is ignored (treated as unset). Exported for reuse/tests. */
+export const effectiveOverageCapUsd = (perShopCapUsd: number | null | undefined): number => {
+  if (perShopCapUsd != null && Number.isFinite(perShopCapUsd) && perShopCapUsd >= 0) return perShopCapUsd;
+  return overagePlatformCapUsd();
 };
 
 /** Accrue the marginal overage (USD beyond the allowance) — injectable for tests. Default = the
@@ -73,8 +83,8 @@ export class SpendCapEnforcer {
     // Budget = the shop's CURRENT tier allowance ($10/$30/$75). Computed at read; not stored/editable.
     const budget = AI_TIER_ALLOWANCE[await this.resolveTier(shopId)];
 
-    const result = await this.pool.query<{ current_month_spend_usd: string; ai_overage_enabled: boolean }>(
-      `SELECT current_month_spend_usd, ai_overage_enabled FROM ai_shop_settings WHERE shop_id = $1`,
+    const result = await this.pool.query<{ current_month_spend_usd: string; ai_overage_enabled: boolean; overage_cap_usd: string | null }>(
+      `SELECT current_month_spend_usd, ai_overage_enabled, overage_cap_usd FROM ai_shop_settings WHERE shop_id = $1`,
       [shopId]
     );
 
@@ -102,8 +112,10 @@ export class SpendCapEnforcer {
     if (spent >= budget && overageOn) {
       // Bill-shock guardrail (Slice 2.5): everything beyond the allowance is overage, so the billable
       // this month = (spent - budget) x multiplier — computed here with no extra query. Once it reaches
-      // the cap, STOP lifting the model (revert to Haiku) to prevent a runaway invoice.
-      const cap = overageMonthlyCapUsd();
+      // the cap, STOP lifting the model (revert to Haiku) to prevent a runaway invoice. The cap is the
+      // shop's own overage_cap_usd if set, else the platform default (T3.2 per-shop cap).
+      const perShopCap = result.rows[0].overage_cap_usd != null ? Number(result.rows[0].overage_cap_usd) : null;
+      const cap = effectiveOverageCapUsd(perShopCap);
       const billableOverageUsd = (spent - budget) * OVERAGE_MULTIPLIER;
       if (cap > 0 && billableOverageUsd >= cap) {
         return { allowed: true, useCheaperModel: true, limitReached: true, overageEnabled: true, overageCapReached: true, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
