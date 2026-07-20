@@ -269,3 +269,55 @@ Slice 3 (charging, when Stripe/legal clears). Slice 1 alone already makes the ba
 - Slice 3 is gated on Stripe Connect + legal (WS0 D4). Slices 1–2 are not.
 - Runaway protection: a per-shop monthly overage alert/soft-ceiling is recommended before charging is
   live (avoid bill shock), even under "unlimited pay-as-you-grow".
+
+---
+
+## Production go-live checklist
+
+Code is complete + live-verified on staging. To turn AI Usage Overage on in **production**, complete ALL of
+the following. Nothing charges a real card until step 3's `AI_OVERAGE_STRIPE_ENABLED=true` — do the rest first.
+
+### 1. Database migrations (prod)
+DO auto-migrates on deploy, but confirm these landed in prod:
+- **228** `ai_shop_settings.overage_cap_usd` (per-shop cap)
+- **229** `ai_overage_charges.invoicing_at` + `refunded_cents` + `refunded_at` (concurrency guard + refund tracking)
+- (224–226 = overage_enabled / ai_overage_charges / consent_at should already be in prod from earlier.)
+
+### 2. Environment variables (prod backend, DO)
+- `ENABLE_AI_OVERAGE=true` — master visibility (card + enforcer + endpoints). *(There is intentionally no
+  `NEXT_PUBLIC_*` flag; visibility is 100% backend-driven.)*
+- `AI_OVERAGE_REQUIRE_CARD=true` — require a card on file before a shop can enable overage.
+- `AI_OVERAGE_MONTHLY_CAP_USD=100` — platform-default bill-shock cap (per-shop `overage_cap_usd` overrides).
+- `AI_OVERAGE_STRIPE_ENABLED=false` **until step 5** — the money switch; keep OFF until terms are signed off.
+- `RESEND_API_KEY` (+ optional `RESEND_FROM_EMAIL`/`RESEND_FROM_NAME`) — the receipt sender. Verify the
+  from-domain is verified in Resend (an unverified domain silently fails to arbitrary recipients).
+
+### 3. Stripe webhook events (prod) — REQUIRED, easy to miss
+The prod Stripe webhook endpoint (`/api/shops/webhooks/stripe`) ships subscribed to subscription events
+only. It MUST also subscribe to these 4, or auto-disable / refund / delayed-receipt / reconcile silently no-op:
+- `invoice.payment_succeeded` — delayed-collection receipt + ledger reconcile (`invoiced`→`paid`)
+- `invoice.payment_failed` — "we'll retry" notification (#6)
+- `invoice.marked_uncollectible` — auto-disable overage + notify (#6)
+- `credit_note.created` — refund ledger tracking (#13)
+*(This exact gap was hit on staging — the events fired but weren't delivered until added.)*
+
+### 4. Legal / business (the real gate for charging)
+- Publish the **Usage ×3 terms** + **refund/dispute policy** (draft: `ai-usage-overage-terms-and-refund-policy.md`);
+  fill its open decisions (refund window, failed-payment grace, default cap, tax, notice period).
+- **Link Part A (terms) from the enable-consent modal** so consent points at authoritative text.
+
+### 5. Flip charging on
+Only after 1–4: set `AI_OVERAGE_STRIPE_ENABLED=true` in prod. From here, completed-month overage is billed
+(monthly cron `AiOverageBillingScheduler`, or the admin "Ready to invoice" button in Admin → Messaging Costs).
+
+### 6. Post-enable smoke test (prod, one shop)
+- Seed/observe a shop crossing its allowance → "AI Overage Active" notification (addressed to **shopId**).
+- Admin → Messaging Costs → invoice a completed-month pending → receipt email lands, ledger `paid`.
+- Confirm the monthly cron is scheduled (log: "AI overage billing scheduler started").
+
+### Known follow-ups (not blockers)
+- **Platform notification addressing:** `payment_received` / `redemption_approved` / ad-lead types are still
+  wallet-addressed → invisible to social-login shops (login wallet ≠ `shops.wallet_address`). Overage was
+  fixed to address the shopId; a platform-wide fix is recommended. See the notification-addressing reference.
+- **Monthly cron cadence:** starts inert; only acts once `AI_OVERAGE_STRIPE_ENABLED=true`. Watch the first
+  live cycle via the admin button before relying on the cron unattended.
