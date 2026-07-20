@@ -30,6 +30,8 @@ export interface SpendControllerDeps {
   hasPaymentMethod?: (shopId: string) => Promise<boolean>;
   /** Admin overage rollup — injectable for tests; default reads the ai_overage_charges ledger. */
   getOverageSummary?: () => ReturnType<AiOverageChargeRepository["getAllShopsMonthSummary"]>;
+  /** Admin "ready to invoice" rollup (completed-month pending) — injectable for tests. */
+  getPendingOverage?: () => ReturnType<AiOverageChargeRepository["getPendingSummary"]>;
   /** Slice 3 Stripe invoicing — injectable for tests; default = the real service (flag-gated). */
   overageStripe?: Pick<AiOverageStripeService, "invoiceShopPending" | "invoiceAllDue">;
 }
@@ -55,6 +57,7 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
   const pool = deps.pool ?? getSharedPool();
   const hasPaymentMethod = deps.hasPaymentMethod ?? defaultHasPaymentMethod;
   const getOverageSummary = deps.getOverageSummary ?? (() => new AiOverageChargeRepository().getAllShopsMonthSummary());
+  const getPendingOverage = deps.getPendingOverage ?? (() => new AiOverageChargeRepository().getPendingSummary());
   const overageStripe = deps.overageStripe ?? aiOverageStripeService;
 
   return {
@@ -354,11 +357,20 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
       }
     },
 
-    /** GET /api/ai/admin/overage-summary — admin: per-shop AI Usage Overage this month + grand total. */
+    /** GET /api/ai/admin/overage-summary — admin: per-shop AI Usage Overage this month + grand total,
+     *  plus the "ready to invoice" rollup (completed-month pending) and whether charging is live. */
     getAdminOverageSummary: async (_req: Request, res: Response): Promise<void> => {
       try {
-        const { shops, grandTotal } = await getOverageSummary();
-        res.json({ success: true, data: { shops, grandTotal } });
+        const [{ shops, grandTotal }, pending] = await Promise.all([getOverageSummary(), getPendingOverage()]);
+        res.json({
+          success: true,
+          data: {
+            shops,
+            grandTotal,
+            pending,
+            stripeEnabled: process.env.AI_OVERAGE_STRIPE_ENABLED === "true",
+          },
+        });
       } catch (err) {
         logger.error("SpendController.getAdminOverageSummary failed", err);
         res.status(500).json({ success: false, error: "Failed to load overage summary" });
