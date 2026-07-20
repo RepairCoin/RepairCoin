@@ -8,11 +8,32 @@ add-on that keeps full-power AI running past the cap, billed at 3× the actual A
 which was deferred behind the WS3 soft-landing (T3.1b). Builds on the shipped per-tier allowances
 ($10/$30/$75) and the soft-landing cap.
 
-**Status (2026-07-20):** Slices 1 (behavior) + 2 (metering) + 2.5 (guardrail + consent) + 2.6 (per-shop
-cap, migration 228) BUILT + COMMITTED on `deo/ads-system`. **Slice 3 (Stripe charging) BUILT + test-mode verified (flag OFF)** — the code path
-is complete and proven end-to-end against staging Stripe TEST mode; it stays dark until
-`AI_OVERAGE_STRIPE_ENABLED=true`, whose real gate is **business/legal sign-off on the "Usage ×3" terms**
-(NOT Stripe Connect — it's a direct invoice to the shop's existing `stripe_customer_id`, same as ads billing).
+**Status (2026-07-20): CODE-COMPLETE + LIVE-VERIFIED on staging.** Slices 1 (behavior) + 2 (metering)
++ 2.5 (guardrail + consent) + 2.6 (per-shop cap, migration 228) + Slice 3 (Stripe charging) + prod-hardening
+items 5–13 + receipt email — all BUILT + COMMITTED on `deo/ads-system` and verified end-to-end on staging.
+Charging stays dark until `AI_OVERAGE_STRIPE_ENABLED=true`, whose real gate is **business/legal sign-off on
+the "Usage ×3" terms** (NOT Stripe Connect — it's a direct invoice to the shop's existing
+`stripe_customer_id`, same as ads billing).
+
+**Live verification (staging, shop `peanut`, 2026-07-20) — ALL PASS:**
+- #3 receipt email (deployed backend + Resend), #5 invoiceAllDue, #6 auto-disable + #10 alert logs,
+  #7 overage-started notification, #8 AI-usage display ($30 tier allowance), #9 approaching-cap warning,
+  #11 concurrency (1 charged / 1 skipped), #12 USD, #13 refund tracking. Charging path proven paid+reconciled.
+- **Two fixes surfaced + resolved during testing:**
+  1. Overage notifications now address the **shopId**, not the wallet (`06ab3255b`) — a shop's login can be
+     a social wallet ≠ `shops.wallet_address`, and the bell resolves `[wallet, shopId]`, so wallet-addressed
+     notifications silently miss such shops. (Same latent issue affects payment_received/redemption/ad-lead
+     types platform-wide — noted for a separate fix.)
+  2. **Staging Stripe webhook endpoint was missing the invoice/credit-note events.** Added 4 to endpoint
+     `we_1SA2c6…`: `invoice.payment_succeeded`, `invoice.payment_failed`, `invoice.marked_uncollectible`,
+     `credit_note.created`. #6/#13 silently no-op'd until then (config gap, not code). **PROD will have the
+     same gap — the prod webhook MUST subscribe to these 4 events.**
+
+**Remaining before real charging (all external — no code):**
+1. Business/legal sign-off on the Usage ×3 terms + refund/dispute policy (draft:
+   `ai-usage-overage-terms-and-refund-policy.md`); link Part A from the enable-consent modal.
+2. Prod deploy: migrations 228+229 + the four `AI_OVERAGE_*` flags + `RESEND_*`, and subscribe the prod
+   Stripe webhook to the 4 events above.
 
 **Slice 3 build (2026-07-20):**
 - `AiOverageStripeService` — `invoiceShopPending(shopId)` bundles a shop's completed-month pending overage
