@@ -54,7 +54,26 @@ export async function resolveAddonStatuses(): Promise<AddonStatusMap> {
     // no agency for this shop → leave at 'off'
   }
 
+  // Payments Processing ← Stripe Connect onboarding state (GET /shops/connect/summary).
+  // 'active' once Stripe charges are enabled; otherwise 'off' (shows the Connect Stripe CTA).
+  // A failed read leaves it at 'coming_soon'.
+  const connect = await getConnectStatus();
+  if (connect) map.payments = connect.chargesEnabled ? 'active' : 'off';
+
   return map;
+}
+
+/** Shop's Stripe Connect (payouts) status, from GET /shops/connect/summary (DB-only, no
+ *  Stripe call). Returns null if unreadable so callers can keep a safe default. */
+export async function getConnectStatus(): Promise<{ hasAccount: boolean; chargesEnabled: boolean } | null> {
+  try {
+    // apiClient unwraps to the response body: { success, data: { hasAccount, chargesEnabled } }.
+    const body: any = await apiClient.get('/shops/connect/summary');
+    const d = body?.data ?? {};
+    return { hasAccount: !!d.hasAccount, chargesEnabled: !!d.chargesEnabled };
+  } catch {
+    return null;
+  }
 }
 
 /** Per-shop AI Usage Overage state, read from GET /ai/spend. Best-effort (defaults to off/unavailable).

@@ -169,6 +169,7 @@ router.get('/', async (req: Request, res: Response) => {
       facebook: shop.facebook,
       twitter: shop.twitter,
       instagram: shop.instagram,
+      linkedin: shop.linkedin,
       category: shop.category,
       logoUrl: shop.logoUrl,
       bannerUrl: shop.bannerUrl,
@@ -370,6 +371,7 @@ router.get('/:shopId', optionalAuthMiddleware, async (req: Request, res: Respons
         facebook: shop.facebook,
         twitter: shop.twitter,
         instagram: shop.instagram,
+        linkedin: shop.linkedin,
         category: shop.category,
         logoUrl: shop.logoUrl,
         bannerUrl: shop.bannerUrl,
@@ -535,6 +537,7 @@ router.get('/wallet/:address',
           facebook: shop.facebook,
           twitter: shop.twitter,
           instagram: shop.instagram,
+          linkedin: shop.linkedin,
           // Add other fields as needed
           website: shop.website,
           logoUrl: shop.logoUrl,
@@ -598,6 +601,7 @@ router.post('/register',
         facebook,
         twitter,
         instagram,
+        linkedin,
         acceptTerms,
         category,
         agencyInviteToken
@@ -659,6 +663,7 @@ router.post('/register',
         facebook,
         twitter,
         instagram,
+        linkedin,
         acceptTerms,
         country,
         category
@@ -731,6 +736,7 @@ router.put('/:shopId/details',
         facebook,
         twitter,
         instagram,
+        linkedin,
         firstName,
         lastName,
         logoUrl,
@@ -766,6 +772,7 @@ router.put('/:shopId/details',
         facebook?: string;
         twitter?: string;
         instagram?: string;
+        linkedin?: string;
         firstName?: string;
         lastName?: string;
         logoUrl?: string;
@@ -781,6 +788,7 @@ router.put('/:shopId/details',
       if (facebook !== undefined) updates.facebook = facebook;
       if (twitter !== undefined) updates.twitter = twitter;
       if (instagram !== undefined) updates.instagram = instagram;
+      if (linkedin !== undefined) updates.linkedin = linkedin;
       if (firstName !== undefined) updates.firstName = firstName;
       if (lastName !== undefined) updates.lastName = lastName;
       if (logoUrl !== undefined) updates.logoUrl = logoUrl;
@@ -888,7 +896,8 @@ router.put('/:shopId',
         ownerName,
         facebook,
         twitter,
-        instagram
+        instagram,
+        linkedin
       } = req.body;
 
       const shop = await shopRepository.getShop(shopId);
@@ -900,7 +909,7 @@ router.put('/:shopId',
       }
 
       // Prepare updates
-      const updates: Partial<ShopData & { website?: string; openingHours?: string; ownerName?: string; facebook?: string; twitter?: string; instagram?: string }> = {};
+      const updates: Partial<ShopData & { website?: string; openingHours?: string; ownerName?: string; facebook?: string; twitter?: string; instagram?: string; linkedin?: string }> = {};
       if (name !== undefined) updates.name = name;
       if (address !== undefined) updates.address = address;
       if (phone !== undefined) updates.phone = phone;
@@ -913,7 +922,8 @@ router.put('/:shopId',
       if (facebook !== undefined) updates.facebook = facebook;
       if (twitter !== undefined) updates.twitter = twitter;
       if (instagram !== undefined) updates.instagram = instagram;
-      
+      if (linkedin !== undefined) updates.linkedin = linkedin;
+
       // Only admin can change verification and cross-shop settings
       if (req.user?.role === 'admin') {
         if (crossShopEnabled !== undefined) updates.crossShopEnabled = crossShopEnabled;
@@ -2970,6 +2980,10 @@ router.use('/', rcgRoutes);
 import subscriptionRoutes, { publicRouter as subscriptionPublicRoutes } from './subscription';
 router.use('/', subscriptionPublicRoutes); // Mount public routes first (no auth)
 router.use('/', subscriptionRoutes); // Then mount authenticated routes
+
+// Mount Stripe Connect onboarding routes (authenticated)
+import connectRoutes from './connect';
+router.use('/', connectRoutes);
 
 // Mount webhook routes - MUST BE PUBLIC FOR STRIPE
 import webhookRoutes from './webhooks';

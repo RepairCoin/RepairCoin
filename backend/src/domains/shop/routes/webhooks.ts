@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getStripeService } from '../../../services/StripeService';
+import { getStripeConnectService } from '../../../services/StripeConnectService';
 import { getSubscriptionService } from '../../../services/SubscriptionService';
 import { getPaymentRetryService } from '../../../services/PaymentRetryService';
 import { PaymentService } from '../../ServiceDomain/services/PaymentService';
@@ -70,7 +71,9 @@ async function handleServicePaymentSuccess(event: Stripe.Event, paymentService: 
   try {
     // Check if this is a service booking payment by looking at metadata
     if (paymentIntent.metadata?.type === 'service_booking') {
-      await paymentService.handlePaymentSuccess(paymentIntent.id);
+      // Direct-charge bookings arrive as CONNECT events — event.account is the shop's account,
+      // which the handler needs to read the PaymentIntent (it lives on that account, not ours).
+      await paymentService.handlePaymentSuccess(paymentIntent.id, event.account);
 
       logger.info('Service payment processed successfully', {
         paymentIntentId: paymentIntent.id,
@@ -376,7 +379,7 @@ async function handleServicePaymentFailed(event: Stripe.Event, paymentService: P
     // Check if this is a service booking payment
     if (paymentIntent.metadata?.type === 'service_booking') {
       const failureMessage = paymentIntent.last_payment_error?.message || 'Payment failed';
-      await paymentService.handlePaymentFailure(paymentIntent.id, failureMessage);
+      await paymentService.handlePaymentFailure(paymentIntent.id, failureMessage, event.account);
 
       logger.info('Service payment failure processed', {
         paymentIntentId: paymentIntent.id,
@@ -395,6 +398,46 @@ async function handleServicePaymentFailed(event: Stripe.Event, paymentService: P
 /**
  * Handle canceled service payment
  */
+/**
+ * Stripe Connect onboarding progress. Fires whenever the connected account changes —
+ * most importantly when the shop finishes KYC and `charges_enabled` flips true.
+ *
+ * This is the authoritative completion signal: the shop returning to our return_url only
+ * means they came back from Stripe, not that Stripe approved them.
+ */
+async function handleConnectAccountUpdated(event: Stripe.Event) {
+  const account = event.data.object as Stripe.Account;
+
+  try {
+    const connectService = getStripeConnectService();
+    const shopId = await connectService.findShopIdByAccount(account);
+
+    if (!shopId) {
+      logger.warn('account.updated for an unknown Connect account', { accountId: account.id });
+      return;
+    }
+
+    await connectService.syncAccountState(
+      shopId,
+      account.charges_enabled === true,
+      account.payouts_enabled === true
+    );
+
+    logger.info('Connect account state synced from webhook', {
+      shopId,
+      accountId: account.id,
+      chargesEnabled: account.charges_enabled,
+      payoutsEnabled: account.payouts_enabled,
+      requirementsDue: account.requirements?.currently_due?.length ?? 0
+    });
+  } catch (error) {
+    logger.error('Failed to process account.updated', {
+      accountId: account.id,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
 async function handleServicePaymentCanceled(event: Stripe.Event, paymentService: PaymentService) {
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
@@ -407,7 +450,7 @@ async function handleServicePaymentCanceled(event: Stripe.Event, paymentService:
   try {
     // Check if this is a service booking payment
     if (paymentIntent.metadata?.type === 'service_booking') {
-      await paymentService.handlePaymentFailure(paymentIntent.id, 'Payment canceled by user or system');
+      await paymentService.handlePaymentFailure(paymentIntent.id, 'Payment canceled by user or system', event.account);
 
       logger.info('Service payment cancellation processed', {
         paymentIntentId: paymentIntent.id,
@@ -521,6 +564,10 @@ router.post('/stripe', async (req: Request, res: Response) => {
 
       case 'payment_intent.canceled':
         await handleServicePaymentCanceled(event, paymentService);
+        break;
+
+      case 'account.updated':
+        await handleConnectAccountUpdated(event);
         break;
 
       default:

@@ -610,7 +610,7 @@ const Header: React.FC = () => {
           />
 
           {/* Modal Content */}
-          <div className="relative bg-gray-100 rounded-3xl p-8 max-w-2xl w-full mx-4 shadow-2xl overflow-hidden">
+          <div className="relative bg-gray-100 rounded-3xl px-8 py-8 max-w-[45rem] w-full mx-4 shadow-2xl overflow-hidden">
             {/* Close button */}
             <button
               onClick={closeWelcomeModal}
@@ -631,34 +631,26 @@ const Header: React.FC = () => {
               </svg>
             </button>
 
-            <div className="flex flex-col md:flex-row items-center gap-8 h-full">
+            <div className="flex flex-col md:flex-row items-center md:items-stretch md:justify-center gap-6 md:gap-2 h-full">
               {/* Left Content */}
-              <div className="flex-1 h-full flex flex-col items-center space-y-10 text-center md:text-left">
+              <div className="w-full md:w-[23rem] md:flex-none flex flex-col items-center justify-center gap-6 py-4 text-center">
                 <div className="w-full flex flex-col items-center justify-center gap-4">
-                  <h1 className="text-4xl md:text-4xl text-center font-bold text-gray-900 leading-tight">
-                    {isSignup ? (
-                      <>
-                        Join
-                        <br />
-                        FixFlow
-                      </>
-                    ) : (
-                      <>
-                        Welcome to
-                        <br />
-                        FixFlow
-                      </>
-                    )}
+                  <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
+                    <>
+                      Welcome to
+                      <br />
+                      FixFlow
+                    </>
                   </h1>
-                  <p className="text-gray-500 text-center text-sm">
+                  <p className="text-gray-500 text-center text-sm leading-relaxed">
                     {isSignup
-                      ? "Create your account to start earning rewards on every repair."
-                      : "Earn. Track. Redeem. Log in to manage your rewards and repairs."}
+                      ? "Securely connect your wallet to create your FixFlow account and start earning rewards on every repair."
+                      : "Securely connect your wallet to sign in and access your FixFlow account, rewards, and personalized experience."}
                   </p>
                 </div>
 
                 {/* Auth Button */}
-                <div className="pt-4 w-full">
+                <div className="w-full">
                   <ConnectButton
                     client={client}
                     wallets={loginWallets}
@@ -668,7 +660,7 @@ const Header: React.FC = () => {
                       showThirdwebBranding: false,
                     }}
                     connectButton={{
-                      label: isSignup ? "Sign Up" : "Log In",
+                      label: isSignup ? "Create Account" : "Connect Account",
                       className:
                         "!bg-[#F7CC00] hover:!bg-[#E5BB00] !text-gray-900 !justify-center !w-full !font-semibold !px-8 !py-3 !rounded-full !inline-flex !items-center !gap-3 !transition-all !duration-200 !shadow-lg hover:!shadow-xl !border-none",
                       style: {
@@ -692,14 +684,14 @@ const Header: React.FC = () => {
                 </div>
               </div>
 
-              {/* Right Content - Character Illustrations */}
-              <div className="flex-1 relative h-64 md:h-80">
+              {/* Right Content - Character Illustration */}
+              <div className="w-full md:w-auto md:flex-none flex justify-center">
                 <Image
-                  src="/img/connect-modal.png"
-                  alt="FixFlow Characters"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="object-contain"
+                  src="/img/connect-hero.png"
+                  alt="FixFlow mascot"
+                  width={304}
+                  height={315}
+                  className="h-52 md:h-[17rem] w-auto max-w-full object-contain"
                   priority
                 />
               </div>

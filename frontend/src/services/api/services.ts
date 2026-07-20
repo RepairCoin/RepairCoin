@@ -228,6 +228,9 @@ export interface CreatePaymentIntentResponse {
   rcnDiscountUsd?: number;
   finalAmount?: number;
   customerRcnBalance?: number;
+  // Direct charge: the PaymentIntent lives on this connected account, so Stripe.js must be
+  // initialised with { stripeAccount: connectedAccountId } to confirm it.
+  connectedAccountId?: string;
 }
 
 export interface ServiceFilters {
@@ -449,10 +452,14 @@ export const createPaymentIntent = async (
 /**
  * Confirm payment (optional - webhooks handle most cases)
  */
-export const confirmPayment = async (paymentIntentId: string): Promise<ServiceOrder | null> => {
+export const confirmPayment = async (
+  paymentIntentId: string,
+  connectedAccountId?: string
+): Promise<ServiceOrder | null> => {
   try {
     const response = await apiClient.post<ServiceOrder>('/services/orders/confirm', {
       paymentIntentId,
+      connectedAccountId,
     });
     return response.data || null;
   } catch (error) {
