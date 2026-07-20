@@ -21,7 +21,13 @@ async function reconcileOverageInvoice(event: any): Promise<void> {
   const invoice = event?.data?.object;
   if (invoice?.metadata?.kind !== 'ai_overage_billing' || !invoice?.id) return;
   const n = await new AiOverageChargeRepository().markPaidByInvoiceId(invoice.id);
-  if (n > 0) logger.info('AI overage invoice reconciled to paid', { invoiceId: invoice.id, rows: n });
+  if (n > 0) {
+    logger.info('AI overage invoice reconciled to paid', { invoiceId: invoice.id, rows: n });
+    // #3 receipt (delayed-collection path): only send when THIS event flipped rows invoiced→paid, so a
+    // re-delivered webhook — or an immediate-pay invoice already emailed at creation — never double-sends.
+    await aiOverageReceiptService.sendReceipt(invoice, invoice.metadata?.shop_id).catch((e) =>
+      logger.error('AI overage receipt (webhook) failed', e));
+  }
 }
 
 // T3.2 prod-hardening — best-effort notify to a shop about an overage billing event.
@@ -78,6 +84,7 @@ async function reconcileOverageRefund(event: any): Promise<void> {
 import { shopRepository } from '../../../repositories';
 import { getSharedPool } from '../../../utils/database-pool';
 import { getNotificationGateway } from '../../notification/services/NotificationGateway';
+import { aiOverageReceiptService } from '../../AIAgentDomain/services/AiOverageReceiptService';
 import { getPlanByPriceId } from '../../../config/subscriptionPlans';
 import { agencyService } from '../../agency/services/AgencyService';
 import Stripe from 'stripe';

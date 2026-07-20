@@ -19,6 +19,7 @@ const mockedGetShop = (shopRepository as any).getShop as jest.Mock;
 function svc(over: any = {}) {
   const marked: any[] = [];
   const released: string[][] = [];
+  const receipts: any[] = [];
   const defaultRows = [{ id: "c1", periodMonth: "2026-06-01", amountCents: 12 }];
   const charges = {
     pendingForShop: over.pendingForShop ?? (async () => defaultRows),
@@ -28,7 +29,8 @@ function svc(over: any = {}) {
     markStatus: over.markStatus ?? (async (ids: string[], status: string, inv?: string) => { marked.push({ ids, status, inv }); }),
     listShopsWithPending: over.listShopsWithPending ?? (async () => []),
   } as any;
-  return { s: new AiOverageStripeService(charges), charges, marked, released };
+  const sendReceipt = over.sendReceipt ?? (async (inv: any, shopId?: string) => { receipts.push({ invoiceId: inv?.id, shopId }); });
+  return { s: new AiOverageStripeService(charges, sendReceipt), charges, marked, released, receipts };
 }
 
 describe("AiOverageStripeService.invoiceShopPending", () => {
@@ -57,7 +59,7 @@ describe("AiOverageStripeService.invoiceShopPending", () => {
     mockedGetShop.mockResolvedValue({ stripeCustomerId: "cus_1" });
     const createImmediateInvoice = jest.fn().mockResolvedValue({ id: "in_1", status: "paid" });
     mockedStripe.mockReturnValue({ createImmediateInvoice });
-    const { s, marked } = svc();
+    const { s, marked, receipts } = svc();
     const r = await s.invoiceShopPending("shop1");
     expect(createImmediateInvoice).toHaveBeenCalledWith(
       "cus_1",
@@ -66,15 +68,17 @@ describe("AiOverageStripeService.invoiceShopPending", () => {
     );
     expect(marked).toEqual([{ ids: ["c1"], status: "paid", inv: "in_1" }]);
     expect(r).toEqual({ stripeInvoiceId: "in_1", totalCents: 12, status: "paid" });
+    expect(receipts).toEqual([{ invoiceId: "in_1", shopId: "shop1" }]); // #3 receipt emailed on paid
   });
 
-  it("marks 'invoiced' when the invoice isn't immediately paid", async () => {
+  it("marks 'invoiced' and does NOT email a receipt when payment isn't immediate", async () => {
     mockedGetShop.mockResolvedValue({ stripeCustomerId: "cus_1" });
     mockedStripe.mockReturnValue({ createImmediateInvoice: jest.fn().mockResolvedValue({ id: "in_2", status: "open" }) });
-    const { s, marked } = svc();
+    const { s, marked, receipts } = svc();
     const r = await s.invoiceShopPending("shop1");
     expect(marked[0].status).toBe("invoiced");
     expect(r.status).toBe("invoiced");
+    expect(receipts).toEqual([]); // the webhook sends the receipt when it later flips to paid
   });
 
   it("no-op 'skipped' (no double-charge) when a concurrent run already claimed the rows", async () => {

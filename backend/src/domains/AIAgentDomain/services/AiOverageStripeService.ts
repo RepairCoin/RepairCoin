@@ -12,6 +12,10 @@ import { getSharedPool } from '../../../utils/database-pool';
 import { shopRepository } from '../../../repositories';
 import { getStripeService } from '../../../services/StripeService';
 import { AiOverageChargeRepository } from '../../../repositories/AiOverageChargeRepository';
+import { aiOverageReceiptService } from './AiOverageReceiptService';
+
+/** Emails a receipt for a paid overage invoice — injectable so tests can assert/skip it. */
+export type OverageReceiptFn = (invoice: any, shopId?: string) => Promise<void>;
 
 export interface OverageInvoicePreview {
   shopId: string;
@@ -21,7 +25,10 @@ export interface OverageInvoicePreview {
 }
 
 export class AiOverageStripeService {
-  constructor(private readonly charges = new AiOverageChargeRepository()) {}
+  constructor(
+    private readonly charges = new AiOverageChargeRepository(),
+    private readonly sendReceipt: OverageReceiptFn = (inv, shopId) => aiOverageReceiptService.sendReceipt(inv, shopId)
+  ) {}
 
   /** Master switch — real money movement is off until this is explicitly enabled. */
   isEnabled(): boolean {
@@ -109,6 +116,12 @@ export class AiOverageStripeService {
       // Reconcile: paid → 'paid', otherwise 'invoiced' (open, awaiting retry / the payment webhook).
       const newStatus = invoice.status === 'paid' ? 'paid' : 'invoiced';
       await this.charges.markStatus(ids, newStatus, invoice.id as string);
+
+      // #3 receipt: on IMMEDIATE collection, email the receipt here. Delayed collection is emailed from
+      // the invoice.payment_succeeded webhook instead (guarded so each payment emails exactly once).
+      if (newStatus === 'paid') {
+        await this.sendReceipt(invoice, shopId).catch(() => undefined);
+      }
 
       logger.info('AI overage charges invoiced', {
         shopId, invoiceId: invoice.id, status: newStatus, totalCents, lines: lines.length,
