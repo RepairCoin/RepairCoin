@@ -1,4 +1,5 @@
--- 214 — Account Manager, slice 1: schema only.
+-- 227 — Account Manager, slice 1: schema only. (Renumbered from 214 to dodge a collision with
+-- main's 214_add_legal_services_category.sql merged separately.)
 --
 -- Lets a platform admin be assigned as a shop's dedicated account manager (a Business-tier
 -- perk advertised by SupportLevelCard). Track-and-surface only: the shop sees who their AM
