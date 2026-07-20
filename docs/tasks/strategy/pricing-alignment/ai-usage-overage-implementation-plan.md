@@ -8,9 +8,22 @@ add-on that keeps full-power AI running past the cap, billed at 3× the actual A
 which was deferred behind the WS3 soft-landing (T3.1b). Builds on the shipped per-tier allowances
 ($10/$30/$75) and the soft-landing cap.
 
-**Status (2026-07-16):** Slices 1 (behavior) + 2 (metering) + 2.5 (guardrail + consent) BUILT + COMMITTED on
-`deo/ads-system`. Slice 3 (Stripe charging) is the only piece left — and its real gate is **business/legal
-sign-off on the "Usage ×3" terms**, NOT Stripe Connect (see the corrected Slice 3 below).
+**Status (2026-07-20):** Slices 1 (behavior) + 2 (metering) + 2.5 (guardrail + consent) BUILT + COMMITTED
+on `deo/ads-system`. **Slice 3 (Stripe charging) BUILT + test-mode verified (flag OFF)** — the code path
+is complete and proven end-to-end against staging Stripe TEST mode; it stays dark until
+`AI_OVERAGE_STRIPE_ENABLED=true`, whose real gate is **business/legal sign-off on the "Usage ×3" terms**
+(NOT Stripe Connect — it's a direct invoice to the shop's existing `stripe_customer_id`, same as ads billing).
+
+**Slice 3 build (2026-07-20):**
+- `AiOverageStripeService` — `invoiceShopPending(shopId)` bundles a shop's completed-month pending overage
+  into one Stripe invoice via `createImmediateInvoice` (metadata `kind:'ai_overage_billing'`), marks the
+  ledger `paid`/`invoiced`; `invoiceAllDue()` for a monthly run. Gated by `AI_OVERAGE_STRIPE_ENABLED` (501 when off).
+- `AiOverageChargeRepository` — `pendingForShop`, `listShopsWithPending`, `markStatus`, `markPaidByInvoiceId`.
+- `POST /api/ai/admin/overage-invoice` (admin) — `{shopId}` or `{all:true}`; maps service errors to HTTP.
+- `invoice.payment_succeeded` webhook → `reconcileOverageInvoice` flips `invoiced`→`paid` on collection.
+- Tests: `AiOverageStripeService.test.ts` (flag/guard/happy/all-due) — part of 881/881 AI-agent green.
+- Test-mode run: seeded a last-month pending row → invoice created + auto-collected in Stripe TEST →
+  ledger marked, idempotent, cleaned up. **Flag `AI_OVERAGE_STRIPE_ENABLED=false` by default.**
 
 ---
 

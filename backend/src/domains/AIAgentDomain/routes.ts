@@ -9,7 +9,7 @@ import { transcribeVoice } from './controllers/VoiceTranscribeController';
 import { speakVoice } from './controllers/VoiceSpeakController';
 import { dispatchVoice } from './controllers/VoiceDispatchController';
 import { suggestServiceFaqs } from './controllers/FaqSuggestionController';
-import { getOwnShopSpend, getAdminCostSummary, setOwnShopOverage, getAdminOverageSummary } from './controllers/SpendController';
+import { getOwnShopSpend, getAdminCostSummary, setOwnShopOverage, getAdminOverageSummary, invoiceOverage } from './controllers/SpendController';
 import {
   getOwnShopAiSettings,
   updateOwnShopAiSettings,
@@ -341,6 +341,14 @@ export function initializeRoutes(): Router {
     authMiddleware,
     requireRole(['admin']),
     getAdminOverageSummary
+  );
+
+  // Admin: invoice a shop's pending overage via Stripe (or all due). Gated by AI_OVERAGE_STRIPE_ENABLED.
+  router.post(
+    '/admin/overage-invoice',
+    authMiddleware,
+    requireRole(['admin']),
+    invoiceOverage
   );
 
   // Admin gate — per-shop AI capability controls. List every shop's AI
