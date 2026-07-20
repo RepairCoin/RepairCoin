@@ -30,13 +30,13 @@ async function reconcileOverageInvoice(event: any): Promise<void> {
   }
 }
 
-// T3.2 prod-hardening — best-effort notify to a shop about an overage billing event.
+// T3.2 prod-hardening — best-effort notify to a shop about an overage billing event. Addresses the
+// SHOP ID (not the wallet): a shop's login can be a social wallet ≠ shops.wallet_address, and the bell
+// resolves the inbox as [req.user.address, req.user.shopId], so shopId-addressed reliably reaches it.
 async function notifyOverageShop(shopId: string, type: string, message: string): Promise<void> {
   try {
-    const shop = await shopRepository.getShop(shopId).catch(() => null);
-    const receiver = (shop as any)?.walletAddress || (shop as any)?.wallet_address;
-    if (!receiver) return;
-    await getNotificationGateway().dispatch(type, receiver, { message, metadata: { shopId } });
+    if (!shopId) return;
+    await getNotificationGateway().dispatch(type, shopId, { message, metadata: { shopId } });
   } catch (e) {
     logger.error('AI overage notify failed', { shopId, type, error: (e as Error)?.message });
   }

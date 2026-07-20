@@ -27,7 +27,6 @@ import { getShopTier } from "../../../utils/shopTier";
 import { AI_TIER_ALLOWANCE, SubscriptionTier } from "../../../config/subscriptionPlans";
 import { SpendCheckResult } from "../types";
 import { AiOverageChargeRepository } from "../../../repositories/AiOverageChargeRepository";
-import { shopRepository } from "../../../repositories";
 import { getNotificationGateway } from "../../notification/services/NotificationGateway";
 
 const CHEAPER_MODEL_THRESHOLD = 0.7; // ≥ 70% of budget → switch to Haiku
@@ -67,14 +66,14 @@ const defaultAccrueOverage: OverageAccrueFn = (shopId, usd) => {
 };
 
 /** #7: notify a shop the first time it crosses into overage this month — injectable for tests. Default
- *  resolves the shop's wallet + dispatches via the notification gateway (persist + ws + push). */
+ *  dispatches to the shopId as the receiver (persist + ws + push). We address the SHOP ID, not the shop
+ *  wallet: a shop's login can be a social wallet that differs from shops.wallet_address, and the
+ *  notification bell resolves a shop's inbox as [req.user.address, req.user.shopId] — so shopId-addressed
+ *  notifications reliably reach the dashboard while wallet-addressed ones can silently miss. */
 export type OverageNotifyFn = (shopId: string, budgetUsd: number) => Promise<void>;
 const defaultNotifyOverageStarted: OverageNotifyFn = async (shopId, budgetUsd) => {
   try {
-    const shop = await shopRepository.getShop(shopId).catch(() => null);
-    const receiver = (shop as any)?.walletAddress || (shop as any)?.wallet_address;
-    if (!receiver) return;
-    await getNotificationGateway().dispatch("ai_overage_started", receiver, {
+    await getNotificationGateway().dispatch("ai_overage_started", shopId, {
       message:
         `You've passed your $${budgetUsd} monthly AI allowance — full-power AI keeps running, billed at ` +
         `3× usage. You can set a monthly cap anytime in Plans & Billing.`,
