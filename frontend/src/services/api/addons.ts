@@ -57,14 +57,19 @@ export async function resolveAddonStatuses(): Promise<AddonStatusMap> {
   return map;
 }
 
-/** Per-shop AI Usage Overage state, read from GET /ai/spend. Best-effort (defaults to off/unavailable). */
-export async function getOverageState(): Promise<{ enabled: boolean; available: boolean }> {
+/** Per-shop AI Usage Overage state, read from GET /ai/spend. Best-effort (defaults to off/unavailable).
+ *  `chargeUsd` = this month's accrued billable overage (Usage x3). */
+export async function getOverageState(): Promise<{ enabled: boolean; available: boolean; chargeUsd: number }> {
   try {
     const body: any = await apiClient.get('/ai/spend');
     const d = body?.data ?? body ?? {};
-    return { enabled: !!d.overageEnabled, available: !!d.overageAvailable };
+    return {
+      enabled: !!d.overageEnabled,
+      available: !!d.overageAvailable,
+      chargeUsd: Number(d.overageChargeUsd) || 0,
+    };
   } catch {
-    return { enabled: false, available: false };
+    return { enabled: false, available: false, chargeUsd: 0 };
   }
 }
 

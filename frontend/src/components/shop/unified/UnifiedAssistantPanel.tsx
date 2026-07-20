@@ -98,7 +98,7 @@ export const UnifiedAssistantPanel: React.FC<{
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // WS3 soft-landing — set once a reply reports the monthly AI allowance is spent.
-  const [aiLimit, setAiLimit] = useState<{ budgetUsd?: number; spentUsd?: number } | null>(null);
+  const [aiLimit, setAiLimit] = useState<{ budgetUsd?: number; spentUsd?: number; overageCapReached?: boolean } | null>(null);
   const [voiceOut, setVoiceOut] = useState(false);
   // Phase 9 — an image the owner attached via the paperclip, pending send.
   // Uploaded to shops/{shopId}/ai-uploads; its URL rides along with the next
@@ -316,7 +316,7 @@ export const UnifiedAssistantPanel: React.FC<{
         },
       ]);
       setAiLimit(
-        res.limitReached ? { budgetUsd: res.budgetUsd, spentUsd: res.spentUsd } : null
+        res.limitReached ? { budgetUsd: res.budgetUsd, spentUsd: res.spentUsd, overageCapReached: res.overageCapReached } : null
       );
       if ((opts?.speak ?? voiceOut) && res.reply && res.reply.trim()) {
         void playSpeech(res.reply);
@@ -684,6 +684,7 @@ export const UnifiedAssistantPanel: React.FC<{
           className="mt-3"
           budgetUsd={aiLimit.budgetUsd}
           spentUsd={aiLimit.spentUsd}
+          overageCapReached={aiLimit.overageCapReached}
         />
       )}
 

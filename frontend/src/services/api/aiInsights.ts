@@ -126,6 +126,7 @@ export interface InsightsResponse {
    * the "$X of $Y used" line.
    */
   limitReached?: boolean;
+  overageCapReached?: boolean;
   budgetUsd?: number;
   spentUsd?: number;
 }

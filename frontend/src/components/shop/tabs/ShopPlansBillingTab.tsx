@@ -19,6 +19,7 @@ import {
   getAiUsageSummary,
   getPaymentMethod,
   setOverage,
+  getOverageState,
   type AddonStatusMap,
   type AddonStatus,
   type AiUsageSummary,
@@ -62,6 +63,7 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
   const [statuses, setStatuses] = useState<AddonStatusMap>({});
   const [usage, setUsage] = useState<AiUsageSummary | null>(null);
   const [card, setCard] = useState<PaymentMethodSummary | null>(null);
+  const [overageInfo, setOverageInfo] = useState<{ enabled: boolean; chargeUsd: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutBusy, setCheckoutBusy] = useState<string | null>(null);
   const [cancelingAgency, setCancelingAgency] = useState(false);
@@ -108,14 +110,16 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [s, u, pm] = await Promise.all([
+    const [s, u, pm, ov] = await Promise.all([
       resolveAddonStatuses(),
       getAiUsageSummary(),
       getPaymentMethod(),
+      getOverageState(),
     ]);
     setStatuses(s);
     setUsage(u);
     setCard(pm);
+    setOverageInfo({ enabled: ov.enabled, chargeUsd: ov.chargeUsd });
     setLoading(false);
   }, []);
 
@@ -217,6 +221,13 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
                 style={{ width: `${pct}%` }}
               />
             </div>
+            {/* AI Usage Overage indicator (T3.2): shown when the shop is on overage this month. */}
+            {overageInfo?.enabled && overageInfo.chargeUsd > 0 && (
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="text-amber-300">Overage this month · billed at 3×</span>
+                <span className="font-semibold text-amber-300">${overageInfo.chargeUsd.toFixed(2)}</span>
+              </div>
+            )}
           </div>
         )}
       </section>
