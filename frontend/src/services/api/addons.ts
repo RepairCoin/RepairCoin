@@ -7,7 +7,6 @@
 
 import apiClient from './client';
 import { getMyEnrollment } from './ads';
-import { getShopAiSettings } from './aiSettings';
 import { agencyApi } from './agency';
 
 export type AddonStatus = 'off' | 'pending' | 'active' | 'coming_soon';
@@ -101,12 +100,15 @@ export interface AiUsageSummary {
   percentUsed: number;
 }
 
-/** AI allowance + usage for the YOUR PLAN section. Null if settings can't be read. */
+/** AI allowance + usage for the YOUR PLAN section. Reads /ai/spend so the displayed allowance is the
+ *  shop's TIER allowance ($10/$30/$75 via getShopAiBudget) — the same budget the enforcer uses — not the
+ *  inert stored monthly_budget_usd (which drifted and showed a wrong allowance). Null if unreadable. */
 export async function getAiUsageSummary(): Promise<AiUsageSummary | null> {
   try {
-    const s = await getShopAiSettings();
-    const budgetUsd = s.monthlyBudgetUsd || 0;
-    const spentUsd = s.currentMonthSpendUsd || 0;
+    const body: any = await apiClient.get('/ai/spend');
+    const d = body?.data ?? body ?? {};
+    const budgetUsd = Number(d.monthlyBudgetUsd) || 0;
+    const spentUsd = Number(d.currentMonthSpendUsd) || 0;
     return { budgetUsd, spentUsd, percentUsed: budgetUsd > 0 ? spentUsd / budgetUsd : 0 };
   } catch {
     return null;
