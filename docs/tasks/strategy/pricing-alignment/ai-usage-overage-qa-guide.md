@@ -1,8 +1,8 @@
 # QA Guide — AI Usage Overage (T3.2)
 
 How to test the AI Usage Overage add-on end-to-end on staging. Covers Slices 1 (behavior), 2 (metering),
-2.5 (guardrail + consent), and the card-on-file gate. (Slice 3 — actual Stripe charging — is not built;
-this guide tests behavior + metering, not invoicing.)
+2.5 (guardrail + consent), the card-on-file gate, and Slice 3 (Stripe charging — built + test-mode verified,
+gated behind `AI_OVERAGE_STRIPE_ENABLED`, default OFF; see Test D).
 
 Related: `ai-usage-overage-implementation-plan.md`.
 
@@ -108,6 +108,46 @@ Example: a **Growth ($30)** shop.
 
 ---
 
+## 4b. Test D — Stripe charging (Slice 3, flag-gated)
+
+Charging bundles a shop's **completed-month** pending overage (`period_month < this month`) into one direct
+Stripe invoice to its existing `stripe_customer_id` (same mechanism as ads billing — NOT Stripe Connect).
+It is fully dark until the master switch is on:
+
+| Flag | Effect |
+|---|---|
+| `AI_OVERAGE_STRIPE_ENABLED=false` (default) | admin invoice endpoint returns **501**; nothing is charged; the accrual ledger keeps accruing |
+| `AI_OVERAGE_STRIPE_ENABLED=true` | invoicing is live (only flip once the Usage ×3 terms are signed off) |
+
+**D0 — prove it's dark (flag OFF):**
+```
+POST /api/ai/admin/overage-invoice   {"shopId":"<shop>"}   (admin auth)
+-> 501  "AI Usage Overage billing to Stripe is disabled…"
+```
+
+**D1 — charge one shop (Stripe TEST mode only):** seed a *completed-month* pending row (charging skips the
+current month on purpose):
+```sql
+INSERT INTO ai_overage_charges (shop_id, period_month, overage_cost_cents, multiplier, amount_cents, status)
+VALUES ('<shop>', (DATE_TRUNC('month', now()) - interval '1 month')::date, 10, 3, 30, 'pending');
+```
+With `AI_OVERAGE_STRIPE_ENABLED=true` and a shop that has a Stripe customer (`stripe_customers.shop_id`):
+```
+POST /api/ai/admin/overage-invoice   {"shopId":"<shop>"}
+-> 200 { stripeInvoiceId, totalCents:30, status:'paid'|'invoiced' }
+```
+- No pending → **400**; shop has no Stripe customer → **409**.
+- Ledger check: the row flips `pending → invoiced` (or `paid`) with `stripe_invoice_id` set.
+- `invoice.payment_succeeded` webhook → `reconcileOverageInvoice` flips `invoiced → paid` on collection.
+- Batch variant: `{"all":true}` invoices every shop with completed-month pending (best-effort per shop).
+
+**Cleanup:** void the test invoice in the Stripe dashboard (TEST mode = no real money) and
+`DELETE FROM ai_overage_charges WHERE …` the seeded row.
+
+> ⚠️ Only run D1 against a `sk_test_` key. Confirm the key mode before invoicing a real shop's customer.
+
+---
+
 ## 5. Reset / cleanup between runs
 
 ```sql
@@ -120,7 +160,7 @@ DELETE FROM ai_overage_charges
  WHERE shop_id='<shop>' AND period_month = DATE_TRUNC('month', now())::date;
 ```
 
-Then flip the flags back off when done (`ENABLE_AI_OVERAGE`, `NEXT_PUBLIC_AI_OVERAGE_ENABLED`) — everything
+Then flip the flags back off when done (`ENABLE_AI_OVERAGE`, `AI_OVERAGE_STRIPE_ENABLED`) — everything
 is default-OFF, so leaving them off restores normal soft-landing behavior.
 
 ---
@@ -128,9 +168,9 @@ is default-OFF, so leaving them off restores normal soft-landing behavior.
 ## Quick reference
 
 - **Flags (all backend):** `ENABLE_AI_OVERAGE` (the only one that gates visibility), `AI_OVERAGE_REQUIRE_CARD`,
-  `AI_OVERAGE_MONTHLY_CAP_USD`
+  `AI_OVERAGE_MONTHLY_CAP_USD`, `AI_OVERAGE_STRIPE_ENABLED` (gates real charging, default OFF)
 - **Tables:** `ai_shop_settings` (`ai_overage_enabled`, `ai_overage_consent_at`, `current_month_spend_usd`),
   `ai_overage_charges` (accrual ledger), `ai_agent_messages` (model per call)
 - **Endpoints:** `GET /api/ai/spend` (`overageEnabled`/`overageAvailable`/`overageChargeUsd`),
-  `POST /api/ai/overage {enabled, consent}`
+  `POST /api/ai/overage {enabled, consent}`, `POST /api/ai/admin/overage-invoice {shopId | all:true}` (admin)
 - **Migrations:** 224 (`ai_overage_enabled`), 225 (`ai_overage_charges`), 226 (`ai_overage_consent_at`)
