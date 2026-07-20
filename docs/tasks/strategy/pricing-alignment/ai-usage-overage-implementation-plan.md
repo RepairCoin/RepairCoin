@@ -176,6 +176,36 @@ originally specified (`ai-usage-overage-scope.md` §4/§5.5).
 
 ---
 
+## Prod-hardening (items 5–13, BUILT 2026-07-20)
+
+Everything below is built + committed on `deo/ads-system`, migration **229** applied to staging, live-verified.
+Flags default off; nothing charges until `AI_OVERAGE_STRIPE_ENABLED=true`.
+
+- **#5 Monthly cron** — `AiOverageBillingScheduler` (node-cron `0 6 1 * *`, isRunning lock, singleton),
+  started/stopped in `app.ts`. Gated by `AI_OVERAGE_STRIPE_ENABLED` (invoiceAllDue no-ops when off).
+- **#6 Failed-payment auto-disable** — webhook `invoice.marked_uncollectible` → mark rows `uncollectible`
+  + set `ai_overage_enabled=false` (revert to soft-landing, **never a hard AI cutoff**) + notify the shop.
+  `invoice.payment_failed` → structured alert log + "we'll retry" notification.
+- **#7 Overage-started notification** — `SpendCapEnforcer.recordSpend` fires `ai_overage_started` on the
+  single call that crosses the allowance (injectable, best-effort). Registry entries added for
+  `ai_overage_started` / `ai_overage_payment_failed` / `ai_overage_disabled` (persist+ws+push, transactional).
+- **#8 AI-usage display fix** — `getAiUsageSummary` reads `/ai/spend` (tier allowance via `getShopAiBudget`),
+  not the inert stored `monthly_budget_usd`, so the Plans bar matches the enforcer.
+- **#9 Approaching-cap warning** — Plans & Billing shows an amber note at ≥80% of the effective cap.
+- **#10 Monitoring** — failed invoices logged with `alert: 'ai_overage_*'` tags for log-based alerting;
+  the admin "Ready to invoice" card surfaces anything still pending.
+- **#11 Concurrency guard** — migration 229 `invoicing_at`; `claimPendingForShop` atomically claims rows,
+  a concurrent run (admin double-click / cron overlap) gets nothing → **no double-charge**; release-on-failure.
+- **#12 Multi-currency** — overage bills **USD** (`createImmediateInvoice` forces it) as a FixFlow platform
+  fee, matching the ads decision (shop ad money uses `meta_currency`; platform fees don't). Documented, no code.
+- **#13 Ledger refund tracking** — migration 229 `refunded_cents`/`refunded_at`; webhook `credit_note.created`
+  → `recordRefundByInvoiceId` records the reversal + status `refunded`.
+
+Tests: enforcer crossing-notify + guardrail/cap, service claim/release/skip, scheduler gate — 898/898 green.
+Live-verified against staging: claim/in-flight-exclusion/release/uncollectible/refund (7/7).
+
+---
+
 ## Slice 3 — Charging via Stripe (the real remaining gate = terms sign-off, NOT Connect)
 
 **Correction:** charging a shop for overage is FixFlow **invoicing its own customer** — it does NOT need

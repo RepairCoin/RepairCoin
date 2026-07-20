@@ -46,6 +46,7 @@ import { ReportSchedulerService } from './services/ReportSchedulerService';
 import { getCampaignScheduler } from './services/CampaignScheduler';
 import { getCampaignRewardExpiryScheduler } from './services/CampaignRewardExpiryScheduler';
 import { getSafeguardScheduler } from './domains/AdsDomain/services/SafeguardScheduler';
+import { getAiOverageBillingScheduler } from './domains/AIAgentDomain/services/AiOverageBillingScheduler';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
@@ -655,6 +656,7 @@ class RepairCoinApp {
       getCampaignScheduler().stop();
       getCampaignRewardExpiryScheduler().stop();
       getSafeguardScheduler().stop();
+      getAiOverageBillingScheduler().stop();
 
       // Common cleanup
       if (generalCache?.destroy) {
@@ -885,6 +887,11 @@ class RepairCoinApp {
         // with no leads/bookings ($400 alert / $800 pause).
         getSafeguardScheduler().start();
         logger.info('🛡️ Ads safeguard scheduler started (daily 03:00)');
+
+        // AI Usage Overage billing — monthly invoicing of completed-month overage (T3.2).
+        // Inert until AI_OVERAGE_STRIPE_ENABLED=true (invoiceAllDue no-ops when off).
+        getAiOverageBillingScheduler().start();
+        logger.info('🧾 AI overage billing scheduler started (monthly 06:00 on the 1st)');
 
         // Start report scheduler - runs every hour
         // Processes automated shop reports (daily/weekly/monthly)

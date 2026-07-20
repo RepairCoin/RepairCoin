@@ -63,8 +63,9 @@ export class AiOverageStripeService {
   /** Bundle a shop's pending (completed-month) overage into a Stripe invoice, collect, and mark them.
    *  GATED by AI_OVERAGE_STRIPE_ENABLED. Errors carry an HTTP status for the controller. */
   async invoiceShopPending(shopId: string): Promise<{ stripeInvoiceId: string; totalCents: number; status: string }> {
-    const pending = await this.charges.pendingForShop(shopId);
-    if (pending.length === 0) {
+    // Preflight against a READ (no claim yet) so a 501/409 never strands rows in the claimed state.
+    const preview = await this.charges.pendingForShop(shopId);
+    if (preview.length === 0) {
       throw Object.assign(new Error('No pending overage to invoice.'), { status: 400 });
     }
     if (!this.isEnabled()) {
@@ -85,24 +86,39 @@ export class AiOverageStripeService {
       );
     }
 
-    const lines = this.buildLines(pending);
-    const totalCents = pending.reduce((s, c) => s + c.amountCents, 0);
-    const ids = pending.map((c) => c.id);
+    // ATOMICALLY claim the rows (concurrency guard). A parallel run — admin double-click, or the monthly
+    // cron overlapping a manual invoice — loses the claim and gets nothing here, so nothing is charged twice.
+    const claimed = await this.charges.claimPendingForShop(shopId);
+    if (claimed.length === 0) {
+      return { stripeInvoiceId: '', totalCents: 0, status: 'skipped' };
+    }
 
-    const invoice = await getStripeService().createImmediateInvoice(customerId, lines, {
-      kind: 'ai_overage_billing',
-      shop_id: shopId,
-      charge_count: String(ids.length),
-    });
+    const lines = this.buildLines(claimed);
+    const totalCents = claimed.reduce((s, c) => s + c.amountCents, 0);
+    const ids = claimed.map((c) => c.id);
 
-    // Reconcile: paid → 'paid', otherwise 'invoiced' (open, awaiting retry / the payment webhook).
-    const newStatus = invoice.status === 'paid' ? 'paid' : 'invoiced';
-    await this.charges.markStatus(ids, newStatus, invoice.id as string);
+    try {
+      // NOTE (multi-currency): createImmediateInvoice bills USD — overage is a FixFlow platform fee, kept
+      // in USD like the ads FixFlow fees (shop ad money uses meta_currency; platform fees do not).
+      const invoice = await getStripeService().createImmediateInvoice(customerId, lines, {
+        kind: 'ai_overage_billing',
+        shop_id: shopId,
+        charge_count: String(ids.length),
+      });
 
-    logger.info('AI overage charges invoiced', {
-      shopId, invoiceId: invoice.id, status: newStatus, totalCents, lines: lines.length,
-    });
-    return { stripeInvoiceId: invoice.id as string, totalCents, status: newStatus };
+      // Reconcile: paid → 'paid', otherwise 'invoiced' (open, awaiting retry / the payment webhook).
+      const newStatus = invoice.status === 'paid' ? 'paid' : 'invoiced';
+      await this.charges.markStatus(ids, newStatus, invoice.id as string);
+
+      logger.info('AI overage charges invoiced', {
+        shopId, invoiceId: invoice.id, status: newStatus, totalCents, lines: lines.length,
+      });
+      return { stripeInvoiceId: invoice.id as string, totalCents, status: newStatus };
+    } catch (err) {
+      // Invoice creation itself failed — release the claim so the rows are immediately retryable.
+      await this.charges.releaseClaim(ids).catch(() => undefined);
+      throw err;
+    }
   }
 
   /** Monthly run: invoice every shop with completed-month pending overage. Best-effort per shop —

@@ -92,6 +92,41 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
     },
   },
 
+  // ── AI Usage Overage billing (T3.2) — shop-facing billing events ──────────
+  ai_overage_started: {
+    channels: ['persist', 'ws', 'push'],
+    transactional: true, // a billing event must reach the shop regardless of preferences
+    display: { title: 'AI Overage Active', icon: 'billing', color: '#FFCC00' },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'default',
+      title: () => 'AI Usage Overage active',
+      body: (m) => m.message || 'You passed your monthly AI allowance — overage is now billing at Usage ×3.',
+    },
+  },
+  ai_overage_payment_failed: {
+    channels: ['persist', 'ws', 'push'],
+    transactional: true,
+    display: { title: 'AI Overage Payment Failed', icon: 'alert', color: '#EF4444' },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'high',
+      title: () => 'AI overage payment failed',
+      body: (m) => m.message || 'We couldn’t charge your card for AI overage. We’ll retry — please check your payment method.',
+    },
+  },
+  ai_overage_disabled: {
+    channels: ['persist', 'ws', 'push'],
+    transactional: true,
+    display: { title: 'AI Overage Turned Off', icon: 'alert', color: '#EF4444' },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'high',
+      title: () => 'AI overage turned off',
+      body: (m) => m.message || 'AI overage was turned off after a payment couldn’t be collected. Your AI still works on the included allowance.',
+    },
+  },
+
   // ── Shop-cancelled booking (migrated from PaymentService) ─────────────────
   service_order_cancelled: {
     channels: ['persist', 'ws', 'push'],

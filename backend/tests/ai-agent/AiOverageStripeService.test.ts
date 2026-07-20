@@ -18,13 +18,17 @@ const mockedGetShop = (shopRepository as any).getShop as jest.Mock;
 
 function svc(over: any = {}) {
   const marked: any[] = [];
+  const released: string[][] = [];
+  const defaultRows = [{ id: "c1", periodMonth: "2026-06-01", amountCents: 12 }];
   const charges = {
-    pendingForShop:
-      over.pendingForShop ?? (async () => [{ id: "c1", periodMonth: "2026-06-01", amountCents: 12 }]),
+    pendingForShop: over.pendingForShop ?? (async () => defaultRows),
+    // the claim returns the rows this runner won; default = the same default rows
+    claimPendingForShop: over.claimPendingForShop ?? (async () => defaultRows),
+    releaseClaim: over.releaseClaim ?? (async (ids: string[]) => { released.push(ids); }),
     markStatus: over.markStatus ?? (async (ids: string[], status: string, inv?: string) => { marked.push({ ids, status, inv }); }),
     listShopsWithPending: over.listShopsWithPending ?? (async () => []),
   } as any;
-  return { s: new AiOverageStripeService(charges), charges, marked };
+  return { s: new AiOverageStripeService(charges), charges, marked, released };
 }
 
 describe("AiOverageStripeService.invoiceShopPending", () => {
@@ -71,6 +75,27 @@ describe("AiOverageStripeService.invoiceShopPending", () => {
     const r = await s.invoiceShopPending("shop1");
     expect(marked[0].status).toBe("invoiced");
     expect(r.status).toBe("invoiced");
+  });
+
+  it("no-op 'skipped' (no double-charge) when a concurrent run already claimed the rows", async () => {
+    mockedGetShop.mockResolvedValue({ stripeCustomerId: "cus_1" });
+    const createImmediateInvoice = jest.fn();
+    mockedStripe.mockReturnValue({ createImmediateInvoice });
+    // preview sees pending, but the atomic claim returns nothing → another runner won
+    const { s, marked } = svc({ claimPendingForShop: async () => [] });
+    const r = await s.invoiceShopPending("shop1");
+    expect(r).toEqual({ stripeInvoiceId: "", totalCents: 0, status: "skipped" });
+    expect(createImmediateInvoice).not.toHaveBeenCalled(); // nothing charged
+    expect(marked).toEqual([]);
+  });
+
+  it("releases the claim so rows are retryable when invoice creation throws", async () => {
+    mockedGetShop.mockResolvedValue({ stripeCustomerId: "cus_1" });
+    mockedStripe.mockReturnValue({ createImmediateInvoice: jest.fn().mockRejectedValue(new Error("stripe down")) });
+    const { s, released, marked } = svc();
+    await expect(s.invoiceShopPending("shop1")).rejects.toThrow("stripe down");
+    expect(released).toEqual([["c1"]]); // claim released
+    expect(marked).toEqual([]);        // not marked paid/invoiced
   });
 });
 

@@ -260,6 +260,17 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
                 <span className="font-semibold text-amber-300">${overageInfo.chargeUsd.toFixed(2)}</span>
               </div>
             )}
+            {/* #9 approaching-cap warning: at ≥80% (and under) the effective cap, warn before AI degrades. */}
+            {overageInfo?.enabled && (() => {
+              const effCap = overageInfo.capUsd ?? overageInfo.capDefaultUsd;
+              const capPct = effCap > 0 ? overageInfo.chargeUsd / effCap : 0;
+              return capPct >= 0.8 && capPct < 1 ? (
+                <div className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300">
+                  You&apos;re at {Math.round(capPct * 100)}% of your ${effCap.toFixed(2)} overage cap — AI switches to
+                  the lighter model once you reach it. Raise the cap below to keep full-power AI.
+                </div>
+              ) : null;
+            })()}
             {/* Per-shop bill-shock cap (T3.2): the shop's own ceiling on billable overage. Shown while
                 overage is on — this is what the cap-reached banner's "raise your cap" CTA adjusts. */}
             {overageInfo?.enabled && (

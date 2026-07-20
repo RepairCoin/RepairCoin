@@ -23,7 +23,61 @@ async function reconcileOverageInvoice(event: any): Promise<void> {
   const n = await new AiOverageChargeRepository().markPaidByInvoiceId(invoice.id);
   if (n > 0) logger.info('AI overage invoice reconciled to paid', { invoiceId: invoice.id, rows: n });
 }
+
+// T3.2 prod-hardening — best-effort notify to a shop about an overage billing event.
+async function notifyOverageShop(shopId: string, type: string, message: string): Promise<void> {
+  try {
+    const shop = await shopRepository.getShop(shopId).catch(() => null);
+    const receiver = (shop as any)?.walletAddress || (shop as any)?.wallet_address;
+    if (!receiver) return;
+    await getNotificationGateway().dispatch(type, receiver, { message, metadata: { shopId } });
+  } catch (e) {
+    logger.error('AI overage notify failed', { shopId, type, error: (e as Error)?.message });
+  }
+}
+
+// #6/#10: a card charge for an overage invoice failed — alert (structured log) + tell the shop it'll retry.
+async function handleOveragePaymentFailed(event: any): Promise<void> {
+  const invoice = event?.data?.object;
+  if (invoice?.metadata?.kind !== 'ai_overage_billing') return;
+  const shopId = invoice.metadata.shop_id;
+  logger.error('AI overage payment failed', { alert: 'ai_overage_payment_failed', shopId, invoiceId: invoice.id });
+  if (shopId) {
+    await notifyOverageShop(shopId, 'ai_overage_payment_failed',
+      'We couldn’t charge your card for this month’s AI overage. We’ll retry automatically — please check your payment method in Plans & Billing.');
+  }
+}
+
+// #6: Stripe gave up on an overage invoice (marked uncollectible) → mark the ledger + AUTO-DISABLE the
+// shop's overage so it reverts to the safe soft-landing (never a hard AI cutoff), and tell the shop.
+async function handleOverageUncollectible(event: any): Promise<void> {
+  const invoice = event?.data?.object;
+  if (invoice?.metadata?.kind !== 'ai_overage_billing' || !invoice?.id) return;
+  const shopId = invoice.metadata.shop_id;
+  await new AiOverageChargeRepository().markStatusByInvoiceId(invoice.id, 'uncollectible');
+  if (shopId) {
+    await getSharedPool().query(
+      `UPDATE ai_shop_settings SET ai_overage_enabled = false, updated_at = now() WHERE shop_id = $1`,
+      [shopId]
+    );
+    logger.error('AI overage auto-disabled after uncollectible', { alert: 'ai_overage_uncollectible', shopId, invoiceId: invoice.id });
+    await notifyOverageShop(shopId, 'ai_overage_disabled',
+      'AI overage was turned off because a payment couldn’t be collected. Your AI still works on your included monthly allowance — re-enable overage anytime after updating your card.');
+  }
+}
+
+// #13: a credit note / refund was issued against an overage invoice → record it on the ledger so the
+// row reflects the reversal instead of staying 'paid'. Matches by stripe_invoice_id (no-op if not ours).
+async function reconcileOverageRefund(event: any): Promise<void> {
+  const cn = event?.data?.object;
+  const invoiceId = cn?.invoice;
+  if (!invoiceId) return;
+  const n = await new AiOverageChargeRepository().recordRefundByInvoiceId(invoiceId, Number(cn.amount) || 0);
+  if (n > 0) logger.info('AI overage refund recorded', { invoiceId, refundedCents: Number(cn.amount) || 0, rows: n });
+}
 import { shopRepository } from '../../../repositories';
+import { getSharedPool } from '../../../utils/database-pool';
+import { getNotificationGateway } from '../../notification/services/NotificationGateway';
 import { getPlanByPriceId } from '../../../config/subscriptionPlans';
 import { agencyService } from '../../agency/services/AgencyService';
 import Stripe from 'stripe';
@@ -497,8 +551,17 @@ router.post('/stripe', async (req: Request, res: Response) => {
         
       case 'invoice.payment_failed':
         await handlePaymentFailed(event, subscriptionService, paymentRetryService);
+        await handleOveragePaymentFailed(event).catch((e) => logger.error('AI overage payment-failed handling failed', e));
         break;
-        
+
+      case 'invoice.marked_uncollectible':
+        await handleOverageUncollectible(event).catch((e) => logger.error('AI overage uncollectible handling failed', e));
+        break;
+
+      case 'credit_note.created':
+        await reconcileOverageRefund(event).catch((e) => logger.error('AI overage refund reconcile failed', e));
+        break;
+
       case 'invoice.payment_action_required':
         await handlePaymentActionRequired(event, subscriptionService);
         break;
