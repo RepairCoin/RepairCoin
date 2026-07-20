@@ -47,11 +47,20 @@ sign-off on the "Usage ×3" terms**, NOT Stripe Connect (see the corrected Slice
 - **D2 — What "Usage ×3" bills.** The shop pays **3× the actual FixFlow AI cost of the spend that
   occurred BEYOND the allowance**. (Not 3× total; only the overage portion.) e.g. Growth $30 allowance,
   $34 actual spend → $4 overage → billed **$12**.
-- **D3 — Which usage counts toward overage.** All shop-facing AI that draws on the shop AI budget:
-  unified assistant, insights, marketing, image-gen, voice. **EXCLUDED (already exempt from the shop
-  cap):** ads-lead AI (billed to `ad_ai_costs`) and — decide — the customer SMS/WhatsApp auto-replies
-  (currently they DO draw on the shop cap via `SpendCapEnforcer.recordSpend`). **CONFIRM whether
-  off-channel auto-replies count toward overage.**
+- **D3 — Which usage counts toward overage. ✅ DECIDED 2026-07-20.** All shop-facing AI that draws on the
+  shop AI budget counts: unified assistant, insights, marketing, image-gen, voice, **and customer SMS/WhatsApp
+  auto-replies** (they consume real Claude tokens for a paid Business feature → they count, via
+  `SpendCapEnforcer.recordSpend`; this is the existing behavior — no change). **EXEMPT:** **ads-lead AI**
+  auto-reply (`LeadAutoAnswerService`) is FixFlow COGS in `ad_ai_costs`, NOT the shop budget — it's covered by
+  the flat **AI Ads Management** add-on fee ($199–$999/mo), so lead replies **never** consume the allowance or
+  trigger overage. Only the AI **token** cost counts; the Twilio/WhatsApp **carrier** fee is a separate ledger
+  (`customer_messaging_costs`) and a separate who-pays decision (D5 of the channel-expansion scope), not overage.
+
+  **Billing model (the two "auto-replies" are separate products, no double-charge):**
+  - *Lead auto-reply* → AI Ads Management add-on (flat fee, AI absorbed as COGS) → **not metered to the shop**.
+  - *Customer/general auto-reply + in-app AI* → Business plan allowance → **metered; overage past the allowance**.
+  Each message runs exactly one path, so there's no conflict. UI labels added (add-on card + AI-usage caption)
+  so shops see the distinction.
 - **D4 — Billing mechanism.** Accrue to a ledger (Slice 2), then invoice via `StripeService.
   createImmediateInvoice` — a DIRECT invoice to the shop's existing `stripe_customer_id` (from the $500
   subscription). **This does NOT need Stripe Connect** (Connect = the Payments add-on / customer payments +

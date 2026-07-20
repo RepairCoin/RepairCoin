@@ -228,6 +228,11 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
                 <span className="font-semibold text-amber-300">${overageInfo.chargeUsd.toFixed(2)}</span>
               </div>
             )}
+            {/* Billing clarity: which AI counts toward the allowance/overage (ad-lead replies do not). */}
+            <p className="mt-2 text-xs text-gray-500">
+              Counts your AI assistant, insights, marketing &amp; customer auto-replies. Ad-lead replies
+              (AI&nbsp;Ads&nbsp;Management) don&apos;t count.
+            </p>
           </div>
         )}
       </section>
