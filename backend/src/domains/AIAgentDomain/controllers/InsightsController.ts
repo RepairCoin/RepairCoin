@@ -88,6 +88,7 @@ export interface InsightsResponseData {
   limitReached: boolean;
   budgetUsd: number;
   spentUsd: number;
+  overageCapReached?: boolean;
 }
 
 // ----- Validation bounds -----
@@ -458,6 +459,7 @@ export function makeInsightsController(deps: InsightsControllerDeps = {}) {
           limitReached: spendCheck.limitReached ?? false,
           budgetUsd: spendCheck.monthlyBudgetUsd,
           spentUsd: spendCheck.currentSpendUsd,
+          overageCapReached: spendCheck.overageCapReached ?? false,
         };
         res.json({ success: true, data });
       } catch (err) {

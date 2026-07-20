@@ -342,6 +342,7 @@ export interface UnifiedResponseData {
   limitReached: boolean;
   budgetUsd: number;
   spentUsd: number;
+  overageCapReached?: boolean;
 }
 
 export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) {
@@ -623,6 +624,7 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           limitReached: spendCheck.limitReached ?? false,
           budgetUsd: spendCheck.monthlyBudgetUsd,
           spentUsd: spendCheck.currentSpendUsd,
+          overageCapReached: spendCheck.overageCapReached ?? false,
         };
         res.json({ success: true, data });
       } catch (err) {

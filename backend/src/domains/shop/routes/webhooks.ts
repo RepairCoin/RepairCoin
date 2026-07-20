@@ -13,6 +13,16 @@ import { setMultiLocationActive } from '../../../utils/multiLocationEntitlement'
 import { NotificationService } from '../../notification/services/NotificationService';
 import { EmailService } from '../../../services/EmailService';
 import { generalNotificationPreferencesRepository } from '../../../repositories/GeneralNotificationPreferencesRepository';
+import { AiOverageChargeRepository } from '../../../repositories/AiOverageChargeRepository';
+
+// T3.2 Slice 3: when a paid Stripe invoice is an AI Usage Overage invoice (metadata.kind), mark its
+// ledger rows paid. Best-effort — never affects the main subscription-webhook handling.
+async function reconcileOverageInvoice(event: any): Promise<void> {
+  const invoice = event?.data?.object;
+  if (invoice?.metadata?.kind !== 'ai_overage_billing' || !invoice?.id) return;
+  const n = await new AiOverageChargeRepository().markPaidByInvoiceId(invoice.id);
+  if (n > 0) logger.info('AI overage invoice reconciled to paid', { invoiceId: invoice.id, rows: n });
+}
 import { shopRepository } from '../../../repositories';
 import { getPlanByPriceId } from '../../../config/subscriptionPlans';
 import { agencyService } from '../../agency/services/AgencyService';
@@ -482,6 +492,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
         
       case 'invoice.payment_succeeded':
         await handlePaymentSucceeded(event, subscriptionService);
+        await reconcileOverageInvoice(event).catch((e) => logger.error('AI overage reconcile failed', e));
         break;
         
       case 'invoice.payment_failed':

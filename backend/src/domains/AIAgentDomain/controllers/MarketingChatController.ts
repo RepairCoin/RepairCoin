@@ -81,6 +81,7 @@ export interface MarketingResponseData {
   limitReached: boolean;
   budgetUsd: number;
   spentUsd: number;
+  overageCapReached?: boolean;
 }
 
 // ----- Validation bounds (mirror Insights) -----
@@ -456,6 +457,7 @@ export function makeMarketingChatController(
           limitReached: spendCheck.limitReached ?? false,
           budgetUsd: spendCheck.monthlyBudgetUsd,
           spentUsd: spendCheck.currentSpendUsd,
+          overageCapReached: spendCheck.overageCapReached ?? false,
         };
         res.json({ success: true, data });
       } catch (err) {

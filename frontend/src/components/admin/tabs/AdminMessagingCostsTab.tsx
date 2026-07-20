@@ -6,9 +6,10 @@
 // read-only. Reads GET /api/messages/admin/messaging-costs. Dark theme to match the admin dashboard.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, MessageSquare, DollarSign, Truck, ShieldCheck } from "lucide-react";
+import { Loader2, RefreshCw, MessageSquare, DollarSign, Truck, ShieldCheck, Zap } from "lucide-react";
 import {
-  getMessagingCostSummary, fmtCents, type MessagingCostSummary,
+  getMessagingCostSummary, getAdminOverageSummary, fmtCents,
+  type MessagingCostSummary, type AdminOverageSummary,
 } from "@/services/api/messagingCosts";
 
 const PERIODS: { label: string; days?: number }[] = [
@@ -32,6 +33,7 @@ const StatCard: React.FC<{ icon: React.ReactNode; label: string; value: string; 
 
 export const AdminMessagingCostsTab: React.FC = () => {
   const [data, setData] = useState<MessagingCostSummary | null>(null);
+  const [overage, setOverage] = useState<AdminOverageSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState<number | undefined>(30);
@@ -40,7 +42,9 @@ export const AdminMessagingCostsTab: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      setData(await getMessagingCostSummary(days));
+      const [cost, ov] = await Promise.all([getMessagingCostSummary(days), getAdminOverageSummary()]);
+      setData(cost);
+      setOverage(ov);
     } catch (e: any) {
       setError(e?.message || "Failed to load messaging costs");
     } finally {
@@ -157,6 +161,50 @@ export const AdminMessagingCostsTab: React.FC = () => {
             <p className="mt-3 text-xs text-gray-500">
               Recorded automatically when a customer messages first (implied opt-in). Enforcement is off until legal
               sign-off (ENFORCE_MESSAGING_CONSENT).
+            </p>
+          </div>
+
+          <div className={`${CARD} p-5`}>
+            <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
+              <Zap className="w-4 h-4" /> AI Usage Overage — this month
+            </h3>
+            {(overage?.shops.length ?? 0) === 0 ? (
+              <div className="text-sm text-gray-400 py-6 text-center">
+                No shops are accruing overage this month.
+              </div>
+            ) : (
+              <>
+                <div className="mb-3 text-sm text-gray-300">
+                  <span className="text-gray-400">Platform billable this month: </span>
+                  <span className="font-semibold text-amber-300">{fmtCents(overage!.grandTotal.amountCents)}</span>
+                  <span className="text-gray-500"> across {overage!.grandTotal.shopCount} shop(s)</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-gray-400 border-b border-white/10">
+                        <th className="text-left font-medium py-2 pr-4">Shop</th>
+                        <th className="text-right font-medium py-2 px-4">Overage cost</th>
+                        <th className="text-right font-medium py-2 px-4">Billable (×3)</th>
+                        <th className="text-right font-medium py-2 pl-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overage!.shops.map((s) => (
+                        <tr key={s.shopId} className="border-b border-white/5">
+                          <td className="py-2 pr-4 text-white font-medium">{s.shopName || s.shopId}</td>
+                          <td className="py-2 px-4 text-right text-gray-300">{fmtCents(s.overageCostCents)}</td>
+                          <td className="py-2 px-4 text-right font-semibold text-amber-300">{fmtCents(s.amountCents)}</td>
+                          <td className="py-2 pl-4 text-right text-gray-400 capitalize">{s.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+            <p className="mt-3 text-xs text-gray-500">
+              Billable = AI cost beyond each shop&apos;s monthly allowance × 3 (Usage ×3). Pending until invoiced.
             </p>
           </div>
         </>

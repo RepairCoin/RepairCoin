@@ -35,7 +35,7 @@ export const ADDON_REGISTRY: AddonDef[] = [
   {
     id: 'ai_ads',
     displayName: 'AI Ads Management',
-    description: 'FixFlow runs your Meta & Google ads and an AI answers every lead automatically.',
+    description: 'FixFlow runs your Meta & Google ads and an AI answers every lead automatically. Lead replies are included — they don’t use your AI allowance.',
     priceLabel: '$199–$999/mo',
     category: 'marketing',
     activationType: 'request',
@@ -55,7 +55,7 @@ export const ADDON_REGISTRY: AddonDef[] = [
   {
     id: 'ai_overage',
     displayName: 'AI Usage Overage',
-    description: 'Keep AI features running past your monthly allowance, billed as you grow.',
+    description: 'Keep your AI assistant, insights, marketing & customer auto-replies running past your monthly allowance, billed as you grow. (Ad-lead replies are covered by AI Ads Management.)',
     priceLabel: 'Usage ×3',
     category: 'ai',
     activationType: 'toggle',

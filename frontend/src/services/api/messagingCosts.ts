@@ -41,3 +41,24 @@ export const getMessagingCostSummary = async (days?: number): Promise<MessagingC
 
 /** Cents (fractional allowed) → "$0.14". */
 export const fmtCents = (cents: number): string => `$${((cents || 0) / 100).toFixed(2)}`;
+
+// --- AI Usage Overage admin rollup (T3.2) ---
+
+export interface OverageShopRow {
+  shopId: string;
+  shopName: string | null;
+  overageCostCents: number;
+  amountCents: number; // billable = cost × 3
+  status: string;
+}
+
+export interface AdminOverageSummary {
+  shops: OverageShopRow[];
+  grandTotal: { overageCostCents: number; amountCents: number; shopCount: number };
+}
+
+/** Per-shop AI Usage Overage this month + grand total (admin). */
+export const getAdminOverageSummary = async (): Promise<AdminOverageSummary> => {
+  const res = await apiClient.get('/ai/admin/overage-summary');
+  return unwrap<AdminOverageSummary>(res);
+};
