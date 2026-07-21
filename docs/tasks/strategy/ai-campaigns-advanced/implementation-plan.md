@@ -29,8 +29,20 @@ message content) DONE — see below. Grounded in a read-only code audit (below).
   state/imports) so it lives in one home. `AutoMessagesManager` is propless/self-contained → dropped in as-is.
 - Verified: FE files clean (211 total, under the ~290 baseline; zero added); backend unchanged.
 
-- Next slices (P2): new autonomous triggers (lapsed/slow-day/insights-driven auto-campaigns); reuse
-  scheduler + campaign-rewards for incentives.
+**Phase 2 · Slice C — new autonomous trigger: "Slow Week" (BUILT 2026-07-21):**
+- `AutoMessageSchedulerService.processLowBookings()` — the `low_bookings` trigger. For each active rule, if
+  the shop's last-7-days bookings dropped below 50% of its OWN trailing 4-week weekly average (baseline
+  ≥ 4 prior bookings, so new/empty shops never fire), it messages the rule's target audience (win-back /
+  promo). Reuses `getTargetCustomers` + `sendToCustomer` + per-customer 7-day dedup + maxSendsPerCustomer.
+  Wired into the scheduler run loop. `inactive_30_days` was already `service_orders`-based (correct).
+- `low_bookings` added to the controller whitelist, the AI content-generator's trigger descriptions, and the
+  frontend event dropdown ("Slow Week (low bookings)").
+- Verified: backend tsc 0; ai-agent tests green; FE clean; live detector query runs (peanut correctly does
+  NOT fire — only 2 prior bookings < the 4 baseline).
+
+**Phase 2 COMPLETE** (Slices A + B + C). The Business "AI Campaigns (Advanced)" is now a real feature: AI
+drafts the copy, it lives in the Marketing tab, and it fires autonomously on schedule/booking events, lapsed
+customers, AND slow weeks. Further net-new (A/B testing, drip sequences, cross-channel) = Phases 3–5.
 
 ---
 

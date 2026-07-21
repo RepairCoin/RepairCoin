@@ -6,7 +6,7 @@ import { logger } from '../../../utils/logger';
 
 const VALID_TRIGGER_TYPES = ['schedule', 'event'];
 const VALID_SCHEDULE_TYPES = ['daily', 'weekly', 'monthly'];
-const VALID_EVENT_TYPES = ['booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days'];
+const VALID_EVENT_TYPES = ['booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days', 'low_bookings'];
 const VALID_TARGET_AUDIENCES = ['all', 'active', 'inactive_30d', 'has_balance', 'completed_booking'];
 
 export class AutoMessageController {

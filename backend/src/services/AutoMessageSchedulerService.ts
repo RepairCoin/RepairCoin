@@ -441,6 +441,78 @@ export class AutoMessageSchedulerService {
   }
 
   /**
+   * Process low_bookings rules — the "slow week" autonomous trigger (AI Campaigns Advanced, Phase 2).
+   * For each active rule: if the shop's bookings over the last 7 days dropped notably below its OWN
+   * trailing 4-week weekly average, fire the rule's message to its target audience (a win-back / promo
+   * nudge). Shop-relative so it adapts per shop; the trailing baseline (>= 4 prior bookings) avoids
+   * firing for brand-new/empty shops. Per-customer 7-day dedup + maxSendsPerCustomer prevent re-blasting.
+   * Threshold is a v1 heuristic (this week < 50% of the weekly average) — a configurable cap can come later.
+   */
+  async processLowBookings(): Promise<{ rulesFired: number; messagesSent: number }> {
+    let rulesFired = 0;
+    let messagesSent = 0;
+
+    try {
+      const rules = await this.autoMessageRepo.getAllActiveEventRulesByType('low_bookings');
+      if (rules.length === 0) return { rulesFired: 0, messagesSent: 0 };
+
+      logger.info(`Processing ${rules.length} low_bookings rules`);
+      const pool = getSharedPool();
+
+      for (const rule of rules) {
+        try {
+          const shop = await this.shopRepo.getShop(rule.shopId);
+          if (!shop || !shop.active) continue;
+
+          // last-7-days bookings vs the trailing 4 weeks (the 28-day window just before the last 7 days)
+          const stats = await pool.query(`
+            SELECT
+              COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS last7,
+              COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '35 days'
+                               AND created_at <  NOW() - INTERVAL '7 days')   AS prior28
+            FROM service_orders
+            WHERE shop_id = $1 AND status <> 'cancelled'
+          `, [rule.shopId]);
+          const last7 = Number(stats.rows[0]?.last7) || 0;
+          const prior28 = Number(stats.rows[0]?.prior28) || 0;
+          const weeklyAvg = prior28 / 4;
+          const isSlow = prior28 >= 4 && weeklyAvg > 0 && last7 < weeklyAvg * 0.5;
+          if (!isSlow) continue;
+
+          rulesFired++;
+          logger.info(`Rule "${rule.name}" fired — slow week (${last7} vs ~${weeklyAvg.toFixed(1)}/wk avg)`, {
+            ruleId: rule.id, shopId: rule.shopId,
+          });
+
+          const customers = await this.getTargetCustomers(rule);
+          for (const cust of customers) {
+            const sendCount = await this.autoMessageRepo.countSendsForCustomer(rule.id, cust.walletAddress);
+            if (rule.maxSendsPerCustomer && sendCount >= rule.maxSendsPerCustomer) continue;
+            // Don't re-blast the same customer within 7 days (also caps repeat slow-week firings).
+            if (await this.autoMessageRepo.hasSentWithinDays(rule.id, cust.walletAddress, 7)) continue;
+
+            const sendResult = await this.sendToCustomer(rule, cust, shop.name || 'Our Shop');
+            if (sendResult.success) messagesSent++;
+          }
+        } catch (error) {
+          logger.error(`Error processing low_bookings rule "${rule.name}"`, {
+            ruleId: rule.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Error in processLowBookings:', error);
+    }
+
+    if (rulesFired > 0) {
+      logger.info('Low bookings processing completed', { rulesFired, messagesSent });
+    }
+
+    return { rulesFired, messagesSent };
+  }
+
+  /**
    * Process all active schedule-based auto-message rules
    */
   async processScheduledMessages(): Promise<{
@@ -602,6 +674,15 @@ export class AutoMessageSchedulerService {
         result.messagesSent += inactiveResult.messagesSent;
       } catch (error) {
         logger.error('Error processing inactive customers:', error);
+      }
+
+      // Process low_bookings ("slow week") rules
+      try {
+        const lowResult = await this.processLowBookings();
+        result.rulesFired += lowResult.rulesFired;
+        result.messagesSent += lowResult.messagesSent;
+      } catch (error) {
+        logger.error('Error processing low bookings:', error);
       }
 
       if (result.messagesSent > 0 || result.rulesFired > 0) {

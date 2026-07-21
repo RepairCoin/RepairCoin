@@ -18,6 +18,7 @@ const EVENT_TYPES = [
   { value: "booking_cancelled", label: "Booking Cancelled" },
   { value: "first_visit", label: "First Visit" },
   { value: "inactive_30_days", label: "Inactive 30 Days" },
+  { value: "low_bookings", label: "Slow Week (low bookings)" },
 ];
 
 const TARGET_AUDIENCES = [

@@ -105,6 +105,7 @@ export class AutoMessageContentService {
         booking_cancelled: 'after a customer cancels a booking (gentle win-back / offer to rebook)',
         first_visit: 'after a customer’s first visit (welcome them, set expectations)',
         inactive_30_days: 'when a customer has been inactive ~30 days (friendly win-back)',
+        low_bookings: 'when the shop is having a slow week (a promo / "we’d love to see you" nudge to fill the schedule)',
       };
       return map[i.eventType || ''] || `on event: ${i.eventType || 'unspecified'}`;
     }
