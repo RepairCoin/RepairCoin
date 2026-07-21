@@ -28,6 +28,7 @@
 import { Pool } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { getSharedPool } from "../../../utils/database-pool";
+import { smartModel, cheapModel } from "../../../config/aiModels";
 import { logger } from "../../../utils/logger";
 import { shopHasFeature } from "../../../utils/shopTier";
 import { ServiceRepository } from "../../../repositories/ServiceRepository";
@@ -77,8 +78,8 @@ import {
   ClaudeModel,
 } from "../types";
 
-const FALLBACK_MODEL: ClaudeModel = "claude-haiku-4-5-20251001";
-const DEFAULT_MODEL: ClaudeModel = "claude-sonnet-4-6";
+const FALLBACK_MODEL: ClaudeModel = cheapModel();
+const DEFAULT_MODEL: ClaudeModel = smartModel();
 const DEFAULT_TONE: AITone = "professional";
 const DEFAULT_ESCALATION_THRESHOLD = 5;
 const MAX_OUTPUT_TOKENS = 800;

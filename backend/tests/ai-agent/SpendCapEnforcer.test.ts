@@ -151,6 +151,40 @@ describe("SpendCapEnforcer.canSpend — overage bill-shock guardrail (T3.2 Slice
   });
 });
 
+describe("SpendCapEnforcer.canSpend — per-shop overage cap (T3.2)", () => {
+  const ORIG_FLAG = process.env.ENABLE_AI_OVERAGE;
+  const ORIG_CAP = process.env.AI_OVERAGE_MONTHLY_CAP_USD;
+  beforeEach(() => { process.env.ENABLE_AI_OVERAGE = "true"; });
+  afterEach(() => { process.env.ENABLE_AI_OVERAGE = ORIG_FLAG; process.env.AI_OVERAGE_MONTHLY_CAP_USD = ORIG_CAP; });
+
+  // row carries spend + opt-in + the per-shop cap column
+  const row = (v: string, overage: boolean, cap: string | null) =>
+    [{ current_month_spend_usd: v, ai_overage_enabled: overage, overage_cap_usd: cap }];
+
+  it("uses the shop's own cap over the platform default (per-shop $5 trips before the $100 default)", async () => {
+    delete process.env.AI_OVERAGE_MONTHLY_CAP_USD; // default 100
+    // growth $30, spent $40 → $30 billable ≥ $5 per-shop cap → guardrail trips
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true, "5"))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true);
+    expect(r.overageCapReached).toBe(true);
+  });
+
+  it("a HIGHER per-shop cap overrides a low platform default (per-shop $50 keeps full model)", async () => {
+    process.env.AI_OVERAGE_MONTHLY_CAP_USD = "5"; // low platform default
+    // $30 billable < $50 per-shop cap → full model despite the low global default
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true, "50"))).canSpend("s");
+    expect(r.useCheaperModel).toBe(false);
+    expect(r.overageCapReached).toBeFalsy();
+  });
+
+  it("falls back to the platform default when the shop has no cap set (null)", async () => {
+    process.env.AI_OVERAGE_MONTHLY_CAP_USD = "5";
+    const r = await new SpendCapEnforcer(mockPool(row("40.00", true, null))).canSpend("s");
+    expect(r.useCheaperModel).toBe(true); // inherits the $5 default → $30 billable trips it
+    expect(r.overageCapReached).toBe(true);
+  });
+});
+
 describe("SpendCapEnforcer.recordSpend — overage accrual (T3.2 Slice 2)", () => {
   const ORIG = process.env.ENABLE_AI_OVERAGE;
   beforeEach(() => { process.env.ENABLE_AI_OVERAGE = "true"; mockedGetShopTier.mockResolvedValue("growth"); }); // $30
@@ -159,43 +193,63 @@ describe("SpendCapEnforcer.recordSpend — overage accrual (T3.2 Slice 2)", () =
   // UPDATE ... RETURNING returns the post-increment spend + the opt-in flag.
   const recordPool = (afterSpend: string, overage: boolean) =>
     ({ query: jest.fn().mockResolvedValue({ rows: [{ current_month_spend_usd: afterSpend, ai_overage_enabled: overage }] }) } as any);
+  const noNotify = () => jest.fn().mockResolvedValue(undefined);
 
   it("accrues only the slice of the increment that crossed the cap ($28→$33 on $30 → $3)", async () => {
     const accrue = jest.fn().mockResolvedValue(undefined);
-    await new SpendCapEnforcer(recordPool("33.00", true), accrue).recordSpend("s", 5); // before $28
+    await new SpendCapEnforcer(recordPool("33.00", true), accrue, noNotify()).recordSpend("s", 5); // before $28
     expect(accrue).toHaveBeenCalledWith("s", 3);
   });
 
   it("accrues the whole cost when already over the cap ($35→$37 → $2)", async () => {
     const accrue = jest.fn().mockResolvedValue(undefined);
-    await new SpendCapEnforcer(recordPool("37.00", true), accrue).recordSpend("s", 2);
+    await new SpendCapEnforcer(recordPool("37.00", true), accrue, noNotify()).recordSpend("s", 2);
     expect(accrue).toHaveBeenCalledWith("s", 2);
   });
 
   it("does not accrue when the increment stays under the cap ($10→$15 on $30)", async () => {
     const accrue = jest.fn().mockResolvedValue(undefined);
-    await new SpendCapEnforcer(recordPool("15.00", true), accrue).recordSpend("s", 5);
+    await new SpendCapEnforcer(recordPool("15.00", true), accrue, noNotify()).recordSpend("s", 5);
     expect(accrue).not.toHaveBeenCalled();
   });
 
   it("does not accrue when the shop has NOT opted into overage", async () => {
     const accrue = jest.fn().mockResolvedValue(undefined);
-    await new SpendCapEnforcer(recordPool("40.00", false), accrue).recordSpend("s", 5);
+    await new SpendCapEnforcer(recordPool("40.00", false), accrue, noNotify()).recordSpend("s", 5);
     expect(accrue).not.toHaveBeenCalled();
   });
 
   it("does not accrue when the master flag is OFF", async () => {
     process.env.ENABLE_AI_OVERAGE = "false";
     const accrue = jest.fn().mockResolvedValue(undefined);
-    await new SpendCapEnforcer(recordPool("40.00", true), accrue).recordSpend("s", 5);
+    await new SpendCapEnforcer(recordPool("40.00", true), accrue, noNotify()).recordSpend("s", 5);
     expect(accrue).not.toHaveBeenCalled();
   });
 
   it("never lets an accrual failure break recordSpend", async () => {
     const accrue = jest.fn().mockRejectedValue(new Error("ledger down"));
     await expect(
-      new SpendCapEnforcer(recordPool("40.00", true), accrue).recordSpend("s", 5)
+      new SpendCapEnforcer(recordPool("40.00", true), accrue, noNotify()).recordSpend("s", 5)
     ).resolves.toBeUndefined();
+  });
+
+  // #7 — overage-started notification fires exactly once, on the call that crosses the allowance.
+  it("notifies the shop on the crossing call ($28→$33 on $30)", async () => {
+    const notify = noNotify();
+    await new SpendCapEnforcer(recordPool("33.00", true), jest.fn().mockResolvedValue(undefined), notify).recordSpend("s", 5);
+    expect(notify).toHaveBeenCalledWith("s", 30);
+  });
+
+  it("does NOT notify when already over the cap (no crossing, $35→$37)", async () => {
+    const notify = noNotify();
+    await new SpendCapEnforcer(recordPool("37.00", true), jest.fn().mockResolvedValue(undefined), notify).recordSpend("s", 2);
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it("does NOT notify when overage is off", async () => {
+    const notify = noNotify();
+    await new SpendCapEnforcer(recordPool("33.00", false), jest.fn().mockResolvedValue(undefined), notify).recordSpend("s", 5);
+    expect(notify).not.toHaveBeenCalled();
   });
 });
 

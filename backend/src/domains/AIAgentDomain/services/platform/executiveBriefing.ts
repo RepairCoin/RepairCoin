@@ -10,6 +10,7 @@
 import { Pool } from "pg";
 import { getSharedPool } from "../../../../utils/database-pool";
 import { logger } from "../../../../utils/logger";
+import { cheapModel } from "../../../../config/aiModels";
 import { AnthropicClient } from "../AnthropicClient";
 import { getPlatformToolByName } from "./platformTools";
 
@@ -114,7 +115,7 @@ async function phraseBriefing(
           content: `Date: ${now.toISOString().slice(0, 10)}\nMetrics:\n${JSON.stringify(data)}`,
         },
       ],
-      model: "claude-haiku-4-5-20251001",
+      model: cheapModel(),
       maxTokens: 400,
     });
     const text = (res.text || "").trim();

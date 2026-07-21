@@ -21,6 +21,7 @@ import { shopRepository } from "../../../repositories";
 import { getStripeService } from "../../../services/StripeService";
 import { AiOverageChargeRepository } from "../../../repositories/AiOverageChargeRepository";
 import { AiOverageStripeService, aiOverageStripeService } from "../services/AiOverageStripeService";
+import { effectiveOverageCapUsd } from "../services/SpendCapEnforcer";
 
 export interface SpendControllerDeps {
   pool?: Pool;
@@ -29,6 +30,8 @@ export interface SpendControllerDeps {
   hasPaymentMethod?: (shopId: string) => Promise<boolean>;
   /** Admin overage rollup — injectable for tests; default reads the ai_overage_charges ledger. */
   getOverageSummary?: () => ReturnType<AiOverageChargeRepository["getAllShopsMonthSummary"]>;
+  /** Admin "ready to invoice" rollup (completed-month pending) — injectable for tests. */
+  getPendingOverage?: () => ReturnType<AiOverageChargeRepository["getPendingSummary"]>;
   /** Slice 3 Stripe invoicing — injectable for tests; default = the real service (flag-gated). */
   overageStripe?: Pick<AiOverageStripeService, "invoiceShopPending" | "invoiceAllDue">;
 }
@@ -54,6 +57,7 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
   const pool = deps.pool ?? getSharedPool();
   const hasPaymentMethod = deps.hasPaymentMethod ?? defaultHasPaymentMethod;
   const getOverageSummary = deps.getOverageSummary ?? (() => new AiOverageChargeRepository().getAllShopsMonthSummary());
+  const getPendingOverage = deps.getPendingOverage ?? (() => new AiOverageChargeRepository().getPendingSummary());
   const overageStripe = deps.overageStripe ?? aiOverageStripeService;
 
   return {
@@ -72,8 +76,9 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
           current_month_spend_usd: string;
           current_month_started_at: Date | null;
           ai_overage_enabled: boolean;
+          overage_cap_usd: string | null;
         }>(
-          `SELECT current_month_spend_usd, current_month_started_at, ai_overage_enabled
+          `SELECT current_month_spend_usd, current_month_started_at, ai_overage_enabled, overage_cap_usd
            FROM ai_shop_settings
            WHERE shop_id = $1`,
           [shopId]
@@ -81,6 +86,8 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
 
         // AI Usage Overage add-on availability (T3.2) — the toggle is inert until the master flag is on.
         const overageAvailable = process.env.ENABLE_AI_OVERAGE === "true";
+        // Platform default cap (env), shown as the input placeholder / the effective cap when unset.
+        const overageCapDefaultUsd = effectiveOverageCapUsd(null);
 
         if (settings.rows.length === 0) {
           // Shop has no AI settings row yet — treat as zero spend against the tier budget.
@@ -95,6 +102,8 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
               callsThisMonth: 0,
               overageEnabled: false,
               overageAvailable,
+              overageCapUsd: null,
+              overageCapDefaultUsd,
             },
           });
           return;
@@ -139,6 +148,8 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
             overageEnabled: row.ai_overage_enabled === true,
             overageAvailable,
             overageChargeUsd,
+            overageCapUsd: row.overage_cap_usd != null ? parseFloat(row.overage_cap_usd) : null,
+            overageCapDefaultUsd,
           },
         });
       } catch (err) {
@@ -202,6 +213,51 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
       } catch (err) {
         logger.error("SpendController.setOwnShopOverage failed", err);
         res.status(500).json({ success: false, error: "Failed to update overage setting" });
+      }
+    },
+
+    /**
+     * POST /api/ai/overage/cap — shop sets its own bill-shock ceiling on billable overage (T3.2
+     * per-shop cap). Body: { capUsd: number | null }. `null` (or omitted) clears it → inherit the
+     * platform default. A positive number = "stop full-power AI at $X of overage this month". Gated by
+     * ENABLE_AI_OVERAGE. Upserts so a shop with no row yet can still set it.
+     */
+    setOwnShopOverageCap: async (req: Request, res: Response): Promise<void> => {
+      try {
+        const shopId = (req as any).user?.shopId;
+        if (!shopId) {
+          res.status(401).json({ success: false, error: "Shop ID required" });
+          return;
+        }
+        if (process.env.ENABLE_AI_OVERAGE !== "true") {
+          res.status(409).json({ success: false, error: "AI Usage Overage is not available yet" });
+          return;
+        }
+        const raw = (req.body ?? {}).capUsd;
+        // null / undefined / '' → clear (inherit the platform default).
+        let capUsd: number | null = null;
+        if (raw !== null && raw !== undefined && raw !== "") {
+          const n = Number(raw);
+          // Shops set a POSITIVE ceiling only; 0/negative/NaN is rejected (use clear to inherit default,
+          // and "unlimited" is an admin-only concept, not a self-serve one).
+          if (!Number.isFinite(n) || n <= 0) {
+            res.status(400).json({ success: false, error: "`capUsd` must be a positive number, or null to use the default" });
+            return;
+          }
+          capUsd = Math.round(n * 100) / 100; // clamp to cents
+        }
+
+        await pool.query(
+          `INSERT INTO ai_shop_settings (shop_id, overage_cap_usd, current_month_started_at)
+           VALUES ($1, $2, NOW())
+           ON CONFLICT (shop_id) DO UPDATE SET overage_cap_usd = EXCLUDED.overage_cap_usd, updated_at = NOW()`,
+          [shopId, capUsd]
+        );
+
+        res.json({ success: true, data: { overageCapUsd: capUsd, overageCapDefaultUsd: effectiveOverageCapUsd(null) } });
+      } catch (err) {
+        logger.error("SpendController.setOwnShopOverageCap failed", err);
+        res.status(500).json({ success: false, error: "Failed to update overage cap" });
       }
     },
 
@@ -301,11 +357,20 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
       }
     },
 
-    /** GET /api/ai/admin/overage-summary — admin: per-shop AI Usage Overage this month + grand total. */
+    /** GET /api/ai/admin/overage-summary — admin: per-shop AI Usage Overage this month + grand total,
+     *  plus the "ready to invoice" rollup (completed-month pending) and whether charging is live. */
     getAdminOverageSummary: async (_req: Request, res: Response): Promise<void> => {
       try {
-        const { shops, grandTotal } = await getOverageSummary();
-        res.json({ success: true, data: { shops, grandTotal } });
+        const [{ shops, grandTotal }, pending] = await Promise.all([getOverageSummary(), getPendingOverage()]);
+        res.json({
+          success: true,
+          data: {
+            shops,
+            grandTotal,
+            pending,
+            stripeEnabled: process.env.AI_OVERAGE_STRIPE_ENABLED === "true",
+          },
+        });
       } catch (err) {
         logger.error("SpendController.getAdminOverageSummary failed", err);
         res.status(500).json({ success: false, error: "Failed to load overage summary" });
@@ -352,6 +417,9 @@ export function getAdminCostSummary(req: Request, res: Response): Promise<void> 
 }
 export function setOwnShopOverage(req: Request, res: Response): Promise<void> {
   return getDefaults().setOwnShopOverage(req, res);
+}
+export function setOwnShopOverageCap(req: Request, res: Response): Promise<void> {
+  return getDefaults().setOwnShopOverageCap(req, res);
 }
 export function getAdminOverageSummary(req: Request, res: Response): Promise<void> {
   return getDefaults().getAdminOverageSummary(req, res);

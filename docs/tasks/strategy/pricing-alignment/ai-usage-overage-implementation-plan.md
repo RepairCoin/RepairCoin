@@ -8,11 +8,32 @@ add-on that keeps full-power AI running past the cap, billed at 3× the actual A
 which was deferred behind the WS3 soft-landing (T3.1b). Builds on the shipped per-tier allowances
 ($10/$30/$75) and the soft-landing cap.
 
-**Status (2026-07-20):** Slices 1 (behavior) + 2 (metering) + 2.5 (guardrail + consent) BUILT + COMMITTED
-on `deo/ads-system`. **Slice 3 (Stripe charging) BUILT + test-mode verified (flag OFF)** — the code path
-is complete and proven end-to-end against staging Stripe TEST mode; it stays dark until
-`AI_OVERAGE_STRIPE_ENABLED=true`, whose real gate is **business/legal sign-off on the "Usage ×3" terms**
-(NOT Stripe Connect — it's a direct invoice to the shop's existing `stripe_customer_id`, same as ads billing).
+**Status (2026-07-20): CODE-COMPLETE + LIVE-VERIFIED on staging.** Slices 1 (behavior) + 2 (metering)
++ 2.5 (guardrail + consent) + 2.6 (per-shop cap, migration 228) + Slice 3 (Stripe charging) + prod-hardening
+items 5–13 + receipt email — all BUILT + COMMITTED on `deo/ads-system` and verified end-to-end on staging.
+Charging stays dark until `AI_OVERAGE_STRIPE_ENABLED=true`, whose real gate is **business/legal sign-off on
+the "Usage ×3" terms** (NOT Stripe Connect — it's a direct invoice to the shop's existing
+`stripe_customer_id`, same as ads billing).
+
+**Live verification (staging, shop `peanut`, 2026-07-20) — ALL PASS:**
+- #3 receipt email (deployed backend + Resend), #5 invoiceAllDue, #6 auto-disable + #10 alert logs,
+  #7 overage-started notification, #8 AI-usage display ($30 tier allowance), #9 approaching-cap warning,
+  #11 concurrency (1 charged / 1 skipped), #12 USD, #13 refund tracking. Charging path proven paid+reconciled.
+- **Two fixes surfaced + resolved during testing:**
+  1. Overage notifications now address the **shopId**, not the wallet (`06ab3255b`) — a shop's login can be
+     a social wallet ≠ `shops.wallet_address`, and the bell resolves `[wallet, shopId]`, so wallet-addressed
+     notifications silently miss such shops. (Same latent issue affects payment_received/redemption/ad-lead
+     types platform-wide — noted for a separate fix.)
+  2. **Staging Stripe webhook endpoint was missing the invoice/credit-note events.** Added 4 to endpoint
+     `we_1SA2c6…`: `invoice.payment_succeeded`, `invoice.payment_failed`, `invoice.marked_uncollectible`,
+     `credit_note.created`. #6/#13 silently no-op'd until then (config gap, not code). **PROD will have the
+     same gap — the prod webhook MUST subscribe to these 4 events.**
+
+**Remaining before real charging (all external — no code):**
+1. Business/legal sign-off on the Usage ×3 terms + refund/dispute policy (draft:
+   `ai-usage-overage-terms-and-refund-policy.md`); link Part A from the enable-consent modal.
+2. Prod deploy: migrations 228+229 + the four `AI_OVERAGE_*` flags + `RESEND_*`, and subscribe the prod
+   Stripe webhook to the 4 events above.
 
 **Slice 3 build (2026-07-20):**
 - `AiOverageStripeService` — `invoiceShopPending(shopId)` bundles a shop's completed-month pending overage
@@ -151,6 +172,61 @@ sign-off conversation:
 
 ---
 
+## Slice 2.6 — Per-shop overage cap (BUILT 2026-07-20)
+
+Slice 2.5 shipped a single **platform-wide** guardrail (env `AI_OVERAGE_MONTHLY_CAP_USD`). That made the
+cap-reached banner's *"raise your overage cap"* CTA a promise with no control behind it — the only way to
+raise the cap was an engineer editing an env var. This closes that gap with the per-shop cap the scope
+originally specified (`ai-usage-overage-scope.md` §4/§5.5).
+
+- **Schema.** Migration **228** — `ai_shop_settings.overage_cap_usd NUMERIC(12,2)` nullable. `NULL` =
+  inherit the platform default; a positive value = that shop's ceiling on billable overage.
+- **Enforcer.** `effectiveOverageCapUsd(perShopCap)` = the shop's own cap if set, else the platform
+  default. `SpendCapEnforcer.canSpend` reads `overage_cap_usd` (no extra query) and uses it in the
+  guardrail branch. Existing behavior unchanged when a shop hasn't set one.
+- **Endpoint.** `POST /api/ai/overage/cap` (shop, gated by `ENABLE_AI_OVERAGE`): `{ capUsd: number|null }`
+  — positive sets, `null` clears (inherit default), 0/negative → 400. `GET /api/ai/spend` now returns
+  `overageCapUsd` + `overageCapDefaultUsd`.
+- **UI.** An "Overage safety cap" input on Plans & Billing (under the overage indicator, shown while
+  overage is on): `$___` + Save, placeholder = default, "In effect: $X (default)" hint. The cap-reached
+  banner's "Manage overage" button routes here — the CTA now adjusts a real control.
+- **Tests.** Enforcer (per-shop overrides default; higher per-shop beats a low default; null inherits) +
+  controller (409 flag-off, 400 non-positive, sets rounded-to-cents, clears to null). Part of 889/889 green.
+- **Admin override:** not built — a shop self-serves its own cap; an admin-set-per-shop control can reuse
+  the same column later if needed.
+
+---
+
+## Prod-hardening (items 5–13, BUILT 2026-07-20)
+
+Everything below is built + committed on `deo/ads-system`, migration **229** applied to staging, live-verified.
+Flags default off; nothing charges until `AI_OVERAGE_STRIPE_ENABLED=true`.
+
+- **#5 Monthly cron** — `AiOverageBillingScheduler` (node-cron `0 6 1 * *`, isRunning lock, singleton),
+  started/stopped in `app.ts`. Gated by `AI_OVERAGE_STRIPE_ENABLED` (invoiceAllDue no-ops when off).
+- **#6 Failed-payment auto-disable** — webhook `invoice.marked_uncollectible` → mark rows `uncollectible`
+  + set `ai_overage_enabled=false` (revert to soft-landing, **never a hard AI cutoff**) + notify the shop.
+  `invoice.payment_failed` → structured alert log + "we'll retry" notification.
+- **#7 Overage-started notification** — `SpendCapEnforcer.recordSpend` fires `ai_overage_started` on the
+  single call that crosses the allowance (injectable, best-effort). Registry entries added for
+  `ai_overage_started` / `ai_overage_payment_failed` / `ai_overage_disabled` (persist+ws+push, transactional).
+- **#8 AI-usage display fix** — `getAiUsageSummary` reads `/ai/spend` (tier allowance via `getShopAiBudget`),
+  not the inert stored `monthly_budget_usd`, so the Plans bar matches the enforcer.
+- **#9 Approaching-cap warning** — Plans & Billing shows an amber note at ≥80% of the effective cap.
+- **#10 Monitoring** — failed invoices logged with `alert: 'ai_overage_*'` tags for log-based alerting;
+  the admin "Ready to invoice" card surfaces anything still pending.
+- **#11 Concurrency guard** — migration 229 `invoicing_at`; `claimPendingForShop` atomically claims rows,
+  a concurrent run (admin double-click / cron overlap) gets nothing → **no double-charge**; release-on-failure.
+- **#12 Multi-currency** — overage bills **USD** (`createImmediateInvoice` forces it) as a FixFlow platform
+  fee, matching the ads decision (shop ad money uses `meta_currency`; platform fees don't). Documented, no code.
+- **#13 Ledger refund tracking** — migration 229 `refunded_cents`/`refunded_at`; webhook `credit_note.created`
+  → `recordRefundByInvoiceId` records the reversal + status `refunded`.
+
+Tests: enforcer crossing-notify + guardrail/cap, service claim/release/skip, scheduler gate — 898/898 green.
+Live-verified against staging: claim/in-flight-exclusion/release/uncollectible/refund (7/7).
+
+---
+
 ## Slice 3 — Charging via Stripe (the real remaining gate = terms sign-off, NOT Connect)
 
 **Correction:** charging a shop for overage is FixFlow **invoicing its own customer** — it does NOT need
@@ -175,8 +251,10 @@ The direct-invoice path already exists and is proven by the ads billing.
 
 ## Cross-cutting
 
-**Flags (all default off):** `ENABLE_AI_OVERAGE` (backend master), `NEXT_PUBLIC_AI_OVERAGE_ENABLED`
-(frontend card), `AI_OVERAGE_STRIPE_ENABLED` (charging). Plus the per-shop `ai_overage_enabled` toggle.
+**Flags (all default off):** `ENABLE_AI_OVERAGE` (backend master — the ONLY visibility gate; there is no
+`NEXT_PUBLIC_*` flag, removed so a Vercel env change alone can't leave the card stuck "Coming soon"),
+`AI_OVERAGE_STRIPE_ENABLED` (charging). Plus `AI_OVERAGE_MONTHLY_CAP_USD` (platform-default cap),
+`AI_OVERAGE_REQUIRE_CARD`, the per-shop `ai_overage_enabled` toggle, and per-shop `overage_cap_usd`.
 
 **Reuse (proven patterns in-repo):** ads billing (`ad_billing_charges`, `BillingChargeRepository`,
 `AdBillingService.accrue`, `AdBillingStripeService.invoiceShopPending`, `StripeService.createImmediateInvoice`)
@@ -191,3 +269,55 @@ Slice 3 (charging, when Stripe/legal clears). Slice 1 alone already makes the ba
 - Slice 3 is gated on Stripe Connect + legal (WS0 D4). Slices 1–2 are not.
 - Runaway protection: a per-shop monthly overage alert/soft-ceiling is recommended before charging is
   live (avoid bill shock), even under "unlimited pay-as-you-grow".
+
+---
+
+## Production go-live checklist
+
+Code is complete + live-verified on staging. To turn AI Usage Overage on in **production**, complete ALL of
+the following. Nothing charges a real card until step 3's `AI_OVERAGE_STRIPE_ENABLED=true` — do the rest first.
+
+### 1. Database migrations (prod)
+DO auto-migrates on deploy, but confirm these landed in prod:
+- **228** `ai_shop_settings.overage_cap_usd` (per-shop cap)
+- **229** `ai_overage_charges.invoicing_at` + `refunded_cents` + `refunded_at` (concurrency guard + refund tracking)
+- (224–226 = overage_enabled / ai_overage_charges / consent_at should already be in prod from earlier.)
+
+### 2. Environment variables (prod backend, DO)
+- `ENABLE_AI_OVERAGE=true` — master visibility (card + enforcer + endpoints). *(There is intentionally no
+  `NEXT_PUBLIC_*` flag; visibility is 100% backend-driven.)*
+- `AI_OVERAGE_REQUIRE_CARD=true` — require a card on file before a shop can enable overage.
+- `AI_OVERAGE_MONTHLY_CAP_USD=100` — platform-default bill-shock cap (per-shop `overage_cap_usd` overrides).
+- `AI_OVERAGE_STRIPE_ENABLED=false` **until step 5** — the money switch; keep OFF until terms are signed off.
+- `RESEND_API_KEY` (+ optional `RESEND_FROM_EMAIL`/`RESEND_FROM_NAME`) — the receipt sender. Verify the
+  from-domain is verified in Resend (an unverified domain silently fails to arbitrary recipients).
+
+### 3. Stripe webhook events (prod) — REQUIRED, easy to miss
+The prod Stripe webhook endpoint (`/api/shops/webhooks/stripe`) ships subscribed to subscription events
+only. It MUST also subscribe to these 4, or auto-disable / refund / delayed-receipt / reconcile silently no-op:
+- `invoice.payment_succeeded` — delayed-collection receipt + ledger reconcile (`invoiced`→`paid`)
+- `invoice.payment_failed` — "we'll retry" notification (#6)
+- `invoice.marked_uncollectible` — auto-disable overage + notify (#6)
+- `credit_note.created` — refund ledger tracking (#13)
+*(This exact gap was hit on staging — the events fired but weren't delivered until added.)*
+
+### 4. Legal / business (the real gate for charging)
+- Publish the **Usage ×3 terms** + **refund/dispute policy** (draft: `ai-usage-overage-terms-and-refund-policy.md`);
+  fill its open decisions (refund window, failed-payment grace, default cap, tax, notice period).
+- **Link Part A (terms) from the enable-consent modal** so consent points at authoritative text.
+
+### 5. Flip charging on
+Only after 1–4: set `AI_OVERAGE_STRIPE_ENABLED=true` in prod. From here, completed-month overage is billed
+(monthly cron `AiOverageBillingScheduler`, or the admin "Ready to invoice" button in Admin → Messaging Costs).
+
+### 6. Post-enable smoke test (prod, one shop)
+- Seed/observe a shop crossing its allowance → "AI Overage Active" notification (addressed to **shopId**).
+- Admin → Messaging Costs → invoice a completed-month pending → receipt email lands, ledger `paid`.
+- Confirm the monthly cron is scheduled (log: "AI overage billing scheduler started").
+
+### Known follow-ups (not blockers)
+- **Platform notification addressing:** `payment_received` / `redemption_approved` / ad-lead types are still
+  wallet-addressed → invisible to social-login shops (login wallet ≠ `shops.wallet_address`). Overage was
+  fixed to address the shopId; a platform-wide fix is recommended. See the notification-addressing reference.
+- **Monthly cron cadence:** starts inert; only acts once `AI_OVERAGE_STRIPE_ENABLED=true`. Watch the first
+  live cycle via the admin button before relying on the cron unattended.

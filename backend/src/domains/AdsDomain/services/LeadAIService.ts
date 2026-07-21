@@ -15,8 +15,9 @@ import { LeadRepository } from '../repositories/LeadRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { AiCostRepository } from '../repositories/AiCostRepository';
 import { ClaudeModel } from '../../AIAgentDomain/types';
+import { cheapModel } from '../../../config/aiModels';
 
-const DRAFT_MODEL: ClaudeModel = 'claude-haiku-4-5-20251001';
+const DRAFT_MODEL: ClaudeModel = cheapModel();
 
 const SYSTEM_PROMPT =
   'You help a local service business write the FIRST outreach message to a new ' +

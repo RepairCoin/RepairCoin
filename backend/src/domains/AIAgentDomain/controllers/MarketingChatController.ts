@@ -25,6 +25,7 @@
 import { Request, Response } from "express";
 import { Pool } from "pg";
 import { logger } from "../../../utils/logger";
+import { smartModel, cheapModel } from "../../../config/aiModels";
 import { getSharedPool } from "../../../utils/database-pool";
 import { AnthropicClient } from "../services/AnthropicClient";
 import { SpendCapEnforcer } from "../services/SpendCapEnforcer";
@@ -92,9 +93,9 @@ export const MAX_SESSION_ID_CHARS = 64;
 
 // ----- Agent-loop constants -----
 
-const MARKETING_MODEL: ClaudeModel = "claude-sonnet-4-6";
+const MARKETING_MODEL: ClaudeModel = smartModel();
 // Spend-cap soft landing (D2): Haiku at ≥70% + past the 100% cap so AI keeps working at minimal cost.
-const MARKETING_MODEL_CHEAP: ClaudeModel = "claude-haiku-4-5-20251001";
+const MARKETING_MODEL_CHEAP: ClaudeModel = cheapModel();
 const MARKETING_MAX_TOKENS = 2048; // larger than Insights — drafted bodies can be several paragraphs
 
 // Same shape as Insights: 5 iterations is enough for

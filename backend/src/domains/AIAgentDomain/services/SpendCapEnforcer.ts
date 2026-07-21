@@ -27,6 +27,7 @@ import { getShopTier } from "../../../utils/shopTier";
 import { AI_TIER_ALLOWANCE, SubscriptionTier } from "../../../config/subscriptionPlans";
 import { SpendCheckResult } from "../types";
 import { AiOverageChargeRepository } from "../../../repositories/AiOverageChargeRepository";
+import { getNotificationGateway } from "../../notification/services/NotificationGateway";
 
 const CHEAPER_MODEL_THRESHOLD = 0.7; // ≥ 70% of budget → switch to Haiku
 
@@ -37,12 +38,22 @@ const overageFeatureEnabled = (): boolean => process.env.ENABLE_AI_OVERAGE === "
 // "Usage x3" — the billable multiplier on overage cost. Kept in sync with AiOverageChargeRepository's default.
 const OVERAGE_MULTIPLIER = 3;
 
-// Bill-shock guardrail (Slice 2.5): a per-shop monthly cap on the BILLABLE overage (dollars the shop
-// would be invoiced). Once reached, overage stops lifting the model — reverts to the Haiku soft-landing
-// so a runaway session can't produce a surprise invoice. 0 = unlimited (no guardrail). Default $100.
-const overageMonthlyCapUsd = (): number => {
+// Bill-shock guardrail (Slice 2.5): a monthly cap on the BILLABLE overage (dollars the shop would be
+// invoiced). Once reached, overage stops lifting the model — reverts to the Haiku soft-landing so a
+// runaway session can't produce a surprise invoice. 0 = unlimited (no guardrail).
+//
+// PLATFORM DEFAULT (env AI_OVERAGE_MONTHLY_CAP_USD, default $100) — the fallback when a shop hasn't set
+// its own. A shop can override it per-shop via ai_shop_settings.overage_cap_usd (T3.2 per-shop cap).
+const overagePlatformCapUsd = (): number => {
   const n = Number(process.env.AI_OVERAGE_MONTHLY_CAP_USD ?? "100");
   return Number.isFinite(n) && n >= 0 ? n : 100;
+};
+
+/** The cap that actually applies to a shop: its own overage_cap_usd if set (NULL = inherit), else the
+ *  platform default. A negative stored value is ignored (treated as unset). Exported for reuse/tests. */
+export const effectiveOverageCapUsd = (perShopCapUsd: number | null | undefined): number => {
+  if (perShopCapUsd != null && Number.isFinite(perShopCapUsd) && perShopCapUsd >= 0) return perShopCapUsd;
+  return overagePlatformCapUsd();
 };
 
 /** Accrue the marginal overage (USD beyond the allowance) — injectable for tests. Default = the
@@ -54,10 +65,30 @@ const defaultAccrueOverage: OverageAccrueFn = (shopId, usd) => {
   return _overageRepo.accrue(shopId, usd);
 };
 
+/** #7: notify a shop the first time it crosses into overage this month — injectable for tests. Default
+ *  dispatches to the shopId as the receiver (persist + ws + push). We address the SHOP ID, not the shop
+ *  wallet: a shop's login can be a social wallet that differs from shops.wallet_address, and the
+ *  notification bell resolves a shop's inbox as [req.user.address, req.user.shopId] — so shopId-addressed
+ *  notifications reliably reach the dashboard while wallet-addressed ones can silently miss. */
+export type OverageNotifyFn = (shopId: string, budgetUsd: number) => Promise<void>;
+const defaultNotifyOverageStarted: OverageNotifyFn = async (shopId, budgetUsd) => {
+  try {
+    await getNotificationGateway().dispatch("ai_overage_started", shopId, {
+      message:
+        `You've passed your $${budgetUsd} monthly AI allowance — full-power AI keeps running, billed at ` +
+        `3× usage. You can set a monthly cap anytime in Plans & Billing.`,
+      metadata: { shopId, budgetUsd },
+    });
+  } catch (err) {
+    logger.error("SpendCapEnforcer: overage-started notify failed", { shopId, error: (err as Error)?.message });
+  }
+};
+
 export class SpendCapEnforcer {
   constructor(
     private readonly pool: Pool = getSharedPool(),
-    private readonly accrueOverage: OverageAccrueFn = defaultAccrueOverage
+    private readonly accrueOverage: OverageAccrueFn = defaultAccrueOverage,
+    private readonly notifyOverageStartedFn: OverageNotifyFn = defaultNotifyOverageStarted
   ) {}
 
   /**
@@ -73,8 +104,8 @@ export class SpendCapEnforcer {
     // Budget = the shop's CURRENT tier allowance ($10/$30/$75). Computed at read; not stored/editable.
     const budget = AI_TIER_ALLOWANCE[await this.resolveTier(shopId)];
 
-    const result = await this.pool.query<{ current_month_spend_usd: string; ai_overage_enabled: boolean }>(
-      `SELECT current_month_spend_usd, ai_overage_enabled FROM ai_shop_settings WHERE shop_id = $1`,
+    const result = await this.pool.query<{ current_month_spend_usd: string; ai_overage_enabled: boolean; overage_cap_usd: string | null }>(
+      `SELECT current_month_spend_usd, ai_overage_enabled, overage_cap_usd FROM ai_shop_settings WHERE shop_id = $1`,
       [shopId]
     );
 
@@ -102,8 +133,10 @@ export class SpendCapEnforcer {
     if (spent >= budget && overageOn) {
       // Bill-shock guardrail (Slice 2.5): everything beyond the allowance is overage, so the billable
       // this month = (spent - budget) x multiplier — computed here with no extra query. Once it reaches
-      // the cap, STOP lifting the model (revert to Haiku) to prevent a runaway invoice.
-      const cap = overageMonthlyCapUsd();
+      // the cap, STOP lifting the model (revert to Haiku) to prevent a runaway invoice. The cap is the
+      // shop's own overage_cap_usd if set, else the platform default (T3.2 per-shop cap).
+      const perShopCap = result.rows[0].overage_cap_usd != null ? Number(result.rows[0].overage_cap_usd) : null;
+      const cap = effectiveOverageCapUsd(perShopCap);
       const billableOverageUsd = (spent - budget) * OVERAGE_MULTIPLIER;
       if (cap > 0 && billableOverageUsd >= cap) {
         return { allowed: true, useCheaperModel: true, limitReached: true, overageEnabled: true, overageCapReached: true, currentSpendUsd: spent, monthlyBudgetUsd: budget, percentUsed };
@@ -173,6 +206,11 @@ export class SpendCapEnforcer {
               error: (e as Error)?.message,
             });
           });
+          // #7: tell the shop the FIRST time it crosses into overage this month (the single call whose
+          // spend straddled the allowance). Best-effort — never affects the spend increment.
+          if (before < budget && after >= budget) {
+            await this.notifyOverageStartedFn(shopId, budget).catch(() => undefined);
+          }
         }
       }
     } catch (err) {

@@ -76,6 +76,42 @@ export class AiOverageChargeRepository extends BaseRepository {
     }
   }
 
+  /** Admin "ready to invoice" rollup: per-shop COMPLETED-month pending overage (name-joined) + the
+   *  platform grand total. This is what the admin invoice button acts on (excludes the in-progress
+   *  month, which is still accruing). Ordered by billable amount desc. */
+  async getPendingSummary(): Promise<{
+    shops: Array<{ shopId: string; shopName: string | null; amountCents: number; monthCount: number }>;
+    grandTotal: { amountCents: number; shopCount: number };
+  }> {
+    try {
+      const result = await this.pool.query(
+        `SELECT c.shop_id, s.name AS shop_name,
+                SUM(c.amount_cents) AS amount_cents,
+                COUNT(*) AS month_count
+           FROM ai_overage_charges c
+           LEFT JOIN shops s ON c.shop_id = s.shop_id
+          WHERE c.status = 'pending' AND c.period_month < DATE_TRUNC('month', now())::date
+            AND (c.invoicing_at IS NULL OR c.invoicing_at < now() - interval '15 minutes')
+          GROUP BY c.shop_id, s.name
+          ORDER BY SUM(c.amount_cents) DESC`
+      );
+      const shops = result.rows.map((r: any) => ({
+        shopId: r.shop_id,
+        shopName: r.shop_name ?? null,
+        amountCents: Number(r.amount_cents) || 0,
+        monthCount: Number(r.month_count) || 0,
+      }));
+      const grandTotal = {
+        amountCents: shops.reduce((a, s) => a + s.amountCents, 0),
+        shopCount: shops.length,
+      };
+      return { shops, grandTotal };
+    } catch (error) {
+      logger.error('AiOverageChargeRepository.getPendingSummary failed:', error);
+      throw error;
+    }
+  }
+
   /** Pending overage rows for a shop from COMPLETED months (never the in-progress month, which is
    *  still accruing). These are what Slice 3 invoices. */
   async pendingForShop(shopId: string): Promise<Array<{ id: string; periodMonth: string; amountCents: number }>> {
@@ -85,6 +121,7 @@ export class AiOverageChargeRepository extends BaseRepository {
            FROM ai_overage_charges
           WHERE shop_id = $1 AND status = 'pending'
             AND period_month < DATE_TRUNC('month', now())::date
+            AND (invoicing_at IS NULL OR invoicing_at < now() - interval '15 minutes')
           ORDER BY period_month ASC`,
         [shopId]
       );
@@ -109,6 +146,76 @@ export class AiOverageChargeRepository extends BaseRepository {
       return r.rows.map((row: any) => row.shop_id);
     } catch (error) {
       logger.error('AiOverageChargeRepository.listShopsWithPending failed:', error);
+      throw error;
+    }
+  }
+
+  /** Concurrency guard (T3.2 prod-hardening): ATOMICALLY claim a shop's completed-month pending rows for
+   *  invoicing by stamping invoicing_at. Only one runner wins — a concurrent admin click or the monthly
+   *  cron sees the freshly-claimed rows as in-flight (via the 15-min filter in pendingForShop) and skips
+   *  them, so a shop can't be double-invoiced. Returns the rows this caller claimed (may be empty). */
+  async claimPendingForShop(shopId: string): Promise<Array<{ id: string; periodMonth: string; amountCents: number }>> {
+    try {
+      const r = await this.pool.query(
+        `UPDATE ai_overage_charges
+            SET invoicing_at = now(), updated_at = now()
+          WHERE shop_id = $1 AND status = 'pending'
+            AND period_month < DATE_TRUNC('month', now())::date
+            AND (invoicing_at IS NULL OR invoicing_at < now() - interval '15 minutes')
+        RETURNING id, period_month, amount_cents`,
+        [shopId]
+      );
+      return r.rows.map((row: any) => ({
+        id: row.id,
+        periodMonth: row.period_month instanceof Date ? row.period_month.toISOString().slice(0, 10) : String(row.period_month).slice(0, 10),
+        amountCents: Number(row.amount_cents) || 0,
+      }));
+    } catch (error) {
+      logger.error('AiOverageChargeRepository.claimPendingForShop failed:', error);
+      throw error;
+    }
+  }
+
+  /** Release a claim (clear invoicing_at) when invoicing fails, so the rows are retryable immediately. */
+  async releaseClaim(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    try {
+      await this.pool.query(
+        `UPDATE ai_overage_charges SET invoicing_at = NULL, updated_at = now() WHERE id = ANY($1::uuid[]) AND status = 'pending'`,
+        [ids]
+      );
+    } catch (error) {
+      logger.error('AiOverageChargeRepository.releaseClaim failed:', error);
+      throw error;
+    }
+  }
+
+  /** Set status for all rows tied to a Stripe invoice (e.g. 'uncollectible' when Stripe gives up). */
+  async markStatusByInvoiceId(stripeInvoiceId: string, status: string): Promise<number> {
+    try {
+      const r = await this.pool.query(
+        `UPDATE ai_overage_charges SET status = $1, updated_at = now() WHERE stripe_invoice_id = $2`,
+        [status, stripeInvoiceId]
+      );
+      return r.rowCount ?? 0;
+    } catch (error) {
+      logger.error('AiOverageChargeRepository.markStatusByInvoiceId failed:', error);
+      throw error;
+    }
+  }
+
+  /** Ledger-side refund tracking (T3.2): record a refund/credit note against an overage invoice. */
+  async recordRefundByInvoiceId(stripeInvoiceId: string, refundedCents: number): Promise<number> {
+    try {
+      const r = await this.pool.query(
+        `UPDATE ai_overage_charges
+            SET refunded_cents = $1, refunded_at = now(), status = 'refunded', updated_at = now()
+          WHERE stripe_invoice_id = $2`,
+        [refundedCents, stripeInvoiceId]
+      );
+      return r.rowCount ?? 0;
+    } catch (error) {
+      logger.error('AiOverageChargeRepository.recordRefundByInvoiceId failed:', error);
       throw error;
     }
   }

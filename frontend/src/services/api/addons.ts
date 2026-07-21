@@ -7,7 +7,6 @@
 
 import apiClient from './client';
 import { getMyEnrollment } from './ads';
-import { getShopAiSettings } from './aiSettings';
 import { agencyApi } from './agency';
 
 export type AddonStatus = 'off' | 'pending' | 'active' | 'coming_soon';
@@ -77,8 +76,15 @@ export async function getConnectStatus(): Promise<{ hasAccount: boolean; charges
 }
 
 /** Per-shop AI Usage Overage state, read from GET /ai/spend. Best-effort (defaults to off/unavailable).
- *  `chargeUsd` = this month's accrued billable overage (Usage x3). */
-export async function getOverageState(): Promise<{ enabled: boolean; available: boolean; chargeUsd: number }> {
+ *  `chargeUsd` = this month's accrued billable overage (Usage x3). `capUsd` = the shop's own bill-shock
+ *  ceiling (null = inherit the platform default); `capDefaultUsd` = that platform default. */
+export async function getOverageState(): Promise<{
+  enabled: boolean;
+  available: boolean;
+  chargeUsd: number;
+  capUsd: number | null;
+  capDefaultUsd: number;
+}> {
   try {
     const body: any = await apiClient.get('/ai/spend');
     const d = body?.data ?? body ?? {};
@@ -86,9 +92,11 @@ export async function getOverageState(): Promise<{ enabled: boolean; available: 
       enabled: !!d.overageEnabled,
       available: !!d.overageAvailable,
       chargeUsd: Number(d.overageChargeUsd) || 0,
+      capUsd: d.overageCapUsd == null ? null : Number(d.overageCapUsd),
+      capDefaultUsd: Number(d.overageCapDefaultUsd) || 100,
     };
   } catch {
-    return { enabled: false, available: false, chargeUsd: 0 };
+    return { enabled: false, available: false, chargeUsd: 0, capUsd: null, capDefaultUsd: 100 };
   }
 }
 
@@ -98,6 +106,12 @@ export async function setOverage(enabled: boolean, consent?: boolean): Promise<v
   await apiClient.post('/ai/overage', { enabled, consent });
 }
 
+/** Set the shop's per-shop bill-shock cap (POST /ai/overage/cap). Pass a positive number for a ceiling,
+ *  or null to clear it and inherit the platform default. */
+export async function setOverageCap(capUsd: number | null): Promise<void> {
+  await apiClient.post('/ai/overage/cap', { capUsd });
+}
+
 export interface AiUsageSummary {
   budgetUsd: number;
   spentUsd: number;
@@ -105,12 +119,15 @@ export interface AiUsageSummary {
   percentUsed: number;
 }
 
-/** AI allowance + usage for the YOUR PLAN section. Null if settings can't be read. */
+/** AI allowance + usage for the YOUR PLAN section. Reads /ai/spend so the displayed allowance is the
+ *  shop's TIER allowance ($10/$30/$75 via getShopAiBudget) — the same budget the enforcer uses — not the
+ *  inert stored monthly_budget_usd (which drifted and showed a wrong allowance). Null if unreadable. */
 export async function getAiUsageSummary(): Promise<AiUsageSummary | null> {
   try {
-    const s = await getShopAiSettings();
-    const budgetUsd = s.monthlyBudgetUsd || 0;
-    const spentUsd = s.currentMonthSpendUsd || 0;
+    const body: any = await apiClient.get('/ai/spend');
+    const d = body?.data ?? body ?? {};
+    const budgetUsd = Number(d.monthlyBudgetUsd) || 0;
+    const spentUsd = Number(d.currentMonthSpendUsd) || 0;
     return { budgetUsd, spentUsd, percentUsed: budgetUsd > 0 ? spentUsd / budgetUsd : 0 };
   } catch {
     return null;

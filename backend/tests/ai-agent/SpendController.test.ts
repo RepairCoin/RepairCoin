@@ -81,6 +81,8 @@ describe("SpendController.getOwnShopSpend", () => {
         callsThisMonth: 0,
         overageEnabled: false,
         overageAvailable: false, // ENABLE_AI_OVERAGE not set in test env
+        overageCapUsd: null,
+        overageCapDefaultUsd: 100, // platform default (AI_OVERAGE_MONTHLY_CAP_USD unset in test env)
       },
     });
     // Should NOT have queried ai_agent_messages — early return after empty settings
@@ -300,20 +302,109 @@ describe("SpendController.setOwnShopOverage (AI Usage Overage, T3.2)", () => {
   });
 });
 
+describe("SpendController.setOwnShopOverageCap (per-shop cap, T3.2)", () => {
+  const ORIG = process.env.ENABLE_AI_OVERAGE;
+  afterEach(() => { process.env.ENABLE_AI_OVERAGE = ORIG; });
+
+  const reqWith = (shopId: any, body: any) => ({ user: shopId ? { role: "shop", shopId } : {}, body } as any);
+
+  it("returns 401 without a shopId", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const controllers = makeSpendControllers({ pool: makePool([]) as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverageCap(reqWith(null, { capUsd: 25 }), res);
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it("returns 409 when the feature flag is off (no DB write)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "false";
+    const pool = makePool([]);
+    const controllers = makeSpendControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverageCap(reqWith("peanut", { capUsd: 25 }), res);
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for a non-positive cap (no DB write)", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const pool = makePool([]);
+    const controllers = makeSpendControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverageCap(reqWith("peanut", { capUsd: 0 }), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("sets a positive cap (rounded to cents) and upserts it", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const pool = makePool([[]]);
+    const controllers = makeSpendControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverageCap(reqWith("peanut", { capUsd: 49.999 }), res);
+    const upsert = pool.query.mock.calls.find((c: any) => String(c[0]).includes("overage_cap_usd"));
+    expect(upsert).toBeDefined();
+    expect(upsert[1]).toEqual(["peanut", 50]); // 49.999 → 50.00 clamped to cents
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, data: expect.objectContaining({ overageCapUsd: 50 }) }));
+  });
+
+  it("clears the cap (null) → inherit the platform default", async () => {
+    process.env.ENABLE_AI_OVERAGE = "true";
+    const pool = makePool([[]]);
+    const controllers = makeSpendControllers({ pool: pool as any });
+    const res = makeRes();
+    await controllers.setOwnShopOverageCap(reqWith("peanut", { capUsd: null }), res);
+    const upsert = pool.query.mock.calls.find((c: any) => String(c[0]).includes("overage_cap_usd"));
+    expect(upsert[1]).toEqual(["peanut", null]);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, data: expect.objectContaining({ overageCapUsd: null }) }));
+  });
+});
+
 describe("SpendController.getAdminOverageSummary (T3.2 admin rollup)", () => {
-  it("returns the per-shop overage rollup + grand total", async () => {
-    const summary = {
-      shops: [{ shopId: "s1", shopName: "Alpha", overageCostCents: 4, amountCents: 12, status: "pending" }],
-      grandTotal: { overageCostCents: 4, amountCents: 12, shopCount: 1 },
-    };
-    const controllers = makeSpendControllers({ getOverageSummary: async () => summary });
+  const ORIG = process.env.AI_OVERAGE_STRIPE_ENABLED;
+  afterEach(() => { process.env.AI_OVERAGE_STRIPE_ENABLED = ORIG; });
+
+  const summary = {
+    shops: [{ shopId: "s1", shopName: "Alpha", overageCostCents: 4, amountCents: 12, status: "pending" }],
+    grandTotal: { overageCostCents: 4, amountCents: 12, shopCount: 1 },
+  };
+  const pending = {
+    shops: [{ shopId: "s1", shopName: "Alpha", amountCents: 30, monthCount: 1 }],
+    grandTotal: { amountCents: 30, shopCount: 1 },
+  };
+
+  it("returns the this-month rollup + ready-to-invoice pending + stripeEnabled flag", async () => {
+    process.env.AI_OVERAGE_STRIPE_ENABLED = "true";
+    const controllers = makeSpendControllers({
+      getOverageSummary: async () => summary,
+      getPendingOverage: async () => pending,
+    });
     const res = makeRes();
     await controllers.getAdminOverageSummary(makeReq({ user: { role: "admin" } }), res);
-    expect(res.json).toHaveBeenCalledWith({ success: true, data: summary });
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: { ...summary, pending, stripeEnabled: true },
+    });
+  });
+
+  it("reports stripeEnabled:false when charging is off", async () => {
+    process.env.AI_OVERAGE_STRIPE_ENABLED = "false";
+    const controllers = makeSpendControllers({
+      getOverageSummary: async () => summary,
+      getPendingOverage: async () => pending,
+    });
+    const res = makeRes();
+    await controllers.getAdminOverageSummary(makeReq({ user: { role: "admin" } }), res);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ stripeEnabled: false }),
+    }));
   });
 
   it("returns 500 on a repo error", async () => {
-    const controllers = makeSpendControllers({ getOverageSummary: async () => { throw new Error("db down"); } });
+    const controllers = makeSpendControllers({
+      getOverageSummary: async () => { throw new Error("db down"); },
+      getPendingOverage: async () => pending,
+    });
     const res = makeRes();
     await controllers.getAdminOverageSummary(makeReq(), res);
     expect(res.status).toHaveBeenCalledWith(500);
