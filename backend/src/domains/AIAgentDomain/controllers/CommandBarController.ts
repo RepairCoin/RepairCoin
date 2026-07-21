@@ -12,6 +12,7 @@
 import { Request, Response } from "express";
 import { Pool } from "pg";
 import { logger } from "../../../utils/logger";
+import { cheapModel } from "../../../config/aiModels";
 import { getSharedPool } from "../../../utils/database-pool";
 import { AnthropicClient } from "../services/AnthropicClient";
 import { runPlatformCopilotLoop } from "./PlatformCopilotController";
@@ -131,7 +132,7 @@ export function makeCommandBarController(
             { text: `Sections catalog:\n${CATALOG_TEXT}`, cache: true },
           ],
           messages: [{ role: "user", content: query }],
-          model: "claude-haiku-4-5-20251001",
+          model: cheapModel(),
           maxTokens: 200,
         });
         cls = parseClassification(clsRes.text);

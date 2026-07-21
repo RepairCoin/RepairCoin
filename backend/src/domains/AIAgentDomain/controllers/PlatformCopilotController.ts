@@ -23,8 +23,9 @@ import {
   ChatMessageContentBlock,
   ClaudeResponse,
 } from "../types";
+import { smartModel } from "../../../config/aiModels";
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = smartModel();
 const MAX_TOKENS = 1024;
 const MAX_TOOL_ITERATIONS = 5;
 const PLATFORM_SCOPE = "__platform__"; // tools ignore shopId; this is a sentinel

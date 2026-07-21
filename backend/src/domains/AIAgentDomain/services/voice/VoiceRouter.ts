@@ -18,13 +18,14 @@
 
 import { AnthropicClient } from "../AnthropicClient";
 import { ClaudeModel } from "../../types";
+import { cheapModel } from "../../../../config/aiModels";
 import {
   parseRouterLabel,
   labelToDomain,
   VOICE_ROUTER_SYSTEM_PROMPT,
 } from "./voiceRouterPrompt";
 
-const ROUTER_MODEL: ClaudeModel = "claude-haiku-4-5-20251001";
+const ROUTER_MODEL: ClaudeModel = cheapModel();
 const ROUTER_MAX_TOKENS = 16;
 // Low temperature — we want deterministic classification, not creative
 // reframing of the user's question.

@@ -24,8 +24,9 @@ import { AnthropicClient } from "../services/AnthropicClient";
 import { SpendCapEnforcer } from "../services/SpendCapEnforcer";
 import { logger } from "../../../utils/logger";
 import { ClaudeModel } from "../types";
+import { cheapModel } from "../../../config/aiModels";
 
-const SUGGEST_MODEL: ClaudeModel = "claude-haiku-4-5-20251001";
+const SUGGEST_MODEL: ClaudeModel = cheapModel();
 const SUGGEST_MAX_TOKENS = 1100;
 const SUGGESTION_COUNT = 6;
 const MAX_QUESTION_LEN = 200;
