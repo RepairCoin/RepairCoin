@@ -21,8 +21,16 @@ message content) DONE — see below. Grounded in a read-only code audit (below).
 - Frontend: "Generate with AI" button in `AutoMessageRuleModal` fills the message field.
 - Verified: backend tsc 0; ai-agent 909/909; FE files clean; live generation against peanut (Business)
   produced a valid win-back message using `{{customerName}}`/`{{shopName}}`.
-- Next slices (P2): unify rules+triggers under an "AI Campaigns" hub UI; new autonomous triggers
-  (lapsed/slow-day/insights); reuse scheduler + campaign-rewards.
+**Phase 2 · Slice B — "AI Campaigns" hub in the Marketing tab (BUILT 2026-07-21):**
+- Added an **"AI Campaigns"** sub-tab to `MarketingTab.tsx` (shadcn Tabs, `Sparkles` icon) hosting
+  `<TierGate feature="aiCampaignsAdvanced"><AutoMessagesManager/></TierGate>` — sits alongside Campaign
+  Builder (Growth) + Contacts, giving the full Growth→Business ladder in one place with the upsell inline.
+- **Relocated** the Auto-Messages manager OUT of the Messages tab (removed its sub-tab, nav switcher, dead
+  state/imports) so it lives in one home. `AutoMessagesManager` is propless/self-contained → dropped in as-is.
+- Verified: FE files clean (211 total, under the ~290 baseline; zero added); backend unchanged.
+
+- Next slices (P2): new autonomous triggers (lapsed/slow-day/insights-driven auto-campaigns); reuse
+  scheduler + campaign-rewards for incentives.
 
 ---
 

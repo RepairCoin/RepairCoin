@@ -51,6 +51,8 @@ import { CampaignBuilderModal } from "../marketing/CampaignBuilderModal";
 import { ContactListView } from "../marketing/ContactListView";
 import { CardCarousel } from "@/components/ui/CardCarousel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TierGate } from "@/components/shop/TierGate";
+import { AutoMessagesManager } from "@/components/messaging/AutoMessagesManager";
 
 interface MarketingTabProps {
   shopId: string;
@@ -266,6 +268,13 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
           >
             <Users className="w-4 h-4 mr-2" />
             Contacts
+          </TabsTrigger>
+          <TabsTrigger
+            value="ai-campaigns"
+            className="text-gray-400 data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            AI Campaigns
           </TabsTrigger>
         </TabsList>
 
@@ -716,6 +725,14 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
         {/* Contacts Tab */}
         <TabsContent value="contacts" className="space-y-6 mt-6">
           <ContactListView shopId={shopId} />
+        </TabsContent>
+
+        {/* AI Campaigns Tab (Business) — autonomous/automated campaigns (scheduled + triggered auto-
+            messages), the Business counterpart to the Growth Campaign Builder above. Business-gated. */}
+        <TabsContent value="ai-campaigns" className="space-y-6 mt-6">
+          <TierGate feature="aiCampaignsAdvanced">
+            <AutoMessagesManager />
+          </TierGate>
         </TabsContent>
       </Tabs>
 
