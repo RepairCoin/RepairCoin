@@ -12,16 +12,25 @@ import { authMiddleware } from '../../../middleware/auth';
  */
 const router = Router();
 
+/**
+ * Truly-public routes live on their own router. Registering them above this file's
+ * `router.use(authMiddleware)` is NOT enough: subscription.ts has a blanket
+ * `router.use(authMiddleware)` and is mounted at '/' ahead of this file, so every
+ * /api/shops/* request passes through it first and is 401'd before reaching here.
+ * A public route must therefore be mounted BEFORE that one — see routes/index.ts.
+ */
+const publicRouter = Router();
+
 const frontendBase = (): string =>
   (process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:3001').trim();
 
 /**
- * GET /api/shops/connect/oauth/callback  (PUBLIC — mounted before authMiddleware)
+ * GET /api/shops/connect/oauth/callback  (PUBLIC)
  * Stripe redirects the shop's browser here after they authorize. There's no app session on
  * this hop, so trust comes from the signed `state` minted in /connect/onboarding-link, not
  * from auth. We exchange the code, store the account id, then bounce back to the payouts page.
  */
-router.get('/connect/oauth/callback', async (req: Request, res: Response) => {
+publicRouter.get('/connect/oauth/callback', async (req: Request, res: Response) => {
   const { code, state, error } = req.query;
   const returnTo = `${frontendBase()}/register/shop/payouts`;
 
@@ -125,3 +134,4 @@ router.get('/connect/status', async (req: Request, res: Response) => {
 });
 
 export default router;
+export { publicRouter };

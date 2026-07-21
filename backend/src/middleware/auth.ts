@@ -100,11 +100,13 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         path: req.path,
         hasCookie: !!req.cookies?.auth_token,
         hasAuthHeader: !!req.headers.authorization,
-        // Additional debugging info for cookie issues
+        // Additional debugging info for cookie issues. NAMES ONLY — never log cookie
+        // values: this branch fires whenever the access token is missing, which is exactly
+        // when a still-valid refresh_token is likely present. Logging it would write a live
+        // credential (7-day TTL, mints access tokens) into the log stream.
         origin: req.get('origin'),
         referer: req.get('referer'),
-        cookieHeader: req.get('cookie'),
-        allCookies: req.cookies,
+        cookieNames: Object.keys(req.cookies || {}),
         hasRefreshToken: !!req.cookies?.refresh_token
       });
 
