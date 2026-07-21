@@ -112,7 +112,7 @@ export class AutoNoShowDetectionService {
         JOIN customers c ON LOWER(c.wallet_address) = LOWER(so.customer_address)
         JOIN shops s ON s.shop_id = so.shop_id
         JOIN shop_services ss ON ss.service_id = so.service_id
-        LEFT JOIN no_show_policies nsp ON nsp.shop_id = so.shop_id
+        LEFT JOIN shop_no_show_policy nsp ON nsp.shop_id = so.shop_id
         WHERE so.status IN ('paid', 'confirmed')
           AND so.booking_date IS NOT NULL
           AND COALESCE(so.booking_time_slot, so.booking_time) IS NOT NULL
