@@ -1,4 +1,4 @@
--- 230 — Drip / multi-step sequences for Auto-Messages (AI Campaigns Advanced, Phase 3).
+-- 232 — (renumbered from 230 to dodge main's 230_add_stripe_connect_accounts) Drip / multi-step sequences for Auto-Messages (AI Campaigns Advanced, Phase 3).
 --
 -- A sequence rule fires an ORDERED set of steps over time (e.g. reminder → offer → last-chance) instead of
 -- one message. Built on the existing pending-send queue (auto_message_sends): each step is a scheduled
