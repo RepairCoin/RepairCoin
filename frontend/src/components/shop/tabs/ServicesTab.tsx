@@ -11,8 +11,6 @@ import {
   Clock,
   Tag,
   Image as ImageIcon,
-  Calendar,
-  Settings,
   Users,
   ChevronLeft,
   ChevronRight,
@@ -33,12 +31,12 @@ import {
   UpdateServiceData,
   SERVICE_CATEGORIES,
 } from "@/services/api/services";
-import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDetailsModal";
 import { ServiceQRModal } from "@/components/shop/ServiceQRModal";
 import { ServiceImportModal } from "@/components/shop/modals/ServiceImportModal";
 import { ServiceExportModal } from "@/components/shop/modals/ServiceExportModal";
 import { AIAssistantBadge } from "@/components/shared/AIAssistantBadge";
 import { getShopAiSettings, type ShopAiSettings } from "@/services/api/aiSettings";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 
 interface ShopData {
   shopName?: string;
@@ -123,7 +121,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   const [services, setServices] = useState<ShopService[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingService, setDeletingService] = useState<string | null>(null);
-  const [selectedService, setSelectedService] = useState<ShopService | null>(null);
+  const [serviceToDelete, setServiceToDelete] = useState<ShopService | null>(null);
   const [qrModalService, setQrModalService] = useState<ShopService | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -211,14 +209,11 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    if (!confirm("Are you sure you want to delete this service? This action cannot be undone.")) {
-      return;
-    }
-
     setDeletingService(serviceId);
     try {
       await deleteService(serviceId);
       toast.success("Service deleted successfully!");
+      setServiceToDelete(null);
       loadServices();
     } catch (error) {
       console.error("Error deleting service:", error);
@@ -349,7 +344,13 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
             {services.map((service) => (
               <div
                 key={service.serviceId}
-                onClick={() => setSelectedService(service)}
+                onClick={() => {
+                  if (!canCreateServices) {
+                    toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                    return;
+                  }
+                  router.push(`/shop/services/${service.serviceId}`);
+                }}
                 className="bg-[#1A1A1A] p-2 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all duration-200 flex flex-col cursor-pointer group"
               >
                 {/* Service Image with Status Badge */}
@@ -491,84 +492,62 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                   {/* Spacer */}
                   <div className="flex-1"></div>
 
-                  {/* Action Buttons - Figma Style (Outlined) */}
-                  <div className="grid grid-cols-2 gap-2 pt-4 border-t border-gray-800">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!canCreateServices) {
-                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
-                          return;
-                        }
-                        router.push(`/shop/services/${service.serviceId}`);
-                      }}
-                      disabled={!canCreateServices}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg transition-colors duration-200 text-sm ${
-                        canCreateServices
-                          ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
-                          : "opacity-50 cursor-not-allowed"
-                      }`}
-                    >
-                      <Edit className="w-4 h-4" />
-                      Edit
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!canCreateServices) {
-                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
-                          return;
-                        }
-                        handleDeleteService(service.serviceId);
-                      }}
-                      disabled={deletingService === service.serviceId || !canCreateServices}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg transition-colors duration-200 text-sm ${
-                        canCreateServices && deletingService !== service.serviceId
-                          ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
-                          : "opacity-50 cursor-not-allowed"
-                      }`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      {deletingService === service.serviceId ? "..." : "Delete"}
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!canCreateServices) {
-                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
-                          return;
-                        }
-                        router.push(`/shop/services/${service.serviceId}?tab=availability`);
-                      }}
-                      disabled={!canCreateServices}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg transition-colors duration-200 text-sm ${
-                        canCreateServices
-                          ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
-                          : "opacity-50 cursor-not-allowed"
-                      }`}
-                    >
-                      <Settings className="w-4 h-4" />
-                      Availability
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!canCreateServices) {
-                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
-                          return;
-                        }
-                        router.push(`/shop/services/${service.serviceId}?tab=calendar`);
-                      }}
-                      disabled={!canCreateServices}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg transition-colors duration-200 text-sm ${
-                        canCreateServices
-                          ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
-                          : "opacity-50 cursor-not-allowed"
-                      }`}
-                    >
-                      <Calendar className="w-4 h-4" />
-                      Calendar
-                    </button>
+                  {/* Action Buttons — icon toolbar (manage) + destructive Delete + primary QR */}
+                  <div className="pt-4 border-t border-gray-800 space-y-2.5">
+                    <div className="flex items-center gap-1.5">
+                      {/* Edit — opens the service page (availability & calendar live there as tabs) */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!canCreateServices) {
+                            toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                            return;
+                          }
+                          router.push(`/shop/services/${service.serviceId}`);
+                        }}
+                        disabled={!canCreateServices}
+                        aria-label="Edit service"
+                        className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-sm font-medium bg-transparent border border-gray-700 text-gray-300 rounded-lg transition-colors duration-200 ${
+                          canCreateServices
+                            ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
+                            : "opacity-50 cursor-not-allowed"
+                        }`}
+                      >
+                        <Edit className="w-4 h-4" />
+                        Edit
+                      </button>
+
+                      {/* Divider separating destructive action */}
+                      <div className="w-px h-6 bg-gray-800" aria-hidden="true" />
+
+                      {/* Delete — destructive, red on hover */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!canCreateServices) {
+                            toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                            return;
+                          }
+                          setServiceToDelete(service);
+                        }}
+                        disabled={deletingService === service.serviceId || !canCreateServices}
+                        aria-label="Delete service"
+                        className={`group relative flex w-10 items-center justify-center py-2.5 bg-transparent border border-gray-700 text-gray-400 rounded-lg transition-colors duration-200 ${
+                          canCreateServices && deletingService !== service.serviceId
+                            ? "hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50"
+                            : "opacity-50 cursor-not-allowed"
+                        }`}
+                      >
+                        <Trash2
+                          className={`w-4 h-4 ${deletingService === service.serviceId ? "animate-pulse" : ""}`}
+                        />
+                        <span className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#252525] border border-gray-700 px-2 py-1 text-xs font-medium text-gray-100 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-30 shadow-lg shadow-black/40">
+                          Delete
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Primary action — Share QR */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -579,7 +558,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                         setQrModalService(service);
                       }}
                       disabled={!canCreateServices}
-                      className={`col-span-2 flex items-center justify-center gap-1.5 px-3 py-2.5 border rounded-lg transition-colors duration-200 font-semibold text-sm ${
+                      className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 border rounded-lg transition-colors duration-200 font-semibold text-sm ${
                         canCreateServices
                           ? "bg-[#FFCC00] border-[#FFCC00] text-[#101010] hover:bg-[#e6b800] hover:border-[#e6b800]"
                           : "bg-gray-700 border-gray-700 text-gray-500 opacity-50 cursor-not-allowed"
@@ -675,17 +654,6 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
         </>
       )}
 
-      {/* Service Details Modal */}
-      {selectedService && (
-        <ShopServiceDetailsModal
-          service={selectedService}
-          onClose={() => {
-            setSelectedService(null);
-            loadServices();
-          }}
-        />
-      )}
-
       {/* QR Code Modal */}
       {qrModalService && (
         <ServiceQRModal
@@ -696,6 +664,24 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
           shopName={shopData?.shopName || shopData?.name || 'Shop'}
         />
       )}
+
+      {/* Delete Service Confirmation */}
+      <ConfirmationModal
+        isOpen={!!serviceToDelete}
+        onClose={() => {
+          if (deletingService) return; // don't close mid-delete
+          setServiceToDelete(null);
+        }}
+        onConfirm={() => {
+          if (serviceToDelete) handleDeleteService(serviceToDelete.serviceId);
+        }}
+        title="Delete Service"
+        description={`Are you sure you want to delete "${serviceToDelete?.serviceName ?? 'this service'}"? This action cannot be undone.`}
+        confirmText="Delete Service"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={!!serviceToDelete && deletingService === serviceToDelete.serviceId}
+      />
 
       {/* Import Modal */}
       {showImportModal && (
