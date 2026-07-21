@@ -8,7 +8,21 @@ press send"; Business = "AI runs campaigns for you — automatically, on trigger
 unused). Related: the gap note `../pricing-alignment/marketing-tier-gap-ai-campaigns-advanced.md` (what's
 built per tier + the recommended capability split) and the WS2 feature-gating scope.
 
-**Status (2026-07-20):** planning. Grounded in a read-only code audit (below).
+**Status (2026-07-21):** Phase 1 (tier gate, flag-off) DONE `219461af1`. Phase 2 Slice A (AI-drafted
+message content) DONE — see below. Grounded in a read-only code audit (below).
+
+**Phase 2 · Slice A — AI-drafted message content (BUILT 2026-07-21):**
+- `AutoMessageContentService` (`backend/src/domains/messaging/services/`) — one-shot AI draft of a rule's
+  message body from its trigger/audience/name/goal + the shop's brand voice; reuses `AnthropicClient` +
+  `cheapModel()` + `BrandKitService` + `buildDateContextBlock`; spend-capped (429 when over) + `recordSpend`
+  feeds the monthly allowance/overage meter. Told to use ONLY the 5 scheduler-supported `{{variables}}`,
+  plain text, ≤2000 chars.
+- `POST /api/messages/auto-messages/generate` (Business-gated via the same `autoMessageGuard`).
+- Frontend: "Generate with AI" button in `AutoMessageRuleModal` fills the message field.
+- Verified: backend tsc 0; ai-agent 909/909; FE files clean; live generation against peanut (Business)
+  produced a valid win-back message using `{{customerName}}`/`{{shopName}}`.
+- Next slices (P2): unify rules+triggers under an "AI Campaigns" hub UI; new autonomous triggers
+  (lapsed/slow-day/insights); reuse scheduler + campaign-rewards.
 
 ---
 

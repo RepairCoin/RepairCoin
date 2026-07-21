@@ -407,6 +407,21 @@ export const toggleAutoMessage = async (id: string): Promise<AutoMessage> => {
 };
 
 /**
+ * AI-draft the message body for a rule from its trigger/audience/goal (AI Campaigns Advanced, Business).
+ */
+export const generateAutoMessageContent = async (data: {
+  triggerType: 'schedule' | 'event';
+  scheduleType?: string;
+  eventType?: string;
+  targetAudience?: string;
+  name?: string;
+  prompt?: string;
+}): Promise<{ messageTemplate: string }> => {
+  const response = await apiClient.post('/messages/auto-messages/generate', data);
+  return response.data;
+};
+
+/**
  * Get send history for an auto-message rule
  */
 export const getAutoMessageHistory = async (

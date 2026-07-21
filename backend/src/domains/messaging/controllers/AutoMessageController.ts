@@ -1,6 +1,7 @@
 // backend/src/domains/messaging/controllers/AutoMessageController.ts
 import { Request, Response } from 'express';
 import { AutoMessageRepository } from '../../../repositories/AutoMessageRepository';
+import { autoMessageContentService } from '../services/AutoMessageContentService';
 import { logger } from '../../../utils/logger';
 
 const VALID_TRIGGER_TYPES = ['schedule', 'event'];
@@ -14,6 +15,36 @@ export class AutoMessageController {
   constructor() {
     this.autoMessageRepo = new AutoMessageRepository();
   }
+
+  /**
+   * AI-draft the message body for an auto-message rule (AI Campaigns Advanced, Business-tier).
+   * POST /api/messages/auto-messages/generate
+   * Body: { triggerType, scheduleType?, eventType?, targetAudience?, name?, prompt? }
+   */
+  generateAutoMessageContent = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+      const { triggerType, scheduleType, eventType, targetAudience, name, prompt } = req.body || {};
+      if (triggerType !== 'schedule' && triggerType !== 'event') {
+        return res.status(400).json({ success: false, error: "triggerType must be 'schedule' or 'event'" });
+      }
+      if (typeof prompt === 'string' && prompt.length > 500) {
+        return res.status(400).json({ success: false, error: 'prompt is too long (max 500 chars)' });
+      }
+
+      const result = await autoMessageContentService.generate(shopId, {
+        triggerType, scheduleType, eventType, targetAudience, name, prompt,
+      });
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      const status = typeof error?.status === 'number' ? error.status : 500;
+      if (status >= 500) logger.error('Error in generateAutoMessageContent controller:', error);
+      res.status(status).json({ success: false, error: error?.message || 'Failed to generate message' });
+    }
+  };
 
   /**
    * Get all auto-message rules for the authenticated shop

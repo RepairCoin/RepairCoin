@@ -254,6 +254,13 @@ router.post('/quick-replies/:id/use', messageController.useQuickReply);
  * @description Get all auto-message rules for the authenticated shop
  * @access Authenticated shop users
  */
+/**
+ * @route POST /api/messages/auto-messages/generate
+ * @description AI-draft the message body for a rule from its trigger/audience/goal (AI Campaigns Advanced)
+ * @access Business-tier shop users (aiCampaignsAdvanced) — same gate as the rest of the engine
+ */
+router.post('/auto-messages/generate', autoMessageGuard, autoMessageController.generateAutoMessageContent);
+
 router.get('/auto-messages', autoMessageGuard, autoMessageController.getAutoMessages);
 
 /**

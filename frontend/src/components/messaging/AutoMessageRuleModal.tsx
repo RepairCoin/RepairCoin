@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { X, Loader2, Zap, Calendar } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AutoMessage, CreateAutoMessageRequest, UpdateAutoMessageRequest } from "@/services/api/messaging";
+import { generateAutoMessageContent } from "@/services/api/messaging";
+import toast from "react-hot-toast";
 
 const SCHEDULE_TYPES = [
   { value: "daily", label: "Daily" },
@@ -49,6 +51,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 }) => {
   const isEditing = !!rule;
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const [name, setName] = useState("");
   const [messageTemplate, setMessageTemplate] = useState("");
@@ -80,6 +83,26 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
   const insertVariable = (variable: string) => {
     setMessageTemplate((prev) => prev + variable);
+  };
+
+  // AI-draft the message from the rule's current trigger/audience/name context.
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const { messageTemplate: text } = await generateAutoMessageContent({
+        triggerType,
+        scheduleType: triggerType === "schedule" ? scheduleType : undefined,
+        eventType: triggerType === "event" ? eventType : undefined,
+        targetAudience,
+        name: name || undefined,
+      });
+      setMessageTemplate(text);
+      toast.success("AI drafted your message — edit as you like");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Couldn't generate a message — please try again");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const resolvePreview = (template: string) => {
@@ -312,7 +335,19 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
           {/* Message Template */}
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Message Template</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm text-gray-400">Message Template</label>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={generating}
+                title="Let AI draft this message from the trigger + audience above"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-[#FFCC00] text-black hover:bg-[#e6b800] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                {generating ? "Generating…" : "Generate with AI"}
+              </button>
+            </div>
             <textarea
               value={messageTemplate}
               onChange={(e) => setMessageTemplate(e.target.value)}
