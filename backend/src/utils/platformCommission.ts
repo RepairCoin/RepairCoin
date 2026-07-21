@@ -7,10 +7,16 @@ import { logger } from './logger';
  * Taken as a Stripe `application_fee_amount` on the booking charge (destination charge to the
  * shop's connected account), so it lands in the platform's Stripe balance automatically.
  *
- *   Starter / Growth : 1%   (100 bps)
- *   Business         : 0.5% (50 bps)
+ *   Free / Starter / Growth : 1%   (100 bps)
+ *   Business                : 0.5% (50 bps)
+ *
+ * Free is set to 100 bps deliberately: a shop with no subscription already resolved to
+ * 'starter' and paid 1%, so keeping it there means introducing the free tier changes no
+ * shop's commission. Charging free shops a HIGHER rate is the obvious way to monetise the
+ * tier, but that is a pricing decision, not a plumbing one — left for a follow-up.
  */
 const COMMISSION_BPS: Record<SubscriptionTier, number> = {
+  free: 100,
   starter: 100,
   growth: 100,
   business: 50,

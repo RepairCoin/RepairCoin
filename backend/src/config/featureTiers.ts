@@ -1,9 +1,9 @@
-import { SubscriptionTier } from './subscriptionPlans';
+import { SubscriptionTier, PaidTier } from './subscriptionPlans';
 
 // Minimum tier required for a gated feature. Empty until features are gated;
-// any feature absent here is ungated (available on every tier). Keep in sync
-// with frontend/src/config/featureTiers.ts.
-export const FEATURE_TIERS: Record<string, SubscriptionTier> = {
+// any feature absent here is ungated (available on every tier) — including on
+// 'free'. Keep in sync with frontend/src/config/featureTiers.ts.
+export const FEATURE_TIERS: Record<string, PaidTier> = {
   // Growth (also available on Business — cumulative). Decisions locked 2026-07-14.
   inventoryManagement: 'growth',
   campaignBuilder: 'growth',
@@ -25,18 +25,21 @@ export const FEATURE_TIERS: Record<string, SubscriptionTier> = {
 };
 
 const TIER_RANK: Record<SubscriptionTier, number> = {
-  starter: 0,
-  growth: 1,
-  business: 2,
+  free: 0,
+  starter: 1,
+  growth: 2,
+  business: 3,
 };
 
 export function tierAllowsFeature(tier: SubscriptionTier, feature: string): boolean {
   const required = FEATURE_TIERS[feature];
   if (!required) return true;
+  // An unrecognised tier falls to rank 0 = 'free', the most restrictive.
   return (TIER_RANK[tier] ?? 0) >= TIER_RANK[required];
 }
 
-export function getRequiredTier(feature: string): SubscriptionTier | undefined {
+// Always a paid tier: 'free' is never a *requirement*, only a resolved state.
+export function getRequiredTier(feature: string): PaidTier | undefined {
   return FEATURE_TIERS[feature];
 }
 
