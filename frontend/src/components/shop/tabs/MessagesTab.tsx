@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { MessagesContainer } from "@/components/messaging/MessagesContainer";
 import { AutoMessagesManager } from "@/components/messaging/AutoMessagesManager";
+import { TierGate } from "@/components/shop/TierGate";
 import {
   MessageCircle,
   TrendingUp,
@@ -172,9 +173,13 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId, compact = fals
         </button>
       </div>
 
-      {/* Auto-Messages Tab */}
+      {/* Auto-Messages Tab — Business-tier automation. Gated via aiCampaignsAdvanced; the gate is
+          flag-accurate (backend feature-access map honors ENFORCE_CAMPAIGN_AUTOMATION_TIER), so it shows
+          the child unchanged until enforcement is flipped on. */}
       {activeSubTab === "auto-messages" ? (
-        <AutoMessagesManager />
+        <TierGate feature="aiCampaignsAdvanced">
+          <AutoMessagesManager />
+        </TierGate>
       ) : (
       <>
       {/* Stats Cards (Collapsible) */}

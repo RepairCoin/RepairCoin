@@ -40,7 +40,26 @@ build-from-scratch.
 
 ---
 
-## Phase 1 — Tier cleanup (DO FIRST)
+## Phase 1 — Tier cleanup (BUILT 2026-07-21, flag-off)
+
+**Done.** Gated the shop Auto-Messages automation engine to Business behind a rollout flag; ships dark.
+- `featureTiers.ts` — `ROLLOUT_GATED_FEATURES` + `isTierEnforcementDeferred()` + `effectiveTierAllows()`
+  (a feature can defer enforcement behind an env flag → stays open to all tiers until flipped).
+  `aiCampaignsAdvanced → ENFORCE_CAMPAIGN_AUTOMATION_TIER`.
+- `tierGuard.ts` — `requireTierRollout(feature)` (enforces only when the flag is on).
+- `messaging/routes.ts` — all 6 `/auto-messages*` routes now `[requireRole(['shop']), requireTierRollout('aiCampaignsAdvanced')]`.
+- `shop/routes/featureAccess.ts` — the UI feature-access map uses `effectiveTierAllows`, so the frontend gate
+  and the route guard agree from ONE flag.
+- Frontend — `MessagesTab` wraps `<AutoMessagesManager/>` in `<TierGate feature="aiCampaignsAdvanced">`
+  (child unmounted when locked → no failed requests).
+- `.env.example` — `ENFORCE_CAMPAIGN_AUTOMATION_TIER=false`.
+- Tests: `featureTiers.test.ts` rollout cases (flag off→open all, on→Business-only, others unaffected).
+  backend tsc 0; ai-agent 902/902; featureTiers 7/7; FE files clean.
+- **Staging impact = zero:** only 2 shops use auto-messages, both already Business → no grandfather needed.
+- **To enforce:** set `ENFORCE_CAMPAIGN_AUTOMATION_TIER=true` (once shops are notified). Drafter + manual
+  builder stay Growth (unchanged). Gate key `aiCampaignsAdvanced`; one-line swap if Custom Workflows owns it.
+
+Original Phase-1 plan (for reference):
 
 Goal: correct the tier boundaries so Advanced is built on a clean base. Findings-driven, mostly middleware.
 
