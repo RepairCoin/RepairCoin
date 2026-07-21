@@ -1,7 +1,12 @@
-export type SubscriptionTier = "starter" | "growth" | "business";
+// Tiers a shop can buy — the pricing cards below. 'free' is excluded: no price, never selected.
+export type PaidTier = "starter" | "growth" | "business";
+
+// Every tier a shop can resolve to. 'free' is the implicit tier for a shop with no active
+// subscription (fresh signup, or a lapsed trial). Mirror of the backend union.
+export type SubscriptionTier = PaidTier | "free";
 
 export interface SubscriptionPlanInfo {
-  tier: SubscriptionTier;
+  tier: PaidTier;
   label: string;
   price: number;
   popular?: boolean;
@@ -65,7 +70,9 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanInfo[] = [
 
 export const SUBSCRIBE_TIER_STORAGE_KEY = "rc_subscribe_tier";
 
-export const DEFAULT_TIER: SubscriptionTier = "growth";
+export const DEFAULT_TIER: PaidTier = "growth";
+
+export const FREE_TIER_LABEL = "Free";
 
 export const TRIAL_PERIOD_DAYS = 14;
 
@@ -73,11 +80,13 @@ export const TRIAL_PERIOD_DAYS = 14;
 // grandfathered legacy subscriber (no current tier is priced at $500).
 export const LEGACY_MONTHLY_AMOUNT = 500;
 
-export function isValidTier(value: unknown): value is SubscriptionTier {
+// Guards a REQUESTED tier (pricing card, ?tier= query, stored selection). Intentionally
+// rejects 'free' — free is never something a shop selects, only something it falls back to.
+export function isValidTier(value: unknown): value is PaidTier {
   return value === "starter" || value === "growth" || value === "business";
 }
 
-export function getPlanByTier(tier: SubscriptionTier): SubscriptionPlanInfo {
+export function getPlanByTier(tier: PaidTier): SubscriptionPlanInfo {
   return SUBSCRIPTION_PLANS.find((p) => p.tier === tier) ?? SUBSCRIPTION_PLANS[1];
 }
 
@@ -89,6 +98,8 @@ export function resolvePlanLabel(input: {
 }): string {
   if (input.subscriptionType === "trial") return "Free Trial";
   if (input.monthlyAmount === LEGACY_MONTHLY_AMOUNT) return "Legacy";
+  // Checked before planLabel: 'free' has no plan row, so nothing else resolves it.
+  if (input.tier === "free" || input.subscriptionType === "free") return FREE_TIER_LABEL;
   if (input.planLabel) return input.planLabel;
   if (input.tier && isValidTier(input.tier)) return getPlanByTier(input.tier).label;
   const t = input.subscriptionType;

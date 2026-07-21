@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 import { BaseRepository } from '../repositories/BaseRepository';
 import { eventBus } from '../events/EventBus';
 import { ShopSubscriptionRepository } from '../repositories/ShopSubscriptionRepository';
-import { DEFAULT_TIER, getMonthlyAmountForPriceId, getPlanByTier, resolveCheckoutPriceId, SubscriptionTier, TRIAL_PERIOD_DAYS, isValidTier } from '../config/subscriptionPlans';
+import { DEFAULT_TIER, getMonthlyAmountForPriceId, getPlanByTier, resolveCheckoutPriceId, SubscriptionTier, PaidTier, TRIAL_PERIOD_DAYS, isValidTier } from '../config/subscriptionPlans';
 
 export interface SubscriptionData {
   id: number;
@@ -937,10 +937,10 @@ export class SubscriptionService extends BaseRepository {
    *   the downgrade→re-upgrade double-charge: the price basis never drops
    *   mid-cycle, so climbing back up never re-bills the difference.
    */
-  async changeSubscriptionTier(shopId: string, newTier: SubscriptionTier): Promise<{
+  async changeSubscriptionTier(shopId: string, newTier: PaidTier): Promise<{
     subscription: SubscriptionData;
     isUpgrade: boolean;
-    newTier: SubscriptionTier;
+    newTier: PaidTier;
     newAmount: number;
     previousAmount: number;
     outcome: 'upgraded' | 'downgrade_scheduled' | 'downgrade_canceled';
