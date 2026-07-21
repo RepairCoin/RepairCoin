@@ -18,6 +18,7 @@
 import { Pool } from "pg";
 import { getSharedPool } from "../utils/database-pool";
 import { logger } from "../utils/logger";
+import { cheapModel } from "../config/aiModels";
 import { AnthropicClient } from "../domains/AIAgentDomain/services/AnthropicClient";
 
 export interface RawFinding {
@@ -563,7 +564,7 @@ export class FraudScanService {
     const response = await anthropic.complete({
       systemPrompt: [{ text: systemPrompt, cache: true }],
       messages: [{ role: "user", content: userMessage }],
-      model: "claude-haiku-4-5-20251001",
+      model: cheapModel(),
       maxTokens: 120,
     });
     const text = (response.text || "").trim();

@@ -42,8 +42,9 @@ import { AuditLogger } from "./AuditLogger";
 import { SpendCapEnforcer } from "./SpendCapEnforcer";
 import { WebSocketManager } from "../../../services/WebSocketManager";
 import { ClaudeModel } from "../types";
+import { cheapModel } from "../../../config/aiModels";
 
-const FOLLOWUP_MODEL: ClaudeModel = "claude-haiku-4-5-20251001";
+const FOLLOWUP_MODEL: ClaudeModel = cheapModel();
 const FOLLOWUP_MAX_TOKENS = 120;
 const DEFAULT_DELAY_MINUTES = 20;
 /** Beyond this the lead is cold — a different "win-back" mechanism's job. */

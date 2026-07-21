@@ -36,9 +36,10 @@ import { AuditLogger } from "./AuditLogger";
 import { SpendCapEnforcer } from "./SpendCapEnforcer";
 import { WebSocketManager } from "../../../services/WebSocketManager";
 import { ClaudeModel } from "../types";
+import { cheapModel } from "../../../config/aiModels";
 import { DomainEvent } from "../../types";
 
-const CONFIRMATION_MODEL: ClaudeModel = "claude-haiku-4-5-20251001";
+const CONFIRMATION_MODEL: ClaudeModel = cheapModel();
 const CONFIRMATION_MAX_TOKENS = 80;
 
 interface OrderCompletedPayload {

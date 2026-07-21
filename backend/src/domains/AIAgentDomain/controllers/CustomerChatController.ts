@@ -23,8 +23,9 @@ import { logger } from "../../../utils/logger";
 import { getSharedPool } from "../../../utils/database-pool";
 import { AnthropicClient } from "../services/AnthropicClient";
 import { ClaudeModel, ChatMessage } from "../types";
+import { smartModel } from "../../../config/aiModels";
 
-const CUSTOMER_CHAT_MODEL: ClaudeModel = "claude-sonnet-4-6";
+const CUSTOMER_CHAT_MODEL: ClaudeModel = smartModel();
 const MAX_TOKENS = 1024;
 
 interface StartChatRequest {

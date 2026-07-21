@@ -34,6 +34,7 @@
 import { Request, Response } from "express";
 import { Pool } from "pg";
 import { logger } from "../../../utils/logger";
+import { smartModel, cheapModel } from "../../../config/aiModels";
 import { getSharedPool } from "../../../utils/database-pool";
 import { AnthropicClient } from "../services/AnthropicClient";
 import { SpendCapEnforcer } from "../services/SpendCapEnforcer";
@@ -73,8 +74,8 @@ import {
 
 // Sonnet for the reasoning + tool-use; drop to Haiku when the shared budget is
 // ≥70% used (SpendCapEnforcer.useCheaperModel), matching the Sales Agent.
-const ORCHESTRATE_MODEL_DEFAULT: ClaudeModel = "claude-sonnet-4-6";
-const ORCHESTRATE_MODEL_CHEAP: ClaudeModel = "claude-haiku-4-5-20251001";
+const ORCHESTRATE_MODEL_DEFAULT: ClaudeModel = smartModel();
+const ORCHESTRATE_MODEL_CHEAP: ClaudeModel = cheapModel();
 const ORCHESTRATE_MAX_TOKENS = 1024;
 const MAX_TOOL_ITERATIONS = 6; // a "fix it" turn can chain lookup → draft
 
