@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { MessagesContainer } from "@/components/messaging/MessagesContainer";
-import { AutoMessagesManager } from "@/components/messaging/AutoMessagesManager";
 import {
   MessageCircle,
   TrendingUp,
@@ -11,7 +10,6 @@ import {
   CheckCircle,
   Filter,
   Download,
-  Send,
 } from "lucide-react";
 import * as messagingApi from "@/services/api/messaging";
 
@@ -31,7 +29,6 @@ interface MessagesTabProps {
 export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId, compact = false }) => {
   const searchParams = useSearchParams();
   const conversationId = searchParams.get("conversation");
-  const [activeSubTab, setActiveSubTab] = useState<"conversations" | "auto-messages">("conversations");
   const [showStats, setShowStats] = useState(!compact);
   const [conversations, setConversations] = useState<messagingApi.Conversation[]>([]);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -146,37 +143,7 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId, compact = fals
 
   return (
     <div className="h-full flex flex-col">
-      {/* Sub-Tab Switcher */}
-      <div className="shrink-0 flex items-center gap-1 mb-4 bg-[#0D0D0D] border border-gray-800 rounded-lg p-1 w-fit">
-        <button
-          onClick={() => setActiveSubTab("conversations")}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
-            activeSubTab === "conversations"
-              ? "bg-[#1A1A1A] text-white"
-              : "text-gray-400 hover:text-white"
-          }`}
-        >
-          <MessageCircle className="w-4 h-4" />
-          Conversations
-        </button>
-        <button
-          onClick={() => setActiveSubTab("auto-messages")}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
-            activeSubTab === "auto-messages"
-              ? "bg-[#1A1A1A] text-white"
-              : "text-gray-400 hover:text-white"
-          }`}
-        >
-          <Send className="w-4 h-4" />
-          Auto-Messages
-        </button>
-      </div>
-
-      {/* Auto-Messages Tab */}
-      {activeSubTab === "auto-messages" ? (
-        <AutoMessagesManager />
-      ) : (
-      <>
+      {/* Conversations. (Auto-Messages moved to Marketing → AI Campaigns.) */}
       {/* Stats Cards (Collapsible) */}
       {showStats && (
         <div className="shrink-0 grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -317,8 +284,6 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId, compact = fals
       {/* Pro-tip footer removed per the messages-viewport-lock strategy
           (decision #2). It was eating ~50px of vertical space below the
           chat region with no actionable content. */}
-      </>
-      )}
     </div>
   );
 };

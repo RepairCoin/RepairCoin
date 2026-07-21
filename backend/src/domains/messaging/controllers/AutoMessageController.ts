@@ -1,12 +1,33 @@
 // backend/src/domains/messaging/controllers/AutoMessageController.ts
 import { Request, Response } from 'express';
 import { AutoMessageRepository } from '../../../repositories/AutoMessageRepository';
+import { autoMessageContentService } from '../services/AutoMessageContentService';
 import { logger } from '../../../utils/logger';
 
 const VALID_TRIGGER_TYPES = ['schedule', 'event'];
 const VALID_SCHEDULE_TYPES = ['daily', 'weekly', 'monthly'];
-const VALID_EVENT_TYPES = ['booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days'];
+const VALID_EVENT_TYPES = ['booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days', 'low_bookings'];
 const VALID_TARGET_AUDIENCES = ['all', 'active', 'inactive_30d', 'has_balance', 'completed_booking'];
+const MAX_SEQUENCE_STEPS = 10;
+
+/** Validate + normalize drip-sequence steps. Returns { steps } on success or { error } for a 400.
+ *  null/undefined/[] → single-message rule (steps = undefined, no sequence). */
+function parseSteps(raw: unknown): { steps?: Array<{ messageTemplate: string; delayHours: number }>; error?: string } {
+  if (raw === undefined || raw === null) return { steps: undefined };
+  if (!Array.isArray(raw)) return { error: 'steps must be an array' };
+  if (raw.length === 0) return { steps: undefined };
+  if (raw.length > MAX_SEQUENCE_STEPS) return { error: `A sequence can have at most ${MAX_SEQUENCE_STEPS} steps` };
+  const steps: Array<{ messageTemplate: string; delayHours: number }> = [];
+  for (const s of raw as any[]) {
+    const msg = typeof s?.messageTemplate === 'string' ? s.messageTemplate.trim() : '';
+    if (!msg) return { error: 'each step needs a non-empty messageTemplate' };
+    if (msg.length > 2000) return { error: 'each step message must be 2000 characters or less' };
+    const delay = Number(s?.delayHours);
+    if (!Number.isFinite(delay) || delay < 0 || delay > 24 * 90) return { error: 'each step delayHours must be 0–2160' };
+    steps.push({ messageTemplate: msg, delayHours: Math.round(delay) });
+  }
+  return { steps };
+}
 
 export class AutoMessageController {
   private autoMessageRepo: AutoMessageRepository;
@@ -14,6 +35,36 @@ export class AutoMessageController {
   constructor() {
     this.autoMessageRepo = new AutoMessageRepository();
   }
+
+  /**
+   * AI-draft the message body for an auto-message rule (AI Campaigns Advanced, Business-tier).
+   * POST /api/messages/auto-messages/generate
+   * Body: { triggerType, scheduleType?, eventType?, targetAudience?, name?, prompt? }
+   */
+  generateAutoMessageContent = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+      const { triggerType, scheduleType, eventType, targetAudience, name, prompt } = req.body || {};
+      if (triggerType !== 'schedule' && triggerType !== 'event') {
+        return res.status(400).json({ success: false, error: "triggerType must be 'schedule' or 'event'" });
+      }
+      if (typeof prompt === 'string' && prompt.length > 500) {
+        return res.status(400).json({ success: false, error: 'prompt is too long (max 500 chars)' });
+      }
+
+      const result = await autoMessageContentService.generate(shopId, {
+        triggerType, scheduleType, eventType, targetAudience, name, prompt,
+      });
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      const status = typeof error?.status === 'number' ? error.status : 500;
+      if (status >= 500) logger.error('Error in generateAutoMessageContent controller:', error);
+      res.status(status).json({ success: false, error: error?.message || 'Failed to generate message' });
+    }
+  };
 
   /**
    * Get all auto-message rules for the authenticated shop
@@ -48,11 +99,25 @@ export class AutoMessageController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer } = req.body;
+      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking, variantB } = req.body;
 
       // Validation
       if (!name || !messageTemplate || !triggerType) {
         return res.status(400).json({ success: false, error: 'name, messageTemplate, and triggerType are required' });
+      }
+
+      const { steps, error: stepsError } = parseSteps(rawSteps);
+      if (stepsError) return res.status(400).json({ success: false, error: stepsError });
+
+      // A/B variant B: optional, ≤2000 chars, and mutually exclusive with a drip sequence.
+      if (variantB !== undefined && variantB !== null && typeof variantB !== 'string') {
+        return res.status(400).json({ success: false, error: 'variantB must be a string' });
+      }
+      if (typeof variantB === 'string' && variantB.length > 2000) {
+        return res.status(400).json({ success: false, error: 'variantB must be 2000 characters or less' });
+      }
+      if (steps && steps.length && typeof variantB === 'string' && variantB.trim()) {
+        return res.status(400).json({ success: false, error: 'A rule can be a sequence OR an A/B test, not both' });
       }
 
       if (!VALID_TRIGGER_TYPES.includes(triggerType)) {
@@ -98,6 +163,9 @@ export class AutoMessageController {
         delayHours,
         targetAudience,
         maxSendsPerCustomer,
+        steps,
+        stopOnBooking: typeof stopOnBooking === 'boolean' ? stopOnBooking : undefined,
+        variantB: typeof variantB === 'string' ? (variantB.trim() || null) : (variantB === null ? null : undefined),
       });
 
       res.status(201).json({ success: true, data: rule });
@@ -122,11 +190,27 @@ export class AutoMessageController {
       }
 
       const { id } = req.params;
-      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer } = req.body;
+      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking, variantB } = req.body;
 
       if (messageTemplate && messageTemplate.length > 2000) {
         return res.status(400).json({ success: false, error: 'Message template must be 2000 characters or less' });
       }
+
+      // steps: undefined = not provided (leave as-is); null/[] = clear the sequence; array = replace it.
+      const { steps, error: stepsError } = parseSteps(rawSteps);
+      if (stepsError) return res.status(400).json({ success: false, error: stepsError });
+      const stepsUpdate = rawSteps === undefined ? undefined : (steps ?? null);
+
+      if (variantB !== undefined && variantB !== null && typeof variantB !== 'string') {
+        return res.status(400).json({ success: false, error: 'variantB must be a string' });
+      }
+      if (typeof variantB === 'string' && variantB.length > 2000) {
+        return res.status(400).json({ success: false, error: 'variantB must be 2000 characters or less' });
+      }
+      if (stepsUpdate && stepsUpdate.length && typeof variantB === 'string' && variantB.trim()) {
+        return res.status(400).json({ success: false, error: 'A rule can be a sequence OR an A/B test, not both' });
+      }
+      const variantUpdate = variantB === undefined ? undefined : (typeof variantB === 'string' ? (variantB.trim() || null) : null);
 
       if (triggerType && !VALID_TRIGGER_TYPES.includes(triggerType)) {
         return res.status(400).json({ success: false, error: `triggerType must be one of: ${VALID_TRIGGER_TYPES.join(', ')}` });
@@ -148,6 +232,9 @@ export class AutoMessageController {
         delayHours,
         targetAudience,
         maxSendsPerCustomer,
+        steps: stepsUpdate,
+        stopOnBooking: typeof stopOnBooking === 'boolean' ? stopOnBooking : undefined,
+        variantB: variantUpdate,
       });
 
       if (!rule) {
@@ -222,6 +309,29 @@ export class AutoMessageController {
    * Get send history for an auto-message rule
    * GET /api/messages/auto-messages/:id/history
    */
+  /**
+   * A/B test results for a rule (AI Campaigns Advanced, Phase 4).
+   * GET /api/messages/auto-messages/:id/ab-results
+   */
+  getAbResults = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+      const { id } = req.params;
+      const rule = await this.autoMessageRepo.getById(id);
+      if (!rule || rule.shopId !== shopId) {
+        return res.status(404).json({ success: false, error: 'Auto-message rule not found' });
+      }
+      const results = await this.autoMessageRepo.getAbResults(id);
+      res.json({ success: true, data: { enabled: !!rule.variantB, results } });
+    } catch (error: unknown) {
+      logger.error('Error in getAbResults controller:', error);
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Failed to load A/B results' });
+    }
+  };
+
   getAutoMessageHistory = async (req: Request, res: Response) => {
     try {
       const shopId = req.user?.shopId;

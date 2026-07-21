@@ -8,7 +8,74 @@ press send"; Business = "AI runs campaigns for you — automatically, on trigger
 unused). Related: the gap note `../pricing-alignment/marketing-tier-gap-ai-campaigns-advanced.md` (what's
 built per tier + the recommended capability split) and the WS2 feature-gating scope.
 
-**Status (2026-07-20):** planning. Grounded in a read-only code audit (below).
+**Status (2026-07-21):** Phase 1 (tier gate, flag-off) DONE `219461af1`. Phase 2 Slice A (AI-drafted
+message content) DONE — see below. Grounded in a read-only code audit (below).
+
+**Phase 2 · Slice A — AI-drafted message content (BUILT 2026-07-21):**
+- `AutoMessageContentService` (`backend/src/domains/messaging/services/`) — one-shot AI draft of a rule's
+  message body from its trigger/audience/name/goal + the shop's brand voice; reuses `AnthropicClient` +
+  `cheapModel()` + `BrandKitService` + `buildDateContextBlock`; spend-capped (429 when over) + `recordSpend`
+  feeds the monthly allowance/overage meter. Told to use ONLY the 5 scheduler-supported `{{variables}}`,
+  plain text, ≤2000 chars.
+- `POST /api/messages/auto-messages/generate` (Business-gated via the same `autoMessageGuard`).
+- Frontend: "Generate with AI" button in `AutoMessageRuleModal` fills the message field.
+- Verified: backend tsc 0; ai-agent 909/909; FE files clean; live generation against peanut (Business)
+  produced a valid win-back message using `{{customerName}}`/`{{shopName}}`.
+**Phase 2 · Slice B — "AI Campaigns" hub in the Marketing tab (BUILT 2026-07-21):**
+- Added an **"AI Campaigns"** sub-tab to `MarketingTab.tsx` (shadcn Tabs, `Sparkles` icon) hosting
+  `<TierGate feature="aiCampaignsAdvanced"><AutoMessagesManager/></TierGate>` — sits alongside Campaign
+  Builder (Growth) + Contacts, giving the full Growth→Business ladder in one place with the upsell inline.
+- **Relocated** the Auto-Messages manager OUT of the Messages tab (removed its sub-tab, nav switcher, dead
+  state/imports) so it lives in one home. `AutoMessagesManager` is propless/self-contained → dropped in as-is.
+- Verified: FE files clean (211 total, under the ~290 baseline; zero added); backend unchanged.
+
+**Phase 2 · Slice C — new autonomous trigger: "Slow Week" (BUILT 2026-07-21):**
+- `AutoMessageSchedulerService.processLowBookings()` — the `low_bookings` trigger. For each active rule, if
+  the shop's last-7-days bookings dropped below 50% of its OWN trailing 4-week weekly average (baseline
+  ≥ 4 prior bookings, so new/empty shops never fire), it messages the rule's target audience (win-back /
+  promo). Reuses `getTargetCustomers` + `sendToCustomer` + per-customer 7-day dedup + maxSendsPerCustomer.
+  Wired into the scheduler run loop. `inactive_30_days` was already `service_orders`-based (correct).
+- `low_bookings` added to the controller whitelist, the AI content-generator's trigger descriptions, and the
+  frontend event dropdown ("Slow Week (low bookings)").
+- Verified: backend tsc 0; ai-agent tests green; FE clean; live detector query runs (peanut correctly does
+  NOT fire — only 2 prior bookings < the 4 baseline).
+
+**Phase 2 COMPLETE** (Slices A + B + C). The Business "AI Campaigns (Advanced)" is now a real feature: AI
+drafts the copy, it lives in the Marketing tab, and it fires autonomously on schedule/booking events, lapsed
+customers, AND slow weeks.
+
+**Phase 3 — Drip / multi-step sequences (BUILT 2026-07-21, migration 230):**
+- An event-triggered rule can now fire an ORDERED sequence of steps over time (e.g. thank-you → offer →
+  last-chance) instead of one message. Built ON the existing pending-send queue: each step is a scheduled
+  pending send, and firing one enqueues the next — no new engine, reuses the whole processor.
+- Migration **230**: `shop_auto_messages.steps` JSONB (`[{messageTemplate, delayHours}]`, null/empty =
+  legacy single message) + `stop_on_booking` BOOLEAN; `auto_message_sends.step_index` INT.
+- `AutoMessageSchedulerService`: event triggers ENROL (enqueue step 0) for sequence rules; the pending-send
+  processor resolves the step's message, sends, then enqueues the next step; `stop_on_booking` exit checks
+  `bookedSinceEnrollment` (completed order since the step-0 send) and ends the sequence.
+- Repo (`steps`/`stopOnBooking`/`stepIndex` through create/update/recordSend/mappers), controller
+  (`parseSteps` validation, ≤10 steps, per-step ≤2000 chars / delay 0–2160h), frontend (a "Multi-step
+  sequence (drip)" toggle + a steps editor: add/remove/reorder-by-position, per-step delay, "AI" draft per
+  step, "stop if the customer books"). Sequences are event-triggered only.
+- Verified: backend tsc 0; ai-agent + featureTiers tests green; FE files clean (211, under baseline); live
+  against peanut — sequence persists, step 0 enqueues, advances (0→1), stop_on_booking persists.
+
+**Phase 4 — A/B testing (BUILT 2026-07-21, migration 231):**
+- A single-message rule can carry a **variant B**; each send is split 50/50 between A (messageTemplate) and
+  B (variant_b), the choice recorded per send, and outcomes compared. Mutually exclusive with sequences.
+- Migration **231**: `shop_auto_messages.variant_b` TEXT; `auto_message_sends.variant` TEXT ('A'|'B').
+- `AutoMessageScheduler.pickVariant(rule)` → chosen message + label; used in `sendToCustomer` (immediate)
+  AND the pending-send processor (delayed single sends), recording the variant on each send.
+- Results: `AutoMessageRepository.getAbResults(ruleId)` — per-variant sends + **conversions = the customer
+  completed a booking within 7 days AFTER receiving that variant** (an *indicator*, not proof; labeled as
+  such in the UI). `GET /api/messages/auto-messages/:id/ab-results`.
+- Controller: `variantB` in create/update, ≤2000 chars, rejected alongside `steps` (sequence OR A/B).
+  Frontend: an "A/B test" toggle (mutually exclusive with the sequence toggle) → Variant A/B editors, AI
+  draft for B, and a results readout ("X sent · Y booked (Z%)") when editing.
+- Verified: backend tsc 0; ai-agent + featureTiers tests green; FE files clean (211); live vs peanut
+  (variantB persists, variant-tagged sends aggregate per variant, conversions computed).
+
+Further net-new: cross-channel send (Phase 5, waits on Twilio→Telnyx).
 
 ---
 
@@ -40,7 +107,26 @@ build-from-scratch.
 
 ---
 
-## Phase 1 — Tier cleanup (DO FIRST)
+## Phase 1 — Tier cleanup (BUILT 2026-07-21, flag-off)
+
+**Done.** Gated the shop Auto-Messages automation engine to Business behind a rollout flag; ships dark.
+- `featureTiers.ts` — `ROLLOUT_GATED_FEATURES` + `isTierEnforcementDeferred()` + `effectiveTierAllows()`
+  (a feature can defer enforcement behind an env flag → stays open to all tiers until flipped).
+  `aiCampaignsAdvanced → ENFORCE_CAMPAIGN_AUTOMATION_TIER`.
+- `tierGuard.ts` — `requireTierRollout(feature)` (enforces only when the flag is on).
+- `messaging/routes.ts` — all 6 `/auto-messages*` routes now `[requireRole(['shop']), requireTierRollout('aiCampaignsAdvanced')]`.
+- `shop/routes/featureAccess.ts` — the UI feature-access map uses `effectiveTierAllows`, so the frontend gate
+  and the route guard agree from ONE flag.
+- Frontend — `MessagesTab` wraps `<AutoMessagesManager/>` in `<TierGate feature="aiCampaignsAdvanced">`
+  (child unmounted when locked → no failed requests).
+- `.env.example` — `ENFORCE_CAMPAIGN_AUTOMATION_TIER=false`.
+- Tests: `featureTiers.test.ts` rollout cases (flag off→open all, on→Business-only, others unaffected).
+  backend tsc 0; ai-agent 902/902; featureTiers 7/7; FE files clean.
+- **Staging impact = zero:** only 2 shops use auto-messages, both already Business → no grandfather needed.
+- **To enforce:** set `ENFORCE_CAMPAIGN_AUTOMATION_TIER=true` (once shops are notified). Drafter + manual
+  builder stay Growth (unchanged). Gate key `aiCampaignsAdvanced`; one-line swap if Custom Workflows owns it.
+
+Original Phase-1 plan (for reference):
 
 Goal: correct the tier boundaries so Advanced is built on a clean base. Findings-driven, mostly middleware.
 

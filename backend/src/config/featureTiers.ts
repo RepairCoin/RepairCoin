@@ -39,3 +39,26 @@ export function tierAllowsFeature(tier: SubscriptionTier, feature: string): bool
 export function getRequiredTier(feature: string): SubscriptionTier | undefined {
   return FEATURE_TIERS[feature];
 }
+
+// Rollout-gated features: their tier enforcement sits behind an env flag so a feature that is CURRENTLY
+// open to all tiers can be gated DARK first (flag off = no behavior change), then enforced deliberately
+// once shops are notified. Same philosophy as ENFORCE_AI_AUTOREPLY_TIER. Maps feature → the env flag that
+// must be 'true' to actually enforce its tier.
+const ROLLOUT_GATED_FEATURES: Record<string, string> = {
+  // AI Campaigns (Advanced) / the shared auto-message automation engine (T7.2 also reuses this engine).
+  aiCampaignsAdvanced: 'ENFORCE_CAMPAIGN_AUTOMATION_TIER',
+};
+
+/** True when `feature` is rollout-gated AND its flag is not yet enforcing → the feature stays open to all. */
+export function isTierEnforcementDeferred(feature: string): boolean {
+  const flag = ROLLOUT_GATED_FEATURES[feature];
+  return !!flag && process.env[flag] !== 'true';
+}
+
+/** tierAllowsFeature, but honors the rollout flag: a deferred feature is allowed for EVERY tier until its
+ *  flag flips on. Use this everywhere access is DECIDED (route guards + the feature-access map) so the
+ *  backend gate and the frontend UI stay consistent from one flag. */
+export function effectiveTierAllows(tier: SubscriptionTier, feature: string): boolean {
+  if (isTierEnforcementDeferred(feature)) return true;
+  return tierAllowsFeature(tier, feature);
+}
