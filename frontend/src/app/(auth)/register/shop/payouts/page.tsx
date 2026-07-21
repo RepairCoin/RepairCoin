@@ -89,9 +89,11 @@ export default function ShopPayoutsPage() {
   const searchParams = useSearchParams();
   const [connecting, setConnecting] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [hasAccount, setHasAccount] = useState(false);
+  const [requirementsDue, setRequirementsDue] = useState<string[]>([]);
 
-  const returnedFromStripe = searchParams.get("connected") === "1";
   const linkExpired = searchParams.get("refresh") === "1";
 
   // Stripe's return_url only tells us the shop came back — not that Stripe approved them.
@@ -100,15 +102,31 @@ export default function ShopPayoutsPage() {
     setChecking(true);
     try {
       // apiClient sends the auth cookie AND auto-refreshes the access token on 401.
-      // Returns the response body directly: { success, data: { chargesEnabled } }.
+      // Returns the body: { success, data: { accountId, chargesEnabled, requirementsDue } }.
       const body: any = await apiClient.get("/shops/connect/status");
       setConnected(body?.data?.chargesEnabled === true);
+      setHasAccount(!!body?.data?.accountId);
+      setRequirementsDue(body?.data?.requirementsDue ?? []);
     } catch (error) {
       console.error("Failed to read Stripe connection status:", error);
     } finally {
       setChecking(false);
+      setLoaded(true);
     }
   }, []);
+
+  // An account is linked but Stripe hasn't enabled charges. Derived from the API rather
+  // than the ?connected=1 param, so it survives navigating away and coming back.
+  const pending = hasAccount && !connected;
+
+  // Stripe is blocked on the shop, not on its own review. Standard accounts complete this
+  // in the shop's OWN Stripe dashboard — re-running our OAuth would just relink the same
+  // account without ever surfacing the outstanding requirements.
+  const needsInfo = pending && requirementsDue.length > 0;
+
+  const openStripeDashboard = () => {
+    window.open("https://dashboard.stripe.com/", "_blank", "noopener,noreferrer");
+  };
 
   useEffect(() => {
     checkStatus();
@@ -145,7 +163,9 @@ export default function ShopPayoutsPage() {
     }
   };
 
-  if (checking) {
+  // Full-screen spinner only before the first result. Later refreshes keep the page up so
+  // the inline "Refresh status" control doesn't blank it out.
+  if (checking && !loaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#191919]">
         <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-[#FFCC00]" />
@@ -218,11 +238,11 @@ export default function ShopPayoutsPage() {
             payouts, and future transactions through FixFlow.
           </p>
 
-          {returnedFromStripe && (
+          {pending && (
             <p className="mt-4 rounded-md border border-[#FFCC00]/30 bg-[#FFCC00]/[0.08] p-3 text-sm text-white">
-              Stripe hasn&apos;t confirmed your account yet. This can take a
-              moment, or Stripe may still need more information from you — resume
-              below.
+              {requirementsDue.length > 0
+                ? "Stripe still needs more information before it can enable payments on your account — resume below to finish."
+                : "Your Stripe account is connected and awaiting confirmation. This usually takes a moment; you can safely leave this page and come back."}
             </p>
           )}
 
@@ -247,7 +267,7 @@ export default function ShopPayoutsPage() {
 
           <div className="mt-8 text-center">
             <button
-              onClick={startOnboarding}
+              onClick={needsInfo ? openStripeDashboard : startOnboarding}
               disabled={connecting}
               className="h-12 w-full max-w-[416px] cursor-pointer rounded-md bg-[#FFCC00] text-base font-medium text-black transition-colors hover:bg-[#E5BB00] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -256,7 +276,9 @@ export default function ShopPayoutsPage() {
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
                   Redirecting to Stripe...
                 </span>
-              ) : returnedFromStripe ? (
+              ) : needsInfo ? (
+                "Finish Setup on Stripe →"
+              ) : pending ? (
                 "Resume Stripe Setup →"
               ) : (
                 "Connect with Stripe →"
@@ -264,9 +286,21 @@ export default function ShopPayoutsPage() {
             </button>
 
             <p className="mx-auto mt-3 max-w-[420px] text-xs leading-relaxed text-[#999999]">
-              You&apos;ll be securely redirected to Stripe to complete your
-              payment setup. FixFlow never stores your banking information.
+              {needsInfo
+                ? "You'll finish verification in your own Stripe dashboard. Come back here once Stripe has what it needs."
+                : "You'll be securely redirected to Stripe to complete your payment setup. FixFlow never stores your banking information."}
             </p>
+
+            {pending && (
+              <button
+                type="button"
+                onClick={checkStatus}
+                disabled={checking}
+                className="mx-auto mt-4 block cursor-pointer text-xs text-[#999999] underline underline-offset-4 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {checking ? "Checking..." : "Already finished? Refresh status"}
+              </button>
+            )}
           </div>
 
           <hr className="my-6 border-white/10" />
