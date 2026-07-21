@@ -27,6 +27,8 @@ export interface AutoMessage {
   steps: SequenceStep[] | null;
   /** Exit condition: skip remaining sequence steps once the customer books. */
   stopOnBooking: boolean;
+  /** A/B test variant B (Phase 4). null = single variant. Mutually exclusive with steps. */
+  variantB: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,6 +46,8 @@ export interface AutoMessageSend {
   sentAt: string;
   /** Which drip-sequence step this send is for (null = legacy single-message send). */
   stepIndex: number | null;
+  /** Which A/B variant this send used ('A' | 'B'); null = not an A/B send. */
+  variant: string | null;
 }
 
 export interface CreateAutoMessageParams {
@@ -61,6 +65,7 @@ export interface CreateAutoMessageParams {
   maxSendsPerCustomer?: number;
   steps?: SequenceStep[] | null;
   stopOnBooking?: boolean;
+  variantB?: string | null;
 }
 
 export interface UpdateAutoMessageParams {
@@ -77,6 +82,7 @@ export interface UpdateAutoMessageParams {
   maxSendsPerCustomer?: number;
   steps?: SequenceStep[] | null;
   stopOnBooking?: boolean;
+  variantB?: string | null;
 }
 
 export class AutoMessageRepository extends BaseRepository {
@@ -132,8 +138,8 @@ export class AutoMessageRepository extends BaseRepository {
           shop_id, name, message_template, trigger_type,
           schedule_type, schedule_day_of_week, schedule_day_of_month, schedule_hour,
           event_type, delay_hours, target_audience, max_sends_per_customer,
-          steps, stop_on_booking
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          steps, stop_on_booking, variant_b
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING *
       `;
       const result = await this.pool.query(query, [
@@ -151,6 +157,7 @@ export class AutoMessageRepository extends BaseRepository {
         params.maxSendsPerCustomer ?? 1,
         params.steps && params.steps.length ? JSON.stringify(params.steps) : null,
         params.stopOnBooking ?? false,
+        params.variantB ?? null,
       ]);
       logger.info('Auto-message rule created', { shopId: params.shopId, name: params.name });
       return this.mapRow(result.rows[0]);
@@ -184,6 +191,7 @@ export class AutoMessageRepository extends BaseRepository {
         // steps is JSONB — stringify a provided array; explicit null clears the sequence.
         ['steps', params.steps === undefined ? undefined : (params.steps && params.steps.length ? JSON.stringify(params.steps) : null)],
         ['stop_on_booking', params.stopOnBooking],
+        ['variant_b', params.variantB],
       ];
 
       for (const [column, value] of fields) {
@@ -314,13 +322,14 @@ export class AutoMessageRepository extends BaseRepository {
     status?: 'pending' | 'sent' | 'failed';
     scheduledSendAt?: Date;
     stepIndex?: number | null;
+    variant?: string | null;
   }): Promise<AutoMessageSend> {
     try {
       const query = `
         INSERT INTO auto_message_sends (
           auto_message_id, shop_id, customer_address, conversation_id,
-          message_id, trigger_reference, status, scheduled_send_at, sent_at, step_index
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          message_id, trigger_reference, status, scheduled_send_at, sent_at, step_index, variant
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *
       `;
       const result = await this.pool.query(query, [
@@ -334,6 +343,7 @@ export class AutoMessageRepository extends BaseRepository {
         params.scheduledSendAt || null,
         params.status === 'pending' ? null : new Date(),
         params.stepIndex ?? null,
+        params.variant ?? null,
       ]);
       return this.mapSendRow(result.rows[0]);
     } catch (error) {
@@ -436,14 +446,15 @@ export class AutoMessageRepository extends BaseRepository {
   /**
    * Update send status (pending -> sent/failed)
    */
-  async updateSendStatus(sendId: string, status: 'sent' | 'failed', messageId?: string, conversationId?: string): Promise<void> {
+  async updateSendStatus(sendId: string, status: 'sent' | 'failed', messageId?: string, conversationId?: string, variant?: string | null): Promise<void> {
     try {
       const query = `
         UPDATE auto_message_sends
-        SET status = $1, message_id = COALESCE($2, message_id), conversation_id = COALESCE($3, conversation_id), sent_at = NOW()
-        WHERE id = $4
+        SET status = $1, message_id = COALESCE($2, message_id), conversation_id = COALESCE($3, conversation_id),
+            variant = COALESCE($4, variant), sent_at = NOW()
+        WHERE id = $5
       `;
-      await this.pool.query(query, [status, messageId || null, conversationId || null, sendId]);
+      await this.pool.query(query, [status, messageId || null, conversationId || null, variant ?? null, sendId]);
     } catch (error) {
       logger.error('Error in AutoMessageRepository.updateSendStatus:', error);
       throw error;
@@ -521,6 +532,7 @@ export class AutoMessageRepository extends BaseRepository {
       // steps is JSONB → node-pg returns it already parsed (array) or null.
       steps: Array.isArray(row.steps) ? row.steps : null,
       stopOnBooking: row.stop_on_booking === true,
+      variantB: row.variant_b ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       totalSends: row.total_sends ? parseInt(row.total_sends, 10) : undefined,
@@ -541,6 +553,37 @@ export class AutoMessageRepository extends BaseRepository {
       scheduledSendAt: row.scheduled_send_at,
       sentAt: row.sent_at,
       stepIndex: row.step_index === null || row.step_index === undefined ? null : Number(row.step_index),
+      variant: row.variant ?? null,
     };
+  }
+
+  /**
+   * A/B results (Phase 4): per-variant send + conversion counts for a rule. "Conversion" = the customer
+   * completed a booking within 7 days AFTER receiving that variant — an indicator, not proof of cause.
+   */
+  async getAbResults(ruleId: string): Promise<Array<{ variant: string; sends: number; conversions: number }>> {
+    try {
+      const r = await this.pool.query(
+        `SELECT s.variant,
+                COUNT(*)::int AS sends,
+                COUNT(*) FILTER (WHERE EXISTS (
+                  SELECT 1 FROM service_orders so
+                   WHERE so.shop_id = s.shop_id
+                     AND LOWER(so.customer_address) = LOWER(s.customer_address)
+                     AND so.status = 'completed'
+                     AND so.updated_at >= s.sent_at
+                     AND so.updated_at <= s.sent_at + INTERVAL '7 days'
+                ))::int AS conversions
+           FROM auto_message_sends s
+          WHERE s.auto_message_id = $1 AND s.status = 'sent' AND s.variant IS NOT NULL AND s.sent_at IS NOT NULL
+          GROUP BY s.variant
+          ORDER BY s.variant`,
+        [ruleId]
+      );
+      return r.rows.map((row: any) => ({ variant: row.variant, sends: Number(row.sends) || 0, conversions: Number(row.conversions) || 0 }));
+    } catch (error) {
+      logger.error('Error in AutoMessageRepository.getAbResults:', error);
+      throw error;
+    }
   }
 }

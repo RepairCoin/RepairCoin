@@ -99,7 +99,7 @@ export class AutoMessageController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking } = req.body;
+      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking, variantB } = req.body;
 
       // Validation
       if (!name || !messageTemplate || !triggerType) {
@@ -108,6 +108,17 @@ export class AutoMessageController {
 
       const { steps, error: stepsError } = parseSteps(rawSteps);
       if (stepsError) return res.status(400).json({ success: false, error: stepsError });
+
+      // A/B variant B: optional, ≤2000 chars, and mutually exclusive with a drip sequence.
+      if (variantB !== undefined && variantB !== null && typeof variantB !== 'string') {
+        return res.status(400).json({ success: false, error: 'variantB must be a string' });
+      }
+      if (typeof variantB === 'string' && variantB.length > 2000) {
+        return res.status(400).json({ success: false, error: 'variantB must be 2000 characters or less' });
+      }
+      if (steps && steps.length && typeof variantB === 'string' && variantB.trim()) {
+        return res.status(400).json({ success: false, error: 'A rule can be a sequence OR an A/B test, not both' });
+      }
 
       if (!VALID_TRIGGER_TYPES.includes(triggerType)) {
         return res.status(400).json({ success: false, error: `triggerType must be one of: ${VALID_TRIGGER_TYPES.join(', ')}` });
@@ -154,6 +165,7 @@ export class AutoMessageController {
         maxSendsPerCustomer,
         steps,
         stopOnBooking: typeof stopOnBooking === 'boolean' ? stopOnBooking : undefined,
+        variantB: typeof variantB === 'string' ? (variantB.trim() || null) : (variantB === null ? null : undefined),
       });
 
       res.status(201).json({ success: true, data: rule });
@@ -178,7 +190,7 @@ export class AutoMessageController {
       }
 
       const { id } = req.params;
-      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking } = req.body;
+      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking, variantB } = req.body;
 
       if (messageTemplate && messageTemplate.length > 2000) {
         return res.status(400).json({ success: false, error: 'Message template must be 2000 characters or less' });
@@ -188,6 +200,17 @@ export class AutoMessageController {
       const { steps, error: stepsError } = parseSteps(rawSteps);
       if (stepsError) return res.status(400).json({ success: false, error: stepsError });
       const stepsUpdate = rawSteps === undefined ? undefined : (steps ?? null);
+
+      if (variantB !== undefined && variantB !== null && typeof variantB !== 'string') {
+        return res.status(400).json({ success: false, error: 'variantB must be a string' });
+      }
+      if (typeof variantB === 'string' && variantB.length > 2000) {
+        return res.status(400).json({ success: false, error: 'variantB must be 2000 characters or less' });
+      }
+      if (stepsUpdate && stepsUpdate.length && typeof variantB === 'string' && variantB.trim()) {
+        return res.status(400).json({ success: false, error: 'A rule can be a sequence OR an A/B test, not both' });
+      }
+      const variantUpdate = variantB === undefined ? undefined : (typeof variantB === 'string' ? (variantB.trim() || null) : null);
 
       if (triggerType && !VALID_TRIGGER_TYPES.includes(triggerType)) {
         return res.status(400).json({ success: false, error: `triggerType must be one of: ${VALID_TRIGGER_TYPES.join(', ')}` });
@@ -211,6 +234,7 @@ export class AutoMessageController {
         maxSendsPerCustomer,
         steps: stepsUpdate,
         stopOnBooking: typeof stopOnBooking === 'boolean' ? stopOnBooking : undefined,
+        variantB: variantUpdate,
       });
 
       if (!rule) {
@@ -285,6 +309,29 @@ export class AutoMessageController {
    * Get send history for an auto-message rule
    * GET /api/messages/auto-messages/:id/history
    */
+  /**
+   * A/B test results for a rule (AI Campaigns Advanced, Phase 4).
+   * GET /api/messages/auto-messages/:id/ab-results
+   */
+  getAbResults = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+      const { id } = req.params;
+      const rule = await this.autoMessageRepo.getById(id);
+      if (!rule || rule.shopId !== shopId) {
+        return res.status(404).json({ success: false, error: 'Auto-message rule not found' });
+      }
+      const results = await this.autoMessageRepo.getAbResults(id);
+      res.json({ success: true, data: { enabled: !!rule.variantB, results } });
+    } catch (error: unknown) {
+      logger.error('Error in getAbResults controller:', error);
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Failed to load A/B results' });
+    }
+  };
+
   getAutoMessageHistory = async (req: Request, res: Response) => {
     try {
       const shopId = req.user?.shopId;

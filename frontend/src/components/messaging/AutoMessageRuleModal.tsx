@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, Loader2, Zap, Calendar, Plus, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AutoMessage, CreateAutoMessageRequest, UpdateAutoMessageRequest } from "@/services/api/messaging";
-import { generateAutoMessageContent } from "@/services/api/messaging";
+import { generateAutoMessageContent, getAutoMessageAbResults, type AbResults } from "@/services/api/messaging";
 import toast from "react-hot-toast";
 
 const SCHEDULE_TYPES = [
@@ -70,6 +70,11 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [steps, setSteps] = useState<{ messageTemplate: string; delayHours: number }[]>([]);
   const [stopOnBooking, setStopOnBooking] = useState(false);
   const [generatingStep, setGeneratingStep] = useState<number | null>(null);
+  // A/B test state (Phase 4). Mutually exclusive with sequences.
+  const [useAbTest, setUseAbTest] = useState(false);
+  const [variantB, setVariantB] = useState("");
+  const [generatingB, setGeneratingB] = useState(false);
+  const [abResults, setAbResults] = useState<AbResults | null>(null);
 
   useEffect(() => {
     if (rule) {
@@ -88,8 +93,33 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       setUseSequence(hasSteps);
       setSteps(hasSteps ? rule.steps!.map((s) => ({ ...s })) : []);
       setStopOnBooking(rule.stopOnBooking ?? false);
+      setUseAbTest(!!rule.variantB);
+      setVariantB(rule.variantB || "");
+      // Load A/B results for an existing A/B rule.
+      if (rule.variantB) {
+        getAutoMessageAbResults(rule.id).then(setAbResults).catch(() => setAbResults(null));
+      }
     }
   }, [rule]);
+
+  const generateB = async () => {
+    setGeneratingB(true);
+    try {
+      const { messageTemplate: text } = await generateAutoMessageContent({
+        triggerType,
+        eventType: triggerType === "event" ? eventType : undefined,
+        targetAudience,
+        name: name || undefined,
+        prompt: "This is variant B of an A/B test — write a distinctly different angle from variant A.",
+      });
+      setVariantB(text);
+      toast.success("AI drafted variant B");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Couldn't generate — please try again");
+    } finally {
+      setGeneratingB(false);
+    }
+  };
 
   const addStep = () =>
     setSteps((p) => [...p, { messageTemplate: "", delayHours: p.length === 0 ? 0 : 24 }]);
@@ -151,6 +181,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
   // Sequences are event-triggered only (enrollment is wired into the event path).
   const sequenceMode = useSequence && triggerType === "event";
+  // A/B works on any single-message rule; can't combine with a sequence.
+  const abMode = useAbTest && !sequenceMode;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,6 +223,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         // Send the sequence (or clear it when not in sequence mode).
         steps: sequenceMode ? cleanSteps : null,
         stopOnBooking: sequenceMode ? stopOnBooking : false,
+        // A/B variant B (or clear it) — never alongside a sequence.
+        variantB: abMode ? (variantB.trim() || null) : null,
       };
       await onSave(data);
     } finally {
@@ -388,23 +422,42 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             <p className="text-xs text-gray-500 mt-1">How many times this rule can message the same customer</p>
           </div>
 
-          {/* Multi-step sequence toggle (event triggers only — enrollment is event-driven) */}
-          {triggerType === "event" && (
-            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={useSequence}
-                onChange={(e) => {
-                  setUseSequence(e.target.checked);
-                  if (e.target.checked && steps.length === 0) {
-                    setSteps([{ messageTemplate: messageTemplate || "", delayHours: 0 }]);
-                  }
-                }}
-                className="accent-[#FFCC00]"
-              />
-              Multi-step sequence (drip) — send several messages over time
-            </label>
-          )}
+          {/* Advanced-mode toggles: a rule is a single message, OR a drip sequence, OR an A/B test. */}
+          <div className="flex flex-col gap-1.5">
+            {/* Multi-step sequence toggle (event triggers only — enrollment is event-driven) */}
+            {triggerType === "event" && (
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useSequence}
+                  onChange={(e) => {
+                    setUseSequence(e.target.checked);
+                    if (e.target.checked) {
+                      setUseAbTest(false); // sequence + A/B are mutually exclusive
+                      if (steps.length === 0) setSteps([{ messageTemplate: messageTemplate || "", delayHours: 0 }]);
+                    }
+                  }}
+                  className="accent-[#FFCC00]"
+                />
+                Multi-step sequence (drip) — send several messages over time
+              </label>
+            )}
+            {/* A/B test toggle (any single-message rule) */}
+            {!sequenceMode && (
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useAbTest}
+                  onChange={(e) => {
+                    setUseAbTest(e.target.checked);
+                    if (e.target.checked) setUseSequence(false);
+                  }}
+                  className="accent-[#FFCC00]"
+                />
+                A/B test — send two versions and compare which books more
+              </label>
+            )}
+          </div>
 
           {sequenceMode ? (
             /* Sequence steps editor */
@@ -471,10 +524,10 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               </p>
             </div>
           ) : (
-            /* Single Message Template */
+            /* Single Message Template (= Variant A when A/B is on) */
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm text-gray-400">Message Template</label>
+                <label className="block text-sm text-gray-400">{abMode ? "Message — Variant A" : "Message Template"}</label>
                 <button
                   type="button"
                   onClick={handleGenerate}
@@ -510,6 +563,47 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* A/B Variant B editor + results (single-message A/B rules) */}
+          {abMode && (
+            <div className="space-y-2 rounded-lg border border-gray-700 bg-[#0D0D0D] p-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm text-gray-400">Message — Variant B</label>
+                <button
+                  type="button"
+                  onClick={generateB}
+                  disabled={generatingB}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-[#FFCC00] text-black hover:bg-[#e6b800] disabled:opacity-50"
+                >
+                  {generatingB ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                  {generatingB ? "Generating…" : "Generate with AI"}
+                </button>
+              </div>
+              <textarea
+                value={variantB}
+                onChange={(e) => setVariantB(e.target.value)}
+                placeholder="A different angle from Variant A…"
+                rows={4}
+                maxLength={2000}
+                className="w-full px-3 py-2 bg-[#111] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none resize-none"
+              />
+              <p className="text-xs text-gray-500">{variantB.length}/2000 · Each send is split 50/50 between A and B.</p>
+              {abResults && abResults.results.length > 0 && (
+                <div className="mt-1 border-t border-gray-800 pt-2">
+                  <p className="text-xs text-gray-400 mb-1">Results so far (booked within 7 days of send):</p>
+                  {abResults.results.map((r) => (
+                    <div key={r.variant} className="flex justify-between text-xs text-gray-300">
+                      <span>Variant {r.variant}</span>
+                      <span>
+                        {r.sends} sent · {r.conversions} booked ({r.sends ? Math.round((r.conversions / r.sends) * 100) : 0}%)
+                      </span>
+                    </div>
+                  ))}
+                  <p className="text-[11px] text-gray-500 mt-1">An indicator, not proof — bookings may have other causes.</p>
+                </div>
+              )}
             </div>
           )}
 

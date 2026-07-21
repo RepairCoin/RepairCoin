@@ -315,4 +315,11 @@ router.patch('/auto-messages/:id/toggle', autoMessageGuard, autoMessageControlle
  */
 router.get('/auto-messages/:id/history', autoMessageGuard, autoMessageController.getAutoMessageHistory);
 
+/**
+ * @route GET /api/messages/auto-messages/:id/ab-results
+ * @description A/B test results (per-variant sends + conversions) for a rule (AI Campaigns Advanced)
+ * @access Business-tier shop users
+ */
+router.get('/auto-messages/:id/ab-results', autoMessageGuard, autoMessageController.getAbResults);
+
 export default router;

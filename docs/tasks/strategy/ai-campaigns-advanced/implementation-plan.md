@@ -60,7 +60,22 @@ customers, AND slow weeks.
 - Verified: backend tsc 0; ai-agent + featureTiers tests green; FE files clean (211, under baseline); live
   against peanut — sequence persists, step 0 enqueues, advances (0→1), stop_on_booking persists.
 
-Further net-new: A/B testing (Phase 4), cross-channel send (Phase 5, waits on Twilio→Telnyx).
+**Phase 4 — A/B testing (BUILT 2026-07-21, migration 231):**
+- A single-message rule can carry a **variant B**; each send is split 50/50 between A (messageTemplate) and
+  B (variant_b), the choice recorded per send, and outcomes compared. Mutually exclusive with sequences.
+- Migration **231**: `shop_auto_messages.variant_b` TEXT; `auto_message_sends.variant` TEXT ('A'|'B').
+- `AutoMessageScheduler.pickVariant(rule)` → chosen message + label; used in `sendToCustomer` (immediate)
+  AND the pending-send processor (delayed single sends), recording the variant on each send.
+- Results: `AutoMessageRepository.getAbResults(ruleId)` — per-variant sends + **conversions = the customer
+  completed a booking within 7 days AFTER receiving that variant** (an *indicator*, not proof; labeled as
+  such in the UI). `GET /api/messages/auto-messages/:id/ab-results`.
+- Controller: `variantB` in create/update, ≤2000 chars, rejected alongside `steps` (sequence OR A/B).
+  Frontend: an "A/B test" toggle (mutually exclusive with the sequence toggle) → Variant A/B editors, AI
+  draft for B, and a results readout ("X sent · Y booked (Z%)") when editing.
+- Verified: backend tsc 0; ai-agent + featureTiers tests green; FE files clean (211); live vs peanut
+  (variantB persists, variant-tagged sends aggregate per variant, conversions computed).
+
+Further net-new: cross-channel send (Phase 5, waits on Twilio→Telnyx).
 
 ---
 

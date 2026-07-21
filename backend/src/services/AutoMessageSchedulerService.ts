@@ -178,6 +178,18 @@ export class AutoMessageSchedulerService {
   /**
    * Send auto-message to a single customer
    */
+  /**
+   * A/B variant pick (Phase 4). If the rule has a variant B, 50/50 between A (messageTemplate) and B;
+   * returns the chosen message + label so the send can be attributed. No variant B → variant null.
+   */
+  private pickVariant(rule: AutoMessage): { message: string; variant: string | null } {
+    if (rule.variantB && rule.variantB.trim()) {
+      const isA = Math.random() < 0.5;
+      return { message: isA ? rule.messageTemplate : rule.variantB, variant: isA ? 'A' : 'B' };
+    }
+    return { message: rule.messageTemplate, variant: null };
+  }
+
   private async sendToCustomer(
     rule: AutoMessage,
     customer: { walletAddress: string; name?: string; rcnBalance?: number; lastServiceName?: string; lastVisitDate?: string },
@@ -208,8 +220,11 @@ export class AutoMessageSchedulerService {
         return { success: false };
       }
 
+      // A/B: pick a variant (if any) so the send can be attributed.
+      const { message: variantMessage, variant } = this.pickVariant(rule);
+
       // Resolve template variables
-      const messageText = resolveTemplate(rule.messageTemplate, {
+      const messageText = resolveTemplate(variantMessage, {
         customerName: customer.name,
         rcnBalance: customer.rcnBalance,
         shopName,
@@ -248,6 +263,7 @@ export class AutoMessageSchedulerService {
         conversationId: conversation.conversationId,
         messageId: message.messageId,
         status: 'sent',
+        variant,
       });
 
       return { success: true, messageId: message.messageId, conversationId: conversation.conversationId };
@@ -703,10 +719,12 @@ export class AutoMessageSchedulerService {
                 continue;
               }
 
-              const messageText = resolveTemplate(step ? step.messageTemplate : rule.messageTemplate, {
-                customerName: customer?.name || undefined,
-                shopName,
-              });
+              // A/B on delayed single-message sends: pick a variant at send time (sequence steps skip A/B).
+              const abPick = isSequenceStep ? null : this.pickVariant(rule);
+              const messageText = resolveTemplate(
+                step ? step.messageTemplate : (abPick ? abPick.message : rule.messageTemplate),
+                { customerName: customer?.name || undefined, shopName }
+              );
 
               const messageId = `msg_${uuidv4()}`;
               const { message } = await this.messageRepo.createMessage({
@@ -724,7 +742,7 @@ export class AutoMessageSchedulerService {
               });
 
               await this.messageRepo.incrementUnreadCount(conversation.conversationId, 'customer', messageText);
-              await this.autoMessageRepo.updateSendStatus(send.id, 'sent', message.messageId, conversation.conversationId);
+              await this.autoMessageRepo.updateSendStatus(send.id, 'sent', message.messageId, conversation.conversationId, abPick?.variant ?? null);
               result.messagesSent++;
 
               // Sequence: enqueue the next step (if any) after this one fired.

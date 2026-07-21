@@ -328,6 +328,7 @@ export interface AutoMessage {
   maxSendsPerCustomer: number;
   steps: SequenceStep[] | null;
   stopOnBooking: boolean;
+  variantB: string | null;
   createdAt: string;
   updatedAt: string;
   totalSends?: number;
@@ -361,6 +362,7 @@ export interface CreateAutoMessageRequest {
   maxSendsPerCustomer?: number;
   steps?: SequenceStep[] | null;
   stopOnBooking?: boolean;
+  variantB?: string | null;
 }
 
 export interface UpdateAutoMessageRequest {
@@ -377,6 +379,7 @@ export interface UpdateAutoMessageRequest {
   maxSendsPerCustomer?: number;
   steps?: SequenceStep[] | null;
   stopOnBooking?: boolean;
+  variantB?: string | null;
 }
 
 /**
@@ -415,6 +418,17 @@ export const deleteAutoMessage = async (id: string): Promise<void> => {
  */
 export const toggleAutoMessage = async (id: string): Promise<AutoMessage> => {
   const response = await apiClient.patch(`/messages/auto-messages/${id}/toggle`);
+  return response.data;
+};
+
+export interface AbResults {
+  enabled: boolean;
+  results: { variant: string; sends: number; conversions: number }[];
+}
+
+/** A/B test results (per-variant sends + conversions) for a rule (AI Campaigns Advanced). */
+export const getAutoMessageAbResults = async (id: string): Promise<AbResults> => {
+  const response = await apiClient.get(`/messages/auto-messages/${id}/ab-results`);
   return response.data;
 };
 
