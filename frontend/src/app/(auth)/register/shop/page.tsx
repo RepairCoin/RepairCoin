@@ -6,7 +6,7 @@ import { ConnectButton } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { Building2 } from "lucide-react";
 import { useShopRegistration } from '@/hooks/useShopRegistration';
-import { ShopRegistrationForm } from '@/components/shop/ShopRegistrationForm';
+import { ShopRegistrationWizard } from '@/components/shop/ShopRegistrationWizard';
 import { useRecaptcha } from '@/hooks/useRecaptcha';
 import { agencyApi } from '@/services/api/agency';
 
@@ -50,10 +50,10 @@ export default function ShopRegistration() {
   // Show loading state while checking application
   if (checkingApplication) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <div className="flex min-h-screen items-center justify-center bg-[#191919] p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Checking registration status...</p>
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-[#FFCC00]"></div>
+          <p className="mt-4 text-[#999999]">Checking registration status...</p>
         </div>
       </div>
     );
@@ -62,33 +62,25 @@ export default function ShopRegistration() {
   // Show existing application status
   if (existingApplication.hasApplication) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-          <div className="mb-6">
-            {existingApplication.status === "verified" ? (
-              <div className="text-6xl">✅</div>
-            ) : (
-              <div className="text-6xl">⏳</div>
-            )}
-          </div>
-          
-          <h2 className="text-2xl font-bold mb-4">
-            {existingApplication.status === "verified" 
-              ? "Shop Already Verified" 
+      <div className="flex min-h-screen items-center justify-center bg-[#191919] p-4">
+        <div className="w-full max-w-md rounded-2xl bg-[linear-gradient(90deg,#000000_0%,#1D1D1D_100%)] p-8 text-center shadow-xl">
+          <h2 className="mb-4 text-2xl font-bold text-white">
+            {existingApplication.status === "verified"
+              ? "Shop Already Verified"
               : "Application Pending"}
           </h2>
-          
-          <p className="text-gray-600 mb-6">
-            {existingApplication.status === "verified" 
+
+          <p className="mb-6 text-[#999999]">
+            {existingApplication.status === "verified"
               ? `Your shop "${existingApplication.shopName}" (ID: ${existingApplication.shopId}) is already verified and active.`
               : `Your application for "${existingApplication.shopName}" (ID: ${existingApplication.shopId}) is currently under review.`}
           </p>
-          
+
           <button
             onClick={() => router.push('/shop')}
-            className="bg-[#FFCC00] text-black px-6 py-3 rounded-full font-semibold hover:bg-yellow-500 transition"
+            className="h-12 w-full cursor-pointer rounded-md bg-[#FFCC00] text-base font-medium text-black transition-colors hover:bg-[#E5BB00]"
           >
-            Go to Dashboard
+            Go to Dashboard →
           </button>
         </div>
       </div>
@@ -97,35 +89,24 @@ export default function ShopRegistration() {
 
   // Main registration form
   return (
-    <div
-      className="min-h-screen pb-10 pt-36 bg-[#0D0D0D]"
-      style={{
-        backgroundImage: `url('/img/dashboard-bg.png')`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        {/* Header */}
-        <div className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden mb-12">
-          <img src="/img/cus-reg-banner.png" alt="" className="w-full h-full" />
-        </div>
-
+    <div className="min-h-screen bg-[#191919] pb-24 pt-28 md:pt-32">
+      <div className="mx-auto w-full max-w-[1100px] px-6">
         {/* Wallet Connection Check */}
         {!account ? (
-          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-            <div className="text-6xl mb-6">🔗</div>
-            <h2 className="text-2xl font-bold mb-4">Connect Your Wallet</h2>
-            <p className="text-gray-600 mb-6">
+          <div className="mx-auto max-w-md rounded-2xl bg-[linear-gradient(90deg,#000000_0%,#1D1D1D_100%)] p-8 text-center shadow-xl">
+            <h2 className="mb-4 text-2xl font-bold text-white">
+              Connect Your Wallet
+            </h2>
+            <p className="mb-6 text-[#999999]">
               Please connect your shop wallet to begin registration
             </p>
-            <ConnectButton
-              client={client}
-              theme="light"
-              connectModal={{ size: "wide" }}
-            />
+            <div className="flex justify-center">
+              <ConnectButton
+                client={client}
+                theme="dark"
+                connectModal={{ size: "wide" }}
+              />
+            </div>
           </div>
         ) : (
           <>
@@ -139,7 +120,7 @@ export default function ShopRegistration() {
               </div>
             )}
             {/* Registration Form */}
-            <ShopRegistrationForm
+            <ShopRegistrationWizard
               formData={formData}
               loading={loading}
               onSubmit={async (e) => {

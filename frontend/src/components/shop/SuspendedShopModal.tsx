@@ -223,7 +223,7 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
                 <ul className="space-y-2 text-sm text-gray-300">
                   <li className="flex items-start gap-2">
                     <span className="text-blue-400 mt-1">•</span>
-                    <span>Go to Settings → Subscription tab</span>
+                    <span>Open the subscription page using the button below</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-blue-400 mt-1">•</span>
@@ -398,8 +398,8 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
             <button
               onClick={() => {
                 onClose();
-                // Navigate to settings tab
-                window.location.href = '/shop?tab=settings';
+                // Go straight to the subscription page, not the settings tab.
+                window.location.href = '/shop/subscription-form';
               }}
               className="px-6 py-2 bg-[#FFCC00] hover:bg-[#FFCC00]/90 text-black font-semibold rounded-xl transition-colors"
             >

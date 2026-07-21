@@ -49,7 +49,7 @@ export const ADDON_REGISTRY: AddonDef[] = [
     priceLabel: '0.5–1% / transaction',
     category: 'payments',
     activationType: 'onboarding',
-    manageLink: '/shop?tab=wallet-payouts',
+    manageLink: '/register/shop/payouts',
     ctaLabel: 'Connect Stripe',
   },
   {

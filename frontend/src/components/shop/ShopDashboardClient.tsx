@@ -12,6 +12,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { SHOP_TAB_PERMISSIONS } from "@/config/shopTabPermissions";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import TrialBanner from "./TrialBanner";
+import PayoutSetupBanner from "./PayoutSetupBanner";
 import ThirdwebPayment from "../ThirdwebPayment";
 import "@/styles/animations.css";
 import { toast } from "react-hot-toast";
@@ -70,6 +71,7 @@ import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
 import { TierGate } from "@/components/shop/TierGate";
 import { refreshFeatureAccess } from "@/hooks/useFeatureAccess";
 import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
+import { StripeConnectGuard } from "@/components/shop/StripeConnectGuard";
 import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
 import { CoinsIcon } from 'lucide-react';
 import SuccessModal from "@/components/modals/SuccessModal";
@@ -1439,6 +1441,11 @@ export default function ShopDashboardClient() {
               not on the subscription tab where the full trial card already shows). */}
           {!isMessagesTab && activeTab !== "subscription" && <TrialBanner />}
 
+          {/* Nudge to finish Stripe payout onboarding — shown until the shop's
+              Connect account has charges enabled. Hidden on messages to preserve
+              the chat viewport, same as the other banners. */}
+          {!isMessagesTab && <PayoutSetupBanner />}
+
           {/* Warning Banner for Non-Operational Shops.
               Hidden on messages tab — same call as customer-side alert
               banners. The shop owner sees this on every other tab they
@@ -1547,7 +1554,9 @@ export default function ShopDashboardClient() {
 
           {activeTab === "services" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <ServicesTab shopId={shopData.shopId} shopData={shopData} />
+              <StripeConnectGuard feature="service management" shopData={shopData}>
+                <ServicesTab shopId={shopData.shopId} shopData={shopData} />
+              </StripeConnectGuard>
             </SubscriptionGuard>
           )}
 
@@ -1585,14 +1594,16 @@ export default function ShopDashboardClient() {
 
           {activeTab === "bookings" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <div className="flex justify-end mb-4">
-                <LocationSwitcher />
-              </div>
-              <BookingsTabV2
-                shopId={shopData.shopId}
-                isBlocked={isBlocked}
-                blockReason={getBlockReason()}
-              />
+              <StripeConnectGuard feature="bookings" shopData={shopData}>
+                <div className="flex justify-end mb-4">
+                  <LocationSwitcher />
+                </div>
+                <BookingsTabV2
+                  shopId={shopData.shopId}
+                  isBlocked={isBlocked}
+                  blockReason={getBlockReason()}
+                />
+              </StripeConnectGuard>
             </SubscriptionGuard>
           )}
 
