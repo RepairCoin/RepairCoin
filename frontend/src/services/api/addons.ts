@@ -44,7 +44,7 @@ export async function resolveAddonStatuses(): Promise<AddonStatusMap> {
   }
 
   try {
-    // GET /agency/me 404s when the shop hasn't activated the add-on → stays 'off' (activatable).
+    // GET /agency/me returns { agency: null } when the shop hasn't activated the add-on → 'off'.
     const me: any = await agencyApi.getMe();
     const st = me?.data?.agency?.status;
     map.agency =
