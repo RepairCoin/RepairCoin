@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Loader2, Zap, Calendar } from "lucide-react";
+import { X, Loader2, Zap, Calendar, Plus, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AutoMessage, CreateAutoMessageRequest, UpdateAutoMessageRequest } from "@/services/api/messaging";
 import { generateAutoMessageContent } from "@/services/api/messaging";
@@ -65,6 +65,11 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [delayHours, setDelayHours] = useState(24);
   const [targetAudience, setTargetAudience] = useState("all");
   const [maxSendsPerCustomer, setMaxSendsPerCustomer] = useState(1);
+  // Drip sequence (multi-step) state. Sequences are event-triggered only.
+  const [useSequence, setUseSequence] = useState(false);
+  const [steps, setSteps] = useState<{ messageTemplate: string; delayHours: number }[]>([]);
+  const [stopOnBooking, setStopOnBooking] = useState(false);
+  const [generatingStep, setGeneratingStep] = useState<number | null>(null);
 
   useEffect(() => {
     if (rule) {
@@ -79,8 +84,37 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       setDelayHours(rule.delayHours);
       setTargetAudience(rule.targetAudience);
       setMaxSendsPerCustomer(rule.maxSendsPerCustomer);
+      const hasSteps = !!rule.steps && rule.steps.length > 0;
+      setUseSequence(hasSteps);
+      setSteps(hasSteps ? rule.steps!.map((s) => ({ ...s })) : []);
+      setStopOnBooking(rule.stopOnBooking ?? false);
     }
   }, [rule]);
+
+  const addStep = () =>
+    setSteps((p) => [...p, { messageTemplate: "", delayHours: p.length === 0 ? 0 : 24 }]);
+  const removeStep = (i: number) => setSteps((p) => p.filter((_, idx) => idx !== i));
+  const updateStep = (i: number, patch: Partial<{ messageTemplate: string; delayHours: number }>) =>
+    setSteps((p) => p.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+
+  const generateStep = async (i: number) => {
+    setGeneratingStep(i);
+    try {
+      const { messageTemplate: text } = await generateAutoMessageContent({
+        triggerType,
+        eventType: triggerType === "event" ? eventType : undefined,
+        targetAudience,
+        name: name || undefined,
+        prompt: `This is step ${i + 1} of a multi-step sequence. Keep it distinct from earlier steps.`,
+      });
+      updateStep(i, { messageTemplate: text });
+      toast.success(`AI drafted step ${i + 1}`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Couldn't generate — please try again");
+    } finally {
+      setGeneratingStep(null);
+    }
+  };
 
   const insertVariable = (variable: string) => {
     setMessageTemplate((prev) => prev + variable);
@@ -115,15 +149,32 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       .replace(/\{\{lastVisitDate\}\}/g, "Mar 1, 2026");
   };
 
+  // Sequences are event-triggered only (enrollment is wired into the event path).
+  const sequenceMode = useSequence && triggerType === "event";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !messageTemplate.trim()) return;
+    if (!name.trim()) return;
+
+    let cleanSteps: { messageTemplate: string; delayHours: number }[] = [];
+    if (sequenceMode) {
+      cleanSteps = steps
+        .map((s) => ({ messageTemplate: s.messageTemplate.trim(), delayHours: Number(s.delayHours) || 0 }))
+        .filter((s) => s.messageTemplate);
+      if (cleanSteps.length === 0) {
+        toast.error("Add at least one step with a message");
+        return;
+      }
+    } else if (!messageTemplate.trim()) {
+      return;
+    }
 
     setSaving(true);
     try {
       const data: CreateAutoMessageRequest = {
         name: name.trim(),
-        messageTemplate: messageTemplate.trim(),
+        // messageTemplate is required by the API; in a sequence it mirrors the first step.
+        messageTemplate: sequenceMode ? cleanSteps[0].messageTemplate : messageTemplate.trim(),
         triggerType,
         ...(triggerType === "schedule" && {
           scheduleType,
@@ -137,6 +188,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         }),
         targetAudience,
         maxSendsPerCustomer,
+        // Send the sequence (or clear it when not in sequence mode).
+        steps: sequenceMode ? cleanSteps : null,
+        stopOnBooking: sequenceMode ? stopOnBooking : false,
       };
       await onSave(data);
     } finally {
@@ -334,49 +388,133 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             <p className="text-xs text-gray-500 mt-1">How many times this rule can message the same customer</p>
           </div>
 
-          {/* Message Template */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm text-gray-400">Message Template</label>
+          {/* Multi-step sequence toggle (event triggers only — enrollment is event-driven) */}
+          {triggerType === "event" && (
+            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useSequence}
+                onChange={(e) => {
+                  setUseSequence(e.target.checked);
+                  if (e.target.checked && steps.length === 0) {
+                    setSteps([{ messageTemplate: messageTemplate || "", delayHours: 0 }]);
+                  }
+                }}
+                className="accent-[#FFCC00]"
+              />
+              Multi-step sequence (drip) — send several messages over time
+            </label>
+          )}
+
+          {sequenceMode ? (
+            /* Sequence steps editor */
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm text-gray-400">Sequence steps</label>
+                <span className="text-xs text-gray-500">Sent in order, each after its wait</span>
+              </div>
+              {steps.map((s, i) => (
+                <div key={i} className="rounded-lg border border-gray-700 bg-[#0D0D0D] p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#FFCC00]">Step {i + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => generateStep(i)}
+                        disabled={generatingStep === i}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-[#FFCC00] text-black hover:bg-[#e6b800] disabled:opacity-50"
+                      >
+                        {generatingStep === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                        AI
+                      </button>
+                      {steps.length > 1 && (
+                        <button type="button" onClick={() => removeStep(i)} className="text-gray-500 hover:text-red-400" aria-label="Remove step">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <textarea
+                    value={s.messageTemplate}
+                    onChange={(e) => updateStep(i, { messageTemplate: e.target.value })}
+                    placeholder="Hi {{customerName}}! ..."
+                    rows={3}
+                    maxLength={2000}
+                    className="w-full px-3 py-2 bg-[#111] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none resize-none"
+                  />
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <span>Wait</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={s.delayHours}
+                      onChange={(e) => updateStep(i, { delayHours: Math.max(0, parseInt(e.target.value) || 0) })}
+                      className="w-20 px-2 py-1 bg-[#111] border border-gray-700 rounded text-white focus:border-[#FFCC00] focus:outline-none"
+                    />
+                    <span>hours {i === 0 ? "after the trigger" : "after the previous step"}</span>
+                  </div>
+                </div>
+              ))}
               <button
                 type="button"
-                onClick={handleGenerate}
-                disabled={generating}
-                title="Let AI draft this message from the trigger + audience above"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-[#FFCC00] text-black hover:bg-[#e6b800] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onClick={addStep}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors"
               >
-                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                {generating ? "Generating…" : "Generate with AI"}
+                <Plus className="w-4 h-4" /> Add step
               </button>
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input type="checkbox" checked={stopOnBooking} onChange={(e) => setStopOnBooking(e.target.checked)} className="accent-[#FFCC00]" />
+                Stop the sequence if the customer books
+              </label>
+              <p className="text-xs text-gray-500">
+                Available placeholders: {TEMPLATE_VARIABLES.map((v) => v.key).join(", ")}
+              </p>
             </div>
-            <textarea
-              value={messageTemplate}
-              onChange={(e) => setMessageTemplate(e.target.value)}
-              placeholder="Hi {{customerName}}! ..."
-              rows={4}
-              maxLength={2000}
-              className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none resize-none"
-            />
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-gray-500">{messageTemplate.length}/2000</p>
-            </div>
-            {/* Variable Buttons */}
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {TEMPLATE_VARIABLES.map((v) => (
+          ) : (
+            /* Single Message Template */
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm text-gray-400">Message Template</label>
                 <button
-                  key={v.key}
                   type="button"
-                  onClick={() => insertVariable(v.key)}
-                  className="px-2 py-1 text-xs bg-[#0D0D0D] border border-gray-700 rounded text-gray-400 hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors"
+                  onClick={handleGenerate}
+                  disabled={generating}
+                  title="Let AI draft this message from the trigger + audience above"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-[#FFCC00] text-black hover:bg-[#e6b800] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {v.label}
+                  {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                  {generating ? "Generating…" : "Generate with AI"}
                 </button>
-              ))}
+              </div>
+              <textarea
+                value={messageTemplate}
+                onChange={(e) => setMessageTemplate(e.target.value)}
+                placeholder="Hi {{customerName}}! ..."
+                rows={4}
+                maxLength={2000}
+                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none resize-none"
+              />
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-gray-500">{messageTemplate.length}/2000</p>
+              </div>
+              {/* Variable Buttons */}
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {TEMPLATE_VARIABLES.map((v) => (
+                  <button
+                    key={v.key}
+                    type="button"
+                    onClick={() => insertVariable(v.key)}
+                    className="px-2 py-1 text-xs bg-[#0D0D0D] border border-gray-700 rounded text-gray-400 hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors"
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Preview */}
-          {messageTemplate.trim() && (
+          {/* Preview (single-message mode only; the sequence editor shows each step inline) */}
+          {!sequenceMode && messageTemplate.trim() && (
             <div className="p-3 bg-[#0D0D0D] border border-gray-800 rounded-lg">
               <p className="text-xs text-gray-500 mb-1">Preview (sample data):</p>
               <p className="text-sm text-white">{resolvePreview(messageTemplate)}</p>

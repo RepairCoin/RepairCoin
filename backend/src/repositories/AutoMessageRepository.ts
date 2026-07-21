@@ -2,6 +2,12 @@
 import { BaseRepository } from './BaseRepository';
 import { logger } from '../utils/logger';
 
+/** One step of a drip sequence (Phase 3). Each step is sent `delayHours` after the previous one fires. */
+export interface SequenceStep {
+  messageTemplate: string;
+  delayHours: number;
+}
+
 export interface AutoMessage {
   id: string;
   shopId: string;
@@ -17,6 +23,10 @@ export interface AutoMessage {
   targetAudience: string;
   isActive: boolean;
   maxSendsPerCustomer: number;
+  /** Drip sequence steps (Phase 3). null/empty = single-message rule (messageTemplate). */
+  steps: SequenceStep[] | null;
+  /** Exit condition: skip remaining sequence steps once the customer books. */
+  stopOnBooking: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +42,8 @@ export interface AutoMessageSend {
   status: 'pending' | 'sent' | 'failed';
   scheduledSendAt: string | null;
   sentAt: string;
+  /** Which drip-sequence step this send is for (null = legacy single-message send). */
+  stepIndex: number | null;
 }
 
 export interface CreateAutoMessageParams {
@@ -47,6 +59,8 @@ export interface CreateAutoMessageParams {
   delayHours?: number;
   targetAudience?: string;
   maxSendsPerCustomer?: number;
+  steps?: SequenceStep[] | null;
+  stopOnBooking?: boolean;
 }
 
 export interface UpdateAutoMessageParams {
@@ -61,6 +75,8 @@ export interface UpdateAutoMessageParams {
   delayHours?: number;
   targetAudience?: string;
   maxSendsPerCustomer?: number;
+  steps?: SequenceStep[] | null;
+  stopOnBooking?: boolean;
 }
 
 export class AutoMessageRepository extends BaseRepository {
@@ -115,8 +131,9 @@ export class AutoMessageRepository extends BaseRepository {
         INSERT INTO shop_auto_messages (
           shop_id, name, message_template, trigger_type,
           schedule_type, schedule_day_of_week, schedule_day_of_month, schedule_hour,
-          event_type, delay_hours, target_audience, max_sends_per_customer
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          event_type, delay_hours, target_audience, max_sends_per_customer,
+          steps, stop_on_booking
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `;
       const result = await this.pool.query(query, [
@@ -132,6 +149,8 @@ export class AutoMessageRepository extends BaseRepository {
         params.delayHours ?? 0,
         params.targetAudience || 'all',
         params.maxSendsPerCustomer ?? 1,
+        params.steps && params.steps.length ? JSON.stringify(params.steps) : null,
+        params.stopOnBooking ?? false,
       ]);
       logger.info('Auto-message rule created', { shopId: params.shopId, name: params.name });
       return this.mapRow(result.rows[0]);
@@ -162,6 +181,9 @@ export class AutoMessageRepository extends BaseRepository {
         ['delay_hours', params.delayHours],
         ['target_audience', params.targetAudience],
         ['max_sends_per_customer', params.maxSendsPerCustomer],
+        // steps is JSONB — stringify a provided array; explicit null clears the sequence.
+        ['steps', params.steps === undefined ? undefined : (params.steps && params.steps.length ? JSON.stringify(params.steps) : null)],
+        ['stop_on_booking', params.stopOnBooking],
       ];
 
       for (const [column, value] of fields) {
@@ -291,13 +313,14 @@ export class AutoMessageRepository extends BaseRepository {
     triggerReference?: string;
     status?: 'pending' | 'sent' | 'failed';
     scheduledSendAt?: Date;
+    stepIndex?: number | null;
   }): Promise<AutoMessageSend> {
     try {
       const query = `
         INSERT INTO auto_message_sends (
           auto_message_id, shop_id, customer_address, conversation_id,
-          message_id, trigger_reference, status, scheduled_send_at, sent_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          message_id, trigger_reference, status, scheduled_send_at, sent_at, step_index
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       `;
       const result = await this.pool.query(query, [
@@ -310,6 +333,7 @@ export class AutoMessageRepository extends BaseRepository {
         params.status || 'sent',
         params.scheduledSendAt || null,
         params.status === 'pending' ? null : new Date(),
+        params.stepIndex ?? null,
       ]);
       return this.mapSendRow(result.rows[0]);
     } catch (error) {
@@ -494,6 +518,9 @@ export class AutoMessageRepository extends BaseRepository {
       targetAudience: row.target_audience,
       isActive: row.is_active,
       maxSendsPerCustomer: row.max_sends_per_customer,
+      // steps is JSONB → node-pg returns it already parsed (array) or null.
+      steps: Array.isArray(row.steps) ? row.steps : null,
+      stopOnBooking: row.stop_on_booking === true,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       totalSends: row.total_sends ? parseInt(row.total_sends, 10) : undefined,
@@ -513,6 +540,7 @@ export class AutoMessageRepository extends BaseRepository {
       status: row.status,
       scheduledSendAt: row.scheduled_send_at,
       sentAt: row.sent_at,
+      stepIndex: row.step_index === null || row.step_index === undefined ? null : Number(row.step_index),
     };
   }
 }

@@ -314,6 +314,27 @@ export class AutoMessageSchedulerService {
             }
           }
 
+          // Drip sequence (Phase 3): enrol the customer by enqueuing step 0 as a pending send. Firing a
+          // step enqueues the next (see the pending-send processor), so the whole sequence runs off the
+          // existing queue. A rule with no steps falls through to the single-message behavior below.
+          if (rule.steps && rule.steps.length > 0) {
+            const step0 = rule.steps[0];
+            const seqAt = new Date();
+            seqAt.setHours(seqAt.getHours() + (step0.delayHours || 0));
+            await this.autoMessageRepo.recordSend({
+              autoMessageId: rule.id,
+              shopId: data.shopId,
+              customerAddress: data.customerAddress,
+              triggerReference: data.orderId || undefined,
+              status: 'pending',
+              scheduledSendAt: seqAt,
+              stepIndex: 0,
+            });
+            scheduledCount++;
+            logger.info(`Enrolled ${data.customerAddress} in sequence "${rule.name}" (step 1 at ${seqAt.toISOString()})`, { ruleId: rule.id });
+            continue;
+          }
+
           // Calculate when to send
           const scheduledSendAt = new Date();
           scheduledSendAt.setHours(scheduledSendAt.getHours() + (rule.delayHours || 0));
@@ -438,6 +459,35 @@ export class AutoMessageSchedulerService {
     }
 
     return { rulesFired, messagesSent };
+  }
+
+  /**
+   * Drip stop-on-booking exit check (Phase 3): has the customer completed a booking at this shop SINCE
+   * enrolling in the sequence? Enrollment time ≈ the earliest (step-0) pending send for this rule+customer.
+   */
+  private async bookedSinceEnrollment(ruleId: string, customerAddress: string, shopId: string): Promise<boolean> {
+    try {
+      const pool = getSharedPool();
+      const enroll = await pool.query(
+        `SELECT MIN(scheduled_send_at) AS enrolled_at
+           FROM auto_message_sends
+          WHERE auto_message_id = $1 AND LOWER(customer_address) = LOWER($2) AND step_index = 0`,
+        [ruleId, customerAddress]
+      );
+      const enrolledAt = enroll.rows[0]?.enrolled_at;
+      if (!enrolledAt) return false;
+      const booked = await pool.query(
+        `SELECT 1 FROM service_orders
+          WHERE shop_id = $1 AND LOWER(customer_address) = LOWER($2)
+            AND status = 'completed' AND updated_at >= $3
+          LIMIT 1`,
+        [shopId, customerAddress, enrolledAt]
+      );
+      return booked.rows.length > 0;
+    } catch (error) {
+      logger.error('bookedSinceEnrollment check failed', { ruleId, error: (error as Error)?.message });
+      return false; // fail open — don't block the sequence on a check error
+    }
   }
 
   /**
@@ -627,13 +677,33 @@ export class AutoMessageSchedulerService {
               // Get customer info
               const customer = await this.customerRepo.getCustomer(send.customerAddress);
 
+              // Drip sequence step (Phase 3): resolve which step's message to send, honor stop-on-booking,
+              // and enqueue the next step after this one fires. A null step_index = legacy single message.
+              const isSequenceStep = send.stepIndex !== null && !!rule.steps && rule.steps.length > 0;
+              const step = isSequenceStep ? rule.steps![send.stepIndex as number] : null;
+              if (isSequenceStep && !step) {
+                // The step was removed from the rule since enrollment — end the sequence cleanly.
+                await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
+                continue;
+              }
+
+              // Exit condition: if the sequence is set to stop once the customer books, and they've
+              // completed a booking since enrolling, end the sequence without sending this step.
+              if (isSequenceStep && rule.stopOnBooking) {
+                if (await this.bookedSinceEnrollment(send.autoMessageId, send.customerAddress, send.shopId)) {
+                  await this.autoMessageRepo.updateSendStatus(send.id, 'sent'); // processed, no message, no next
+                  logger.info(`Sequence "${rule.name}" exited for ${send.customerAddress} — customer booked`, { ruleId: rule.id });
+                  continue;
+                }
+              }
+
               const conversation = await this.messageRepo.getOrCreateConversation(send.customerAddress, send.shopId);
               if (conversation.isBlocked) {
                 await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
                 continue;
               }
 
-              const messageText = resolveTemplate(rule.messageTemplate, {
+              const messageText = resolveTemplate(step ? step.messageTemplate : rule.messageTemplate, {
                 customerName: customer?.name || undefined,
                 shopName,
               });
@@ -656,6 +726,24 @@ export class AutoMessageSchedulerService {
               await this.messageRepo.incrementUnreadCount(conversation.conversationId, 'customer', messageText);
               await this.autoMessageRepo.updateSendStatus(send.id, 'sent', message.messageId, conversation.conversationId);
               result.messagesSent++;
+
+              // Sequence: enqueue the next step (if any) after this one fired.
+              if (isSequenceStep) {
+                const nextIndex = (send.stepIndex as number) + 1;
+                const nextStep = rule.steps![nextIndex];
+                if (nextStep) {
+                  const nextAt = new Date();
+                  nextAt.setHours(nextAt.getHours() + (nextStep.delayHours || 0));
+                  await this.autoMessageRepo.recordSend({
+                    autoMessageId: rule.id,
+                    shopId: send.shopId,
+                    customerAddress: send.customerAddress,
+                    status: 'pending',
+                    scheduledSendAt: nextAt,
+                    stepIndex: nextIndex,
+                  });
+                }
+              }
             } catch (error) {
               logger.error('Error processing pending send', { sendId: send.id, error });
               await this.autoMessageRepo.updateSendStatus(send.id, 'failed');

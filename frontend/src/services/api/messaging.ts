@@ -305,6 +305,12 @@ export const useQuickReply = async (id: string): Promise<void> => {
 
 // ============ Auto-Messages ============
 
+/** One step of a drip sequence: a message sent `delayHours` after the previous step fires. */
+export interface SequenceStep {
+  messageTemplate: string;
+  delayHours: number;
+}
+
 export interface AutoMessage {
   id: string;
   shopId: string;
@@ -320,6 +326,8 @@ export interface AutoMessage {
   targetAudience: string;
   isActive: boolean;
   maxSendsPerCustomer: number;
+  steps: SequenceStep[] | null;
+  stopOnBooking: boolean;
   createdAt: string;
   updatedAt: string;
   totalSends?: number;
@@ -351,6 +359,8 @@ export interface CreateAutoMessageRequest {
   delayHours?: number;
   targetAudience?: string;
   maxSendsPerCustomer?: number;
+  steps?: SequenceStep[] | null;
+  stopOnBooking?: boolean;
 }
 
 export interface UpdateAutoMessageRequest {
@@ -365,6 +375,8 @@ export interface UpdateAutoMessageRequest {
   delayHours?: number;
   targetAudience?: string;
   maxSendsPerCustomer?: number;
+  steps?: SequenceStep[] | null;
+  stopOnBooking?: boolean;
 }
 
 /**

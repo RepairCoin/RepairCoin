@@ -8,6 +8,26 @@ const VALID_TRIGGER_TYPES = ['schedule', 'event'];
 const VALID_SCHEDULE_TYPES = ['daily', 'weekly', 'monthly'];
 const VALID_EVENT_TYPES = ['booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days', 'low_bookings'];
 const VALID_TARGET_AUDIENCES = ['all', 'active', 'inactive_30d', 'has_balance', 'completed_booking'];
+const MAX_SEQUENCE_STEPS = 10;
+
+/** Validate + normalize drip-sequence steps. Returns { steps } on success or { error } for a 400.
+ *  null/undefined/[] → single-message rule (steps = undefined, no sequence). */
+function parseSteps(raw: unknown): { steps?: Array<{ messageTemplate: string; delayHours: number }>; error?: string } {
+  if (raw === undefined || raw === null) return { steps: undefined };
+  if (!Array.isArray(raw)) return { error: 'steps must be an array' };
+  if (raw.length === 0) return { steps: undefined };
+  if (raw.length > MAX_SEQUENCE_STEPS) return { error: `A sequence can have at most ${MAX_SEQUENCE_STEPS} steps` };
+  const steps: Array<{ messageTemplate: string; delayHours: number }> = [];
+  for (const s of raw as any[]) {
+    const msg = typeof s?.messageTemplate === 'string' ? s.messageTemplate.trim() : '';
+    if (!msg) return { error: 'each step needs a non-empty messageTemplate' };
+    if (msg.length > 2000) return { error: 'each step message must be 2000 characters or less' };
+    const delay = Number(s?.delayHours);
+    if (!Number.isFinite(delay) || delay < 0 || delay > 24 * 90) return { error: 'each step delayHours must be 0–2160' };
+    steps.push({ messageTemplate: msg, delayHours: Math.round(delay) });
+  }
+  return { steps };
+}
 
 export class AutoMessageController {
   private autoMessageRepo: AutoMessageRepository;
@@ -79,12 +99,15 @@ export class AutoMessageController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer } = req.body;
+      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking } = req.body;
 
       // Validation
       if (!name || !messageTemplate || !triggerType) {
         return res.status(400).json({ success: false, error: 'name, messageTemplate, and triggerType are required' });
       }
+
+      const { steps, error: stepsError } = parseSteps(rawSteps);
+      if (stepsError) return res.status(400).json({ success: false, error: stepsError });
 
       if (!VALID_TRIGGER_TYPES.includes(triggerType)) {
         return res.status(400).json({ success: false, error: `triggerType must be one of: ${VALID_TRIGGER_TYPES.join(', ')}` });
@@ -129,6 +152,8 @@ export class AutoMessageController {
         delayHours,
         targetAudience,
         maxSendsPerCustomer,
+        steps,
+        stopOnBooking: typeof stopOnBooking === 'boolean' ? stopOnBooking : undefined,
       });
 
       res.status(201).json({ success: true, data: rule });
@@ -153,11 +178,16 @@ export class AutoMessageController {
       }
 
       const { id } = req.params;
-      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer } = req.body;
+      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking } = req.body;
 
       if (messageTemplate && messageTemplate.length > 2000) {
         return res.status(400).json({ success: false, error: 'Message template must be 2000 characters or less' });
       }
+
+      // steps: undefined = not provided (leave as-is); null/[] = clear the sequence; array = replace it.
+      const { steps, error: stepsError } = parseSteps(rawSteps);
+      if (stepsError) return res.status(400).json({ success: false, error: stepsError });
+      const stepsUpdate = rawSteps === undefined ? undefined : (steps ?? null);
 
       if (triggerType && !VALID_TRIGGER_TYPES.includes(triggerType)) {
         return res.status(400).json({ success: false, error: `triggerType must be one of: ${VALID_TRIGGER_TYPES.join(', ')}` });
@@ -179,6 +209,8 @@ export class AutoMessageController {
         delayHours,
         targetAudience,
         maxSendsPerCustomer,
+        steps: stepsUpdate,
+        stopOnBooking: typeof stopOnBooking === 'boolean' ? stopOnBooking : undefined,
       });
 
       if (!rule) {

@@ -42,7 +42,25 @@ message content) DONE — see below. Grounded in a read-only code audit (below).
 
 **Phase 2 COMPLETE** (Slices A + B + C). The Business "AI Campaigns (Advanced)" is now a real feature: AI
 drafts the copy, it lives in the Marketing tab, and it fires autonomously on schedule/booking events, lapsed
-customers, AND slow weeks. Further net-new (A/B testing, drip sequences, cross-channel) = Phases 3–5.
+customers, AND slow weeks.
+
+**Phase 3 — Drip / multi-step sequences (BUILT 2026-07-21, migration 230):**
+- An event-triggered rule can now fire an ORDERED sequence of steps over time (e.g. thank-you → offer →
+  last-chance) instead of one message. Built ON the existing pending-send queue: each step is a scheduled
+  pending send, and firing one enqueues the next — no new engine, reuses the whole processor.
+- Migration **230**: `shop_auto_messages.steps` JSONB (`[{messageTemplate, delayHours}]`, null/empty =
+  legacy single message) + `stop_on_booking` BOOLEAN; `auto_message_sends.step_index` INT.
+- `AutoMessageSchedulerService`: event triggers ENROL (enqueue step 0) for sequence rules; the pending-send
+  processor resolves the step's message, sends, then enqueues the next step; `stop_on_booking` exit checks
+  `bookedSinceEnrollment` (completed order since the step-0 send) and ends the sequence.
+- Repo (`steps`/`stopOnBooking`/`stepIndex` through create/update/recordSend/mappers), controller
+  (`parseSteps` validation, ≤10 steps, per-step ≤2000 chars / delay 0–2160h), frontend (a "Multi-step
+  sequence (drip)" toggle + a steps editor: add/remove/reorder-by-position, per-step delay, "AI" draft per
+  step, "stop if the customer books"). Sequences are event-triggered only.
+- Verified: backend tsc 0; ai-agent + featureTiers tests green; FE files clean (211, under baseline); live
+  against peanut — sequence persists, step 0 enqueues, advances (0→1), stop_on_booking persists.
+
+Further net-new: A/B testing (Phase 4), cross-channel send (Phase 5, waits on Twilio→Telnyx).
 
 ---
 
