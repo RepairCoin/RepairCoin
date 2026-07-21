@@ -2978,11 +2978,17 @@ router.use('/', rcgRoutes);
 
 // Mount subscription routes
 import subscriptionRoutes, { publicRouter as subscriptionPublicRoutes } from './subscription';
-router.use('/', subscriptionPublicRoutes); // Mount public routes first (no auth)
+import connectRoutes, { publicRouter as connectPublicRoutes } from './connect';
+
+// Public routes MUST be mounted before subscriptionRoutes: its blanket authMiddleware is
+// mounted at '/', so it runs for every /api/shops/* request and 401s anything without an
+// access token — including the Stripe OAuth callback, which by design has no session.
+router.use('/', subscriptionPublicRoutes);
+router.use('/', connectPublicRoutes);
+
 router.use('/', subscriptionRoutes); // Then mount authenticated routes
 
 // Mount Stripe Connect onboarding routes (authenticated)
-import connectRoutes from './connect';
 router.use('/', connectRoutes);
 
 // Mount webhook routes - MUST BE PUBLIC FOR STRIPE
