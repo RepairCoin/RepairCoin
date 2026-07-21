@@ -53,14 +53,14 @@ export const TrustedProfessionalsCard: React.FC<TrustedProfessionalsCardProps> =
   };
 
   return (
-    <div className="relative rounded-xl bg-white p-5">
+    <div className="relative rounded-2xl border border-[#262626] bg-[#161616] p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900">
+        <h3 className="text-base font-semibold text-white">
           Trusted Professionals in Every Service
         </h3>
         <button
           onClick={onSeeMore}
-          className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+          className="text-sm font-medium text-gray-400 transition-colors hover:text-white"
         >
           See more
         </button>
@@ -69,14 +69,14 @@ export const TrustedProfessionalsCard: React.FC<TrustedProfessionalsCardProps> =
       <button
         onClick={() => scrollBy(-1)}
         aria-label="Scroll left"
-        className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white p-1.5 text-gray-600 shadow-md transition-colors hover:bg-gray-50 sm:flex"
+        className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-center rounded-full bg-[#262626] p-1.5 text-gray-200 shadow-md transition-colors hover:bg-[#333] sm:flex"
       >
         <ChevronLeft className="w-5 h-5" />
       </button>
       <button
         onClick={() => scrollBy(1)}
         aria-label="Scroll right"
-        className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white p-1.5 text-gray-600 shadow-md transition-colors hover:bg-gray-50 sm:flex"
+        className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-center rounded-full bg-[#262626] p-1.5 text-gray-200 shadow-md transition-colors hover:bg-[#333] sm:flex"
       >
         <ChevronRight className="w-5 h-5" />
       </button>
@@ -97,9 +97,9 @@ export const TrustedProfessionalsCard: React.FC<TrustedProfessionalsCardProps> =
               <div
                 className={`flex h-32 w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br ${meta.gradient}`}
               >
-                <Icon className="h-10 w-10 text-gray-700 transition-transform duration-200 group-hover:scale-110" />
+                <Icon className="h-10 w-10 text-gray-100 transition-transform duration-200 group-hover:scale-110" />
               </div>
-              <span className="mt-2 text-xs font-medium text-gray-700 group-hover:text-gray-900">
+              <span className="mt-2 text-xs font-medium text-gray-300 group-hover:text-white">
                 {cat.label}
               </span>
             </button>

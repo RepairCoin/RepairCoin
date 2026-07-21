@@ -15,7 +15,7 @@ type LocationStatus = "loading" | "granted" | "denied";
 function ShopThumb({ src, alt }: { src?: string | null; alt: string }) {
   const [err, setErr] = useState(false);
   return (
-    <span className="flex h-24 w-full items-center justify-center overflow-hidden rounded-lg bg-gray-100">
+    <span className="flex h-24 w-full items-center justify-center overflow-hidden rounded-lg bg-[#0a0a0a]">
       {src && !err ? (
         <img
           src={src}
@@ -24,7 +24,7 @@ function ShopThumb({ src, alt }: { src?: string | null; alt: string }) {
           className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
         />
       ) : (
-        <ImageIcon className="w-7 h-7 text-gray-400 transition-transform duration-200 group-hover:scale-110" />
+        <ImageIcon className="w-7 h-7 text-gray-500 transition-transform duration-200 group-hover:scale-110" />
       )}
     </span>
   );
@@ -81,7 +81,7 @@ export const RecommendedShopsCard: React.FC<RecommendedShopsCardProps> = ({
       return (
         <div className="grid grid-cols-2 gap-x-4 gap-y-5">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-32 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-32 animate-pulse rounded-lg bg-[#262626]" />
           ))}
         </div>
       );
@@ -90,12 +90,12 @@ export const RecommendedShopsCard: React.FC<RecommendedShopsCardProps> = ({
     if (locationStatus === "denied") {
       return (
         <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-            <Navigation className="w-5 h-5 text-gray-500" />
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#262626]">
+            <Navigation className="w-5 h-5 text-gray-400" />
           </span>
           <div>
-            <p className="text-sm font-medium text-gray-900">See shops near you</p>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="text-sm font-medium text-white">See shops near you</p>
+            <p className="mt-0.5 text-xs text-gray-400">
               {blocked
                 ? "Location is blocked. Allow it for this site in your browser settings, then retry."
                 : "Enable location access to find the closest shops."}
@@ -113,7 +113,7 @@ export const RecommendedShopsCard: React.FC<RecommendedShopsCardProps> = ({
 
     if (shops.length === 0) {
       return (
-        <p className="py-8 text-center text-sm text-gray-500">
+        <p className="py-8 text-center text-sm text-gray-400">
           No shops within {radiusMiles} miles of you.
         </p>
       );
@@ -128,11 +128,11 @@ export const RecommendedShopsCard: React.FC<RecommendedShopsCardProps> = ({
             className="flex flex-col text-left group"
           >
             <ShopThumb src={shop.logoUrl} alt={shop.name} />
-            <p className="mt-2 truncate text-sm font-semibold text-gray-900">{shop.name}</p>
-            <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+            <p className="mt-2 truncate text-sm font-semibold text-white">{shop.name}</p>
+            <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
               <Star className="w-3.5 h-3.5 fill-[#FFCC00] text-[#FFCC00]" />
-              <span className="font-medium text-gray-900">{(shop.avgRating || 0).toFixed(1)}</span>
-              <span className="text-gray-400">·</span>
+              <span className="font-medium text-white">{(shop.avgRating || 0).toFixed(1)}</span>
+              <span className="text-gray-600">·</span>
               <span className="flex items-center gap-0.5">
                 <MapPin className="w-3 h-3" />
                 {shop.distanceMiles != null ? `${shop.distanceMiles.toFixed(1)} miles` : shop.location?.city || "Nearby"}
@@ -145,8 +145,8 @@ export const RecommendedShopsCard: React.FC<RecommendedShopsCardProps> = ({
   };
 
   return (
-    <div className="rounded-xl bg-white p-5">
-      <h3 className="mb-4 text-base font-semibold text-gray-900">Recommended Shops Near You</h3>
+    <div className="rounded-2xl border border-[#262626] bg-[#161616] p-5">
+      <h3 className="mb-4 text-base font-semibold text-white">Recommended Shops Near You</h3>
       {renderBody()}
     </div>
   );

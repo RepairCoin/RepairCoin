@@ -14,8 +14,9 @@ import { AIFaqEditor, type FaqEntry } from "@/components/shop/service/AIFaqEdito
  * toggle, tone segmented control, "See How the AI Replies" expandable
  * preview, plus upsell + booking-assistance checkboxes.
  *
- * Visual treatment: light/white card with a green-tinted shadow + "NEW"
- * badge so it stands out from the rest of the dark form sections.
+ * Visual treatment: dark card matching the rest of the form sections, with
+ * a green-tinted shadow + "NEW" badge and green accents so the AI section
+ * still reads as distinct.
  *
  * Live preview (Phase 3): when `serviceId` is provided, the preview area
  * fetches a real Claude reply via POST /api/ai/preview. The "new" page
@@ -116,12 +117,12 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
   }, [previewOpen, enabled, serviceId, tone]);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-lg shadow-green-500/10">
-      {/* Header — light treatment with NEW badge */}
+    <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-4 sm:p-5 shadow-lg shadow-green-500/10">
+      {/* Header — dark treatment with NEW badge */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <Bot className="w-5 h-5 text-green-600" />
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+          <h3 className="text-base sm:text-lg font-semibold text-white">
             Auto Sales & Booking
           </h3>
           <span className="inline-flex items-center gap-1 bg-green-500 text-white text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">
@@ -136,7 +137,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
           onClick={() => onChange({ enabled: !enabled })}
           aria-label={enabled ? "Disable Auto Sales & Booking" : "Enable Auto Sales & Booking"}
           className={`relative inline-flex h-6 w-11 sm:h-7 sm:w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-            enabled ? "bg-green-500" : "bg-gray-300"
+            enabled ? "bg-green-500" : "bg-gray-600"
           }`}
         >
           <span
@@ -148,13 +149,13 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
       </div>
 
       {/* Description */}
-      <p className="text-sm text-gray-600 mb-2">
+      <p className="text-sm text-gray-400 mb-2">
         Automatically replies, answers questions, books and increases sales.
       </p>
 
       {/* Micro-proof — Option B (honest reword): same emotional hook as exec's
           ask without promising runtime behavior that ships in Phase 3. */}
-      <p className="text-xs text-gray-600 font-medium mb-4">
+      <p className="text-xs text-gray-400 font-medium mb-4">
         Configure once · Saved automatically · Activates next release
       </p>
 
@@ -168,7 +169,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
       {/* Configurable area — dimmed when disabled */}
       <div className={enabled ? "" : "opacity-40 pointer-events-none select-none"}>
         {/* Tone segmented control */}
-        <div className="grid grid-cols-3 gap-1 bg-gray-100 border border-gray-200 rounded-lg p-1 mb-4">
+        <div className="grid grid-cols-3 gap-1 bg-[#1A1A1A] border border-gray-700 rounded-lg p-1 mb-4">
           {TONE_OPTIONS.map((option) => {
             const isSelected = tone === option.value;
             return (
@@ -179,7 +180,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
                 className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   isSelected
                     ? "bg-green-500 text-white shadow-sm"
-                    : "text-gray-700 hover:bg-gray-200"
+                    : "text-gray-300 hover:bg-[#262626]"
                 }`}
               >
                 {option.label}
@@ -192,7 +193,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
         <button
           type="button"
           onClick={() => setPreviewOpen((open) => !open)}
-          className="flex items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-800 transition-colors mb-2"
+          className="flex items-center gap-1 text-sm font-semibold text-green-400 hover:text-green-300 transition-colors mb-2"
           aria-expanded={previewOpen}
         >
           See How the AI Replies
@@ -207,18 +208,18 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
           <div className="space-y-2 mb-4">
             {liveState.loading ? (
               // Loading skeleton — mimics one bubble height
-              <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 animate-pulse">
-                <div className="h-3 bg-gray-200 rounded w-3/4 mb-2" />
-                <div className="h-3 bg-gray-200 rounded w-1/2 mb-2" />
-                <div className="h-3 bg-gray-200 rounded w-2/3" />
+              <div className="bg-[#1A1A1A] border border-gray-700 rounded-lg px-4 py-3 animate-pulse">
+                <div className="h-3 bg-[#262626] rounded w-3/4 mb-2" />
+                <div className="h-3 bg-[#262626] rounded w-1/2 mb-2" />
+                <div className="h-3 bg-[#262626] rounded w-2/3" />
               </div>
             ) : liveState.reply ? (
               // Live Claude reply — show the sample question + the AI reply
               <>
-                <div className="text-xs text-gray-500 italic px-1">
+                <div className="text-xs text-gray-400 italic px-1">
                   Sample customer asks: &ldquo;Hi! How much does this cost and when can I book?&rdquo;
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-gray-800 whitespace-pre-wrap">
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3 text-sm text-gray-200 whitespace-pre-wrap">
                   {liveState.reply.reply}
                 </div>
                 <div className="text-[11px] text-gray-400 px-1 flex items-center gap-2">
@@ -233,7 +234,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
               AI_PREVIEW_MOCKS[tone].map((reply, idx) => (
                 <div
                   key={idx}
-                  className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-700"
+                  className="bg-[#1A1A1A] border border-gray-700 rounded-lg px-4 py-3 text-sm text-gray-300"
                 >
                   {reply}
                 </div>
@@ -260,7 +261,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
       {/* Q&A FAQ editor (Phase 2 of FAQ rollout). Lives inside the AI
           section card so shop owners see it in context with the rest of
           the AI settings. Disabled when the master toggle is off. */}
-      <div className="mt-5 pt-4 border-t border-gray-200">
+      <div className="mt-5 pt-4 border-t border-gray-800">
         <AIFaqEditor
           value={faqEntries}
           disabled={!enabled}
@@ -271,7 +272,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
       </div>
 
       {/* Disclosure + spend indicator — Phase 3 Tasks 7 & 12. */}
-      <div className="mt-4 pt-3 border-t border-gray-200 space-y-2">
+      <div className="mt-4 pt-3 border-t border-gray-800 space-y-2">
         <p className="text-xs text-gray-500 italic">
           {serviceId
             ? "Live preview — this is the actual reply Claude generates for your service."
@@ -285,7 +286,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
 
 /**
  * Checkbox row used twice (Suggest upsells / Enable booking assistance).
- * Custom-styled to match the green checkmark look in sc1.jpeg, light mode.
+ * Custom-styled to match the green checkmark look, dark mode.
  */
 const CheckboxRow: React.FC<{
   checked: boolean;
@@ -295,13 +296,13 @@ const CheckboxRow: React.FC<{
   <button
     type="button"
     onClick={() => onChange(!checked)}
-    className="flex items-center gap-2 text-sm text-gray-800 hover:text-gray-900 transition-colors"
+    className="flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-colors"
   >
     <span
       className={`flex items-center justify-center w-5 h-5 rounded border transition-colors ${
         checked
           ? "bg-green-500 border-green-500"
-          : "bg-white border-gray-300"
+          : "bg-[#1A1A1A] border-gray-600"
       }`}
     >
       {checked && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}

@@ -14,7 +14,7 @@ interface PopularServicesCardProps {
 function ServiceThumb({ src, alt }: { src?: string | null; alt: string }) {
   const [err, setErr] = useState(false);
   return (
-    <span className="flex h-32 w-full items-center justify-center overflow-hidden rounded-xl bg-gray-100">
+    <span className="flex h-32 w-full items-center justify-center overflow-hidden rounded-xl bg-[#0a0a0a]">
       {src && !err ? (
         <img
           src={src}
@@ -23,7 +23,7 @@ function ServiceThumb({ src, alt }: { src?: string | null; alt: string }) {
           className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
         />
       ) : (
-        <ImageIcon className="w-8 h-8 text-gray-400" />
+        <ImageIcon className="w-8 h-8 text-gray-500" />
       )}
     </span>
   );
@@ -68,12 +68,12 @@ export const PopularServicesCard: React.FC<PopularServicesCardProps> = ({
   };
 
   return (
-    <div className="relative rounded-xl bg-white p-5">
+    <div className="relative rounded-2xl border border-[#262626] bg-[#161616] p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900">Popular Services Near You</h3>
+        <h3 className="text-base font-semibold text-white">Popular Services Near You</h3>
         <button
           onClick={onSeeMore}
-          className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+          className="text-sm font-medium text-gray-400 transition-colors hover:text-white"
         >
           See more
         </button>
@@ -82,24 +82,24 @@ export const PopularServicesCard: React.FC<PopularServicesCardProps> = ({
       {loading ? (
         <div className="flex gap-4">
           {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-48 w-44 flex-shrink-0 animate-pulse rounded-xl bg-gray-100" />
+            <div key={i} className="h-48 w-44 flex-shrink-0 animate-pulse rounded-xl bg-[#262626]" />
           ))}
         </div>
       ) : services.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">No popular services yet.</p>
+        <p className="py-8 text-center text-sm text-gray-400">No popular services yet.</p>
       ) : (
         <>
           <button
             onClick={() => scrollBy(-1)}
             aria-label="Scroll left"
-            className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white p-1.5 text-gray-600 shadow-md transition-colors hover:bg-gray-50 sm:flex"
+            className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-center rounded-full bg-[#262626] p-1.5 text-gray-200 shadow-md transition-colors hover:bg-[#333] sm:flex"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={() => scrollBy(1)}
             aria-label="Scroll right"
-            className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white p-1.5 text-gray-600 shadow-md transition-colors hover:bg-gray-50 sm:flex"
+            className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-center rounded-full bg-[#262626] p-1.5 text-gray-200 shadow-md transition-colors hover:bg-[#333] sm:flex"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -119,20 +119,20 @@ export const PopularServicesCard: React.FC<PopularServicesCardProps> = ({
                   className="group flex w-44 flex-shrink-0 flex-col text-left"
                 >
                   <ServiceThumb src={service.imageUrl} alt={service.serviceName} />
-                  <p className="mt-2 truncate text-sm font-semibold text-gray-900">
+                  <p className="mt-2 truncate text-sm font-semibold text-white">
                     {service.serviceName}
                   </p>
                   {service.companyName && (
-                    <p className="truncate text-xs text-gray-500">{service.companyName}</p>
+                    <p className="truncate text-xs text-gray-400">{service.companyName}</p>
                   )}
-                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
                     <Star className="w-3.5 h-3.5 fill-[#FFCC00] text-[#FFCC00]" />
-                    <span className="font-medium text-gray-900">{rating.toFixed(1)}</span>
-                    <span className="text-gray-400">·</span>
+                    <span className="font-medium text-white">{rating.toFixed(1)}</span>
+                    <span className="text-gray-600">·</span>
                     <span>{bookings} bookings</span>
                   </div>
                   {distance != null && (
-                    <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+                    <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
                       <MapPin className="w-3 h-3" />
                       <span>{distance.toFixed(1)} miles</span>
                     </div>
