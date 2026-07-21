@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { DollarSign, Clock, MapPin, Image as ImageIcon, Coins, Plus } from "lucide-react";
+import { DollarSign, Clock, MapPin, Image as ImageIcon, Coins, Plus, Wrench } from "lucide-react";
 import { ShopServiceWithShopInfo, SERVICE_CATEGORIES } from "@/services/api/services";
 import { FavoriteButton } from "./FavoriteButton";
 import { ShareButton } from "./ShareButton";
@@ -61,6 +61,10 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
 
   const validImageUrl = isValidImageUrl(service.imageUrl) ? service.imageUrl : null;
 
+  // The owning shop hasn't finished Stripe payout setup yet. Strict `=== false`
+  // so services from endpoints that don't report this flag stay bookable.
+  const notAcceptingBookings = service.shopAcceptingBookings === false;
+
   return (
     <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl overflow-hidden hover:border-[#FFCC00]/50 transition-all duration-200 hover:shadow-lg hover:shadow-[#FFCC00]/10 group flex flex-col h-full">
       {/* Service Image */}
@@ -92,6 +96,19 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                 ? '⚠️ Parts Out of Stock'
                 : '⚠️ Limited Parts Availability'}
             </div>
+          </div>
+        )}
+
+        {/* "Preparing" badge — shop is still finishing payout setup, so the
+            service is visible but not yet bookable. */}
+        {notAcceptingBookings && (
+          <div className="absolute top-3 left-3 z-20">
+            <span
+              className="flex items-center gap-1 rounded-full bg-amber-500/95 text-black text-[11px] font-bold px-2.5 py-1 shadow-lg backdrop-blur-sm"
+              title="This shop is finishing its payout setup and isn't accepting bookings yet."
+            >
+              <Wrench className="w-3 h-3" /> Preparing
+            </span>
           </div>
         )}
 
@@ -337,12 +354,24 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             >
               View Details
             </button>
-            <button
-              onClick={() => onBook(service)}
-              className="flex-1 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-4 py-2.5 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105"
-            >
-              Book Now
-            </button>
+            {notAcceptingBookings ? (
+              <button
+                type="button"
+                disabled
+                title="This shop is finishing its payout setup and isn't accepting bookings yet."
+                className="flex-1 flex items-center justify-center gap-1.5 bg-gray-800 text-gray-500 font-semibold px-4 py-2.5 rounded-xl cursor-not-allowed"
+              >
+                <Wrench className="w-4 h-4" />
+                Preparing
+              </button>
+            ) : (
+              <button
+                onClick={() => onBook(service)}
+                className="flex-1 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-4 py-2.5 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105"
+              >
+                Book Now
+              </button>
+            )}
           </div>
         </div>
       </div>

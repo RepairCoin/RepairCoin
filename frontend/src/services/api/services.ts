@@ -100,6 +100,9 @@ export interface ShopServiceWithShopInfo extends ShopService {
   }[];
   // Inventory status for linked items
   inventoryStatus?: 'available' | 'low_stock' | 'out_of_stock';
+  // False when the owning shop hasn't finished Stripe payout setup. The card
+  // still renders, but is non-clickable with a "Preparing" badge.
+  shopAcceptingBookings?: boolean;
   // Trending: bookings in the recent period
   bookingCount?: number;
   distanceMiles?: number | null;

@@ -47,6 +47,10 @@ export interface ShopServiceWithShopInfo extends ShopService {
   };
   // Inventory status for linked items (v2.0)
   inventoryStatus?: 'available' | 'low_stock' | 'out_of_stock';
+  // Whether the owning shop has finished Stripe Connect payout setup and can
+  // therefore take bookings. Marketplace surfaces still SHOW the service when
+  // false, but render it non-clickable with a "preparing" badge.
+  shopAcceptingBookings?: boolean;
 }
 
 export interface CreateServiceParams {
@@ -203,6 +207,8 @@ export class ServiceRepository extends BaseRepository {
           sh.location_city as shop_city,
           sh.location_state as shop_state,
           sh.location_zip_code as shop_zip_code,
+          sh.stripe_connect_account_id as shop_connect_account_id,
+          sh.connect_charges_enabled as shop_charges_enabled,
           NULL as shop_logo,
           ${favoritesSelect}
         FROM shop_services s
@@ -488,6 +494,8 @@ export class ServiceRepository extends BaseRepository {
           sh.location_city as shop_city,
           sh.location_state as shop_state,
           sh.location_zip_code as shop_zip_code,
+          sh.stripe_connect_account_id as shop_connect_account_id,
+          sh.connect_charges_enabled as shop_charges_enabled,
           NULL as shop_logo,
           COALESCE((SELECT AVG(rating) FROM service_reviews WHERE service_id = s.service_id), 0) as avg_rating,
           (SELECT COUNT(*) FROM service_reviews WHERE service_id = s.service_id) as review_count,
@@ -694,7 +702,12 @@ export class ServiceRepository extends BaseRepository {
         city: row.shop_city,
         state: row.shop_state,
         zipCode: row.shop_zip_code
-      } : undefined
+      } : undefined,
+      // Bookable only when the shop has a connected account with charges enabled.
+      // Queries that don't SELECT these shop columns leave it undefined → treated
+      // as not-yet-accepting by the UI, which is the safe default.
+      shopAcceptingBookings:
+        !!row.shop_connect_account_id && row.shop_charges_enabled === true
     };
   }
 
@@ -809,6 +822,8 @@ export class ServiceRepository extends BaseRepository {
           s.location_city as shop_city,
           s.location_state as shop_state,
           s.location_zip_code as shop_zip_code,
+          s.stripe_connect_account_id as shop_connect_account_id,
+          s.connect_charges_enabled as shop_charges_enabled,
           ${favoritesSelect}
         FROM service_group_availability sga
         JOIN shop_services ss ON sga.service_id = ss.service_id
