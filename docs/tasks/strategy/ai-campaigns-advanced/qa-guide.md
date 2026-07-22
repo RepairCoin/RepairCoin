@@ -82,11 +82,45 @@ approach used to build + verify the feature). Connect a throwaway script via the
   conversions (a "conversion" = the customer completed a booking within 7 days after the send — an
   **indicator, not proof**).
 
-**Cleanup:** delete the demo rules + their `auto_message_sends`, and the test conversations/messages, when
-done. Use clearly-fake customer addresses (e.g. `0x…d0001`) so no real customer's thread is touched.
+### ⚠️ Seeding rules — read before running any of the above
+
+The first QA run (2026-07-21) got both of these wrong. Don't repeat them.
+
+1. **Never let the seed resolve the shop's real customers.** `getTargetCustomers()` returns live customers
+   for the shop, so a rule fired against `peanut` reaches real staging customers. Pass your fake addresses
+   explicitly and assert the target list contains nothing else before sending. The first run leaked a drip
+   step into a real customer's thread (Qua Ting / peanut).
+2. **Cleanup must restore `conversations.last_message_preview`, not just delete rows.** The preview is
+   denormalized — deleting a message leaves the inbox list advertising a message the thread no longer has.
+   After deleting test messages, repoint the preview at the newest surviving message (or `NULL` if none):
+
+   ```sql
+   UPDATE conversations c
+      SET last_message_preview = LEFT(m.message_text, 100), last_message_at = m.created_at
+     FROM (SELECT message_text, created_at FROM messages
+            WHERE conversation_id = $1 AND is_deleted = FALSE
+            ORDER BY created_at DESC LIMIT 1) m
+    WHERE c.conversation_id = $1;
+   ```
+
+**Step copy is a label, not a feature.** The drip seed writes literal `Step 1: …` / `Step 2: …` bodies so
+ordering is verifiable at a glance. Nothing in the product prefixes messages that way — if you see `Step N`
+in a real inbox, it is leaked test data.
+
+**Cleanup checklist:** demo rules → their `auto_message_sends` (FK: sends must go first) → test messages →
+FK children of `conversations` (`ai_agent_messages`, `conversation_channel_identities`) → test conversations
+→ repair previews. Use clearly-fake addresses (`0x…ab001`…) so no real customer's thread is touched, then
+verify zero leftovers:
+
+```sql
+SELECT COUNT(*) FROM messages      WHERE message_text ~* '(^|[^a-z])step [0-9]';
+SELECT COUNT(*) FROM conversations WHERE last_message_preview ~* '(^|[^a-z])step [0-9]';
+```
 
 **Verified live on staging 2026-07-21 (peanut):** drip advanced through all 3 steps in order; A/B split
-across variants (A/B) with per-variant results aggregated; all firing paths ran clean and were cleaned up.
+across variants (A/B) with per-variant results aggregated; all firing paths ran clean. **Cleanup was
+incomplete and was finished 2026-07-22** — 7 test conversations (19 messages), the `Sample — Booking Thank
+You` rule + its send, and one corrupted real-customer preview were removed; leftover counts now zero.
 
 ---
 
