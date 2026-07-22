@@ -23,9 +23,17 @@ import { RecCandidate, RecommendationDetector } from '../types';
 
 /** How long since the last send before it counts as having gone quiet. */
 const QUIET_DAYS = 30;
-/** Don't nag a shop with nobody to send to. Measured from service_orders,
- *  not customers.home_shop_id — only imported customers carry that, so the
- *  home_shop_id version matched 0 shops. See project_lapsed_audience_data_model. */
+/** Don't nag a shop with nobody to send to.
+ *
+ *  Counts customers who are actually CONTACTABLE — a customer record with an
+ *  email. An earlier version counted every distinct customer_address in
+ *  service_orders and the card said "N customers you could reach", which
+ *  overstated it: peanut had 8 order customers but only 7 with an email. The
+ *  card must not claim reach it cannot deliver.
+ *
+ *  Sourced from service_orders rather than customers.home_shop_id — only
+ *  imported customers carry home_shop_id, so that version matched 0 shops.
+ *  See project_lapsed_audience_data_model. */
 const MIN_AUDIENCE = 5;
 
 const HIGH_AT_DAYS = 90;
@@ -47,8 +55,12 @@ export const noRecentCampaignDetector: RecommendationDetector = {
            WHERE shop_id = $1 AND status = 'sent')                       AS last_sent,
          (SELECT COUNT(*)::text FROM marketing_campaigns
            WHERE shop_id = $1 AND status = 'sent')                       AS ever_sent,
-         (SELECT COUNT(DISTINCT customer_address)::text FROM service_orders
-           WHERE shop_id = $1 AND customer_address IS NOT NULL)          AS audience`,
+         (SELECT COUNT(DISTINCT c.address)::text
+            FROM service_orders o
+            JOIN customers c ON LOWER(c.address) = LOWER(o.customer_address)
+           WHERE o.shop_id = $1
+             AND c.is_active
+             AND c.email IS NOT NULL AND c.email <> '')                  AS audience`,
       [shopId]
     );
 
@@ -78,14 +90,14 @@ export const noRecentCampaignDetector: RecommendationDetector = {
         detectorKey: 'no_recent_campaign',
         category: 'marketing',
         severity,
-        evidence: { daysSinceLastCampaign: daysSince, reachableCustomers: audience },
+        evidence: { daysSinceLastCampaign: daysSince, contactableCustomers: audience },
         action: {
           kind: 'assistant',
-          prompt: `It's been ${daysSince} days since my last campaign — draft one for my ${audience} customers`,
+          prompt: `It's been ${daysSince} days since my last campaign — draft one for my ${audience} customers with an email`,
         },
-        assistantPrompt: `It's been ${daysSince} days since my last campaign — draft one for my ${audience} customers`,
+        assistantPrompt: `It's been ${daysSince} days since my last campaign — draft one for my ${audience} customers with an email`,
         title: `No campaign in ${daysSince} days`,
-        description: `You have ${audience} customers you could reach. Your last campaign went out ${daysSince} days ago.`,
+        description: `${audience} of your customers have an email on file. Your last campaign went out ${daysSince} days ago.`,
       },
     ];
   },

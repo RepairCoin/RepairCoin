@@ -422,13 +422,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     };
   }, [featuresLoading, canSeeRecs]);
 
-  /** Card tap: record the tap-through, then run the card's typed action.
-   *  markActed is fire-and-forget — navigation must never wait on it. */
+  /** Card tap: just run the card's typed action.
+   *
+   *  Deliberately does NOT consume the card. An earlier version called
+   *  markActed() and removed the row on tap, so opening a card to read it made
+   *  it vanish — exploring the feed emptied it. A card is a standing fact about
+   *  the shop; it should persist until the owner explicitly dismisses it (the X)
+   *  or the underlying condition clears at the next nightly run. */
   const handleRecClick = (rec: Recommendation) => {
-    void aiRecommendationsApi.markActed(rec.id).catch(() => {});
-    setRecs((prev) => prev.filter((r) => r.id !== rec.id));
-    setActions((prev) => prev.filter((r) => r.id !== rec.id));
-
     switch (rec.action.kind) {
       case "navigate": {
         const sub = rec.action.sub ? `&sub=${rec.action.sub}` : "";
