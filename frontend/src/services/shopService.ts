@@ -112,8 +112,10 @@ export class ShopService {
       website: formData.website,
       referral: formData.referral,
       facebook: formData.facebook,
-      x: formData.x,
+      // Backend persists this column as `twitter`; sending `x` silently dropped it.
+      twitter: formData.x,
       instagram: formData.instagram,
+      linkedin: formData.linkedin,
       reimbursementAddress: formData.reimbursementAddress,
       fixflowShopId: formData.fixflowShopId,
       location:{

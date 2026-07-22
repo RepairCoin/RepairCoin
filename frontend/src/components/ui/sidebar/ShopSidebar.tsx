@@ -127,7 +127,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     let active = true;
     agencyApi
       .getMe()
-      .then(() => active && setHasAgency(true))
+      .then((res: any) => active && setHasAgency(!!res?.data?.agency))
       .catch(() => active && setHasAgency(false));
     return () => {
       active = false;

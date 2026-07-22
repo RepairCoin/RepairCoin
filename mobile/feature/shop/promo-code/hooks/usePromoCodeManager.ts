@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDebounce } from "../../../../shared/hooks";
 import { useValidatePromoCode } from "./usePromoCodeQuery";
 
 export function usePromoCodeManager(
@@ -11,13 +12,16 @@ export function usePromoCodeManager(
   const [promoError, setPromoError] = useState<string | null>(null);
   const [showPromoDropdown, setShowPromoDropdown] = useState(false);
 
+  // Debounce the raw input so validation only fires after the user stops typing.
+  const debouncedPromoCode = useDebounce(promoCode, 500);
+
   const validatePromo = useValidatePromoCode();
 
   useEffect(() => {
-    let timeoutId: number;
+    let cancelled = false;
 
     const fetchPromoBonus = async () => {
-      if (!promoCode || !promoCode.trim() || !customerAddress) {
+      if (!debouncedPromoCode || !debouncedPromoCode.trim() || !customerAddress) {
         setPromoBonus(0);
         setPromoError(null);
         return;
@@ -26,9 +30,11 @@ export function usePromoCodeManager(
       setPromoError(null);
       try {
         const result = await validatePromo.mutateAsync({
-          code: promoCode.trim(),
+          code: debouncedPromoCode.trim(),
           customerAddress,
         });
+
+        if (cancelled) return;
 
         if (result.success && result.data?.is_valid) {
           const rewardBeforePromo = baseReward + tierBonus;
@@ -57,21 +63,18 @@ export function usePromoCodeManager(
           setPromoError(result.data?.error_message || "Invalid promo code");
         }
       } catch (err: any) {
+        if (cancelled) return;
         setPromoBonus(0);
         setPromoError("Failed to validate promo code");
       }
     };
 
-    if (promoCode && customerAddress) {
-      timeoutId = setTimeout(fetchPromoBonus, 500);
-    }
+    fetchPromoBonus();
 
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      cancelled = true;
     };
-  }, [promoCode, customerAddress, baseReward, tierBonus]);
+  }, [debouncedPromoCode, customerAddress, baseReward, tierBonus]);
 
   return {
     promoCode,

@@ -9,7 +9,7 @@ import { useModalStore } from "@/stores/modalStore";
 import { useAuthStore } from "@/stores/authStore";
 import {
   SUBSCRIBE_TIER_STORAGE_KEY,
-  SubscriptionTier,
+  PaidTier,
   SUBSCRIPTION_PLANS,
   getPlanByTier,
 } from "@/config/subscriptionPlans";
@@ -19,7 +19,7 @@ interface Plan {
   name: string;
   description: string;
   price: string;
-  tier: SubscriptionTier;
+  tier: PaidTier;
   popular?: boolean;
   robot: string;
   includesLabel: string;
@@ -31,7 +31,7 @@ interface Plan {
 // Pricing-page-only presentational data, keyed by tier. Plan labels, prices,
 // features and includesLabel come from the shared subscriptionPlans config.
 const planExtras: Record<
-  SubscriptionTier,
+  PaidTier,
   { description: string; robot: string; aiValue: string; aiDescription: string }
 > = {
   starter: {
@@ -70,7 +70,7 @@ export default function PricingHero() {
   const { openWelcomeModal } = useModalStore();
   const { isShop, userProfile } = useAuthStore();
 
-  const handleSelectPlan = (tier: SubscriptionTier) => {
+  const handleSelectPlan = (tier: PaidTier) => {
     if (typeof window !== "undefined") {
       sessionStorage.setItem(SUBSCRIBE_TIER_STORAGE_KEY, tier);
     }

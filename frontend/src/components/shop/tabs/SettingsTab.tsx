@@ -23,6 +23,7 @@ const SECTION_PERMISSION: Record<string, string | undefined> = {
   faq: "shop:manage",
 };
 import { SubscriptionManagement } from "../SubscriptionManagement";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import { NoShowPolicySettings } from "../NoShowPolicySettings";
 import { EmailSettings } from "../EmailSettings";
 import { PasswordAuthSettings } from "../PasswordAuthSettings";
@@ -111,6 +112,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const blockchainEnabled = useBlockchainEnabled();
   // Subscribe to userProfile so the section list re-filters when permissions load.
   const userProfile = useAuthStore((s) => s.userProfile);
   const hasPermission = useAuthStore((s) => s.hasPermission);
@@ -770,7 +772,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <p className="text-sm text-gray-400 mb-6">
                   Manage your FixFlow subscription
                 </p>
-                {shopData && shopData.operational_status !== "rcg_qualified" && (
+                {/* RCG qualification only applies when blockchain is on; in
+                    database-only mode every shop uses subscriptions, so always
+                    show the management UI. */}
+                {shopData &&
+                  (!blockchainEnabled ||
+                    shopData.operational_status !== "rcg_qualified") && (
                   <SubscriptionManagement
                     shopId={shopId}
                     shopWallet={shopData.walletAddress}

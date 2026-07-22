@@ -23,6 +23,7 @@ export interface ShopRegistrationFormData {
   facebook: string;
   x: string;
   instagram: string;
+  linkedin: string;
 
   // Wallet Information
   reimbursementAddress: string;
@@ -66,6 +67,7 @@ export const initialShopFormData: ShopRegistrationFormData = {
   facebook: "",
   x: "",
   instagram: "",
+  linkedin: "",
   reimbursementAddress: "",
   fixflowShopId: "",
   location: {

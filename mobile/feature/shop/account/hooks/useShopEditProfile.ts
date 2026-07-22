@@ -11,7 +11,7 @@ export const useShopEditProfile = () => {
   const { account, accessToken } = useAuthStore();
   const { data: shopData } = useShopProfileByWalletQuery(account?.address || "");
   const updateShopMutation = useUpdateShopProfileMutation(account?.address || "");
-  const { showSuccess, showError, showWarning } = useAppToast();
+  const { showSuccess, showError } = useAppToast();
 
   const [formData, setFormData] = useState<ShopEditFormData>({
     name: "",
@@ -146,13 +146,7 @@ export const useShopEditProfile = () => {
   }, [accessToken]);
 
   const handleLogoPick = useCallback(async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permissionResult.granted === false) {
-      showWarning("Please allow access to your photo library");
-      return;
-    }
-
+    // System photo picker (Android 13+ / iOS) — no media-library permission needed.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
@@ -175,13 +169,7 @@ export const useShopEditProfile = () => {
   }, [uploadImage, formData.logoUrl]);
 
   const handleBannerPick = useCallback(async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permissionResult.granted === false) {
-      showWarning("Please allow access to your photo library");
-      return;
-    }
-
+    // System photo picker (Android 13+ / iOS) — no media-library permission needed.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,

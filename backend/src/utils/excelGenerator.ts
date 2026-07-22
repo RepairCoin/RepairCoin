@@ -315,6 +315,7 @@ export function getServiceCategories(): string[] {
     'education_classes',
     'tech_it_services',
     'food_beverage',
+    'legal_services',
     'other_local_services'
   ];
 }

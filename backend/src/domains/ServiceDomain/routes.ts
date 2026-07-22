@@ -15,6 +15,7 @@ import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middl
 import { requireShopPermission } from '../../middleware/permissions';
 import { requireTier } from '../../middleware/tierGuard';
 import { requireActiveSubscription } from '../../middleware/subscriptionGuard';
+import { requireStripeConnected } from '../../middleware/stripeConnectGuard';
 import { StripeService } from '../../services/StripeService';
 import { paymentLimiter, orderLimiter } from '../../middleware/rateLimiter';
 
@@ -85,6 +86,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     requireRole(['shop']),
     requireShopPermission('services:manage'),
     requireActiveSubscription(),
+    requireStripeConnected(),
     serviceController.createService
   );
 
@@ -983,6 +985,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('bookings:manage'),
+    requireStripeConnected(),
     orderController.updateOrderStatus
   );
 
@@ -1106,6 +1109,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('bookings:manage'),
+    requireStripeConnected(),
     orderController.markNoShow
   );
 
@@ -1114,6 +1118,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('bookings:manage'),
+    requireStripeConnected(),
     orderController.markOrderPaid
   );
 
@@ -1150,6 +1155,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('bookings:manage'),
+    requireStripeConnected(),
     orderController.approveBooking
   );
 
@@ -1204,6 +1210,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('bookings:manage'),
+    requireStripeConnected(),
     orderController.rescheduleBooking
   );
 
@@ -2964,6 +2971,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/shops/:shopId/appointments/manual',
     authMiddleware,
     requireRole(['shop']),
+    requireStripeConnected(),
     async (req, res) => {
       const { createManualBooking } = await import('./controllers/ManualBookingController');
       return createManualBooking(req, res);

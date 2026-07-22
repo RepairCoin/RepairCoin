@@ -8,6 +8,10 @@ import {
   DeliveryChannel,
 } from '../config/notificationRegistry';
 import { logger } from '../../../utils/logger';
+import { twilioService } from '../../../services/TwilioService';
+import { smsOptOutRepository } from '../../../repositories/SmsOptOutRepository';
+import { normalizePhone } from '../../../utils/phone';
+import { customerRepository, shopRepository } from '../../../repositories';
 
 export interface DispatchParams {
   /** In-app message body. Defaults to '' (push body can still be built from metadata). */
@@ -123,7 +127,41 @@ export class NotificationGateway {
       }
     }
 
+    // 4. SMS (Twilio). Only when the type opts in, Twilio is configured, the
+    //    recipient has a phone, they haven't opted out, and the number is valid
+    //    E.164. A no-op/failure here never breaks the caller or other channels.
+    if (config.channels.includes('sms') && config.sms && twilioService.enabled()) {
+      try {
+        const normalized = normalizePhone(await this.resolvePhone(receiverAddress));
+        if (normalized && !(await smsOptOutRepository.isOptedOut(normalized))) {
+          await twilioService.sendSms(normalized, config.sms.body(metadata));
+        }
+      } catch (err) {
+        logger.error(`NotificationGateway: SMS failed for '${type}':`, err);
+      }
+    }
+
     return notification;
+  }
+
+  /**
+   * Resolve a recipient's phone from their address. Notifications go to either a
+   * customer (wallet address) or a shop (shopId); try customer first, then shop.
+   */
+  private async resolvePhone(address: string): Promise<string | null> {
+    try {
+      const customer = await customerRepository.getCustomer(address);
+      if (customer?.phone) return customer.phone;
+    } catch {
+      // fall through to shop lookup
+    }
+    try {
+      const shop = await shopRepository.getShop(address);
+      if (shop?.phone) return shop.phone;
+    } catch {
+      // no resolvable phone
+    }
+    return null;
   }
 }
 

@@ -16,7 +16,7 @@ export const useCustomerEditProfile = () => {
   const { account, accessToken } = useAuthStore();
   const { data: customerData } = useCustomerProfileQuery(account?.address || "");
   const updateProfileMutation = useUpdateCustomerProfileMutation(account?.address || "");
-  const { showSuccess, showError, showWarning } = useAppToast();
+  const { showSuccess, showError } = useAppToast();
 
   const [formData, setFormData] = useState<CustomerEditFormData>({
     name: "",
@@ -102,13 +102,7 @@ export const useCustomerEditProfile = () => {
 
   // Handle avatar pick
   const handleAvatarPick = useCallback(async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissionResult.granted) {
-      showWarning("Please allow access to your photo library");
-      return;
-    }
-
+    // System photo picker (Android 13+ / iOS) — no media-library permission needed.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
@@ -129,7 +123,7 @@ export const useCustomerEditProfile = () => {
         setSelectedAvatar(formData.profileImageUrl || null);
       }
     }
-  }, [uploadAvatar, formData.profileImageUrl, showWarning]);
+  }, [uploadAvatar, formData.profileImageUrl]);
 
   // Remove avatar
   const removeAvatar = useCallback(() => {

@@ -3,12 +3,22 @@ import { agencyService } from '../services/AgencyService';
 import { ResponseHelper } from '../../../utils/responseHelper';
 
 export class AgencyController {
-  // GET /api/agency/me — the owning shop's agency profile (account + client usage + AM contact).
+  // GET /api/agency/me — the owning shop's agency profile (account + client usage + AM contact),
+  // or { agency: null } when the shop hasn't activated the add-on.
+  //
+  // Not having an agency is the NORMAL state for most shops, not an error. This endpoint is a
+  // status probe hit on every shop dashboard load (sidebar nav + add-ons map), so answering 404
+  // meant every ordinary shop logged two warn lines per load and drowned out real 404s.
   async getMyAgency(req: Request, res: Response) {
     try {
       const shopId = req.user?.shopId;
       if (!shopId) {
         ResponseHelper.error(res, 'Shop session required', 401);
+        return;
+      }
+      const agency = await agencyService.getAgencyForShop(shopId);
+      if (!agency) {
+        ResponseHelper.success(res, { agency: null });
         return;
       }
       const profile = await agencyService.getAgencyProfileForShop(shopId);

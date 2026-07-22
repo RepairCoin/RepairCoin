@@ -56,9 +56,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ],
       blockedPermissions: [
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-        // Auto-injected by expo-media-library but never used — the app only
-        // ever handles images (all image-picker calls are mediaTypes: Images).
-        // Blocked to clear Google Play's Photo & Video Permissions flag.
+        // Photo & Video Permissions policy (Android 13+): image selection goes
+        // through the system photo picker (expo-image-picker's launchImageLibraryAsync),
+        // which needs no permission, and gallery saves use write-only access. These
+        // broad read permissions are auto-injected by the expo media plugins but the
+        // app never needs them, so they are stripped to comply with Google Play.
+        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
       ],
     },

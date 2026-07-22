@@ -62,6 +62,11 @@ export default function PromoCodeInput({
           onBlur={onBlur}
           placeholder="Enter or select promo code"
           placeholderTextColor="#6B7280"
+          autoCapitalize="characters"
+          autoCorrect={false}
+          autoComplete="off"
+          spellCheck={false}
+          textContentType="none"
           className="w-full px-4 py-3 bg-[#0A0A0A] border border-gray-700 text-white rounded-xl"
         />
         {promoCode && (

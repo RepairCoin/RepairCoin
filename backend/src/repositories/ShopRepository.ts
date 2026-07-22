@@ -49,9 +49,15 @@ interface ShopData {
   operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified' | 'paused';
   subscriptionActive?: boolean;
   subscriptionId?: string;
+  // Stripe Connect (the shop as a SELLER) — distinct from the subscription customer id
+  stripeConnectAccountId?: string;
+  connectChargesEnabled?: boolean;
+  connectPayoutsEnabled?: boolean;
+  connectOnboardedAt?: string;
   facebook?: string;
   twitter?: string;
   instagram?: string;
+  linkedin?: string;
   firstName?: string;
   lastName?: string;
   companySize?: string;
@@ -138,6 +144,7 @@ export class ShopRepository extends BaseRepository {
         facebook: row.facebook,
         twitter: row.twitter,
         instagram: row.instagram,
+        linkedin: row.linkedin,
         website: row.website,
         firstName: row.first_name,
         lastName: row.last_name,
@@ -148,6 +155,12 @@ export class ShopRepository extends BaseRepository {
         country: row.country,
         category: row.category,
         city: row.location_city, // Map location_city to city
+        locationState: row.location_state,
+        locationZipCode: row.location_zip_code,
+        stripeConnectAccountId: row.stripe_connect_account_id,
+        connectChargesEnabled: row.connect_charges_enabled,
+        connectPayoutsEnabled: row.connect_payouts_enabled,
+        connectOnboardedAt: row.connect_onboarded_at,
         logoUrl: row.logo_url,
         bannerUrl: row.banner_url,
         aboutText: row.about_text,
@@ -187,9 +200,9 @@ export class ShopRepository extends BaseRepository {
           total_tokens_issued, total_redemptions, total_reimbursements,
           join_date, last_activity, fixflow_shop_id,
           location_city, location_state, location_zip_code, location_lat, location_lng,
-          facebook, twitter, instagram,
+          facebook, twitter, instagram, linkedin,
           first_name, last_name, company_size, monthly_revenue, website, referral, accept_terms, country, category
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
         RETURNING shop_id
       `;
 
@@ -217,6 +230,7 @@ export class ShopRepository extends BaseRepository {
         shop.facebook,
         shop.twitter,
         shop.instagram,
+        shop.linkedin,
         shop.firstName,
         shop.lastName,
         shop.companySize,
@@ -403,10 +417,16 @@ export class ShopRepository extends BaseRepository {
         rcg_tier: 'rcg_tier',
         tier_updated_at: 'tier_updated_at',
         operational_status: 'operational_status',
+        // Stripe Connect
+        stripeConnectAccountId: 'stripe_connect_account_id',
+        connectChargesEnabled: 'connect_charges_enabled',
+        connectPayoutsEnabled: 'connect_payouts_enabled',
+        connectOnboardedAt: 'connect_onboarded_at',
         // Social media field mappings
         facebook: 'facebook',
         twitter: 'twitter',
         instagram: 'instagram',
+        linkedin: 'linkedin',
         // Profile enhancements
         logoUrl: 'logo_url',
         bannerUrl: 'banner_url',
@@ -713,6 +733,7 @@ export class ShopRepository extends BaseRepository {
         facebook: row.facebook,
         twitter: row.twitter,
         instagram: row.instagram,
+        linkedin: row.linkedin,
         website: row.website,
         firstName: row.first_name,
         lastName: row.last_name,
@@ -800,6 +821,7 @@ export class ShopRepository extends BaseRepository {
         facebook: row.facebook,
         twitter: row.twitter,
         instagram: row.instagram,
+        linkedin: row.linkedin,
         website: row.website,
         firstName: row.first_name,
         lastName: row.last_name,
@@ -863,6 +885,26 @@ export class ShopRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Look up a shop by its Stripe Connect account id. Used by the account.updated webhook,
+   * which is keyed by acct_... rather than by shop.
+   */
+  async getShopByConnectAccountId(accountId: string): Promise<ShopData | null> {
+    try {
+      const result = await this.pool.query(
+        'SELECT shop_id FROM shops WHERE stripe_connect_account_id = $1',
+        [accountId]
+      );
+      if (result.rows.length === 0) {
+        return null;
+      }
+      return this.getShop(result.rows[0].shop_id);
+    } catch (error) {
+      logger.error('Error fetching shop by Connect account id:', error);
+      throw new Error('Failed to fetch shop by Connect account id');
+    }
+  }
+
   async getShopByWallet(walletAddress: string): Promise<ShopData | null> {
     try {
       const query = 'SELECT * FROM shops WHERE wallet_address = $1';
@@ -912,6 +954,7 @@ export class ShopRepository extends BaseRepository {
         facebook: row.facebook,
         twitter: row.twitter,
         instagram: row.instagram,
+        linkedin: row.linkedin,
         website: row.website,
         logoUrl: row.logo_url,
         bannerUrl: row.banner_url
@@ -975,6 +1018,7 @@ export class ShopRepository extends BaseRepository {
         facebook: row.facebook,
         twitter: row.twitter,
         instagram: row.instagram,
+        linkedin: row.linkedin,
         website: row.website,
         logoUrl: row.logo_url,
         bannerUrl: row.banner_url

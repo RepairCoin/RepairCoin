@@ -7,11 +7,15 @@ import {
   RefreshControl,
   Pressable,
 } from "react-native";
-import React from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { ServiceGridItem } from "@/shared/components/shared/ServiceGridItem";
+import { ServiceGridCard } from "@/shared/components/shared/ServiceGridCard";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
+import { ThemedText } from "@/shared/components/ui/ThemedText";
+import { useTheme } from "@/shared/hooks/theme/useTheme";
+import { useToggleFavoriteMutation } from "../../feature-tab/hooks/useFeatureTabQuery";
 import { useServicesTab } from "../../feature-tab/hooks";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../../feature-tab/components";
 import { ServiceData, ServiceSortOption } from "@/feature/services/services/service.interface";
@@ -27,6 +31,10 @@ const SORT_LABELS: Record<ServiceSortOption, string> = {
 };
 
 export default function ServicesTabContent() {
+  // A category opened from the home grid arrives as a route param so the list
+  // lands pre-filtered on that category.
+  const { category } = useLocalSearchParams<{ category?: string }>();
+
   const {
     filteredServices,
     totalResults,
@@ -41,6 +49,7 @@ export default function ServicesTabContent() {
     setStatusFilter,
     selectedCategories,
     toggleCategory,
+    setCategoryFilter,
     clearFilters,
     hasActiveFilters,
     filterModalVisible,
@@ -53,19 +62,95 @@ export default function ServicesTabContent() {
     setSortOption,
     priceRange,
     setPriceRange,
-    hasNextPage,
     isFetchingNextPage,
     handleLoadMore,
-  } = useServicesTab();
+  } = useServicesTab(category);
 
-  const renderServiceItem = ({ item }: { item: ServiceData }) => (
-    <ServiceGridItem
-      service={item}
-      onPress={() => handleServicePress(item)}
-      showFavoriteButton
-      isFavorited={favoritedIds.has(item.serviceId)}
-    />
+  // The service screen is reused across tab navigation (router.navigate), so the
+  // hook's initial state won't re-run when a new category param arrives — sync it.
+  useEffect(() => {
+    if (category) setCategoryFilter(category);
+  }, [category, setCategoryFilter]);
+
+  const { useThemeColor } = useTheme();
+  const { theme } = useThemeColor();
+
+  // One favorite mutation for the whole list — NOT one per card.
+  const { toggleFavorite } = useToggleFavoriteMutation();
+
+  // Stable render/key callbacks so cells don't remount on every parent render.
+  const renderServiceItem = useCallback(
+    ({ item }: { item: ServiceData }) => (
+      <ServiceGridCard
+        service={item}
+        isFavorited={favoritedIds.has(item.serviceId)}
+        onPress={handleServicePress}
+        onToggleFavorite={toggleFavorite}
+      />
+    ),
+    [handleServicePress, favoritedIds, toggleFavorite]
   );
+
+  const keyExtractor = useCallback((item: ServiceData) => item.serviceId, []);
+
+  // NOTE: no getItemLayout here — it is unreliable with numColumns > 1 (RN maps
+  // scroll offsets to the wrong item indices, so cells render the wrong service
+  // and "shift" data while scrolling/paginating). The cards are fixed-height, so
+  // native measurement stays cheap without it.
+
+  // Guard onEndReached against a recursive multi-fetch loop: it fires on mount
+  // and repeatedly whenever the loaded rows don't fill the viewport (client-side
+  // filters can shrink a page), which would fetch every page in a tight loop.
+  // Allow exactly one load per user scroll gesture.
+  const canLoadMore = useRef(false);
+  const handleScrollBeginDrag = useCallback(() => {
+    canLoadMore.current = true;
+  }, []);
+  const handleEndReached = useCallback(() => {
+    if (!canLoadMore.current) return;
+    canLoadMore.current = false;
+    handleLoadMore();
+  }, [handleLoadMore]);
+
+  // Memoize the list's inline props so a page append doesn't recreate them as
+  // new element objects every render (which makes FlatList reconcile more).
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={isFetching && !isFetchingNextPage}
+        onRefresh={handleRefresh}
+        tintColor={theme.tint}
+      />
+    ),
+    [isFetching, isFetchingNextPage, handleRefresh, theme.tint]
+  );
+
+  const listFooter = useMemo(
+    () =>
+      isFetchingNextPage ? (
+        <View className="py-4 items-center">
+          <ActivityIndicator size="small" color={theme.tint} />
+        </View>
+      ) : null,
+    [isFetchingNextPage, theme.tint]
+  );
+
+  const listEmpty = useMemo(() => {
+    const filtered = searchQuery.length > 0 || hasActiveFilters;
+    return (
+      <View className="flex-1 justify-center items-center pt-20">
+        <Ionicons name="briefcase-outline" size={64} color={theme.icon} />
+        <ThemedText className="text-center mt-4">
+          {filtered ? "No services match your filters" : "No services available"}
+        </ThemedText>
+        <ThemedText type="subtext" className="text-center mt-2">
+          {filtered
+            ? "Try adjusting your search or filters"
+            : "Check back later for new services"}
+        </ThemedText>
+      </View>
+    );
+  }, [searchQuery.length, hasActiveFilters, theme.icon]);
 
   return (
     <React.Fragment>
@@ -82,14 +167,13 @@ export default function ServicesTabContent() {
         {/* Filter Button */}
         <Pressable
           onPress={openFilterModal}
-          className={`p-3 rounded-full ${
-            hasActiveFilters ? "bg-[#FFCC00]" : ""
-          }`}
+          style={hasActiveFilters ? { backgroundColor: theme.tint } : undefined}
+          className="p-3 rounded-full"
         >
           <Ionicons
             name="options-outline"
             size={20}
-            color={hasActiveFilters ? "#000" : "#9CA3AF"}
+            color={hasActiveFilters ? theme.textInverted : theme.icon}
           />
         </Pressable>
       </View>
@@ -138,9 +222,9 @@ export default function ServicesTabContent() {
 
       {/* Results count when searching or filtering */}
       {(searchQuery.length > 0 || hasActiveFilters) && (
-        <Text className="text-gray-400 text-sm mb-2">
+        <ThemedText type="subtext" className="mb-2">
           {totalResults} result{totalResults !== 1 ? "s" : ""} found
-        </Text>
+        </ThemedText>
       )}
 
       {isLoading && !servicesData ? (
@@ -149,54 +233,39 @@ export default function ServicesTabContent() {
         <View className="flex-1 justify-center items-center">
           <Text className="text-red-500">Failed to load services</Text>
           <TouchableOpacity onPress={handleRefresh} className="mt-2">
-            <Text className="text-[#FFCC00]">Try Again</Text>
+            <Text style={{ color: theme.tint }} className="font-semibold">
+              Try Again
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={filteredServices}
-          keyExtractor={(item) => item.serviceId}
+          keyExtractor={keyExtractor}
           renderItem={renderServiceItem}
           numColumns={2}
-          extraData={filteredServices.length}
-          refreshControl={
-            <RefreshControl
-              refreshing={isFetching && !isFetchingNextPage}
-              onRefresh={handleRefresh}
-              tintColor="#FFCC00"
-            />
-          }
-          ListFooterComponent={
-            hasNextPage ? (
-              <View className="py-4 items-center">
-                {isFetchingNextPage ? (
-                  <ActivityIndicator size="small" color="#FFCC00" />
-                ) : (
-                  <Pressable
-                    onPress={handleLoadMore}
-                    className="bg-zinc-800 px-6 py-3 rounded-full"
-                  >
-                    <Text className="text-[#FFCC00] font-semibold">Load More</Text>
-                  </Pressable>
-                )}
-              </View>
-            ) : null
-          }
-          ListEmptyComponent={
-            <View className="flex-1 justify-center items-center pt-20">
-              <Ionicons name="briefcase-outline" size={64} color="#666" />
-              <Text className="text-gray-400 text-center mt-4">
-                {searchQuery.length > 0 || hasActiveFilters
-                  ? "No services match your filters"
-                  : "No services available"}
-              </Text>
-              <Text className="text-gray-500 text-sm text-center mt-2">
-                {searchQuery.length > 0 || hasActiveFilters
-                  ? "Try adjusting your search or filters"
-                  : "Check back later for new services"}
-              </Text>
-            </View>
-          }
+          extraData={favoritedIds}
+          // flex:1 gives the list a bounded height so it becomes the scroller —
+          // without it onEndReached never fires and infinite scroll won't work.
+          // (NativeWind className="flex-1" does not reliably apply here — use style.)
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+          // Android clips rows first mounted off-screen (as appended pages are),
+          // leaving blank space where the card should be — disable that here.
+          removeClippedSubviews={false}
+          // Windowing tuned for smooth scrolling: small per-batch/window sizes
+          // keep each frame cheap (cards are fixed-height so measurement is fast).
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={7}
+          updateCellsBatchingPeriod={50}
+          onScrollBeginDrag={handleScrollBeginDrag}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.4}
+          refreshControl={refreshControl}
+          ListFooterComponent={listFooter}
+          ListEmptyComponent={listEmpty}
         />
       )}
 

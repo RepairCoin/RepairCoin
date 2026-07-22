@@ -49,7 +49,9 @@ export default function MessageBubble({
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
   const handleDownloadImage = async (url: string) => {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
+    // Write-only access: saving to the gallery does not require the broad
+    // READ_MEDIA_IMAGES permission (removed for Google Play compliance).
+    const { status } = await MediaLibrary.requestPermissionsAsync(true);
     if (status !== "granted") {
       Alert.alert("Permission required", "Allow access to your photo library to save images.");
       return;
