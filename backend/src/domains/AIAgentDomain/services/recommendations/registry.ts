@@ -1,16 +1,18 @@
 // backend/src/domains/AIAgentDomain/services/recommendations/registry.ts
 //
-// P0 — the detector registry. Empty by design: P0 ships the pipeline, P1 adds
-// the first three detectors (lapsed_customers, low_stock, slow_period).
-//
-// Adding a detector is an append here plus one file in ./detectors — the
-// generator loop is detector-agnostic, exactly like METRIC_DEFINITIONS in the
-// anomaly engine.
+// The detector registry. Adding a detector is an append here plus one file in
+// ./detectors — the generator loop is detector-agnostic, exactly like
+// METRIC_DEFINITIONS in the anomaly engine.
 
 import { RecommendationDetector } from './types';
+import { lapsedCustomersDetector } from './detectors/lapsedCustomers';
+import { lowStockDetector } from './detectors/lowStock';
+import { slowPeriodDetector } from './detectors/slowPeriod';
 
 export const RECOMMENDATION_DETECTORS: RecommendationDetector[] = [
-  // P1: lapsedCustomersDetector, lowStockDetector, slowPeriodDetector
+  lapsedCustomersDetector,
+  lowStockDetector,
+  slowPeriodDetector,
 ];
 
 export function getDetectorByKey(
