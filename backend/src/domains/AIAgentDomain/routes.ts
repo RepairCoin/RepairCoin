@@ -34,6 +34,11 @@ import {
   dismissAnomaly,
 } from './controllers/InsightsAnomaliesController';
 import {
+  listRecommendations,
+  dismissRecommendation,
+  markRecommendationActed,
+} from './controllers/RecommendationsController';
+import {
   listPinned,
   createPinned,
   deletePinned,
@@ -254,6 +259,34 @@ export function initializeRoutes(): Router {
     requireRole(['shop']),
     requireTier('aiInsights'),
     dismissAnomaly
+  );
+
+  // AI Recommendations (dashboard overview feed) — P0.
+  // Scope: docs/tasks/strategy/ai-recommendations/scope.md
+  // Gated on aiInsights (Growth), same as the anomaly feed it extends. Each
+  // recommendation ALSO carries its own required_feature, re-checked against
+  // the current tier inside the service — so the route gate is the floor, not
+  // the whole story. Shop-scoped via JWT; :id never determines scope.
+  router.get(
+    '/recommendations',
+    authMiddleware,
+    requireRole(['shop']),
+    requireTier('aiInsights'),
+    listRecommendations
+  );
+  router.post(
+    '/recommendations/:id/dismiss',
+    authMiddleware,
+    requireRole(['shop']),
+    requireTier('aiInsights'),
+    dismissRecommendation
+  );
+  router.post(
+    '/recommendations/:id/acted',
+    authMiddleware,
+    requireRole(['shop']),
+    requireTier('aiInsights'),
+    markRecommendationActed
   );
 
   // Phase 7.3 — saved queries (pinned questions). All shop-scoped via
