@@ -18,33 +18,33 @@ const customerTiers: CustomerTier[] = [
   {
     name: "Bronze",
     description:
-      "You start here and keep climbing. Every repair begins here with base rewards and full access to the RepairCoin partner network.",
+      "Your automatic starting tier. Every member begins here and starts earning from their very first service.",
     benefits: [
       "Earn base RCN on every repair and purchase",
       "Access to all verified partner shops",
       "Basic wallet history tracking",
     ],
     icon: Shield,
-    iconBg: "bg-[#2a1e10]",
-    iconColor: "text-[#CD7F32]",
+    iconBg: "bg-[#CD7F32]",
+    iconColor: "text-black",
   },
   {
     name: "Silver",
     description:
-      "Boost your tier by staying active. Earn higher multipliers and get early access to promotions across the network.",
+      "Unlock this tier by staying active. Earn higher multipliers and gain early access as your repair activity grows.",
     benefits: [
-      "Boosted RCN rewards on eligible services",
+      "Boosted RCN rewards on eligible transactions",
       "Occasional promo multipliers at select shops",
       "Priority access to limited-time campaigns",
     ],
     icon: Sparkles,
-    iconBg: "bg-[#1e1e1e]",
-    iconColor: "text-[#C0C0C0]",
+    iconBg: "bg-[#C0C0C0]",
+    iconColor: "text-black",
   },
   {
     name: "Gold",
     description:
-      "The highest tier for your most loyal activity. Earn maximum rewards, exclusive benefits, and priority access across the entire network.",
+      "The highest tier for your most loyal activity. Earn maximum rewards, unlock exclusive benefits, and enjoy priority access across the network.",
     benefits: [
       "Highest RCN earning rates",
       "Early access to new partner shops and promos",
@@ -81,9 +81,9 @@ const CustomerTierCards = () => {
           >
             {/* Icon circle */}
             <div
-              className={`w-14 h-14 rounded-full ${tier.iconBg} flex items-center justify-center mb-6`}
+              className={`w-9 h-9 rounded-full ${tier.iconBg} flex items-center justify-center mb-6`}
             >
-              <Icon className={`w-7 h-7 ${tier.iconColor}`} />
+              <Icon className={`w-5 h-5 ${tier.iconColor}`} />
             </div>
 
             {/* Name & Description */}
