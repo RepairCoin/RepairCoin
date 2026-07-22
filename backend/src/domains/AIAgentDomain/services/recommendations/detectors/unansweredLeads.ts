@@ -14,7 +14,7 @@
 // Duplicates are excluded — chasing a known duplicate is wasted effort.
 
 import { Pool } from 'pg';
-import { RecCandidate, RecommendationDetector } from '../types';
+import { RecCandidate, RecommendationDetector, RecSeverity } from '../types';
 
 /** Anything older than this is a dead lead, not a to-do. */
 const WINDOW_DAYS = 14;
@@ -48,22 +48,43 @@ export const unansweredLeadsDetector: RecommendationDetector = {
     if (count < MIN_LEADS) return [];
 
     const oldestHours = Number(res.rows[0]?.oldest_hours ?? 0);
-    const severity =
+    const severity: RecSeverity =
       count >= HIGH_AT ? 'high' : count >= MEDIUM_AT ? 'medium' : 'low';
 
+    const description =
+      oldestHours >= 24
+        ? `${count} inquir${count === 1 ? 'y has' : 'ies have'} had no reply — the oldest has been waiting ${Math.floor(oldestHours / 24)} day${Math.floor(oldestHours / 24) === 1 ? '' : 's'}.`
+        : `${count} inquir${count === 1 ? 'y is' : 'ies are'} waiting for a response.`;
+
+    const shared = {
+      detectorKey: 'unanswered_leads',
+      category: 'operations' as const,
+      severity,
+      evidence: { waitingLeads: count, oldestHours },
+      assistantPrompt: `I have ${count} leads waiting for a reply — help me respond to them`,
+      description,
+    };
+
+    // Emitted to BOTH surfaces on purpose. As a Priority Action it is the
+    // do-this-now tile; as a card it is what makes `operations` reachable in
+    // the recommendations list at all — it is currently the only operations
+    // detector, so without this the Operations chip could never light up.
+    //
+    // Requires migration 238: the dedupe index had to become
+    // (shop_id, detector_key, presentation), otherwise the second row is
+    // silently swallowed by ON CONFLICT DO NOTHING and only one surface ever
+    // shows it — with no error and no log.
     return [
       {
-        detectorKey: 'unanswered_leads',
-        category: 'operations',
-        severity,
-        evidence: { waitingLeads: count, oldestHours },
+        ...shared,
         action: { kind: 'navigate', tab: 'ads' },
-        assistantPrompt: `I have ${count} leads waiting for a reply — help me respond to them`,
+        title: `${count} lead${count === 1 ? '' : 's'} waiting for a reply`,
+        presentation: 'card',
+      },
+      {
+        ...shared,
+        action: { kind: 'navigate', tab: 'ads' },
         title: 'Follow up leads',
-        description:
-          oldestHours >= 24
-            ? `${count} inquir${count === 1 ? 'y has' : 'ies have'} had no reply — the oldest has been waiting ${Math.floor(oldestHours / 24)} day${Math.floor(oldestHours / 24) === 1 ? '' : 's'}.`
-            : `${count} inquir${count === 1 ? 'y is' : 'ies are'} waiting for a response.`,
         presentation: 'action',
         ctaLabel: 'Contact Leads',
       },
