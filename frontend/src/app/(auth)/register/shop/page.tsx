@@ -89,8 +89,17 @@ export default function ShopRegistration() {
 
   // Main registration form
   return (
-    <div className="min-h-screen bg-[#191919] pb-24 pt-28 md:pt-32">
-      <div className="mx-auto w-full max-w-[1100px] px-6">
+    <div className="relative min-h-screen overflow-hidden bg-[#191919] pb-24 pt-28 md:pt-32">
+      {/* Background particle wave pattern */}
+      <div
+        className="pointer-events-none absolute inset-0 bg-no-repeat bg-right-top opacity-40"
+        style={{
+          backgroundImage: "url(/img/about/bg-design.png)",
+          backgroundSize: "contain",
+        }}
+      />
+
+      <div className="relative z-10 mx-auto w-full max-w-[1100px] px-6">
         {/* Wallet Connection Check */}
         {!account ? (
           <div className="mx-auto max-w-md rounded-2xl bg-[linear-gradient(90deg,#000000_0%,#1D1D1D_100%)] p-8 text-center shadow-xl">
