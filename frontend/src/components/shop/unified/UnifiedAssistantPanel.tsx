@@ -548,6 +548,19 @@ export const UnifiedAssistantPanel: React.FC<{
   const handleSend = () => submitText(input);
   const handleStarterClick = (prompt: string) => submitText(prompt);
 
+  // Opened WITH a question already decided (a dashboard recommendation card):
+  // submit it once on mount. Same one-shot discipline as pendingMic — consuming
+  // clears the flag so a StrictMode double-mount can't send twice.
+  const pendingPrompt = useUnifiedAssistantStore((s) => s.pendingPrompt);
+  useEffect(() => {
+    if (!pendingPrompt) return;
+    const prompt = useUnifiedAssistantStore.getState().consumePendingPrompt();
+    if (!prompt) return;
+    submitText(prompt);
+    // submitText read at fire time; the flag drives the single run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPrompt]);
+
   // Permanently dismiss the "Tap to talk" coach-mark (on first use or close).
   const dismissCoach = () => {
     setShowCoach(false);

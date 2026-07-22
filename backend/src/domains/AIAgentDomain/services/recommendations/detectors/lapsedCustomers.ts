@@ -53,7 +53,18 @@ export const lapsedCustomersDetector: RecommendationDetector = {
         category: 'customers',
         severity,
         evidence: { inactiveCustomers: count, days: LAPSED_DAYS },
-        action: { kind: 'campaign', audience: `lapsed_${LAPSED_DAYS}d` },
+        // Intended destination is the campaign composer prefilled with this
+        // audience, but CampaignBuilderModal only prefills from an explicit
+        // address list on an existing campaign — there is no audience-key entry
+        // point yet. Until that exists this opens the assistant, which HAS the
+        // marketing tools and can genuinely draft the campaign. Upgrading later
+        // is a one-line change here; the card contract does not move.
+        action: {
+          kind: 'assistant',
+          prompt:
+            `Draft a win-back campaign for the ${count} customers who haven't ` +
+            `booked in ${LAPSED_DAYS} days`,
+        },
         assistantPrompt:
           `Draft a win-back campaign for the ${count} customers who haven't ` +
           `booked in ${LAPSED_DAYS} days`,
