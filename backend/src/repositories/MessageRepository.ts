@@ -971,18 +971,56 @@ export class MessageRepository extends BaseRepository {
   /**
    * Soft-delete a single message. Only the original sender may delete it.
    * Returns true if a row was updated, false if not found / not the sender.
+   *
+   * Also refreshes the conversation's denormalized preview. Thread reads filter on
+   * is_deleted, but the conversation list reads last_message_preview — without this the
+   * deleted message keeps showing in the inbox after it has vanished from the thread.
    */
   async deleteMessage(messageId: string, senderAddress: string): Promise<boolean> {
     try {
-      const query = `
-        UPDATE messages
-        SET is_deleted = TRUE, updated_at = NOW()
-        WHERE message_id = $1
-          AND sender_address = $2
-          AND is_deleted = FALSE
-      `;
-      const result = await this.pool.query(query, [messageId, senderAddress]);
-      return (result.rowCount ?? 0) > 0;
+      return await this.withTransaction(async (client) => {
+        const result = await client.query(
+          `UPDATE messages
+              SET is_deleted = TRUE, updated_at = NOW()
+            WHERE message_id = $1
+              AND sender_address = $2
+              AND is_deleted = FALSE
+            RETURNING conversation_id`,
+          [messageId, senderAddress]
+        );
+
+        if ((result.rowCount ?? 0) === 0) return false;
+        const conversationId = result.rows[0].conversation_id;
+
+        // Point the preview at the newest surviving message...
+        await client.query(
+          `UPDATE conversations c
+              SET last_message_preview = LEFT(m.message_text, 100),
+                  last_message_at = m.created_at
+             FROM (
+               SELECT message_text, created_at
+                 FROM messages
+                WHERE conversation_id = $1 AND is_deleted = FALSE
+                ORDER BY created_at DESC
+                LIMIT 1
+             ) m
+            WHERE c.conversation_id = $1`,
+          [conversationId]
+        );
+
+        // ...or clear it when nothing survives (the FROM above matches no rows then).
+        await client.query(
+          `UPDATE conversations
+              SET last_message_preview = NULL
+            WHERE conversation_id = $1
+              AND NOT EXISTS (
+                SELECT 1 FROM messages WHERE conversation_id = $1 AND is_deleted = FALSE
+              )`,
+          [conversationId]
+        );
+
+        return true;
+      });
     } catch (error) {
       logger.error('Error in deleteMessage:', error);
       throw error;
