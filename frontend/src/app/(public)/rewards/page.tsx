@@ -11,10 +11,9 @@ import RewardsHero from "@/components/rewards/RewardsHero";
 
 // Below-the-fold - lazy loaded with dynamic imports
 const ShopTierCards = dynamic(() => import("@/components/rewards/ShopTierCards"), { ssr: true });
-const ShopHowItWorks = dynamic(() => import("@/components/rewards/ShopHowItWorks"), { ssr: true });
 const CustomerTierCards = dynamic(() => import("@/components/rewards/CustomerTierCards"), { ssr: true });
 const CustomerHowTiersWork = dynamic(() => import("@/components/rewards/CustomerHowTiersWork"), { ssr: true });
-const RewardsCTA = dynamic(() => import("@/components/rewards/RewardsCTA"), { ssr: true });
+const CTASection = dynamic(() => import("@/components/landing-v4/CTASection"), { ssr: true });
 
 export default function RewardsPage() {
   const [activeTab, setActiveTab] = useState<RewardsTabType>("shopowner");
@@ -38,7 +37,6 @@ export default function RewardsPage() {
               <section className="max-w-7xl mx-auto px-4 pt-4 pb-12 min-h-screen h-full">
                 <ShopTierCards />
               </section>
-              <ShopHowItWorks />
             </m.div>
           ) : (
             <m.div
@@ -56,8 +54,24 @@ export default function RewardsPage() {
           )}
         </AnimatePresence>
 
-        {/* Footer CTA — shown for both tabs */}
-        <RewardsCTA activeTab={activeTab} />
+        {/* Footer CTA — copy varies per tab */}
+        {activeTab === "shopowner" ? (
+          <CTASection
+            line1="Start Building Customer"
+            line2="Loyalty Today"
+            description="Reward loyal customers, increase repeat bookings, and grow your business with a loyalty platform built for modern businesses."
+            ctaLabel="Get Started Free →"
+            secondaryLabel="Explore Pricing →"
+            secondaryHref="/pricing"
+          />
+        ) : (
+          <CTASection
+            line1="Start Earning"
+            line2="Smarter Today"
+            description="Join the FixFlow to earn points, unlock exclusive perks, discover trusted businesses, and enjoy personalized rewards with every visit."
+            ctaLabel="Join Free Today →"
+          />
+        )}
       </div>
     </LazyMotion>
   );

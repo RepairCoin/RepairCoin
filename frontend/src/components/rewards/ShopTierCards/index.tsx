@@ -23,7 +23,7 @@ const shopTiers: ShopTier[] = [
   {
     name: "Standard Tier",
     description:
-      "Plug into RepairCoin with no upfront commitment. Great for new partner shops testing loyalty rewards.",
+      "Plug into RepairCoin with zero staking. Great for new partner shops testing loyalty rewards.",
     rcgStake: "None",
     rcnShopRate: "Pay $0.10 per RCN",
     redemptionCap: "$50 in RCN per customer, per visit.",
@@ -37,8 +37,8 @@ const shopTiers: ShopTier[] = [
     whoFor:
       "Shops looking for a simple, low-risk way to reward customers, gather useful data, and improve retention without overhauling their current operations.",
     icon: Shield,
-    iconBg: "bg-[#252525]",
-    iconColor: "text-white",
+    iconBg: "bg-[#4a4a4a]",
+    iconColor: "text-black",
   },
   {
     name: "Premium",
@@ -57,8 +57,8 @@ const shopTiers: ShopTier[] = [
     whoFor:
       "Shops that are ready to scale, want a better return on every dollar spent on rewards, and are building a loyal base of recurring customers.",
     icon: Sparkles,
-    iconBg: "bg-[#252525]",
-    iconColor: "text-white",
+    iconBg: "bg-[#e8e8e8]",
+    iconColor: "text-black",
   },
   {
     name: "Elite Tier",
@@ -108,9 +108,9 @@ const ShopTierCards = () => {
           >
             {/* Icon circle */}
             <div
-              className={`w-14 h-14 rounded-full ${tier.iconBg} flex items-center justify-center mb-6`}
+              className={`w-9 h-9 rounded-full ${tier.iconBg} flex items-center justify-center mb-6`}
             >
-              <Icon className={`w-7 h-7 ${tier.iconColor}`} />
+              <Icon className={`w-5 h-5 ${tier.iconColor}`} />
             </div>
 
             {/* Name & Description */}
@@ -130,18 +130,18 @@ const ShopTierCards = () => {
 
             {/* Stats grid */}
             <div className="grid grid-cols-2 gap-3 mb-6">
-              <div className="border border-[#252530] rounded-xl p-4">
-                <p className="text-xs text-[#555] mb-2 font-medium">RCN Shop Rate</p>
-                <p className="text-sm text-white font-semibold">{tier.rcnShopRate}</p>
+              <div className="border border-[#252530] rounded-xl p-4 text-center">
+                <p className="text-xs text-white mb-2 font-medium">RCN Shop Rate</p>
+                <p className="text-sm text-[#555] font-semibold">{tier.rcnShopRate}</p>
               </div>
-              <div className="border border-[#252530] rounded-xl p-4">
-                <p className="text-xs text-[#555] mb-2 font-medium">Redemption Cap</p>
-                <p className="text-sm text-white font-semibold">{tier.redemptionCap}</p>
+              <div className="border border-[#252530] rounded-xl p-4 text-center">
+                <p className="text-xs text-white mb-2 font-medium">Redemption Cap</p>
+                <p className="text-sm text-[#555] font-semibold">{tier.redemptionCap}</p>
               </div>
             </div>
 
             {/* Divider */}
-            <div className="border-t border-[#1e1e28] mb-6" />
+            <div className="w-3/4 mx-auto border-t border-[#3f3f3f] mb-6" />
 
             {/* Key Benefits */}
             <h4 className="text-base font-bold text-white mb-4">Key Benefits</h4>
@@ -153,9 +153,6 @@ const ShopTierCards = () => {
                 </li>
               ))}
             </ul>
-
-            {/* Divider */}
-            <div className="border-t border-[#1e1e28] mb-6" />
 
             {/* Who It's For */}
             <div className="mt-auto">

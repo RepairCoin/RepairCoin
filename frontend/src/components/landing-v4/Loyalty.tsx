@@ -178,14 +178,14 @@ export default function Loyalty() {
             The Loyalty Journey with FixFlow
           </m.h3>
 
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="mt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {journey.map((step, index) => (
               <m.div key={step.label} {...fadeUp(0.05 * index)}>
                 <div className="flex items-center gap-2">
                   <span className="flex items-center justify-center w-6 h-6 flex-shrink-0 rounded-full bg-[#F7CC00] text-black text-xs font-bold">
                     {index + 1}
                   </span>
-                  <span className="text-white text-sm font-medium">
+                  <span className="text-white text-xs sm:text-sm font-medium">
                     {step.label}
                   </span>
                 </div>
@@ -196,7 +196,7 @@ export default function Loyalty() {
                       src={step.image}
                       alt={step.alt}
                       fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+                      sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
                       className="object-cover"
                     />
                   </div>
