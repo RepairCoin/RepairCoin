@@ -32,15 +32,15 @@ const layout = {
 
   container: ["max-w-7xl mx-auto w-full", "px-4 lg:px-8"].join(" "),
 
-  row: [
-    "grid",
-    "grid-cols-1 lg:grid-cols-[2fr_1fr]",
-    "items-center",
-    "gap-10 lg:gap-12",
+  column: [
+    "relative z-10",
+    "flex flex-col items-center text-center",
+    "space-y-6 sm:space-y-7",
   ].join(" "),
 
   heading: [
-    "font-bold text-white leading-[1.15]",
+    "font-bold text-white leading-[1.15] text-balance",
+    "max-w-4xl",
     "text-[2.25rem]",
     "sm:text-[3rem]",
     "xl:text-[4rem]",
@@ -56,13 +56,6 @@ const layout = {
     "disabled:opacity-50 disabled:cursor-not-allowed",
     "flex items-center gap-2",
     "text-sm sm:text-base",
-  ].join(" "),
-
-  leftColumn: ["relative z-10", "space-y-6 sm:space-y-7"].join(" "),
-
-  rightColumn: [
-    "relative",
-    "flex items-center justify-center lg:justify-end",
   ].join(" "),
 };
 
@@ -106,96 +99,60 @@ export default function HeroSection({
       </div>
 
       <div className={layout.container}>
-        <div className={layout.row}>
-          {/* ── Left column: text + CTA + AI bar ── */}
-          <div className={layout.leftColumn}>
-            <m.div {...fadeUp(0.1)}>
-              <Badge label="The Future of Service Businesses" />
-            </m.div>
+        <div className={layout.column}>
+          <m.div {...fadeUp(0.1)}>
+            <Badge label="The Future of Service Businesses" />
+          </m.div>
 
-            <m.h1 {...fadeUp(0.2)} className={layout.heading}>
-              The Smarter Way to Grow Your Business With AI
-            </m.h1>
+          <m.h1 {...fadeUp(0.2)} className={layout.heading}>
+            The Smarter Way to Grow Your Business With AI
+          </m.h1>
 
-            <m.p
-              {...fadeUp(0.35)}
-              className="text-gray-300 leading-relaxed w-0 min-w-full text-base sm:text-[1.25rem] -mt-2 sm:-mt-3"
+          <m.p
+            {...fadeUp(0.35)}
+            className="text-gray-300 leading-relaxed max-w-2xl text-base sm:text-[1.25rem] -mt-2 sm:-mt-3"
+          >
+            FixFlow helps local service businesses manage bookings, customers,
+            marketing, rewards, and daily operations from one intelligent
+            platform.
+          </m.p>
+
+          {/* CTA */}
+          <m.div {...fadeUp(0.5)}>
+            <button
+              onClick={handleGetStartedClick}
+              disabled={isLoading}
+              className={layout.ctaButton}
             >
-              FixFlow helps local service businesses manage bookings, customers,
-              marketing, rewards, and daily operations from one intelligent
-              platform.
-            </m.p>
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {isRedirecting ? "Redirecting..." : "Loading..."}
+                </>
+              ) : (
+                <>Start Free Trial</>
+              )}
+            </button>
+          </m.div>
 
-            {/* CTA */}
-            <m.div {...fadeUp(0.5)}>
-              <button
-                onClick={handleGetStartedClick}
-                disabled={isLoading}
-                className={layout.ctaButton}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    {isRedirecting ? "Redirecting..." : "Loading..."}
-                  </>
-                ) : (
-                  <>Start Free Trial</>
-                )}
-              </button>
-            </m.div>
-          </div>
-
-          <div className={layout.rightColumn}>
+          {/* ── AI assistant ── */}
+          <div className="w-full max-w-3xl pt-4 sm:pt-6">
+            {/* AI assistant prompt label */}
             <m.div
-              initial={
-                prefersReducedMotion ? undefined : { opacity: 0, scale: 0.92 }
-              }
-              animate={
-                prefersReducedMotion ? undefined : { opacity: 1, scale: 1 }
-              }
-              transition={
-                prefersReducedMotion
-                  ? undefined
-                  : { duration: 0.8, delay: 0.3, ease: "easeOut" }
-              }
-              className="relative shrink-0 w-full lg:w-[150%] max-w-none aspect-[7/5]"
+              {...fadeUp(0.6)}
+              className="flex items-start justify-center gap-2"
             >
-              <m.div
-                animate={prefersReducedMotion ? undefined : { y: [0, -14, 0] }}
-                transition={
-                  prefersReducedMotion
-                    ? undefined
-                    : { duration: 5, repeat: Infinity, ease: "easeInOut" }
-                }
-                className="relative w-full h-full"
-              >
-                <Image
-                  src="/img/landingv4/hero-mascot-v2.png"
-                  alt="FixFlow AI assistant"
-                  fill
-                  priority
-                  sizes="(max-width: 1024px) 90vw, 640px"
-                  className="object-contain object-center"
-                />
-              </m.div>
+              <CurvedArrow />
+              <span className="text-[#F7CC00] font-semibold text-sm sm:text-base text-left">
+                Ask our AI assistant anything about your business
+              </span>
+            </m.div>
+
+            {/* AI chat bar (visual only) */}
+            <m.div {...fadeUp(0.7)} className="mt-3">
+              <AIChatBar />
             </m.div>
           </div>
-        </div>
-
-        {/* ── Full-width AI assistant section ── */}
-        <div className="relative z-10 mt-10 lg:mt-12">
-          {/* AI assistant prompt label */}
-          <m.div {...fadeUp(0.6)} className="flex items-start gap-2 pl-6">
-            <CurvedArrow />
-            <span className="text-[#F7CC00] font-medium text-sm sm:text-base">
-              Ask our AI assistant anything about your business
-            </span>
-          </m.div>
-
-          {/* AI chat bar (visual only) */}
-          <m.div {...fadeUp(0.7)} className="w-full lg:w-1/2 mt-3">
-            <AIChatBar />
-          </m.div>
         </div>
       </div>
     </section>
