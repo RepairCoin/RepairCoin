@@ -56,7 +56,10 @@ export const deadStockDetector: RecommendationDetector = {
         action: { kind: 'navigate', tab: 'inventory' },
         assistantPrompt: `Which stock hasn't moved, and what should I do with it?`,
         title: `${money} tied up in dead stock`,
-        description: `${count} item${count === 1 ? '' : 's'} haven't sold in ${data.windowDays} days. Consider discounting or returning them.`,
+        description:
+          count === 1
+            ? `1 item hasn't sold in ${data.windowDays} days. Consider discounting or returning it.`
+            : `${count} items haven't sold in ${data.windowDays} days. Consider discounting or returning them.`,
       },
     ];
   },
