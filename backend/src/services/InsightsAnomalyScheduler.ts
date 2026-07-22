@@ -11,6 +11,12 @@
 //   2. AnomalyPhraser.phraseAllPending() — picks up any row with
 //      claude_phrasing = NULL and produces a one-sentence summary
 //      + follow-up question via a short Sonnet call.
+//   3. RecommendationService.runForAllShops() — regenerates the shop
+//      dashboard recommendation feed (pure SQL detectors, no AI).
+//      This is what makes the feed populate at all; without it the
+//      dashboard shows its empty state forever. Gated on TIER only
+//      (not ai_global_enabled) — free tier has no AI features, so a
+//      free shop generates nothing.
 //
 // Both steps are non-throwing internally — per-shop / per-metric /
 // per-anomaly failures get logged and skipped without sinking the
@@ -25,6 +31,8 @@ import { logger } from "../utils/logger";
 import { AnomalyDetector } from "../domains/AIAgentDomain/services/insights/anomalies/AnomalyDetector";
 import { AnomalyPhraser } from "../domains/AIAgentDomain/services/insights/anomalies/AnomalyPhraser";
 import { getAiMemoryService } from "../domains/AIAgentDomain/services/AiMemoryService";
+import { getRecommendationService } from "../domains/AIAgentDomain/services/recommendations/RecommendationService";
+import { getRecommendationPhraser } from "../domains/AIAgentDomain/services/recommendations/RecommendationPhraser";
 
 // 03:00 UTC = off-peak for both PH and US time zones the shops
 // operate in. Per-cron syntax: minute hour day month weekday.
@@ -35,7 +43,7 @@ export class InsightsAnomalyScheduler {
   private cronJob: cron.ScheduledTask | null = null;
   private isRunning = false;
   private lastRunAt: Date | null = null;
-  private lastRunResult: { shopsProcessed: number; anomaliesFlagged: number; shopErrors: number; phrased: number; phrasingSkipped: number; memoriesPurged: number } | null = null;
+  private lastRunResult: { shopsProcessed: number; anomaliesFlagged: number; shopErrors: number; phrased: number; phrasingSkipped: number; memoriesPurged: number; recommendationsWritten: number; recommendationsPhrased: number } | null = null;
 
   start(): void {
     if (this.cronJob) {
@@ -84,6 +92,28 @@ export class InsightsAnomalyScheduler {
       const phraser = new AnomalyPhraser();
       const { phrased, skipped } = await phraser.phraseAllPending();
 
+      // Dashboard recommendations (P3): regenerate the per-shop feed on the
+      // same nightly pass. Runs AFTER anomaly detection so an anomaly-derived
+      // detector (P5) sees this run's rows. Non-throwing so it never sinks the
+      // batch — a dark recommendation feed must not cost us the anomaly banner.
+      let recommendationsWritten = 0;
+      let recommendationsPhrased = 0;
+      try {
+        const recResult = await getRecommendationService().runForAllShops();
+        recommendationsWritten = recResult.recommendationsWritten;
+
+        // P4 — reword the new cards (cheap model, spend-cap gated, rewrites
+        // that lose or invent a figure are discarded). Optional by design: the
+        // deterministic template is never overwritten, so this failing costs
+        // nothing but plainer copy.
+        const phrasing = await getRecommendationPhraser().phraseAllPending();
+        recommendationsPhrased = phrasing.phrased;
+      } catch (err) {
+        logger.warn("InsightsAnomalyScheduler: recommendation run skipped", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+
       // AI Memory aging (Phase 6 slice): soft-delete auto + unpinned, never-
       // referenced memories past the window (AI_MEMORY_STALE_DAYS). No-op when
       // ENABLE_AI_MEMORY is off. Non-throwing so it never sinks the batch.
@@ -102,6 +132,8 @@ export class InsightsAnomalyScheduler {
         phrased,
         phrasingSkipped: skipped,
         memoriesPurged,
+        recommendationsWritten,
+        recommendationsPhrased,
       };
 
       logger.info("InsightsAnomalyScheduler: nightly run complete", {

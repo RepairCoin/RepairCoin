@@ -16,13 +16,21 @@ import {
   ShoppingCart,
   Gem,
   Image as ImageIcon,
+  X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
 import { unlockAudioPlayback } from "@/lib/audioUnlock";
 import { useVoiceEnabled } from "@/hooks/useVoiceEnabled";
 import { appointmentsApi, CalendarBooking } from "@/services/api/appointments";
+import {
+  aiRecommendationsApi,
+  Recommendation,
+  RecCategory,
+} from "@/services/api/aiRecommendations";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { getShopServices } from "@/services/api/services";
 import {
   getShopRecentActivity,
@@ -35,8 +43,10 @@ import {
 /**
  * Shop dashboard "Overview" redesign.
  *
- * Wallet figures use real `shopData`; the agenda and recent activity are wired to
- * live APIs. The stats and AI sections still use temporary MOCK data (marked below).
+ * Every section is wired to live APIs — wallet from `shopData`, stats, agenda,
+ * recent activity, and both AI surfaces (AI Recommendations + Priority Actions,
+ * which share one engine and differ only by `presentation`). No mock data
+ * remains here.
  */
 
 // Rotating examples for the "Ask AI Anything" card (animated slideshow).
@@ -140,61 +150,29 @@ const buildStatCards = (stats: ShopDashboardStats): StatCard[] => {
 };
 
 // ---------------------------------------------------------------------------
-// MOCK DATA (temporary — replace with real API data)
+// AI Recommendations — presentation only. All content comes from
+// GET /api/ai/recommendations; nothing here fabricates a number.
 // ---------------------------------------------------------------------------
 
-const MOCK_AI_RECOMMENDATIONS = [
-  {
-    id: 1,
-    icon: Megaphone,
-    title: "Send a New Customer Campaign",
-    desc: "AI detected an opportunity to re-engage 87 inactive customers.",
-    category: "Marketing",
-    color: "#38bdf8",
-  },
-  {
-    id: 2,
-    icon: PackageOpen,
-    title: "Low on Stock Alert",
-    desc: "8 items running low. Check and review purchase suggestions.",
-    category: "RepairCoin",
-    color: "#a855f7",
-  },
-  {
-    id: 3,
-    icon: CalendarClock,
-    title: "Slow Day Tomorrow",
-    desc: "Want AI to create a promotion to boost bookings?",
-    category: "Revenue",
-    color: "#f59e0b",
-  },
-];
+// Categories mirror the backend's RecCategory union.
+// (The old "RepairCoin" filter was really inventory, and nothing mapped to
+// Customers; both are fixed here.)
+const AI_FILTERS = [
+  "All",
+  "Revenue",
+  "Customers",
+  "Marketing",
+  "Inventory",
+  "Operations",
+] as const;
 
-const AI_FILTERS = ["All", "Revenue", "Customers", "Marketing", "RepairCoin"];
-
-const MOCK_PRIORITY_ACTIONS = [
-  {
-    id: 1,
-    icon: Users,
-    title: "Follow Up Leads",
-    desc: "8 inquiries waiting for response",
-    cta: "Contact Leads",
-  },
-  {
-    id: 2,
-    icon: Megaphone,
-    title: "Promote Tuesday",
-    desc: "Expected +5 to 10 bookings.",
-    cta: "Launch Campaign",
-  },
-  {
-    id: 3,
-    icon: Star,
-    title: "Request Reviews",
-    desc: "12 recent customers eligible.",
-    cta: "Send Requests",
-  },
-];
+const REC_STYLE: Record<RecCategory, { icon: typeof Megaphone; color: string }> = {
+  revenue: { icon: CalendarClock, color: "#f59e0b" },
+  customers: { icon: Users, color: "#38bdf8" },
+  marketing: { icon: Megaphone, color: "#38bdf8" },
+  inventory: { icon: PackageOpen, color: "#a855f7" },
+  operations: { icon: Sparkles, color: "#34d399" },
+};
 
 // ---------------------------------------------------------------------------
 // Recent Activity presentation mapping (data comes from the API)
@@ -370,6 +348,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   // floating VoiceCommandPill on the Profile tab).
   const openWithMic = useUnifiedAssistantStore((s) => s.openWithMic);
   const openAssistant = useUnifiedAssistantStore((s) => s.open);
+  const openWithPrompt = useUnifiedAssistantStore((s) => s.openWithPrompt);
+  const router = useRouter();
   // WS2: voice is Growth+. On Starter this card becomes a ✨ "Ask AI Anything"
   // that opens the TEXT assistant — no mic, no "talk", help-oriented examples.
   const voiceEnabled = useVoiceEnabled();
@@ -393,7 +373,96 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     return () => clearInterval(id);
   }, [askAiExamples.length]);
   const [mascotError, setMascotError] = useState(false);
-  const [aiFilter, setAiFilter] = useState("All");
+  const [aiFilter, setAiFilter] = useState<string>("All");
+
+  // ---- AI Recommendations (real data; replaced the hardcoded mock) ----
+  const { can: canUseFeature, loading: featuresLoading } = useFeatureAccess();
+  const canSeeRecs = canUseFeature("aiInsights");
+  const [recs, setRecs] = useState<Recommendation[]>([]);
+  const [recsGated, setRecsGated] = useState(0);
+  const [recsLoading, setRecsLoading] = useState(true);
+  // Priority Actions — same engine, different surface (presentation='action').
+  const [actions, setActions] = useState<Recommendation[]>([]);
+  const [actionsLoading, setActionsLoading] = useState(true);
+
+  useEffect(() => {
+    // Below tier the endpoint 403s by design — don't call it at all.
+    if (featuresLoading) return;
+    if (!canSeeRecs) {
+      setRecsLoading(false);
+      setActionsLoading(false);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const [cards, tiles] = await Promise.all([
+          aiRecommendationsApi.list(12, "card"),
+          aiRecommendationsApi.list(3, "action"),
+        ]);
+        if (!active) return;
+        setRecs(cards.recommendations);
+        setRecsGated(cards.gatedCount);
+        setActions(tiles.recommendations);
+      } catch {
+        // Advisory surfaces — never let them break the dashboard.
+        if (active) {
+          setRecs([]);
+          setActions([]);
+        }
+      } finally {
+        if (active) {
+          setRecsLoading(false);
+          setActionsLoading(false);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [featuresLoading, canSeeRecs]);
+
+  /** Card tap: record the tap-through, then run the card's typed action.
+   *  markActed is fire-and-forget — navigation must never wait on it. */
+  const handleRecClick = (rec: Recommendation) => {
+    void aiRecommendationsApi.markActed(rec.id).catch(() => {});
+    setRecs((prev) => prev.filter((r) => r.id !== rec.id));
+    setActions((prev) => prev.filter((r) => r.id !== rec.id));
+
+    switch (rec.action.kind) {
+      case "navigate": {
+        const sub = rec.action.sub ? `&sub=${rec.action.sub}` : "";
+        router.push(`/shop?tab=${rec.action.tab}${sub}`);
+        break;
+      }
+      case "assistant":
+        openWithPrompt(rec.action.prompt);
+        break;
+      case "campaign":
+        // No audience-key entry point into the campaign composer yet, so fall
+        // back to the assistant (which has the marketing tools) rather than
+        // dropping the tap.
+        openWithPrompt(
+          rec.assistantPrompt ?? "Help me build a campaign for this audience"
+        );
+        break;
+    }
+  };
+
+  /** Secondary ✨ tap — always available, whatever the primary action is. */
+  const handleRecAsk = (rec: Recommendation) => {
+    if (!rec.assistantPrompt) return;
+    openWithPrompt(rec.assistantPrompt);
+  };
+
+  /** Hide a card. Default is a 14-day snooze so a recurring condition can come
+   *  back; shift-click dismisses it permanently ("not relevant to my shop").
+   *  Optimistic — the feed is advisory, so a failed request shouldn't strand a
+   *  card the owner has already visually dismissed. */
+  const handleRecDismiss = (rec: Recommendation, permanent: boolean) => {
+    setRecs((prev) => prev.filter((r) => r.id !== rec.id));
+    void aiRecommendationsApi.dismiss(rec.id, permanent).catch(() => {});
+  };
 
   // Today's Agenda — real appointments for the shop today
   const [agenda, setAgenda] = useState<CalendarBooking[]>([]);
@@ -481,8 +550,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   const visibleRecs =
     aiFilter === "All"
-      ? MOCK_AI_RECOMMENDATIONS
-      : MOCK_AI_RECOMMENDATIONS.filter((r) => r.category === aiFilter);
+      ? recs
+      : recs.filter((r) => r.category === aiFilter.toLowerCase());
+
+  // Only offer filters that actually have something behind them — an empty
+  // category chip is just a dead end.
+  const availableFilters = AI_FILTERS.filter(
+    (f) => f === "All" || recs.some((r) => r.category === f.toLowerCase())
+  );
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 max-w-[1080px] mx-auto">
@@ -584,76 +659,189 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </button>
         </div>
 
-        {/* AI Recommendations (MOCK) */}
-        <div className={`${cardDark} p-5`}>
-          <SectionHeading title="AI Recommendations for You" onViewAll={() => {}} />
-          <div className="mb-3 flex flex-wrap gap-2">
-            {AI_FILTERS.map((f) => (
-              <button
-                key={f}
-                onClick={() => setAiFilter(f)}
-                className={`rounded-full px-3 py-1 text-xs transition-colors ${
-                  aiFilter === f
-                    ? "bg-[#FFCC00] text-[#101010] font-medium"
-                    : "bg-[#202020] text-gray-400 hover:text-white"
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-2.5">
-            {visibleRecs.map((r) => {
-              const Icon = r.icon;
-              return (
-                <button
-                  key={r.id}
-                  className="group flex w-full items-center gap-3 rounded-xl border border-[#2e2e2e] bg-gradient-to-br from-[#2a2a2a] to-[#161616] px-3 py-3 text-left transition-all hover:from-[#323232] hover:to-[#1c1c1c]"
-                >
-                  <span
-                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
-                    style={{ backgroundColor: `${r.color}26` }}
+        {/* AI Recommendations — real, per-shop, tier-gated.
+            Every figure in a card comes from the detector's evidence, so the
+            copy can't claim something nothing computed. */}
+        {(recsLoading || canSeeRecs) && (
+          <div className={`${cardDark} p-5`}>
+            <SectionHeading title="AI Recommendations for You" />
+
+            {recsLoading ? (
+              <div className="space-y-2.5">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 rounded-xl border border-[#2e2e2e] bg-[#1c1c1c] px-3 py-3 animate-pulse"
                   >
-                    <Icon className="w-4 h-4" style={{ color: r.color }} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-white">{r.title}</span>
-                    <span className="block text-xs text-gray-400">{r.desc}</span>
-                  </span>
-                  <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-500/15 transition-all group-hover:bg-green-500/25 group-hover:translate-x-0.5">
-                    <ArrowRight className="w-4 h-4 text-green-400" />
-                  </span>
-                </button>
-              );
-            })}
-            {visibleRecs.length === 0 && (
-              <p className="px-2 py-3 text-xs text-gray-500">No recommendations in this category.</p>
+                    <div className="h-9 w-9 flex-shrink-0 rounded-full bg-[#2a2a2a]" />
+                    <div className="min-w-0 flex-1">
+                      <div className="h-3.5 w-44 rounded bg-[#2a2a2a]" />
+                      <div className="mt-2 h-3 w-64 max-w-full rounded bg-[#242424]" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : recs.length === 0 ? (
+              // Explicitly positive — never fall back to placeholder cards.
+              <p className="px-2 py-4 text-sm text-gray-400">
+                Nothing needs your attention right now. We&apos;ll flag it here
+                when something changes.
+              </p>
+            ) : (
+              <>
+                {availableFilters.length > 2 && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {availableFilters.map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setAiFilter(f)}
+                        className={`rounded-full px-3 py-1 text-xs transition-colors ${
+                          aiFilter === f
+                            ? "bg-[#FFCC00] text-[#101010] font-medium"
+                            : "bg-[#202020] text-gray-400 hover:text-white"
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="space-y-2.5">
+                  {visibleRecs.map((r) => {
+                    const style = REC_STYLE[r.category] ?? REC_STYLE.operations;
+                    const Icon = style.icon;
+                    return (
+                      <div
+                        key={r.id}
+                        className="group flex w-full items-center gap-3 rounded-xl border border-[#2e2e2e] bg-gradient-to-br from-[#2a2a2a] to-[#161616] px-3 py-3 transition-all hover:from-[#323232] hover:to-[#1c1c1c]"
+                      >
+                        <button
+                          onClick={() => handleRecClick(r)}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        >
+                          <span
+                            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
+                            style={{ backgroundColor: `${style.color}26` }}
+                          >
+                            <Icon className="w-4 h-4" style={{ color: style.color }} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold text-white">
+                              {r.title}
+                            </span>
+                            <span className="block text-xs text-gray-400">
+                              {r.description}
+                            </span>
+                          </span>
+                        </button>
+
+                        {/* Secondary tap — the assistant is always one tap away
+                            with this card's context, whatever the primary
+                            action does. */}
+                        {r.assistantPrompt && r.action.kind !== "assistant" && (
+                          <button
+                            onClick={() => handleRecAsk(r)}
+                            title="Ask AI about this"
+                            aria-label={`Ask AI about: ${r.title}`}
+                            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-purple-500/15 transition-all hover:bg-purple-500/30"
+                          >
+                            <Sparkles className="w-4 h-4 text-purple-300" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleRecClick(r)}
+                          aria-label={`Open: ${r.title}`}
+                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-500/15 transition-all group-hover:bg-green-500/25 group-hover:translate-x-0.5"
+                        >
+                          <ArrowRight className="w-4 h-4 text-green-400" />
+                        </button>
+                        {/* Snooze 14 days; shift-click to dismiss for good. */}
+                        <button
+                          onClick={(e) => handleRecDismiss(r, e.shiftKey)}
+                          title="Hide this (shift-click to dismiss permanently)"
+                          aria-label={`Hide: ${r.title}`}
+                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white/5 hover:text-gray-300"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {visibleRecs.length === 0 && (
+                    <p className="px-2 py-3 text-xs text-gray-500">
+                      No recommendations in this category.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Honest upsell: say how many are hidden rather than dangling
+                locked cards for features the shop can't act on. */}
+            {!recsLoading && recsGated > 0 && (
+              <p className="mt-3 px-1 text-xs text-gray-500">
+                {recsGated} more recommendation{recsGated === 1 ? "" : "s"}{" "}
+                available on a higher plan.
+              </p>
             )}
           </div>
-        </div>
+        )}
 
-        {/* Priority Actions (MOCK) */}
-        <div className={`${cardDark} p-5`}>
-          <SectionHeading title="Priority Actions" onViewAll={() => {}} />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {MOCK_PRIORITY_ACTIONS.map((a) => {
-              const Icon = a.icon;
-              return (
-                <div
-                  key={a.id}
-                  className="flex flex-col rounded-xl border border-[#2e2e2e] bg-gradient-to-br from-[#2a2a2a] to-[#161616] p-4"
-                >
-                  <Icon className="w-4 h-4 text-green-400" />
-                  <p className="mt-2 text-sm font-semibold text-white">{a.title}</p>
-                  <p className="mt-1 flex-1 text-xs text-gray-400">{a.desc}</p>
-                  <button className="mt-3 rounded-lg bg-green-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-green-500">
-                    {a.cta}
-                  </button>
-                </div>
-              );
-            })}
+        {/* Priority Actions — same engine as the recommendations above, just a
+            different surface (presentation='action'). Hidden entirely when the
+            shop has nothing pending, rather than padded with placeholders. */}
+        {(actionsLoading || actions.length > 0) && canSeeRecs && (
+          <div className={`${cardDark} p-5`}>
+            <SectionHeading title="Priority Actions" />
+            {actionsLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col rounded-xl border border-[#2e2e2e] bg-[#1c1c1c] p-4 animate-pulse"
+                  >
+                    <div className="h-4 w-4 rounded bg-[#2a2a2a]" />
+                    <div className="mt-2 h-3.5 w-28 rounded bg-[#2a2a2a]" />
+                    <div className="mt-2 h-3 w-full rounded bg-[#242424]" />
+                    <div className="mt-3 h-8 w-full rounded-lg bg-[#242424]" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {actions.map((a) => {
+                  const style = REC_STYLE[a.category] ?? REC_STYLE.operations;
+                  const Icon = style.icon;
+                  return (
+                    <div
+                      key={a.id}
+                      className="flex flex-col rounded-xl border border-[#2e2e2e] bg-gradient-to-br from-[#2a2a2a] to-[#161616] p-4"
+                    >
+                      <Icon
+                        className="w-4 h-4"
+                        style={{ color: style.color }}
+                      />
+                      <p className="mt-2 text-sm font-semibold text-white">
+                        {a.title}
+                      </p>
+                      <p className="mt-1 flex-1 text-xs text-gray-400">
+                        {a.description}
+                      </p>
+                      <button
+                        onClick={() => handleRecClick(a)}
+                        className="mt-3 rounded-lg bg-green-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-green-500"
+                      >
+                        {a.ctaLabel ?? "Open"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
+        )}
         </div>
       </div>
 
