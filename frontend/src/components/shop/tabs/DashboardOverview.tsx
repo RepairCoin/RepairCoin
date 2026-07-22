@@ -553,11 +553,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       ? recs
       : recs.filter((r) => r.category === aiFilter.toLowerCase());
 
-  // Only offer filters that actually have something behind them — an empty
-  // category chip is just a dead end.
-  const availableFilters = AI_FILTERS.filter(
-    (f) => f === "All" || recs.some((r) => r.category === f.toLowerCase())
-  );
+  // The full chip row is always rendered, per the design — the categories are
+  // part of how the section reads, not just a filter control. (An earlier
+  // version hid the row unless 2+ categories had cards, which left a
+  // single-category shop with no category signal at all.) Chips with nothing
+  // behind them are dimmed rather than removed, so the row doesn't reflow as
+  // recommendations come and go.
+  const categoryCounts = AI_FILTERS.reduce<Record<string, number>>((acc, f) => {
+    acc[f] =
+      f === "All"
+        ? recs.length
+        : recs.filter((r) => r.category === f.toLowerCase()).length;
+    return acc;
+  }, {});
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 max-w-[1080px] mx-auto">
@@ -689,23 +697,27 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               </p>
             ) : (
               <>
-                {availableFilters.length > 2 && (
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    {availableFilters.map((f) => (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {AI_FILTERS.map((f) => {
+                    const empty = categoryCounts[f] === 0;
+                    return (
                       <button
                         key={f}
                         onClick={() => setAiFilter(f)}
+                        disabled={empty}
                         className={`rounded-full px-3 py-1 text-xs transition-colors ${
                           aiFilter === f
                             ? "bg-[#FFCC00] text-[#101010] font-medium"
+                            : empty
+                            ? "bg-[#181818] text-gray-600 cursor-default"
                             : "bg-[#202020] text-gray-400 hover:text-white"
                         }`}
                       >
                         {f}
                       </button>
-                    ))}
-                  </div>
-                )}
+                    );
+                  })}
+                </div>
 
                 <div className="space-y-2.5">
                   {visibleRecs.map((r) => {
