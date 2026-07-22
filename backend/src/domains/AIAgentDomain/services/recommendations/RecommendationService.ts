@@ -32,6 +32,24 @@ const SNOOZE_DAYS = 14;
 /** Cards returned to the dashboard block (the "View All" surface passes more). */
 const DEFAULT_LIMIT = 3;
 
+/**
+ * The feature that gates the feed itself. Must match the route guard
+ * (`requireTier('aiInsights')` in AIAgentDomain/routes.ts) so generation and
+ * access agree — generating cards a shop can never fetch is pure waste.
+ *
+ * Tier is the ONLY eligibility rule here. This deliberately does NOT consult
+ * `ai_shop_settings.ai_global_enabled`: that column is the AI *Sales Agent*
+ * kill-switch (migration 110, read by AgentOrchestrator before replying to
+ * customers) and is admin-set, not tier-derived. A shop that turned off
+ * customer-facing AI replies has not asked to stop seeing its own dashboard
+ * insights, and AI access is moving to tier-based entitlement anyway.
+ *
+ * Free tier has no AI features at all, so `tierAllowsFeature('free', ...)` is
+ * false for every feature and a free shop generates nothing — including a shop
+ * that lands on free after an unconverted trial.
+ */
+const FEED_FEATURE = 'aiInsights';
+
 const SEVERITY_WEIGHT: Record<string, number> = {
   high: 100,
   medium: 50,
@@ -77,6 +95,12 @@ export class RecommendationService {
    */
   async generateForShop(shopId: string): Promise<number> {
     const tier = await this.resolveTier(shopId);
+
+    // Feed-level gate. One tier resolution, then an early exit — a below-tier
+    // shop costs zero detector queries. This is what makes it safe for
+    // runForAllShops to walk every shop rather than a pre-filtered subset.
+    if (!tierAllowsFeature(tier, FEED_FEATURE)) return 0;
+
     let written = 0;
 
     for (const detector of this.detectors) {
@@ -138,31 +162,41 @@ export class RecommendationService {
   }
 
   /**
-   * Nightly batch: generate for every AI-enabled shop.
+   * Nightly batch: generate for every active shop, gated purely on TIER.
    *
-   * Shop selection mirrors AnomalyDetector.runForAllShops — a shop that has
-   * turned AI off should not get AI recommendations either. Per-shop failures
-   * are logged and skipped so one bad shop can't sink the batch.
+   * Eligibility is decided per shop inside generateForShop (see FEED_FEATURE),
+   * not by a pre-filter here — so there is exactly one definition of "who gets
+   * recommendations" and it is the same one the route guard enforces. Below-tier
+   * shops early-exit after a single tier lookup.
    *
-   * Also expires nothing and deletes nothing: rows age out via expires_at, so a
+   * NOTE: this intentionally does NOT filter on `ai_shop_settings.
+   * ai_global_enabled`. That column is the admin-set AI Sales Agent
+   * kill-switch, not an entitlement, and it has a defaulting trap — the column
+   * defaults to FALSE while the old query treated a MISSING row as true, so
+   * merely creating a settings row silently dropped a shop from the batch.
+   * (AnomalyDetector.runForAllShops still uses that predicate — same issue.)
+   *
+   * Expires nothing and deletes nothing: rows age out via expires_at, so a
    * re-run is safe and the history stays auditable.
    */
   async runForAllShops(): Promise<{
     shopsProcessed: number;
+    shopsEligible: number;
     recommendationsWritten: number;
     shopErrors: number;
   }> {
     const shops = await this.pool.query<{ shop_id: string }>(
-      `SELECT DISTINCT s.shop_id
-         FROM shops s
-         LEFT JOIN ai_shop_settings ai ON ai.shop_id = s.shop_id
-        WHERE COALESCE(ai.ai_global_enabled, true) = true`
+      `SELECT shop_id FROM shops WHERE active = true ORDER BY shop_id`
     );
 
     let written = 0;
     let shopErrors = 0;
+    let eligible = 0;
     for (const row of shops.rows) {
       try {
+        const tier = await this.resolveTier(row.shop_id);
+        if (!tierAllowsFeature(tier, FEED_FEATURE)) continue;
+        eligible++;
         written += await this.generateForShop(row.shop_id);
       } catch (err) {
         shopErrors++;
@@ -175,12 +209,14 @@ export class RecommendationService {
 
     logger.info('RecommendationService: nightly run complete', {
       shopsProcessed: shops.rows.length,
+      shopsEligible: eligible,
       recommendationsWritten: written,
       shopErrors,
     });
 
     return {
       shopsProcessed: shops.rows.length,
+      shopsEligible: eligible,
       recommendationsWritten: written,
       shopErrors,
     };

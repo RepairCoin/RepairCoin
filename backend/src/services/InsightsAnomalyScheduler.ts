@@ -14,7 +14,9 @@
 //   3. RecommendationService.runForAllShops() — regenerates the shop
 //      dashboard recommendation feed (pure SQL detectors, no AI).
 //      This is what makes the feed populate at all; without it the
-//      dashboard shows its empty state forever.
+//      dashboard shows its empty state forever. Gated on TIER only
+//      (not ai_global_enabled) — free tier has no AI features, so a
+//      free shop generates nothing.
 //
 // Both steps are non-throwing internally — per-shop / per-metric /
 // per-anomaly failures get logged and skipped without sinking the
