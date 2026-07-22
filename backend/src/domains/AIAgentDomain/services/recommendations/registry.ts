@@ -12,17 +12,20 @@ import { reorderNeededDetector } from './detectors/reorderNeeded';
 import { deadStockDetector } from './detectors/deadStock';
 import { reviewRequestsDetector } from './detectors/reviewRequests';
 import { unansweredLeadsDetector } from './detectors/unansweredLeads';
+import { noRecentCampaignDetector } from './detectors/noRecentCampaign';
 
 export const RECOMMENDATION_DETECTORS: RecommendationDetector[] = [
   // presentation: 'card' — the "AI Recommendations for You" list
-  lapsedCustomersDetector,
-  lowStockDetector,
-  slowPeriodDetector,
-  reorderNeededDetector,
-  deadStockDetector,
+  lapsedCustomersDetector, //    customers
+  lowStockDetector, //           inventory
+  slowPeriodDetector, //         revenue
+  reorderNeededDetector, //      inventory
+  deadStockDetector, //          inventory
+  noRecentCampaignDetector, //   marketing
   // presentation: 'action' — the "Priority Actions" grid
-  reviewRequestsDetector,
-  unansweredLeadsDetector,
+  reviewRequestsDetector, //     customers
+  // both surfaces (see the note in the detector) — the only `operations` source
+  unansweredLeadsDetector, //    operations
 ];
 
 export function getDetectorByKey(
