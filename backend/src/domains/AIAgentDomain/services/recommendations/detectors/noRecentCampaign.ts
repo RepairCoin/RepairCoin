@@ -20,21 +20,12 @@
 
 import { Pool } from 'pg';
 import { RecCandidate, RecommendationDetector } from '../types';
+import { MarketingService } from '../../../../../services/MarketingService';
 
 /** How long since the last send before it counts as having gone quiet. */
 const QUIET_DAYS = 30;
-/** Don't nag a shop with nobody to send to.
- *
- *  Counts customers who are actually CONTACTABLE — a customer record with an
- *  email. An earlier version counted every distinct customer_address in
- *  service_orders and the card said "N customers you could reach", which
- *  overstated it: peanut had 8 order customers but only 7 with an email. The
- *  card must not claim reach it cannot deliver.
- *
- *  Sourced from service_orders rather than customers.home_shop_id — only
- *  imported customers carry home_shop_id, so that version matched 0 shops.
- *  See project_lapsed_audience_data_model. */
-const MIN_AUDIENCE = 5;
+/** Don't nag a shop with nobody to send to. */
+const MIN_AUDIENCE = 3;
 
 const HIGH_AT_DAYS = 90;
 const MEDIUM_AT_DAYS = 60;
@@ -45,33 +36,41 @@ export const noRecentCampaignDetector: RecommendationDetector = {
   requiredFeature: 'campaignBuilder',
 
   async detect(pool: Pool, shopId: string): Promise<RecCandidate[]> {
-    const res = await pool.query<{
-      last_sent: Date | null;
-      ever_sent: string;
-      audience: string;
-    }>(
+    const res = await pool.query<{ last_sent: Date | null; ever_sent: string }>(
       `SELECT
          (SELECT MAX(sent_at) FROM marketing_campaigns
-           WHERE shop_id = $1 AND status = 'sent')                       AS last_sent,
+           WHERE shop_id = $1 AND status = 'sent')  AS last_sent,
          (SELECT COUNT(*)::text FROM marketing_campaigns
-           WHERE shop_id = $1 AND status = 'sent')                       AS ever_sent,
-         (SELECT COUNT(DISTINCT c.address)::text
-            FROM service_orders o
-            JOIN customers c ON LOWER(c.address) = LOWER(o.customer_address)
-           WHERE o.shop_id = $1
-             AND c.is_active
-             AND c.email IS NOT NULL AND c.email <> '')                  AS audience`,
+           WHERE shop_id = $1 AND status = 'sent')  AS ever_sent`,
       [shopId]
     );
 
     const row = res.rows[0];
     const everSent = Number(row?.ever_sent ?? 0);
-    const audience = Number(row?.audience ?? 0);
 
     // Never campaigned → not a recommendation (see the note above).
     if (everSent === 0) return [];
-    if (audience < MIN_AUDIENCE) return [];
     if (!row?.last_sent) return [];
+
+    // Audience comes from the SAME resolver a real campaign uses —
+    // MarketingService.getAudienceCount('all_customers', … 'email') — which
+    // resolves via findByShopInteraction AND drops unsubscribed emails.
+    //
+    // An earlier version wrote its own SQL (service_orders JOIN customers with
+    // a non-empty email) and reported 7 for peanut while the assistant's
+    // audience tool reported 4. Two AI surfaces contradicting each other about
+    // the same shop is worse than either number being slightly off — and mine
+    // was also simply wrong, because it counted people who had UNSUBSCRIBED.
+    //
+    // Reusing the resolver makes disagreement structurally impossible, the same
+    // reason lapsedCustomers calls findLapsedBookers instead of rolling its own.
+    const audience = await new MarketingService().getAudienceCount(
+      shopId,
+      'all_customers',
+      {},
+      'email'
+    );
+    if (audience < MIN_AUDIENCE) return [];
 
     const daysSince = Math.floor(
       (Date.now() - new Date(row.last_sent).getTime()) / 86_400_000
@@ -97,7 +96,7 @@ export const noRecentCampaignDetector: RecommendationDetector = {
         },
         assistantPrompt: `It's been ${daysSince} days since my last campaign — draft one for my ${audience} customers with an email`,
         title: `No campaign in ${daysSince} days`,
-        description: `${audience} of your customers have an email on file. Your last campaign went out ${daysSince} days ago.`,
+        description: `${audience} customer${audience === 1 ? "" : "s"} can be emailed. Your last campaign went out ${daysSince} days ago.`,
       },
     ];
   },
