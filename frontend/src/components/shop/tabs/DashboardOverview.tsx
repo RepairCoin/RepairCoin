@@ -43,9 +43,10 @@ import {
 /**
  * Shop dashboard "Overview" redesign.
  *
- * Wallet figures use real `shopData`; the stats, agenda, recent activity and AI
- * Recommendations are wired to live APIs. "Priority Actions" is still MOCK
- * (marked below) — it moves onto the recommendation engine in a later phase.
+ * Every section is wired to live APIs — wallet from `shopData`, stats, agenda,
+ * recent activity, and both AI surfaces (AI Recommendations + Priority Actions,
+ * which share one engine and differ only by `presentation`). No mock data
+ * remains here.
  */
 
 // Rotating examples for the "Ask AI Anything" card (animated slideshow).
@@ -172,34 +173,6 @@ const REC_STYLE: Record<RecCategory, { icon: typeof Megaphone; color: string }> 
   inventory: { icon: PackageOpen, color: "#a855f7" },
   operations: { icon: Sparkles, color: "#34d399" },
 };
-
-// ---------------------------------------------------------------------------
-// MOCK DATA (temporary — replace with real API data)
-// ---------------------------------------------------------------------------
-
-const MOCK_PRIORITY_ACTIONS = [
-  {
-    id: 1,
-    icon: Users,
-    title: "Follow Up Leads",
-    desc: "8 inquiries waiting for response",
-    cta: "Contact Leads",
-  },
-  {
-    id: 2,
-    icon: Megaphone,
-    title: "Promote Tuesday",
-    desc: "Expected +5 to 10 bookings.",
-    cta: "Launch Campaign",
-  },
-  {
-    id: 3,
-    icon: Star,
-    title: "Request Reviews",
-    desc: "12 recent customers eligible.",
-    cta: "Send Requests",
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Recent Activity presentation mapping (data comes from the API)
@@ -408,26 +381,40 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [recsGated, setRecsGated] = useState(0);
   const [recsLoading, setRecsLoading] = useState(true);
+  // Priority Actions — same engine, different surface (presentation='action').
+  const [actions, setActions] = useState<Recommendation[]>([]);
+  const [actionsLoading, setActionsLoading] = useState(true);
 
   useEffect(() => {
     // Below tier the endpoint 403s by design — don't call it at all.
     if (featuresLoading) return;
     if (!canSeeRecs) {
       setRecsLoading(false);
+      setActionsLoading(false);
       return;
     }
     let active = true;
     (async () => {
       try {
-        const res = await aiRecommendationsApi.list(12);
+        const [cards, tiles] = await Promise.all([
+          aiRecommendationsApi.list(12, "card"),
+          aiRecommendationsApi.list(3, "action"),
+        ]);
         if (!active) return;
-        setRecs(res.recommendations);
-        setRecsGated(res.gatedCount);
+        setRecs(cards.recommendations);
+        setRecsGated(cards.gatedCount);
+        setActions(tiles.recommendations);
       } catch {
-        // A recommendation feed is advisory — never let it break the dashboard.
-        if (active) setRecs([]);
+        // Advisory surfaces — never let them break the dashboard.
+        if (active) {
+          setRecs([]);
+          setActions([]);
+        }
       } finally {
-        if (active) setRecsLoading(false);
+        if (active) {
+          setRecsLoading(false);
+          setActionsLoading(false);
+        }
       }
     })();
     return () => {
@@ -440,6 +427,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const handleRecClick = (rec: Recommendation) => {
     void aiRecommendationsApi.markActed(rec.id).catch(() => {});
     setRecs((prev) => prev.filter((r) => r.id !== rec.id));
+    setActions((prev) => prev.filter((r) => r.id !== rec.id));
 
     switch (rec.action.kind) {
       case "navigate": {
@@ -801,28 +789,59 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         )}
 
-        {/* Priority Actions (MOCK) */}
-        <div className={`${cardDark} p-5`}>
-          <SectionHeading title="Priority Actions" onViewAll={() => {}} />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {MOCK_PRIORITY_ACTIONS.map((a) => {
-              const Icon = a.icon;
-              return (
-                <div
-                  key={a.id}
-                  className="flex flex-col rounded-xl border border-[#2e2e2e] bg-gradient-to-br from-[#2a2a2a] to-[#161616] p-4"
-                >
-                  <Icon className="w-4 h-4 text-green-400" />
-                  <p className="mt-2 text-sm font-semibold text-white">{a.title}</p>
-                  <p className="mt-1 flex-1 text-xs text-gray-400">{a.desc}</p>
-                  <button className="mt-3 rounded-lg bg-green-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-green-500">
-                    {a.cta}
-                  </button>
-                </div>
-              );
-            })}
+        {/* Priority Actions — same engine as the recommendations above, just a
+            different surface (presentation='action'). Hidden entirely when the
+            shop has nothing pending, rather than padded with placeholders. */}
+        {(actionsLoading || actions.length > 0) && canSeeRecs && (
+          <div className={`${cardDark} p-5`}>
+            <SectionHeading title="Priority Actions" />
+            {actionsLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col rounded-xl border border-[#2e2e2e] bg-[#1c1c1c] p-4 animate-pulse"
+                  >
+                    <div className="h-4 w-4 rounded bg-[#2a2a2a]" />
+                    <div className="mt-2 h-3.5 w-28 rounded bg-[#2a2a2a]" />
+                    <div className="mt-2 h-3 w-full rounded bg-[#242424]" />
+                    <div className="mt-3 h-8 w-full rounded-lg bg-[#242424]" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {actions.map((a) => {
+                  const style = REC_STYLE[a.category] ?? REC_STYLE.operations;
+                  const Icon = style.icon;
+                  return (
+                    <div
+                      key={a.id}
+                      className="flex flex-col rounded-xl border border-[#2e2e2e] bg-gradient-to-br from-[#2a2a2a] to-[#161616] p-4"
+                    >
+                      <Icon
+                        className="w-4 h-4"
+                        style={{ color: style.color }}
+                      />
+                      <p className="mt-2 text-sm font-semibold text-white">
+                        {a.title}
+                      </p>
+                      <p className="mt-1 flex-1 text-xs text-gray-400">
+                        {a.description}
+                      </p>
+                      <button
+                        onClick={() => handleRecClick(a)}
+                        className="mt-3 rounded-lg bg-green-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-green-500"
+                      >
+                        {a.ctaLabel ?? "Open"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
+        )}
         </div>
       </div>
 

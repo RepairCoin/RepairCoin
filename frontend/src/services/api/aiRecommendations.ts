@@ -28,6 +28,10 @@ export type RecAction =
   | { kind: "assistant"; prompt: string }
   | { kind: "campaign"; audience: string };
 
+/** Which dashboard surface renders this — one engine, two surfaces.
+ *  'card' = the AI Recommendations list, 'action' = the Priority Actions grid. */
+export type RecPresentation = "card" | "action";
+
 export interface Recommendation {
   id: string;
   detectorKey: string;
@@ -42,6 +46,9 @@ export interface Recommendation {
   /** The numbers behind the copy. Every figure in title/description comes from
    *  here, so a card can never claim something nothing computed. */
   evidence: Record<string, number | string>;
+  presentation: RecPresentation;
+  /** Button text for a Priority Action tile ("Contact Leads"). Null for cards. */
+  ctaLabel: string | null;
   detectedAt: string;
 }
 
@@ -53,9 +60,12 @@ export interface RecommendationsResponse {
 }
 
 export const aiRecommendationsApi = {
-  async list(limit?: number): Promise<RecommendationsResponse> {
+  async list(
+    limit?: number,
+    presentation: RecPresentation = "card"
+  ): Promise<RecommendationsResponse> {
     const response = await apiClient.get("/ai/recommendations", {
-      params: limit ? { limit } : undefined,
+      params: { ...(limit ? { limit } : {}), presentation },
     });
     // The axios interceptor already unwraps `response.data`, so the payload is
     // at response.data.<key> — never response.data.data.<key>.

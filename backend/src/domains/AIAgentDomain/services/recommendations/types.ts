@@ -19,6 +19,15 @@ export type RecCategory =
 
 export type RecSeverity = 'low' | 'medium' | 'high';
 
+/**
+ * Which dashboard surface renders this (D5 — one engine, two surfaces).
+ *   'card'   → the "AI Recommendations for You" list
+ *   'action' → the "Priority Actions" grid
+ * A second engine for Priority Actions would drift and eventually contradict
+ * the first, so the detector declares where its output belongs instead.
+ */
+export type RecPresentation = 'card' | 'action';
+
 /** Typed destination for a card tap. */
 export type RecAction =
   /** Deep-link a dashboard tab — used when the answer is a screen the shop
@@ -49,6 +58,10 @@ export interface RecCandidate {
   assistantPrompt: string;
   title: string;
   description: string;
+  /** Defaults to 'card' when omitted. */
+  presentation?: RecPresentation;
+  /** Button text for a Priority Action tile ("Contact Leads"). Cards omit it. */
+  ctaLabel?: string;
 }
 
 /**
@@ -81,5 +94,7 @@ export interface RecommendationDto {
   action: RecAction;
   assistantPrompt: string | null;
   evidence: Record<string, number | string>;
+  presentation: RecPresentation;
+  ctaLabel: string | null;
   detectedAt: string;
 }

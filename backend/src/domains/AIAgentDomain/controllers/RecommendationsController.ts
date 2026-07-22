@@ -46,8 +46,15 @@ export function makeRecommendationsController(
             ? Math.min(limitRaw, 20)
             : undefined;
 
+        // Which dashboard surface is asking: the recommendations list ('card',
+        // the default) or the Priority Actions grid ('action'). Anything else
+        // falls back to 'card' rather than erroring — a bad query param should
+        // not blank the dashboard.
+        const presentation =
+          req.query.presentation === 'action' ? 'action' : 'card';
+
         const [recommendations, gatedCount] = await Promise.all([
-          service.listForShop(shopId, limit),
+          service.listForShop(shopId, limit, presentation),
           service.countGatedForShop(shopId),
         ]);
 

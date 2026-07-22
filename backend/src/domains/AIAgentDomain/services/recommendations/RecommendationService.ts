@@ -23,6 +23,7 @@ import {
   RecCandidate,
   RecommendationDetector,
   RecommendationDto,
+  RecPresentation,
 } from './types';
 
 /** How long a generated recommendation stays eligible to show. */
@@ -130,8 +131,9 @@ export class RecommendationService {
           const result = await this.pool.query(
             `INSERT INTO ai_recommendations
                (shop_id, detector_key, category, severity, score, evidence, action,
-                assistant_prompt, required_feature, title, description, expires_at)
-             VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,
+                assistant_prompt, required_feature, title, description,
+                presentation, cta_label, expires_at)
+             VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,
                      NOW() + INTERVAL '${EXPIRY_DAYS} days')
              ON CONFLICT DO NOTHING`,
             [
@@ -146,6 +148,8 @@ export class RecommendationService {
               detector.requiredFeature ?? null,
               c.title,
               c.description,
+              c.presentation ?? 'card',
+              c.ctaLabel ?? null,
             ]
           );
           written += result.rowCount ?? 0;
@@ -231,7 +235,8 @@ export class RecommendationService {
    */
   async listForShop(
     shopId: string,
-    limit = DEFAULT_LIMIT
+    limit = DEFAULT_LIMIT,
+    presentation: RecPresentation = 'card'
   ): Promise<RecommendationDto[]> {
     const tier = await this.resolveTier(shopId);
 
@@ -246,18 +251,22 @@ export class RecommendationService {
       assistant_prompt: string | null;
       evidence: any;
       required_feature: string | null;
+      presentation: RecPresentation;
+      cta_label: string | null;
       detected_at: Date;
     }>(
       `SELECT id, detector_key, category, severity, title, description,
-              action, assistant_prompt, evidence, required_feature, detected_at
+              action, assistant_prompt, evidence, required_feature,
+              presentation, cta_label, detected_at
          FROM ai_recommendations
         WHERE shop_id = $1
+          AND presentation = $2
           AND dismissed_at IS NULL
           AND acted_at IS NULL
           AND (snoozed_until IS NULL OR snoozed_until < NOW())
           AND expires_at > NOW()
         ORDER BY score DESC, detected_at DESC`,
-      [shopId]
+      [shopId, presentation]
     );
 
     return rows.rows
@@ -276,6 +285,8 @@ export class RecommendationService {
         action: r.action,
         assistantPrompt: r.assistant_prompt,
         evidence: r.evidence ?? {},
+        presentation: r.presentation,
+        ctaLabel: r.cta_label,
         detectedAt: r.detected_at.toISOString(),
       }));
   }
