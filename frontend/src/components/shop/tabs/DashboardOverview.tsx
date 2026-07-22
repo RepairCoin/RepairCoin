@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   Gem,
   Image as ImageIcon,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
@@ -466,6 +467,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     openWithPrompt(rec.assistantPrompt);
   };
 
+  /** Hide a card. Default is a 14-day snooze so a recurring condition can come
+   *  back; shift-click dismisses it permanently ("not relevant to my shop").
+   *  Optimistic — the feed is advisory, so a failed request shouldn't strand a
+   *  card the owner has already visually dismissed. */
+  const handleRecDismiss = (rec: Recommendation, permanent: boolean) => {
+    setRecs((prev) => prev.filter((r) => r.id !== rec.id));
+    void aiRecommendationsApi.dismiss(rec.id, permanent).catch(() => {});
+  };
+
   // Today's Agenda — real appointments for the shop today
   const [agenda, setAgenda] = useState<CalendarBooking[]>([]);
   // serviceId -> imageUrl (the shop calendar doesn't include the service image)
@@ -757,6 +767,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-500/15 transition-all group-hover:bg-green-500/25 group-hover:translate-x-0.5"
                         >
                           <ArrowRight className="w-4 h-4 text-green-400" />
+                        </button>
+                        {/* Snooze 14 days; shift-click to dismiss for good. */}
+                        <button
+                          onClick={(e) => handleRecDismiss(r, e.shiftKey)}
+                          title="Hide this (shift-click to dismiss permanently)"
+                          aria-label={`Hide: ${r.title}`}
+                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white/5 hover:text-gray-300"
+                        >
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     );

@@ -67,9 +67,13 @@ export class RecommendationService {
 
   /**
    * Run every detector for one shop and persist what survives gating.
-   * Returns the number of rows written. Safe to re-run: the partial unique
-   * index on (shop_id, detector_key) WHERE active collapses duplicates, so a
-   * second run within the same window is a no-op rather than a pile-up.
+   * Returns the number of rows written.
+   *
+   * Safe to re-run: the partial unique index on (shop_id, detector_key)
+   * WHERE acted_at IS NULL collapses duplicates, so a second run within the
+   * same window is a no-op rather than a pile-up. Only an ACTED card releases
+   * the slot — a dismissed card must never regenerate (migration 235), and a
+   * snoozed one returns as the same row when its snooze expires.
    */
   async generateForShop(shopId: string): Promise<number> {
     const tier = await this.resolveTier(shopId);
@@ -131,6 +135,55 @@ export class RecommendationService {
     }
 
     return written;
+  }
+
+  /**
+   * Nightly batch: generate for every AI-enabled shop.
+   *
+   * Shop selection mirrors AnomalyDetector.runForAllShops — a shop that has
+   * turned AI off should not get AI recommendations either. Per-shop failures
+   * are logged and skipped so one bad shop can't sink the batch.
+   *
+   * Also expires nothing and deletes nothing: rows age out via expires_at, so a
+   * re-run is safe and the history stays auditable.
+   */
+  async runForAllShops(): Promise<{
+    shopsProcessed: number;
+    recommendationsWritten: number;
+    shopErrors: number;
+  }> {
+    const shops = await this.pool.query<{ shop_id: string }>(
+      `SELECT DISTINCT s.shop_id
+         FROM shops s
+         LEFT JOIN ai_shop_settings ai ON ai.shop_id = s.shop_id
+        WHERE COALESCE(ai.ai_global_enabled, true) = true`
+    );
+
+    let written = 0;
+    let shopErrors = 0;
+    for (const row of shops.rows) {
+      try {
+        written += await this.generateForShop(row.shop_id);
+      } catch (err) {
+        shopErrors++;
+        logger.error(
+          `RecommendationService: shop ${row.shop_id} generation failed`,
+          err
+        );
+      }
+    }
+
+    logger.info('RecommendationService: nightly run complete', {
+      shopsProcessed: shops.rows.length,
+      recommendationsWritten: written,
+      shopErrors,
+    });
+
+    return {
+      shopsProcessed: shops.rows.length,
+      recommendationsWritten: written,
+      shopErrors,
+    };
   }
 
   /**
