@@ -93,6 +93,8 @@ export default function ShopPayoutsPage() {
   const [connected, setConnected] = useState(false);
   const [hasAccount, setHasAccount] = useState(false);
   const [requirementsDue, setRequirementsDue] = useState<string[]>([]);
+  const [pendingVerification, setPendingVerification] = useState<string[]>([]);
+  const [disabledReason, setDisabledReason] = useState<string | null>(null);
 
   const linkExpired = searchParams.get("refresh") === "1";
 
@@ -107,6 +109,8 @@ export default function ShopPayoutsPage() {
       setConnected(body?.data?.chargesEnabled === true);
       setHasAccount(!!body?.data?.accountId);
       setRequirementsDue(body?.data?.requirementsDue ?? []);
+      setPendingVerification(body?.data?.pendingVerification ?? []);
+      setDisabledReason(body?.data?.disabledReason ?? null);
     } catch (error) {
       console.error("Failed to read Stripe connection status:", error);
     } finally {
@@ -123,6 +127,15 @@ export default function ShopPayoutsPage() {
   // in the shop's OWN Stripe dashboard — re-running our OAuth would just relink the same
   // account without ever surfacing the outstanding requirements.
   const needsInfo = pending && requirementsDue.length > 0;
+
+  // Everything asked for has been submitted and Stripe is reviewing it. There is nothing
+  // for the shop to do here, so saying "we need more information" would be wrong — and so
+  // would implying it resolves in seconds.
+  const underReview =
+    pending &&
+    !needsInfo &&
+    (pendingVerification.length > 0 ||
+      disabledReason === "requirements.pending_verification");
 
   const openStripeDashboard = () => {
     window.open("https://dashboard.stripe.com/", "_blank", "noopener,noreferrer");
@@ -240,9 +253,11 @@ export default function ShopPayoutsPage() {
 
           {pending && (
             <p className="mt-4 rounded-md border border-[#FFCC00]/30 bg-[#FFCC00]/[0.08] p-3 text-sm text-white">
-              {requirementsDue.length > 0
-                ? "Stripe still needs more information before it can enable payments on your account — resume below to finish."
-                : "Your Stripe account is connected and awaiting confirmation. This usually takes a moment; you can safely leave this page and come back."}
+              {needsInfo
+                ? "Stripe needs a few more details from you before it can enable payments — finish setup in your Stripe dashboard using the button below."
+                : underReview
+                ? "Stripe is reviewing the information you submitted. This usually takes a few hours, and can take up to two business days. You can leave this page — payouts turn on automatically once Stripe approves your account."
+                : "Your Stripe account is connected and awaiting confirmation. You can safely leave this page and come back."}
             </p>
           )}
 
@@ -266,30 +281,43 @@ export default function ShopPayoutsPage() {
           </div>
 
           <div className="mt-8 text-center">
-            <button
-              onClick={needsInfo ? openStripeDashboard : startOnboarding}
-              disabled={connecting}
-              className="h-12 w-full max-w-[416px] cursor-pointer rounded-md bg-[#FFCC00] text-base font-medium text-black transition-colors hover:bg-[#E5BB00] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {connecting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
-                  Redirecting to Stripe...
-                </span>
-              ) : needsInfo ? (
-                "Finish Setup on Stripe →"
-              ) : pending ? (
-                "Resume Stripe Setup →"
-              ) : (
-                "Connect with Stripe →"
-              )}
-            </button>
+            {/* Under review there is nothing to click through to — re-running OAuth would
+                only relink the same account, so the primary CTA is withheld. */}
+            {!underReview && (
+              <>
+                <button
+                  onClick={needsInfo ? openStripeDashboard : startOnboarding}
+                  disabled={connecting}
+                  className="h-12 w-full max-w-[416px] cursor-pointer rounded-md bg-[#FFCC00] text-base font-medium text-black transition-colors hover:bg-[#E5BB00] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {connecting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+                      Redirecting to Stripe...
+                    </span>
+                  ) : needsInfo ? (
+                    "Finish Setup on Stripe →"
+                  ) : pending ? (
+                    "Resume Stripe Setup →"
+                  ) : (
+                    "Connect with Stripe →"
+                  )}
+                </button>
 
-            <p className="mx-auto mt-3 max-w-[420px] text-xs leading-relaxed text-[#999999]">
-              {needsInfo
-                ? "You'll finish verification in your own Stripe dashboard. Come back here once Stripe has what it needs."
-                : "You'll be securely redirected to Stripe to complete your payment setup. FixFlow never stores your banking information."}
-            </p>
+                <p className="mx-auto mt-3 max-w-[420px] text-xs leading-relaxed text-[#999999]">
+                  {needsInfo
+                    ? "You'll finish verification in your own Stripe dashboard. Come back here once Stripe has what it needs."
+                    : "You'll be securely redirected to Stripe to complete your payment setup. FixFlow never stores your banking information."}
+                </p>
+              </>
+            )}
+
+            {underReview && (
+              <p className="mx-auto max-w-[420px] text-xs leading-relaxed text-[#999999]">
+                Nothing more is needed from you right now. If Stripe asks for anything
+                else, it will appear in your Stripe dashboard.
+              </p>
+            )}
 
             {pending && (
               <button

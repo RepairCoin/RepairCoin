@@ -29,6 +29,10 @@ export interface ConnectAccountStatus {
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
   requirementsDue: string[];
+  // Submitted and waiting on Stripe's review — NOT something the shop can act on.
+  // Without these, "charges disabled" is indistinguishable from "you owe us data".
+  pendingVerification: string[];
+  disabledReason: string | null;
 }
 
 export interface ConnectOnboardingSummary {
@@ -167,6 +171,8 @@ export class StripeConnectService {
         payoutsEnabled: false,
         detailsSubmitted: false,
         requirementsDue: [],
+        pendingVerification: [],
+        disabledReason: null,
       };
     }
 
@@ -177,6 +183,8 @@ export class StripeConnectService {
       payoutsEnabled: account.payouts_enabled === true,
       detailsSubmitted: account.details_submitted === true,
       requirementsDue: account.requirements?.currently_due ?? [],
+      pendingVerification: account.requirements?.pending_verification ?? [],
+      disabledReason: account.requirements?.disabled_reason ?? null,
     };
 
     await this.syncAccountState(shopId, status.chargesEnabled, status.payoutsEnabled);
