@@ -13,6 +13,7 @@ import { deadStockDetector } from './detectors/deadStock';
 import { reviewRequestsDetector } from './detectors/reviewRequests';
 import { unansweredLeadsDetector } from './detectors/unansweredLeads';
 import { noRecentCampaignDetector } from './detectors/noRecentCampaign';
+import { unansweredMessagesDetector } from './detectors/unansweredMessages';
 
 export const RECOMMENDATION_DETECTORS: RecommendationDetector[] = [
   // presentation: 'card' — the "AI Recommendations for You" list
@@ -24,8 +25,13 @@ export const RECOMMENDATION_DETECTORS: RecommendationDetector[] = [
   noRecentCampaignDetector, //   marketing
   // presentation: 'action' — the "Priority Actions" grid
   reviewRequestsDetector, //     customers
-  // both surfaces (see the note in the detector) — the only `operations` source
-  unansweredLeadsDetector, //    operations
+  // both surfaces (see the notes in the detectors) — the `operations` sources.
+  // unanswered_messages is the UNIVERSAL one; unanswered_leads only applies to
+  // shops that pay for the Ads add-on (2 of 65 today), so it can't carry the
+  // category on its own. Kept as separate cards — a paid lead and a customer
+  // conversation are different work and go to different screens.
+  unansweredLeadsDetector, //    operations (Ads add-on only)
+  unansweredMessagesDetector, // operations (every shop)
 ];
 
 export function getDetectorByKey(
