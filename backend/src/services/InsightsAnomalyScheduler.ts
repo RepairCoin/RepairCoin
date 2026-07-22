@@ -32,6 +32,7 @@ import { AnomalyDetector } from "../domains/AIAgentDomain/services/insights/anom
 import { AnomalyPhraser } from "../domains/AIAgentDomain/services/insights/anomalies/AnomalyPhraser";
 import { getAiMemoryService } from "../domains/AIAgentDomain/services/AiMemoryService";
 import { getRecommendationService } from "../domains/AIAgentDomain/services/recommendations/RecommendationService";
+import { getRecommendationPhraser } from "../domains/AIAgentDomain/services/recommendations/RecommendationPhraser";
 
 // 03:00 UTC = off-peak for both PH and US time zones the shops
 // operate in. Per-cron syntax: minute hour day month weekday.
@@ -42,7 +43,7 @@ export class InsightsAnomalyScheduler {
   private cronJob: cron.ScheduledTask | null = null;
   private isRunning = false;
   private lastRunAt: Date | null = null;
-  private lastRunResult: { shopsProcessed: number; anomaliesFlagged: number; shopErrors: number; phrased: number; phrasingSkipped: number; memoriesPurged: number; recommendationsWritten: number } | null = null;
+  private lastRunResult: { shopsProcessed: number; anomaliesFlagged: number; shopErrors: number; phrased: number; phrasingSkipped: number; memoriesPurged: number; recommendationsWritten: number; recommendationsPhrased: number } | null = null;
 
   start(): void {
     if (this.cronJob) {
@@ -96,9 +97,17 @@ export class InsightsAnomalyScheduler {
       // detector (P5) sees this run's rows. Non-throwing so it never sinks the
       // batch — a dark recommendation feed must not cost us the anomaly banner.
       let recommendationsWritten = 0;
+      let recommendationsPhrased = 0;
       try {
         const recResult = await getRecommendationService().runForAllShops();
         recommendationsWritten = recResult.recommendationsWritten;
+
+        // P4 — reword the new cards (cheap model, spend-cap gated, rewrites
+        // that lose or invent a figure are discarded). Optional by design: the
+        // deterministic template is never overwritten, so this failing costs
+        // nothing but plainer copy.
+        const phrasing = await getRecommendationPhraser().phraseAllPending();
+        recommendationsPhrased = phrasing.phrased;
       } catch (err) {
         logger.warn("InsightsAnomalyScheduler: recommendation run skipped", {
           error: err instanceof Error ? err.message : String(err),
@@ -124,6 +133,7 @@ export class InsightsAnomalyScheduler {
         phrasingSkipped: skipped,
         memoriesPurged,
         recommendationsWritten,
+        recommendationsPhrased,
       };
 
       logger.info("InsightsAnomalyScheduler: nightly run complete", {

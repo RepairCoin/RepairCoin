@@ -255,7 +255,12 @@ export class RecommendationService {
       cta_label: string | null;
       detected_at: Date;
     }>(
-      `SELECT id, detector_key, category, severity, title, description,
+      // COALESCE to the AI rewrite when one survived validation (P4), else the
+      // deterministic template. The template is never overwritten, so a phrasing
+      // failure or a rejected rewrite degrades to plain copy, never to blank.
+      `SELECT id, detector_key, category, severity,
+              COALESCE(ai_title, title)             AS title,
+              COALESCE(ai_description, description) AS description,
               action, assistant_prompt, evidence, required_feature,
               presentation, cta_label, detected_at
          FROM ai_recommendations
