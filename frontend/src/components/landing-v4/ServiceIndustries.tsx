@@ -84,7 +84,7 @@ export default function ServiceIndustries() {
           from one intelligent platform built around your business.
         </m.p>
 
-        <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="mt-14 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-2">
           {industries.map((industry, index) => (
             <m.div
               key={industry.title}
@@ -96,15 +96,15 @@ export default function ServiceIndustries() {
                   src={industry.image}
                   alt={industry.title}
                   fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
-              <div className="px-4 pt-4 pb-5">
-                <h3 className="text-white font-semibold text-lg">
+              <div className="px-3 pt-3 pb-4 sm:px-4 sm:pt-4 sm:pb-5">
+                <h3 className="text-white font-semibold text-sm sm:text-base lg:text-lg">
                   {industry.title}
                 </h3>
-                <p className="mt-1.5 text-gray-400 text-sm leading-relaxed">
+                <p className="mt-1.5 text-gray-400 text-xs sm:text-sm leading-relaxed">
                   {industry.description}
                 </p>
               </div>
