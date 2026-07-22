@@ -93,7 +93,7 @@ const CustomerTierCards = () => {
             </p>
 
             {/* Divider */}
-            <div className="border-t border-[#1e1e28] mb-6" />
+            <div className="w-3/4 mx-auto border-t border-[#3f3f3f] mb-6" />
 
             {/* Tier Benefits */}
             <h4 className="text-base font-bold text-white mb-4">Tier Benefits</h4>
