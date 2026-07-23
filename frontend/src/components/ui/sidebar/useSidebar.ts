@@ -11,6 +11,12 @@ export interface SidebarItem {
   href: string;
   icon: React.ReactNode;
   tabId?: string;
+  /**
+   * Extra tabIds that should also light this item up. Used when several tabs were
+   * merged behind one nav entry and are now reached via in-page sub-tabs (e.g.
+   * Bookings covers bookings/appointments/disputes), so the parent stays active.
+   */
+  matchTabIds?: string[];
   subItems?: SidebarItem[];
   actionButton?: {
     icon: React.ReactNode;
@@ -152,6 +158,10 @@ export function useSidebar({
     (item: SidebarItem) => {
       // First check if pathname matches the href (for direct page routes like /shop/groups)
       if (pathname === item.href || pathname.startsWith(item.href + '/')) {
+        return true;
+      }
+      // A merged entry stays active for any of the tabs it now fronts.
+      if (activeTab && item.matchTabIds?.includes(activeTab)) {
         return true;
       }
       // Then check tabId for tab-based navigation

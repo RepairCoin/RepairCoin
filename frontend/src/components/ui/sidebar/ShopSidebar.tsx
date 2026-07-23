@@ -11,27 +11,20 @@ import {
   Search,
   BarChart3,
   ChevronDown,
-  LogOut,
   HouseIcon,
   HeartHandshakeIcon,
   ClipboardCheckIcon,
   GemIcon,
   ShoppingBagIcon,
   TagIcon,
-  UsersIcon,
-  MessageCircle,
   GlobeIcon,
   MapPinnedIcon,
-  Calendar,
   Store,
   TrendingUp,
   Wrench,
-  LifeBuoy,
-  AlertTriangle,
   Wallet,
   FileBarChart,
   Megaphone,
-  Package,
   CreditCard,
   Percent,
 } from "lucide-react";
@@ -147,7 +140,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     activeTab,
     onTabChange,
     onCollapseChange,
-    defaultExpandedSections: ["dashboard", "service", "rewards", "customers", "shop-tools"],
+    defaultExpandedSections: ["dashboard", "service", "rewards", "shop-tools"],
   });
 
   // Shop sections definition
@@ -177,41 +170,30 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           tabId: "services",
         },
         {
+          // Purchase Orders is now a sub-tab of Inventory (see ShopSubTabs).
           title: "Inventory",
           href: "/shop?tab=inventory",
           icon: <ShoppingBagIcon className="w-5 h-5" />,
           tabId: "inventory",
+          matchTabIds: ["inventory", "purchase-orders"],
         },
         {
-          title: "Purchase Orders",
-          href: "/shop?tab=purchase-orders",
-          icon: <Package className="w-5 h-5" />,
-          tabId: "purchase-orders",
-        },
-        {
+          // Appointments + Disputes are now sub-tabs of Bookings (see ShopSubTabs).
           title: "Bookings",
           href: "/shop?tab=bookings",
           icon: <ClipboardCheckIcon className="w-5 h-5" />,
           tabId: "bookings",
+          matchTabIds: ["bookings", "appointments", "disputes"],
+          // Carries the Appointments reschedule badge now that it lives here.
+          badge: pendingRescheduleCount > 0 ? { count: pendingRescheduleCount, variant: 'danger' as const } : undefined,
         },
         {
+          // Customers is now a sub-tab of Analytics (see ShopSubTabs).
           title: "Analytics",
           href: "/shop?tab=service-analytics",
           icon: <BarChart3 className="w-5 h-5" />,
           tabId: "service-analytics",
-        },
-        {
-          title: "Appointments",
-          href: "/shop?tab=appointments",
-          icon: <Calendar className="w-5 h-5" />,
-          tabId: "appointments",
-          badge: pendingRescheduleCount > 0 ? { count: pendingRescheduleCount, variant: 'danger' as const } : undefined,
-        },
-        {
-          title: "Disputes",
-          href: "/shop?tab=disputes",
-          icon: <AlertTriangle className="w-5 h-5" />,
-          tabId: "disputes",
+          matchTabIds: ["service-analytics", "customers"],
         },
       ],
     },
@@ -228,32 +210,8 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
         },
       ],
     },
-    {
-      id: "customers",
-      title: "Customers",
-      icon: <UsersIcon className="w-5 h-5" />,
-      items: [
-        {
-          title: "Customers",
-          href: "/shop?tab=customers",
-          icon: <UsersIcon className="w-5 h-5" />,
-          tabId: "customers",
-        },
-        {
-          title: "Messages",
-          href: "/shop?tab=messages",
-          icon: <MessageCircle className="w-5 h-5" />,
-          tabId: "messages",
-        },
-        // Lookup tab hidden for now - re-enable when ready
-        // {
-        //   title: "Lookup",
-        //   href: "/shop?tab=lookup",
-        //   icon: <Search className="w-5 h-5" />,
-        //   tabId: "lookup",
-        // },
-      ],
-    },
+    // The Customers section was folded into Analytics as a sub-tab (see ShopSubTabs).
+    // Lookup stays retired for now — re-add it there when it's ready.
     {
       id: "shop-tools",
       title: "Shop Management",
@@ -271,12 +229,8 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           icon: <Megaphone className="w-5 h-5" />,
           tabId: "marketing",
         },
-        {
-          title: "Team",
-          href: "/shop?tab=team",
-          icon: <UsersIcon className="w-5 h-5" />,
-          tabId: "team",
-        },
+        // Team (staff management) moved to the header profile menu — it's an
+        // account-level action, not a day-to-day nav destination.
         ...(commissionsEnabled
           ? [
               {
@@ -342,13 +296,10 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     },
   ];
 
+  // Support / Settings / Logout intentionally live ONLY in the header profile
+  // menu (ShopBreadcrumb) — they were duplicated here and were removed to keep
+  // one home for account actions.
   const bottomMenuItemsRaw: SidebarItem[] = [
-    {
-      title: "Support",
-      href: "/shop?tab=support",
-      icon: <LifeBuoy className="w-5 h-5" />,
-      tabId: "support",
-    },
     ...(process.env.NEXT_PUBLIC_ADDON_HUB_ENABLED === "true"
       ? [
           {
@@ -368,17 +319,6 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           tabId: "wallet-payouts",
         }]
       : []),
-    {
-      title: "Settings",
-      href: "/shop?tab=settings",
-      icon: <Settings className="w-5 h-5" />,
-      tabId: "settings",
-    },
-    {
-      title: "Logout",
-      href: "/logout",
-      icon: <LogOut className="w-5 h-5" />,
-    },
   ];
 
   // Hide tabs the current member lacks permission for. Owners/admins (permissions
@@ -405,10 +345,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     .filter((section) => section.items.length > 0);
   const bottomMenuItems: SidebarItem[] = bottomMenuItemsRaw.filter((i) => canViewTab(i.tabId));
 
-  const settingsItems = bottomMenuItems.filter(
-    (item) => item.href !== "/logout"
-  );
-  const logoutItem = bottomMenuItems.find((item) => item.href === "/logout");
+  const settingsItems = bottomMenuItems;
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const isSearching = normalizedQuery.length > 0;
@@ -568,7 +505,11 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
               </p>
             )}
             {filteredSections.map((section) => {
-              const sectionExpanded = isSearching || isSectionExpanded(section.id);
+              // A section holding a single item is pure overhead — render the item
+              // as a flat top-level link instead of a collapsible group.
+              const isSingle = !isSearching && section.items.length === 1;
+              const sectionExpanded =
+                isSearching || isSingle || isSectionExpanded(section.id);
 
               return (
                 <div
@@ -576,17 +517,19 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
                   className="border-b border-gray-800 py-2"
                 >
                   {/* Section Header — gray label + chevron, no icon */}
-                  <button
-                    onClick={() => toggleSection(section.id)}
-                    className="flex items-center justify-between w-full px-2 py-2 text-xs font-medium tracking-wide text-gray-400 hover:text-white transition-colors"
-                  >
-                    <span>{section.title}</span>
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform duration-200 ${
-                        sectionExpanded ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
+                  {!isSingle && (
+                    <button
+                      onClick={() => toggleSection(section.id)}
+                      className="flex items-center justify-between w-full px-2 py-2 text-xs font-medium tracking-wide text-gray-400 hover:text-white transition-colors"
+                    >
+                      <span>{section.title}</span>
+                      <ChevronDown
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          sectionExpanded ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+                  )}
 
                   {/* Section Items */}
                   {sectionExpanded && (
@@ -646,37 +589,27 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
               )}
             </div>
 
-            <div className="border-t border-gray-800 my-2" />
-
-            {/* Settings group */}
-            {renderCollapsedGroup({
-              id: "settings",
-              title: "Settings",
-              icon: <Settings className="w-5 h-5" />,
-              items: settingsItems,
-              onItemClick: (item, e) => handleItemClick(item, e),
-            })}
-
-            {logoutItem && (
+            {settingsItems.length > 0 && (
               <>
                 <div className="border-t border-gray-800 my-2" />
-                <div className="flex justify-center">
-                  <button
-                    onClick={(e) => handleItemClick(logoutItem, e)}
-                    title="Logout"
-                    className="p-2 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-                  >
-                    <LogOut className="w-5 h-5" />
-                  </button>
-                </div>
+
+                {/* Settings group */}
+                {renderCollapsedGroup({
+                  id: "settings",
+                  title: "Settings",
+                  icon: <Settings className="w-5 h-5" />,
+                  items: settingsItems,
+                  onItemClick: (item, e) => handleItemClick(item, e),
+                })}
               </>
             )}
+
           </div>
         )}
       </nav>
 
       {/* Settings Section — static, always expanded (collapsed handled in nav) */}
-      {!isCollapsed && (!isSearching || filteredBottomItems.length > 0) && (
+      {!isCollapsed && filteredBottomItems.length > 0 && (
       <div className="px-2 sm:px-3 pt-2 pb-3">
         {!isSearching && (
           <p className="px-2 py-2 text-xs font-medium tracking-wide text-gray-400">

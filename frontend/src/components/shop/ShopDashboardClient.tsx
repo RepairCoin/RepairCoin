@@ -32,6 +32,7 @@ import { AgencyTab } from "@/components/shop/tabs/AgencyTab";
 import { SupportTab } from "@/components/shop/tabs/SupportTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
+import { ShopSubTabs } from "@/components/shop/ShopSubTabs";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
 import { InventoryTab } from "@/components/shop/tabs/InventoryTab";
@@ -1502,6 +1503,18 @@ export default function ShopDashboardClient() {
           {!isMessagesTab && (
             <ShopBreadcrumb activeTab={activeTab} onTabChange={handleTabChange} />
           )}
+
+          {/* Sub-tabs for merged nav entries (Bookings / Inventory). Each tab
+              still renders its own guarded block below — this only replaces the
+              extra sidebar links. */}
+          <ShopSubTabs
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            canViewTab={(tabId) => {
+              const required = SHOP_TAB_PERMISSIONS[tabId];
+              return !required || hasPermission(required);
+            }}
+          />
 
           {/* Loading state for tabs that require shopData */}
           {!shopData && activeTab !== "overview" && (
