@@ -31,6 +31,7 @@ import {
   RecCategory,
 } from "@/services/api/aiRecommendations";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { getRequiredTier, TIER_LABELS } from "@/config/featureTiers";
 import { getShopServices } from "@/services/api/services";
 import {
   getShopRecentActivity,
@@ -378,6 +379,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   // ---- AI Recommendations (real data; replaced the hardcoded mock) ----
   const { can: canUseFeature, loading: featuresLoading } = useFeatureAccess();
   const canSeeRecs = canUseFeature("aiInsights");
+  // The plan a below-tier shop must reach — same gate the server enforces, so
+  // the upsell copy can never advertise the wrong tier.
+  const recsRequiredPlan =
+    TIER_LABELS[getRequiredTier("aiInsights") ?? "growth"];
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [recsGated, setRecsGated] = useState(0);
   const [recsLoading, setRecsLoading] = useState(true);
@@ -668,29 +673,61 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </button>
         </div>
 
-        {/* AI Recommendations — real, per-shop, tier-gated.
+        {/* AI Recommendations — real, per-shop, tier-gated (aiInsights = Growth+).
             Every figure in a card comes from the detector's evidence, so the
-            copy can't claim something nothing computed. */}
-        {(recsLoading || canSeeRecs) && (
-          <div className={`${cardDark} p-5`}>
-            <SectionHeading title="AI Recommendations for You" />
+            copy can't claim something nothing computed.
 
-            {recsLoading ? (
-              <div className="space-y-2.5">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 rounded-xl border border-[#2e2e2e] bg-[#1c1c1c] px-3 py-3 animate-pulse"
-                  >
-                    <div className="h-9 w-9 flex-shrink-0 rounded-full bg-[#2a2a2a]" />
-                    <div className="min-w-0 flex-1">
-                      <div className="h-3.5 w-44 rounded bg-[#2a2a2a]" />
-                      <div className="mt-2 h-3 w-64 max-w-full rounded bg-[#242424]" />
-                    </div>
+            Below tier the section is NOT hidden — it doubles as an upgrade
+            prompt (D2). The endpoint is still never called (canSeeRecs is
+            false, so the fetch effect returns early), so this is presentation
+            only; the server gate remains the real boundary. */}
+        <div className={`${cardDark} p-5`}>
+          <SectionHeading title="AI Recommendations for You" />
+
+          {featuresLoading || (canSeeRecs && recsLoading) ? (
+            <div className="space-y-2.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-xl border border-[#2e2e2e] bg-[#1c1c1c] px-3 py-3 animate-pulse"
+                >
+                  <div className="h-9 w-9 flex-shrink-0 rounded-full bg-[#2a2a2a]" />
+                  <div className="min-w-0 flex-1">
+                    <div className="h-3.5 w-44 rounded bg-[#2a2a2a]" />
+                    <div className="mt-2 h-3 w-64 max-w-full rounded bg-[#242424]" />
                   </div>
-                ))}
+                </div>
+              ))}
+            </div>
+          ) : !canSeeRecs ? (
+            // Upgrade prompt for Free / Starter — the section sells the feature
+            // instead of disappearing. Required plan is derived from the same
+            // gate the server enforces, so it can't drift.
+            <div className="rounded-xl border border-[#FFCC00]/25 bg-gradient-to-br from-[#FFCC00]/[0.07] to-transparent px-4 py-5">
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#FFCC00]/15">
+                  <Sparkles className="h-4 w-4 text-[#FFCC00]" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white">
+                    Let AI watch your shop for you
+                  </p>
+                  <p className="mt-1 text-sm text-gray-400">
+                    Get personalized, data-driven recommendations — customers
+                    slipping away, stock running low, quiet weeks, unanswered
+                    messages — surfaced here automatically. Available on the{" "}
+                    {recsRequiredPlan} plan and above.
+                  </p>
+                  <button
+                    onClick={() => router.push("/shop?tab=plans")}
+                    className="mt-3 rounded-lg bg-[#FFCC00] px-4 py-2 text-xs font-semibold text-[#101010] transition-colors hover:bg-[#e6b800]"
+                  >
+                    Upgrade to {recsRequiredPlan}
+                  </button>
+                </div>
               </div>
-            ) : recs.length === 0 ? (
+            </div>
+          ) : recs.length === 0 ? (
               // Explicitly positive — never fall back to placeholder cards.
               <p className="px-2 py-4 text-sm text-gray-400">
                 Nothing needs your attention right now. We&apos;ll flag it here
@@ -793,14 +830,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
             {/* Honest upsell: say how many are hidden rather than dangling
                 locked cards for features the shop can't act on. */}
-            {!recsLoading && recsGated > 0 && (
+            {canSeeRecs && !recsLoading && recsGated > 0 && (
               <p className="mt-3 px-1 text-xs text-gray-500">
                 {recsGated} more recommendation{recsGated === 1 ? "" : "s"}{" "}
                 available on a higher plan.
               </p>
             )}
           </div>
-        )}
 
         {/* Priority Actions — same engine as the recommendations above, just a
             different surface (presentation='action'). Hidden entirely when the
