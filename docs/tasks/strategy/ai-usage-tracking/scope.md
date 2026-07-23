@@ -139,27 +139,48 @@ truth**:
   `/admin?tab=messaging-costs` (carrier SMS/WhatsApp costs + the overage summary) already exist. Decide:
   fold the new AI Usage view into a tab, and **move the overage panel off messaging-costs** into it (overage
   is AI revenue, not carrier cost — it's on the wrong tab today).
-- **D5 — Should each ads tier carry its OWN AI allowance, or keep drawing on the general AI budget?**
-  (pricing/product decision, surfaced while standardizing AI-usage tracking)
+- **D5 — Ads AI is GATED by the general AI budget but NOT funded by it — and has no cap of its own.**
+  (margin/pricing issue surfaced here; the fix is already partly scoped — see
+  `pricing-alignment/ai-allowances-per-tier-scope.md`, the "T3.3" the code references.)
 
-  **Current, incoherent, state:** the ads system is a SEPARATE self-serve add-on, separately billed
-  (`ad_billing_plans`: Starter $199 / Growth $499 / Business $999) and NOT gated by the general subscription
-  tier (`featureTiers.ts` has no ads gate — any general plan can subscribe). The ads tiers cap **campaign
-  capacity** (`maxCampaigns` per tier) and **channels** (Facebook all tiers, Google = Business-ads-tier only)
-  — **not AI dollars.** Ads AI (creative gen, lead outreach) is spend-capped against the shop's **GENERAL**
-  monthly AI budget (`SpendCapEnforcer.canSpend` → "Monthly AI budget exhausted" 429). Consequences:
-  - A $999 ads-Business shop gets **no more AI headroom** than a $199 ads-Starter shop — the AI cap is the
-    general plan's, identical for both.
-  - To use ads AI at all, a shop needs BOTH an ads subscription AND a general plan with an AI budget; a
-    **free-tier** shop's ads AI is blocked (no AI budget), even if subscribed to ads.
-  - Ads AI is gated by one budget (general) but its COST is billed to another (`ad_ai_costs` / ads True
-    Margin, via the `useCase='ads'` carve-out) — gated ≠ billed.
+  **Confirmed behavior (deo/ads-system) — and how it relates to the ALREADY-BUILT T3.3:** the funding side is
+  intentional and shipped. `ai-allowances-per-tier-scope.md` **T3.3 (built 2026-07-13)** removed `recordSpend`
+  from the ads-AI services, so ads AI cost goes ONLY to `ad_ai_costs` (COGS/True-Margin) and no longer drains
+  the shop's $10/$30/$75 pool. That is correct and done — the "funded separately" half is NOT a bug.
 
-  **Recommend: give each ads tier its own AI allowance**, since ads AI COGS is already tracked separately
-  (`ad_ai_costs`) and feeds ads True Margin. That makes the $199/$499/$999 tiers mean something for AI,
-  decouples ads AI from the general budget, and removes the free-tier-blocks-paid-ads-AI trap.
-  *Alternative:* keep drawing on the general budget (simplest, no new cap) but then the ads tiers don't gate
-  AI and the coupling above stays. Blocks nothing in Phase 1; it's a billing-model decision for management.
+  **What T3.3 did NOT do — the open half:** it removed the *deduction* (`recordSpend`) but LEFT the *gate*.
+  Ads AI still calls `SpendCapEnforcer.canSpend(shopId)` and **hard-throws a 429 "Monthly AI budget
+  exhausted"** when the shop's GENERAL budget is out (`LeadAIService:57`, `AdCreativeService:137`). So it's a
+  half-fix: ads AI no longer *spends* the general pool but is still *gated* by it — and hard-blocks, while the
+  chat surfaces got T3.1b's soft-landing. Net: the general budget is a (mis-placed) on/off **gate** for ads
+  AI, not its funder. Neither "additional usage on top of the plan" nor "the general cap shoulders it".
+
+  **The exposure:** there is **no dedicated cap on ads AI spend.** A heavy ads user runs up `ad_ai_costs`
+  (FixFlow COGS, eating ads margin) with no per-ads-tier AI limit; the only brake is the general-budget gate,
+  which fires only if they *also* exhaust their unrelated general allowance. Plus the incoherence: a $999 ads
+  shop gets no more AI headroom than $199 (both bounded by the general gate), and a **free-tier** shop's ads
+  AI is blocked (no general AI budget) even if subscribed to ads.
+
+  **RESOLUTION (2026-07-23): keep the billing — FixFlow absorbs ads-AI COGS — but fix the gate + add an abuse
+  ceiling.** Grounded in the economics: a full creative ≈ $0.07 (gpt-image-1 ~$0.063 + Haiku copy), lead
+  auto-answer is fractions of a cent; even a HEAVY ads user (~200 creatives + thousands of replies/mo) is
+  ~$15–25 COGS against a $199 minimum ads fee = ~2–8%. Comfortable margin, so per-tier ads-AI charging/metering
+  is premature — ads AI stays COGS in True Margin.
+
+  Two fixes that are NOT billing decisions and should happen regardless — both = FINISH the half-done T3.3:
+  1. **Decouple the wrong gate (finish T3.3).** T3.3 removed ads AI's `recordSpend` but not its `canSpend`
+     gate. Remove/replace that gate so a paying $999 ads shop's creative gen isn't 429-blocked by its unrelated
+     general chat allowance. Either let ads AI run (already billed to `ad_ai_costs`) or gate on an ads-specific
+     limit — never on `canSpend` against the general pool.
+  2. **Add a high abuse ceiling.** A generous per-shop monthly ads-AI ceiling (well above any legitimate heavy
+     user, e.g. $50–100) that stops-and-alerts — a safety valve against runaway loops / abuse, NOT a revenue
+     mechanism. Not addressed anywhere today (the only brake is the mis-placed general gate). Extends the
+     existing free-creative-swap safeguard.
+
+  **NOTE:** `ai-allowances-per-tier-scope.md` only EXEMPTED ads from the shop pool (T3.3) — it did NOT give ads
+  its own per-tier allowance. So "each ads tier carries its own AI budget" is genuinely net-new; per this
+  resolution, revisit it ONLY if economics shift (video creatives, pricier ads models, or ads-AI COGS past
+  ~10% of ads revenue). Not before.
 
 ## Effort
 
