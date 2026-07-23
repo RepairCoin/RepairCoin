@@ -1790,6 +1790,176 @@ router.post('/refresh', async (req, res) => {
 });
 
 /**
+ * Multi-account switching — list the accounts THIS device (X-Device-Id) is still
+ * signed into. These are the accounts the switcher can jump to instantly (no
+ * re-verification), because the device already holds a live refresh token for each.
+ *
+ * Public by design: it reveals nothing without possession of the device id, and it
+ * only returns accounts that already proved ownership on this device. Names are
+ * looked up so the picker can show them.
+ * GET /api/auth/sessions
+ */
+router.get('/sessions', async (req, res) => {
+  try {
+    const deviceId = req.get('X-Device-Id');
+    if (!deviceId) {
+      return res.json({ success: true, data: { sessions: [] } });
+    }
+
+    const tokens = await refreshTokenRepository.getDeviceSessions(deviceId);
+
+    // Resolve a display name + avatar per account (best-effort; never blocks the list).
+    const sessions = await Promise.all(
+      tokens.map(async (t) => {
+        let name: string | undefined;
+        let avatarUrl: string | undefined;
+        let shopId: string | undefined = t.shopId || undefined;
+        try {
+          if (t.userRole === 'customer') {
+            const c = await customerRepository.getCustomer(t.userAddress);
+            name = c?.name || undefined;
+            avatarUrl = c?.profile_image_url || undefined;
+          } else if (t.userRole === 'shop') {
+            const shop = t.shopId
+              ? await shopRepository.getShop(t.shopId)
+              : await shopRepository.getShopByWallet(t.userAddress);
+            name = shop?.name || undefined;
+            avatarUrl = shop?.logoUrl || undefined;
+            shopId = shop?.shopId || shopId;
+          } else if (t.userRole === 'admin') {
+            const a = await adminRepository.getAdminByWalletAddress(t.userAddress);
+            name = a?.name || 'Administrator';
+          }
+        } catch {
+          /* name lookup is non-critical */
+        }
+        return {
+          address: t.userAddress,
+          role: t.userRole,
+          shopId,
+          name,
+          avatarUrl,
+          lastUsedAt: t.lastUsedAt,
+        };
+      })
+    );
+
+    return res.json({ success: true, data: { sessions } });
+  } catch (error) {
+    logger.error('Error listing device sessions:', error);
+    return res.status(500).json({ success: false, error: 'Failed to list sessions' });
+  }
+});
+
+/**
+ * Multi-account switching — instantly activate another account THIS device is
+ * already signed into. No wallet signature or email code: possession of a live
+ * refresh token for (device, address) is the proof, mirroring how /refresh mints a
+ * new access token from an existing session.
+ *
+ * Security: the address in the body is only a lookup key. The switch is refused
+ * unless the device holds a live, unrevoked token for it — the client's claim is
+ * never trusted. Claims (role/permissions/team-member) are re-derived server-side
+ * at switch time, so a team member can't be silently escalated to owner.
+ * POST /api/auth/switch  { address }
+ */
+router.post('/switch', authLimiter, async (req, res) => {
+  try {
+    const deviceId = req.get('X-Device-Id');
+    const { address } = req.body ?? {};
+
+    if (!deviceId) {
+      return res.status(400).json({ success: false, error: 'Device id required', code: 'NO_DEVICE_ID' });
+    }
+    if (!address) {
+      return res.status(400).json({ success: false, error: 'Target address required' });
+    }
+
+    const normalizedAddress = String(address).toLowerCase();
+
+    // The gate: this device must already hold a live session for the target account.
+    const hasLive = await refreshTokenRepository.hasLiveDeviceSession(deviceId, normalizedAddress);
+    if (!hasLive) {
+      // Not signed in on this device (never, or the session lapsed). The client falls
+      // back to a normal sign-in for this account.
+      return res.status(401).json({
+        success: false,
+        error: 'No active session for this account on this device',
+        code: 'NO_DEVICE_SESSION',
+      });
+    }
+
+    // Respect admin revocation cooldown, same as the login endpoints.
+    const recentRevocation = await refreshTokenRepository.hasRecentRevocation(normalizedAddress, 1);
+    if (recentRevocation) {
+      return res.status(403).json({
+        success: false,
+        error: 'This account was recently signed out by an administrator.',
+        code: 'RECENT_REVOCATION',
+      });
+    }
+
+    // Re-derive the account's role + claims fresh (authoritative — reflects current
+    // grants, and avoids escalating a team member to owner).
+    let payload:
+      | { address: string; role: 'admin' | 'shop' | 'customer'; shopId?: string; permissions?: string[]; teamMemberId?: string }
+      | null = null;
+    let responseUser: any = null;
+
+    const adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
+    if (adminData) {
+      payload = { address: normalizedAddress, role: 'admin' };
+      responseUser = { address: normalizedAddress, role: 'admin', name: adminData.name || 'Administrator' };
+    } else {
+      const customer = await customerRepository.getCustomer(normalizedAddress).catch(() => null);
+      if (customer) {
+        payload = { address: normalizedAddress, role: 'customer' };
+        responseUser = { address: normalizedAddress, role: 'customer', name: customer.name, shopId: undefined };
+      } else {
+        const resolved = await resolveShopUser(normalizedAddress);
+        if (resolved) {
+          payload = {
+            address: resolved.walletForToken,
+            role: 'shop',
+            shopId: resolved.shopId,
+            ...(resolved.isOwner ? {} : { permissions: resolved.permissions, teamMemberId: resolved.teamMemberId }),
+          };
+          responseUser = {
+            address: resolved.walletForToken,
+            role: 'shop',
+            shopId: resolved.shopId,
+            name: resolved.shop?.name,
+            memberName: resolved.memberName || undefined,
+          };
+        }
+      }
+    }
+
+    if (!payload) {
+      // The token exists but the underlying account no longer resolves (deleted, etc).
+      return res.status(404).json({ success: false, error: 'Account no longer available', code: 'ACCOUNT_GONE' });
+    }
+
+    // Mint a fresh session for the target account and set the cookies. This supersedes
+    // only the target account's own prior token on this device (revokeActiveByDevice is
+    // per user+device), so the account we switched AWAY from stays signed in.
+    const { accessToken } = await generateAndSetTokens(res, req, payload);
+
+    logger.info('Account switched (instant)', {
+      to: normalizedAddress,
+      role: payload.role,
+      shopId: payload.shopId,
+      deviceId,
+    });
+
+    return res.json({ success: true, data: { accessToken, user: responseUser } });
+  } catch (error) {
+    logger.error('Account switch failed:', error);
+    return res.status(500).json({ success: false, error: 'Failed to switch account' });
+  }
+});
+
+/**
  * DIAGNOSTIC ENDPOINT - Test cookie setting
  * GET /api/auth/test-cookie
  *
