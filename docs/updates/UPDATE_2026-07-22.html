@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 22, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+    --amber: #b45309; --amber-bg: #fef3e2; --red: #b91c1c; --red-bg: #fdecec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  h3 { font-size: 15px; margin: 18px 0 4px; color: var(--ink); letter-spacing: -.01em; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-done { background: var(--green-bg); color: #14753b; }
+  .tag-new { background: var(--violet-bg); color: var(--violet); }
+  .tag-fix { background: #e4eeff; color: #1d4ed8; }
+  .tag-plan { background: var(--amber-bg); color: var(--amber); }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  pre { background: #1a1a2e; color: #e8eaf4; padding: 14px 18px; border-radius: 10px; overflow-x: auto; font-size: 13px; line-height: 1.55; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  pre .c { color: #8b93b0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  td .warn { color: var(--amber); font-weight: 700; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.amber { background: var(--amber-bg); border: 1px solid #f6d9a8; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+  .callout.amber strong { color: var(--amber); }
+  .test-card { background: #fbfcfe; border: 1px solid var(--line); border-left: 3px solid var(--brand); border-radius: 10px; padding: 6px 20px 14px; margin: 14px 0; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Payouts, Marketplace Honesty &amp; a Cleaner Dashboard</h1>
+    <p class="sub">Unblocked shop payouts, made the marketplace truthful about who can take bookings, and cut the dashboard navigation roughly in half.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 22, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Implemented · lint &amp; typecheck clean</span></span>
+      <span class="meta-pill"><strong>Focus:</strong>&nbsp; Payments · Navigation · Accounts</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      Three threads today. First, shop <strong>payouts</strong>: the new Stripe Connect flow was failing, which
+      also silently blocked every customer booking — both are now unblocked. Second, the <strong>marketplace</strong>
+      now tells the truth about which shops can actually accept bookings instead of dead-ending customers. Third,
+      a sizeable <strong>navigation cleanup</strong> — the shop sidebar went from 17 items to 10, account actions
+      moved into a proper profile menu, and a real account-switching bug was fixed along the way.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Stripe Connect — Payouts Unblocked <span class="tag tag-fix">FIXED</span></h2>
+    <p>
+      "Connect with Stripe" was returning a server error. Stripe Connect is how each shop links its
+      <em>own</em> Stripe account to receive customer payments — but it needs a one-time platform configuration
+      that had never been set up.
+    </p>
+    <ul>
+      <li><strong>Diagnosed and documented</strong> the missing configuration (the Connect OAuth client id and its
+          redirect URI), added to the environment files with step-by-step setup notes so it can't go missing again.</li>
+      <li><strong>Found the knock-on effect:</strong> the same gate blocks bookings. A shop that hasn't connected
+          payouts can't take a booking — there is nowhere for the customer's money to settle — which is why
+          customers were seeing <em>"This shop is not accepting bookings yet."</em> One missing setting was
+          breaking two flows.</li>
+      <li><strong>Made the test shop fully functional</strong> so bookings can be exercised end-to-end, including
+          real payment settlement with the platform commission applied.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Marketplace — "Preparing" State <span class="tag tag-new">NEW</span></h2>
+    <p>
+      Rather than hiding services from shops that haven't finished payout setup, the marketplace keeps them
+      visible but clearly <strong>not yet bookable</strong>.
+    </p>
+    <ul>
+      <li>Service cards show an amber <strong>"Preparing"</strong> badge, and the Book button is disabled with a
+          tooltip explaining the shop is finishing payout setup.</li>
+      <li>Applied consistently across browse, search, service details, group listings and trending.</li>
+      <li>Safe by default — only services explicitly reported as not-ready are gated; everything else stays bookable.</li>
+    </ul>
+    <div class="callout violet">
+      <strong>Why it matters:</strong> customers no longer pick a service, fill in a booking, and only then hit a
+      dead-end error. The card tells them up front, and the shop's listings still appear in the marketplace while
+      they finish onboarding.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Account Menu on the Profile Chip <span class="tag tag-new">NEW</span></h2>
+    <p>
+      The avatar and name in the top-right of both dashboards were decorative. They're now a proper account menu,
+      giving account actions a single consistent home.
+    </p>
+    <ul>
+      <li><strong>Shop:</strong> Team · Settings · Payouts (Stripe) · Support · Log out.</li>
+      <li><strong>Customer:</strong> Settings · FAQ &amp; Help · Log out.</li>
+      <li><strong>Payouts finally has a permanent home.</strong> Previously the only way in was a dashboard banner
+          that disappears once a shop is connected — so a shop that dismissed it, or wanted to revisit its payout
+          setup, had nowhere to go.</li>
+      <li>Menu items respect team permissions — staff without team management never see it.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> Sidebar Cleanup — 17 items → 10 <span class="tag tag-new">NEW</span></h2>
+    <p>
+      The shop sidebar had grown to 17 links under 5 collapsible headers, including several duplicates and three
+      headers that wrapped a single link each. It was reorganised in three passes:
+    </p>
+    <ul>
+      <li><strong>Removed duplicates</strong> — Messages, Settings, Support and Logout all already existed in the
+          header. (Messages is still fully reachable: the header icon previews conversations and opens the full page.)</li>
+      <li><strong>Flattened pointless groups</strong> — a section containing one item no longer renders a
+          collapsible header. This is automatic, so it stays true as sections grow or shrink.</li>
+      <li><strong>Merged related destinations</strong> behind in-page tabs.</li>
+    </ul>
+<pre>BEFORE                        AFTER
+▾ Dashboard                   • Overview
+    Overview                  ▾ Service
+▾ Service                         Services
+    Services                      Inventory   <span class="c">← + Purchase Orders</span>
+    Inventory                     Bookings ③  <span class="c">← + Appointments, Disputes</span>
+    Purchase Orders               Analytics   <span class="c">← + Customers</span>
+    Bookings                  • Tools
+    Analytics                 ▾ Shop Management
+    Appointments                  …
+    Disputes
+▾ Rewards                     <span class="c">Team → moved to profile menu</span>
+    Tools
+▾ Customers                   <span class="c">17 items, 5 headers</span>
+    Customers                 <span class="c">      ↓</span>
+▾ Shop Management             <span class="c">10 items, 2 headers</span>
+    …</pre>
+    <div class="callout green">
+      <strong>Done without touching page logic.</strong> Each merged tab keeps its own subscription, tier and
+      payout guards, its permissions, and its direct links — only the sidebar changed. Supporting details were
+      handled too: the merged entry stays highlighted for its sub-tabs, the pending-reschedule badge moved onto
+      Bookings so the signal wasn't lost, and sub-tabs hide themselves from staff who lack permission.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Account Switching — Bug Fixed <span class="tag tag-fix">FIXED</span></h2>
+    <p>
+      Switching accounts silently signed you straight back into the account you had just left. The cause: logging
+      out of the app isn't enough — the wallet layer quietly re-connects on the next page load, and the app treats
+      a connected wallet as a signal to sign in. The session now stays properly signed out so a different account
+      can be used.
+    </p>
+    <p>
+      The logout routine had also been copy-pasted into three separate places; it's now one shared implementation,
+      which fixed an ordering bug in passing (the server session is now cleared before local data, so a failure
+      can't leave a live session behind).
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span> Remembered Accounts <span class="tag tag-new">NEW</span></h2>
+    <p>
+      Accounts used on a device are now remembered and listed under <strong>"Switch to"</strong> in the profile
+      menu, each removable. Picking one takes you straight to that account's sign-in, already greeting them by
+      name with the email pre-filled — instead of logging out, hunting for the login button and retyping it. Only
+      display details are stored; never credentials.
+    </p>
+    <div class="callout amber">
+      <strong>Honest limitation:</strong> this shortens the trip, it does not remove the sign-in. Each account is
+      a separate wallet, so it still needs that account's own one-time code. True Facebook-style instant switching
+      requires backend work — specified separately (see below).
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span> Next: Facebook-style Account Switching <span class="tag tag-plan">PLANNED</span></h2>
+    <p>
+      A full specification was written for real multi-account switching — staying signed into several accounts at
+      once and switching instantly, the way Facebook does.
+    </p>
+    <ul>
+      <li><strong>Why it isn't a UI tweak:</strong> the session is a secure cookie that scripts deliberately cannot
+          read or swap, so switching has to happen on the server.</li>
+      <li><strong>The approach:</strong> remember which accounts this browser has already proven it owns, and let
+          the server re-point the active session at any of them on request. The first sign-in per account can never
+          be skipped — every switch afterwards can.</li>
+      <li><strong>The foundation already exists</strong> — the platform already stores revocable, expiring session
+          tokens, which is most of what's needed.</li>
+      <li><strong>The real cost</strong> is not the new endpoints; it's teaching the app that the signed-in account
+          may legitimately differ from the connected wallet. That's the risky part and is phased accordingly.</li>
+    </ul>
+    <p>
+      Full spec, security requirements, test matrix and phased rollout:
+      <code class="inline">docs/updates/FEATURE_MULTI_ACCOUNT_SWITCHING.html</code>
+    </p>
+    <div class="callout amber">
+      <strong>Interim:</strong> until it ships, the menu wording should say "log out &amp; sign in as another
+      account" so the interface doesn't imply behavior it doesn't yet have.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">8</span> Testing</h2>
+    <p>
+      Run locally with <code class="inline">npm run dev</code> (frontend <code class="inline">:3001</code>,
+      backend <code class="inline">:4000</code>). A shop must have <strong>Stripe payouts connected</strong> before
+      its services become bookable — that connection gates both flows below.
+    </p>
+
+    <div class="test-card">
+      <h3>A · Shop — create a service</h3>
+      <ol>
+        <li>Log in as a <strong>shop</strong> (active subscription) → <strong>Services</strong> →
+            <strong>Create Service</strong>.</li>
+        <li>Fill in name, price, duration and category; optionally add an image, tags, and configure the
+            <strong>Auto Sales &amp; Booking</strong> (AI) panel. Save.</li>
+        <li>Confirm the service appears in the list and its card actions (Edit / Delete / Share QR) behave.</li>
+        <li><strong>Payout readiness:</strong> if the shop isn't connected yet, open
+            <strong>Profile menu → Payouts (Stripe)</strong> and complete onboarding. The dashboard payout banner
+            should clear once charges are enabled.</li>
+      </ol>
+    </div>
+
+    <div class="test-card">
+      <h3>B · Customer — book a service</h3>
+      <ol>
+        <li>Log in as a <strong>customer</strong> → open the <strong>Marketplace</strong>.</li>
+        <li><strong>Shop not payout-connected:</strong> its services show the amber <strong>"Preparing"</strong>
+            badge with booking disabled — visible, but correctly not bookable.</li>
+        <li><strong>Shop payout-connected:</strong> the service shows <strong>Book Now</strong>. Pick a date and
+            time and proceed to payment.</li>
+        <li>Pay with the Stripe test card <code class="inline">4242 4242 4242 4242</code> (any future expiry, any
+            CVC, any ZIP).</li>
+        <li>Confirm the booking appears for both sides — the customer's <strong>Bookings</strong> and the shop's
+            appointments — and that RCN rewards are credited on completion.</li>
+      </ol>
+    </div>
+
+    <div class="test-card">
+      <h3>C · Navigation &amp; accounts</h3>
+      <ol>
+        <li><strong>Sidebar:</strong> confirm Bookings, Inventory and Analytics each show their in-page sub-tabs,
+            and that the parent entry stays highlighted while you're on a sub-tab.</li>
+        <li>Confirm existing links still work directly (appointments, disputes, purchase orders, customers).</li>
+        <li><strong>Profile menu:</strong> open the avatar in the top right on both dashboards; check Settings,
+            Payouts, Support and Team all navigate correctly.</li>
+        <li><strong>Switch account:</strong> confirm you land signed out — <em>not</em> straight back into the same
+            account.</li>
+        <li>Sign into a second account, then confirm the first appears under <strong>"Switch to"</strong>, and that
+            choosing it opens sign-in already greeting that account.</li>
+      </ol>
+    </div>
+
+    <div class="callout amber">
+      <strong>Test data note:</strong> most shops in the dev environment aren't payout-connected yet, so the
+      marketplace will show many "Preparing" cards. Use a connected shop to exercise the full booking-and-payment path.
+    </div>
+  </section>
+
+  <section>
+    <h2>What's done vs. what's left</h2>
+    <table>
+      <thead><tr><th>Area</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Stripe Connect configuration documented + payouts unblocked</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Marketplace "Preparing" badge + disabled booking</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Account menu on the profile chip (shop + customer)</td><td><span class="ok">✓ Done</span></td></tr>
+        <tr><td>Sidebar consolidation (17 → 10 items)</td><td><span class="ok">✓ Done</span></td></tr>
+        <tr><td>Account-switching bug fix + shared logout</td><td><span class="ok">✓ Done</span></td></tr>
+        <tr><td>Remembered accounts switcher</td><td><span class="ok">✓ Done</span></td></tr>
+        <tr><td>Facebook-style instant switching</td><td><span class="warn">◆ Specified, not built</span></td></tr>
+        <tr><td>Interim relabel of "Add another account"</td><td><span class="warn">⚠ Pending</span></td></tr>
+        <tr><td>Stripe live keys, per-tier price IDs, production Connect id</td><td><span class="warn">⚠ Ops hand-off</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>
+      Shops can now connect Stripe and receive payouts, and the marketplace is honest about who can take bookings —
+      services from shops still onboarding stay visible but clearly marked <strong>"Preparing"</strong>. The shop
+      dashboard is materially lighter: navigation is down to ten items with account actions consolidated into a
+      profile menu, achieved without touching any page's permissions or access gating. Account switching now
+      actually signs you out, and remembers the accounts you use. The remaining big-ticket item — instant
+      Facebook-style switching between live sessions — is fully specified and ready to schedule, with its riskiest
+      phase identified up front.
+    </p>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 22, 2026</footer>
+</div>
+</body>
+</html>
