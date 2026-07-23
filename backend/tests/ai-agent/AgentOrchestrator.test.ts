@@ -750,7 +750,7 @@ describe("AgentOrchestrator — booking tool use (Phase 3 fix-6)", () => {
     ]);
   });
 
-  it("does NOT pass tools when availability slots are empty", async () => {
+  it("does NOT pass the booking tool when availability slots are empty (but still offers schedule_followup)", async () => {
     const { orch, anthropicClient } = makeMocks({
       claudeResponse: {
         text: "Sorry, no openings this week.",
@@ -769,7 +769,11 @@ describe("AgentOrchestrator — booking tool use (Phase 3 fix-6)", () => {
     });
     await orch.handleCustomerMessage(sampleInput());
     const callArgs = anthropicClient.complete.mock.calls[0][0];
-    expect(callArgs.tools).toBeUndefined();
+    // schedule_followup is always offered so the AI can arm an inactivity
+    // follow-up per shop memory even when there are no bookable slots — but the
+    // booking tool must NOT be passed when availability is empty.
+    const toolNames = (callArgs.tools ?? []).map((t: { name: string }) => t.name);
+    expect(toolNames).toEqual(["schedule_followup"]);
   });
 });
 
