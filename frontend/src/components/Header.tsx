@@ -15,6 +15,8 @@ import { WalletDetectionService } from "@/services/walletDetectionService";
 import { useModalStore } from "@/stores/modalStore";
 import { authApi } from "@/services/api/auth";
 import { useAuthStore } from "@/stores/authStore";
+import { performSwitchAccount } from "@/utils/switchAccount";
+import { consumePendingAccount, consumeOpenLogin, type SavedAccount } from "@/utils/savedAccounts";
 
 const Header: React.FC = () => {
   const account = useActiveAccount();
@@ -77,29 +79,23 @@ const Header: React.FC = () => {
   // wallet, wipes auth localStorage, clears the backend cookie, then reloads to
   // home so the user can sign in with a different account. Mirrors the sidebar
   // logout so behaviour is consistent across the app.
-  const handleSwitchAccount = useCallback(async () => {
-    try {
-      resetAuth();
-      if (wallet && disconnect) {
-        try {
-          disconnect(wallet);
-        } catch (e) {
-          console.warn("Wallet disconnect error (non-blocking):", e);
-        }
-      }
-      const keysToPreserve = ["accessibility-storage"];
-      Object.keys(localStorage).forEach((key) => {
-        if (!keysToPreserve.includes(key)) localStorage.removeItem(key);
-      });
-      try {
-        await authApi.logout();
-      } catch (e) {
-        console.warn("Backend logout error (non-blocking):", e);
-      }
-    } finally {
-      if (typeof window !== "undefined") window.location.href = "/";
-    }
-  }, [resetAuth, wallet, disconnect]);
+  const handleSwitchAccount = useCallback(
+    () => performSwitchAccount({ wallet, disconnect, resetAuth }),
+    [resetAuth, wallet, disconnect]
+  );
+
+  // Arrived here from "Switch to <account>" or "Add another account": open sign-in
+  // straight away (greeting the specific account when we know it) instead of
+  // dropping the user on the bare landing page.
+  const [pendingAccount, setPendingAccount] = useState<SavedAccount | null>(null);
+  useEffect(() => {
+    const pending = consumePendingAccount();
+    const wantsLogin = consumeOpenLogin();
+    if (!pending && !wantsLogin) return;
+    if (pending) setPendingAccount(pending);
+    setAuthIntent("login");
+    openWelcomeModal();
+  }, [openWelcomeModal]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -636,14 +632,26 @@ const Header: React.FC = () => {
               <div className="w-full md:w-[23rem] md:flex-none flex flex-col items-center justify-center gap-6 py-4 text-center">
                 <div className="w-full flex flex-col items-center justify-center gap-4">
                   <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
-                    <>
-                      Welcome to
-                      <br />
-                      FixFlow
-                    </>
+                    {pendingAccount ? (
+                      <>
+                        Welcome back,
+                        <br />
+                        {pendingAccount.name || "there"}
+                      </>
+                    ) : (
+                      <>
+                        Welcome to
+                        <br />
+                        FixFlow
+                      </>
+                    )}
                   </h1>
                   <p className="text-gray-500 text-center text-sm leading-relaxed">
-                    {isSignup
+                    {pendingAccount
+                      ? `Sign in again${
+                          pendingAccount.email ? ` with ${pendingAccount.email}` : ""
+                        } to switch to this account.`
+                      : isSignup
                       ? "Securely connect your wallet to create your FixFlow account and start earning rewards on every repair."
                       : "Securely connect your wallet to sign in and access your FixFlow account, rewards, and personalized experience."}
                   </p>
