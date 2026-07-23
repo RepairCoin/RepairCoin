@@ -3,12 +3,13 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useActiveWallet, useDisconnect } from "thirdweb/react";
-import { Settings, HelpCircle, LogOut, RefreshCw, ChevronDown } from "lucide-react";
+import { Settings, HelpCircle, LogOut, RefreshCw, ChevronDown, ClipboardList } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useCustomerStore } from "@/stores/customerStore";
 import { performSwitchAccount } from "@/utils/switchAccount";
 import { rememberAccount, type SavedAccount } from "@/utils/savedAccounts";
 import { SavedAccountsMenuSection } from "@/components/account/SavedAccountsMenuSection";
+import { getCustomerOrders } from "@/services/api/services";
 import { MessageIcon } from "@/components/messaging/MessageIcon";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { CustomerBreadcrumb } from "./CustomerBreadcrumb";
@@ -51,6 +52,20 @@ export function CustomerHeader({ activeTab, description }: CustomerHeaderProps) 
       performSwitchAccount({ wallet, disconnect, resetAuth, targetAccount }),
     [resetAuth, wallet, disconnect]
   );
+
+  // Count of upcoming (paid, not-yet-completed) bookings — shown as a badge on the
+  // bookings icon, like the notification bell.
+  const [bookingCount, setBookingCount] = useState(0);
+  useEffect(() => {
+    if (!walletAddress) return;
+    let active = true;
+    getCustomerOrders({ status: "paid", page: 1, limit: 1 })
+      .then((r) => active && setBookingCount(r?.pagination?.totalItems ?? 0))
+      .catch(() => active && setBookingCount(0));
+    return () => {
+      active = false;
+    };
+  }, [walletAddress]);
 
   // Remember this account so it appears in the "Switch to" list next time.
   useEffect(() => {
@@ -148,6 +163,20 @@ export function CustomerHeader({ activeTab, description }: CustomerHeaderProps) 
         </DropdownMenu>
 
         <div className="ml-auto hidden items-center gap-3 lg:flex [&_button]:!p-2.5 [&_svg]:!h-[22px] [&_svg]:!w-[22px]">
+          <button
+            type="button"
+            onClick={() => router.push("/customer?tab=orders")}
+            aria-label="My bookings"
+            title="My bookings"
+            className="relative rounded-full bg-[#FFCC00] text-[#1e1f22] transition-all duration-300 hover:bg-[#e6b800] lg:shadow-[0_2px_8px_4px_#101010]"
+          >
+            <ClipboardList />
+            {bookingCount > 0 && (
+              <span className="absolute -top-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold leading-none text-white">
+                {bookingCount > 99 ? "99+" : bookingCount}
+              </span>
+            )}
+          </button>
           <MessageIcon />
           <NotificationBell />
         </div>
