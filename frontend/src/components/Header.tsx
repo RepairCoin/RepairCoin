@@ -17,6 +17,7 @@ import { authApi } from "@/services/api/auth";
 import { useAuthStore } from "@/stores/authStore";
 import { performSwitchAccount } from "@/utils/switchAccount";
 import { consumePendingAccount, consumeOpenLogin, type SavedAccount } from "@/utils/savedAccounts";
+import { SavedProfilesLogin } from "@/components/auth/SavedProfilesLogin";
 
 const Header: React.FC = () => {
   const account = useActiveAccount();
@@ -657,32 +658,38 @@ const Header: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Auth Button */}
+                {/* Auth: saved-profiles list (login) → falls back to the standard
+                    connect for "Use another profile" / sign-up / no saved accounts. */}
                 <div className="w-full">
-                  <ConnectButton
-                    client={client}
-                    wallets={loginWallets}
-                    connectModal={{
-                      size: "compact",
-                      title: isSignup ? "Create your account" : "Sign in to FixFlow",
-                      showThirdwebBranding: false,
-                    }}
-                    connectButton={{
-                      label: isSignup ? "Create Account" : "Connect Account",
-                      className:
-                        "!bg-[#F7CC00] hover:!bg-[#E5BB00] !text-gray-900 !justify-center !w-full !font-semibold !px-8 !py-3 !rounded-full !inline-flex !items-center !gap-3 !transition-all !duration-200 !shadow-lg hover:!shadow-xl !border-none",
-                      style: {
-                        backgroundColor: "#F7CC00",
-                        color: "#111827",
-                        borderRadius: "9999px",
-                        fontWeight: "600",
-                        width: "100%",
-                        justifyContent: "center",
-                        padding: "0.75rem 2rem",
-                        boxShadow:
-                          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                      },
-                    }}
+                  <SavedProfilesLogin
+                    enabled={!isSignup}
+                    renderConnect={() => (
+                      <ConnectButton
+                        client={client}
+                        wallets={loginWallets}
+                        connectModal={{
+                          size: "compact",
+                          title: isSignup ? "Create your account" : "Sign in to FixFlow",
+                          showThirdwebBranding: false,
+                        }}
+                        connectButton={{
+                          label: isSignup ? "Create Account" : "Connect Account",
+                          className:
+                            "!bg-[#F7CC00] hover:!bg-[#E5BB00] !text-gray-900 !justify-center !w-full !font-semibold !px-8 !py-3 !rounded-full !inline-flex !items-center !gap-3 !transition-all !duration-200 !shadow-lg hover:!shadow-xl !border-none",
+                          style: {
+                            backgroundColor: "#F7CC00",
+                            color: "#111827",
+                            borderRadius: "9999px",
+                            fontWeight: "600",
+                            width: "100%",
+                            justifyContent: "center",
+                            padding: "0.75rem 2rem",
+                            boxShadow:
+                              "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                          },
+                        }}
+                      />
+                    )}
                   />
                   <p className="text-center text-xs text-gray-400 mt-4">
                     {isSignup

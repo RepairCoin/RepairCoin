@@ -1,20 +1,19 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { getDeviceSessions } from "@/services/api/auth";
-import { getSavedAccounts, type SavedAccount } from "@/utils/savedAccounts";
+import { getSavedAccounts, forgetAccount, type SavedAccount } from "@/utils/savedAccounts";
 
 /**
- * "Switch to" list inside the account dropdown — the other accounts this device is
- * still signed into. It's populated from the SERVER (GET /auth/sessions), so every
- * account shown can be switched to instantly (no re-verification). If the server
- * can't be reached we fall back to the locally-remembered list, whose entries route
- * through a normal sign-in instead.
+ * "Switch to" list inside the account dropdown — the other accounts you've used on
+ * this device (remembered locally, so they persist across logout). Selecting one
+ * takes you to the sign-in screen for that account (greeted, email pre-filled via
+ * the saved-profiles login) — a quick re-login rather than an instant switch.
  */
 
 interface SavedAccountsMenuSectionProps {
@@ -33,30 +32,7 @@ export const SavedAccountsMenuSection: React.FC<SavedAccountsMenuSectionProps> =
   const [accounts, setAccounts] = useState<SavedAccount[]>([]);
 
   useEffect(() => {
-    let active = true;
-    // Server truth first: accounts this device holds a live session for.
-    getDeviceSessions()
-      .then((sessions) => {
-        if (!active) return;
-        if (sessions.length > 0) {
-          setAccounts(
-            sessions.map((s) => ({
-              address: s.address,
-              name: s.name,
-              role: s.role,
-              avatarUrl: s.avatarUrl,
-              lastUsedAt: s.lastUsedAt ? Date.parse(s.lastUsedAt) : 0,
-            }))
-          );
-        } else {
-          // Offline / no server sessions — fall back to the local remembered list.
-          setAccounts(getSavedAccounts());
-        }
-      })
-      .catch(() => active && setAccounts(getSavedAccounts()));
-    return () => {
-      active = false;
-    };
+    setAccounts(getSavedAccounts());
   }, []);
 
   const others = accounts.filter(
@@ -99,6 +75,20 @@ export const SavedAccountsMenuSection: React.FC<SavedAccountsMenuSectionProps> =
               {account.email || shorten(account.address)}
               {account.role ? ` · ${account.role}` : ""}
             </span>
+          </span>
+
+          <span
+            role="button"
+            tabIndex={-1}
+            aria-label="Remove from list"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setAccounts(forgetAccount(account.address));
+            }}
+            className="shrink-0 rounded p-1 text-gray-500 transition-colors hover:bg-[#333] hover:text-white"
+          >
+            <X className="h-3.5 w-3.5" />
           </span>
         </DropdownMenuItem>
       ))}
