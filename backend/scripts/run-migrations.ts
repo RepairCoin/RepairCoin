@@ -40,6 +40,10 @@ const KNOWN_DRIFT: Record<number, string> = {
   207: '207_add_lead_ai_paused',
   208: '208_add_lead_escalated_at',
   209: '209_add_service_import_fields',
+  // 232-233: same "NNN_" prefix drift — recorded with the full filename instead of
+  // the bare name. Already-applied auto-message migrations; benign name-format mismatch.
+  232: '232_add_auto_message_sequences',
+  233: '233_add_auto_message_ab_test',
 };
 
 // Legacy duplicate-numbered migration files (kept in sync with

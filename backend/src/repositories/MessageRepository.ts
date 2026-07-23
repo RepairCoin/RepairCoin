@@ -1213,4 +1213,89 @@ export class MessageRepository extends BaseRepository {
       expiresAt: row.expires_at
     };
   }
+
+  // --- AI inactivity follow-up scheduling (migration 239) ---------------------
+  // The customer-messaging AI parks a drafted follow-up (and optional closing)
+  // on the conversation; AiFollowupScheduler sends due ones; a customer reply
+  // clears them. State machine: NULL -> 'followup' -> 'closing' -> NULL.
+
+  /** Park a drafted follow-up on the conversation, due `delayMinutes` from now. */
+  async scheduleAiFollowup(
+    conversationId: string,
+    params: { delayMinutes: number; followupText: string; closingText: string | null }
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE conversations
+          SET ai_followup_due_at = NOW() + make_interval(mins => $2),
+              ai_followup_stage = 'followup',
+              ai_followup_text = $3,
+              ai_closing_text = $4,
+              ai_followup_gap_min = $2,
+              updated_at = NOW()
+        WHERE conversation_id = $1`,
+      [conversationId, params.delayMinutes, params.followupText, params.closingText]
+    );
+  }
+
+  /** Clear any pending follow-up (customer replied, or the sequence finished). */
+  async clearAiFollowup(conversationId: string): Promise<number> {
+    const res = await this.pool.query(
+      `UPDATE conversations
+          SET ai_followup_due_at = NULL,
+              ai_followup_stage = NULL,
+              ai_followup_text = NULL,
+              ai_closing_text = NULL,
+              ai_followup_gap_min = NULL,
+              updated_at = NOW()
+        WHERE conversation_id = $1 AND ai_followup_due_at IS NOT NULL`,
+      [conversationId]
+    );
+    return res.rowCount ?? 0;
+  }
+
+  /** After the follow-up sends, queue the closing one gap later. */
+  async advanceAiFollowupToClosing(conversationId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE conversations
+          SET ai_followup_due_at = NOW() + make_interval(mins => COALESCE(ai_followup_gap_min, 3)),
+              ai_followup_stage = 'closing',
+              updated_at = NOW()
+        WHERE conversation_id = $1`,
+      [conversationId]
+    );
+  }
+
+  /** Due pending follow-ups for the worker to send. */
+  async listDueAiFollowups(limit: number): Promise<DueAiFollowup[]> {
+    const res = await this.pool.query(
+      `SELECT conversation_id, shop_id, customer_address, service_id, channel,
+              ai_followup_stage, ai_followup_text, ai_closing_text
+         FROM conversations
+        WHERE ai_followup_due_at IS NOT NULL AND ai_followup_due_at <= NOW()
+        ORDER BY ai_followup_due_at ASC
+        LIMIT $1`,
+      [limit]
+    );
+    return res.rows.map((r) => ({
+      conversationId: r.conversation_id,
+      shopId: r.shop_id,
+      customerAddress: r.customer_address,
+      serviceId: r.service_id ?? null,
+      channel: (r.channel ?? 'app') as ConversationChannel,
+      stage: r.ai_followup_stage as 'followup' | 'closing',
+      followupText: r.ai_followup_text ?? null,
+      closingText: r.ai_closing_text ?? null,
+    }));
+  }
+}
+
+export interface DueAiFollowup {
+  conversationId: string;
+  shopId: string;
+  customerAddress: string;
+  serviceId: string | null;
+  channel: ConversationChannel;
+  stage: 'followup' | 'closing';
+  followupText: string | null;
+  closingText: string | null;
 }

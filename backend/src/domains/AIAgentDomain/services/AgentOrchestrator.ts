@@ -36,6 +36,7 @@ import { MessageRepository } from "../../../repositories/MessageRepository";
 import { AnthropicClient } from "./AnthropicClient";
 import { ContextBuilder } from "./ContextBuilder";
 import { buildSystemPrompt } from "./PromptTemplates";
+import { getAiMemoryService } from "./AiMemoryService";
 import { AuditLogger } from "./AuditLogger";
 import { SpendCapEnforcer } from "./SpendCapEnforcer";
 import { EscalationDetector } from "./EscalationDetector";
@@ -61,6 +62,7 @@ import {
  * (no rambling "$99 and 30 minutes" prefix).
  */
 const BOOKING_TOOL_NAME = "propose_booking_slot";
+const SCHEDULE_FOLLOWUP_TOOL_NAME = "schedule_followup";
 // Phase 2.6-2.8 + 2.9-2.11 of the reschedule + cancel chat work
 // (docs/tasks/strategy/ai-sales-agent/reschedule-cancel-*).
 const CANCELLATION_TOOL_NAME = "propose_cancellation";
@@ -603,6 +605,9 @@ export class AgentOrchestrator {
           )
         );
       }
+      // Let the AI schedule an inactivity follow-up when its recalled memory
+      // instructions call for one (extracted post-call, below).
+      toolsArray.push(buildScheduleFollowupTool());
       const tools: ClaudeTool[] | undefined =
         toolsArray.length > 0 ? toolsArray : undefined;
 
@@ -614,12 +619,16 @@ export class AgentOrchestrator {
         toolsAvailable: tools?.length ?? 0,
       };
 
+      // Owner's recalled standing instructions — non-cached, fail-open (null when off).
+      const memoryBlock = await getAiMemoryService().recallBlock(shopId, customerMessageText);
+
       let claudeResponse;
       try {
         claudeResponse = await this.anthropicClient.complete({
           systemPrompt: [
             // System prompt cached — same across many requests for this service+tone
             { text: systemPrompt, cache: true },
+            ...(memoryBlock ? [{ text: memoryBlock, cache: false }] : []),
           ],
           messages,
           model,
@@ -1172,6 +1181,39 @@ export class AgentOrchestrator {
         },
       });
 
+      // 7.5 Inactivity follow-up (migration 239): if the AI chose to schedule one
+      // per the shop's recalled instructions, park it on the conversation. A
+      // customer reply clears it; AiFollowupScheduler sends it when due.
+      const scheduleBlock = (claudeResponse.toolUses ?? []).find(
+        (t: { toolName: string }) => t.toolName === SCHEDULE_FOLLOWUP_TOOL_NAME
+      );
+      if (scheduleBlock) {
+        const rawDelay = Number(scheduleBlock.input.delay_minutes);
+        const delayMinutes = Number.isFinite(rawDelay)
+          ? Math.min(60, Math.max(1, Math.round(rawDelay)))
+          : 3;
+        const followupText = String(scheduleBlock.input.followup_text ?? "").trim();
+        const closingRaw = scheduleBlock.input.closing_text;
+        const closingText =
+          typeof closingRaw === "string" && closingRaw.trim().length > 0
+            ? closingRaw.trim()
+            : null;
+        if (followupText) {
+          try {
+            await this.messageRepo.scheduleAiFollowup(conversationId, {
+              delayMinutes,
+              followupText,
+              closingText,
+            });
+          } catch (err) {
+            logger.warn("AgentOrchestrator: failed to schedule AI follow-up", {
+              conversationId,
+              error: (err as Error)?.message,
+            });
+          }
+        }
+      }
+
       // 8. Audit log the successful call
       await this.auditLogger.log({
         conversationId,
@@ -1345,10 +1387,15 @@ export class AgentOrchestrator {
         shopLevel: true,
       };
 
+      const memoryBlock = await getAiMemoryService().recallBlock(shopId, customerMessageText);
+
       let claudeResponse;
       try {
         claudeResponse = await this.anthropicClient.complete({
-          systemPrompt: [{ text: systemPrompt, cache: true }],
+          systemPrompt: [
+            { text: systemPrompt, cache: true },
+            ...(memoryBlock ? [{ text: memoryBlock, cache: false }] : []),
+          ],
           messages,
           model,
           maxTokens: SHOP_LEVEL_MAX_TOKENS,
@@ -1459,6 +1506,43 @@ export class AgentOrchestrator {
  * rules. The orchestrator still double-checks defensively, including the
  * (service_id, slot_iso) pair consistency that the schema alone can't enforce.
  */
+// Lets the AI queue an inactivity follow-up (and optional closing) when the
+// shop's recalled memory instructions call for one. Emitted as a tool_use block
+// during the normal reply; the orchestrator parks it on the conversation and
+// AiFollowupScheduler sends it if the customer stays quiet.
+function buildScheduleFollowupTool(): ClaudeTool {
+  return {
+    name: SCHEDULE_FOLLOWUP_TOOL_NAME,
+    description: [
+      "Arm an automatic follow-up message that sends only if the customer goes quiet after this reply.",
+      "When to call: if the shop's standing instructions (see OWNER PREFERENCES & STANDING INSTRUCTIONS) ask you to follow up after a period of customer inactivity, you MUST call this tool — because you cannot act on your own during silence, this tool is the ONLY way that follow-up ever gets sent. If there is no such instruction, do NOT call this tool.",
+      "Call it PROACTIVELY on essentially EVERY reply where you have answered and are now waiting on the customer — even mid-conversation, and even after a normal question. Do NOT wait for the customer to say goodbye or for the conversation to feel 'finished'. The follow-up is auto-cancelled the instant the customer replies, so arming it on each turn is safe and expected; re-calling it each turn just resets the timer.",
+      "delay_minutes = minutes of customer silence before the follow-up (use the number the instruction specifies, e.g. 3). followup_text = the message to send if they stay quiet. closing_text = OPTIONAL final message sent one more delay_minutes later if they STILL haven't replied — put the business contact info here when the instruction asks for it; omit it if the instruction doesn't want a closing message.",
+      "The ONLY time to skip it: the customer is mid-booking/purchase and expects an immediate next step from you, or they have already clearly ended the conversation.",
+      "You never manage or cancel it yourself — a customer reply cancels it automatically.",
+    ].join(" "),
+    inputSchema: {
+      type: "object",
+      properties: {
+        delay_minutes: {
+          type: "number",
+          description: "Minutes of customer silence to wait before sending the follow-up (e.g. 3).",
+        },
+        followup_text: {
+          type: "string",
+          description: "The follow-up message to send if the customer stays quiet.",
+        },
+        closing_text: {
+          type: "string",
+          description:
+            "Optional closing message, sent one more delay_minutes later if the customer still hasn't replied. Include the business contact info here when the instruction asks. Omit entirely if no closing message is wanted.",
+        },
+      },
+      required: ["delay_minutes", "followup_text"],
+    },
+  };
+}
+
 function buildBookingSuggestionTool(
   availabilitySlots: { slotIso: string; humanLabel: string; serviceId: string; serviceName: string }[]
 ): ClaudeTool {
