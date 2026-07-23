@@ -143,7 +143,7 @@ const Footer = React.memo(() => {
               </li>
               <li>
                 <Link
-                  href="#"
+                  href="/terms"
                   className="text-base text-white hover:text-[#ffcc00] transition-colors"
                 >
                   Terms and Conditions

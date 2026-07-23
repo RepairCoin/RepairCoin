@@ -418,14 +418,16 @@ export default function SubscriptionForm() {
                   >
                     I agree to the{" "}
                     <a
-                      href="#"
+                      href="/terms"
+                      target="_blank"
                       className="text-[#FFCC00] hover:text-yellow-400 underline"
                     >
                       Terms of Service
                     </a>{" "}
                     and{" "}
                     <a
-                      href="#"
+                      href="/privacy-policy"
+                      target="_blank"
                       className="text-[#FFCC00] hover:text-yellow-400 underline"
                     >
                       Privacy Policy
