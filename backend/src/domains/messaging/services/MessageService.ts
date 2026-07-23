@@ -1,5 +1,5 @@
 // backend/src/domains/messaging/services/MessageService.ts
-import { MessageRepository, Conversation, Message, CreateMessageParams, ConversationChannel } from '../../../repositories/MessageRepository';
+import { MessageRepository, Conversation, Message, CreateMessageParams, ConversationChannel, DueAiFollowup } from '../../../repositories/MessageRepository';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { WebSocketManager } from '../../../services/WebSocketManager';
 import { conversationPresenceService } from '../../../services/ConversationPresenceService';
@@ -352,6 +352,18 @@ export class MessageService {
       // per-shop ai_global_enabled, spend cap, escalation phrases) and is
       // entirely silent if any of those say "skip" — the customer message just
       // goes through normally with no AI reply.
+      // A customer reply cancels any queued AI inactivity follow-up/closing.
+      if (request.senderType === 'customer') {
+        await this.messageRepo
+          .clearAiFollowup(conversation.conversationId)
+          .catch((e) =>
+            logger.warn('clearAiFollowup failed', {
+              conversationId: conversation.conversationId,
+              error: (e as Error)?.message,
+            })
+          );
+      }
+
       if (
         request.senderType === 'customer' &&
         !request.isEncrypted &&
@@ -513,6 +525,71 @@ export class MessageService {
         });
       }
     });
+  }
+
+  /**
+   * Send a scheduled AI follow-up/closing (AiFollowupScheduler). Persists it
+   * like any AI reply, relays over SMS/WhatsApp when the thread is off-app, and
+   * broadcasts message:new to the customer + shop for in-app real-time.
+   */
+  async deliverScheduledAiMessage(row: DueAiFollowup, text: string): Promise<void> {
+    const aiMessageId = `msg_${Date.now()}_${uuidv4().slice(0, 8)}`;
+    await this.messageRepo.createMessage({
+      messageId: aiMessageId,
+      conversationId: row.conversationId,
+      senderAddress: row.shopId, // AI replies on behalf of the shop
+      senderType: 'shop',
+      messageText: text,
+      messageType: 'text',
+      channel: row.channel,
+      metadata: {
+        generated_by: 'ai_agent',
+        scheduled_followup: true,
+        followup_stage: row.stage,
+      },
+    });
+
+    if (row.channel === 'sms') {
+      await this.smsReplyService
+        .relay(row.conversationId, row.shopId, aiMessageId)
+        .catch((e) =>
+          logger.error('Scheduled follow-up SMS relay failed', {
+            conversationId: row.conversationId,
+            error: (e as Error)?.message,
+          })
+        );
+    } else if (row.channel === 'whatsapp') {
+      await this.whatsappReplyService
+        .relay(row.conversationId, row.shopId, aiMessageId)
+        .catch((e) =>
+          logger.error('Scheduled follow-up WhatsApp relay failed', {
+            conversationId: row.conversationId,
+            error: (e as Error)?.message,
+          })
+        );
+    }
+
+    if (this.wsManager) {
+      const targets: string[] = [row.customerAddress.toLowerCase()];
+      try {
+        const { shopRepository } = await import('../../../repositories');
+        const shop = await shopRepository.getShop(row.shopId);
+        if (shop?.walletAddress) targets.push(shop.walletAddress.toLowerCase());
+      } catch {
+        // degrade to customer-only broadcast
+      }
+      try {
+        this.wsManager.sendToAddresses(targets, {
+          type: 'message:new',
+          payload: { conversationId: row.conversationId },
+        });
+      } catch (wsErr) {
+        logger.error('Scheduled follow-up WS broadcast failed', {
+          conversationId: row.conversationId,
+          error: (wsErr as Error)?.message,
+        });
+      }
+    }
   }
 
   /**

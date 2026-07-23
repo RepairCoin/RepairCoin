@@ -44,6 +44,7 @@ import { rescheduleExpirationService } from './services/RescheduleExpirationServ
 import { autoMessageSchedulerService } from './services/AutoMessageSchedulerService';
 import { ReportSchedulerService } from './services/ReportSchedulerService';
 import { getCampaignScheduler } from './services/CampaignScheduler';
+import { getAiFollowupScheduler } from './domains/messaging/services/AiFollowupScheduler';
 import { getCampaignRewardExpiryScheduler } from './services/CampaignRewardExpiryScheduler';
 import { getSafeguardScheduler } from './domains/AdsDomain/services/SafeguardScheduler';
 import { getAiOverageBillingScheduler } from './domains/AIAgentDomain/services/AiOverageBillingScheduler';
@@ -654,6 +655,7 @@ class RepairCoinApp {
       bookingCleanupService.stop();
       autoMessageSchedulerService.stop();
       getCampaignScheduler().stop();
+      getAiFollowupScheduler().stop();
       getCampaignRewardExpiryScheduler().stop();
       getSafeguardScheduler().stop();
       getAiOverageBillingScheduler().stop();
@@ -877,6 +879,11 @@ class RepairCoinApp {
         // Sends marketing campaigns whose scheduled_at has arrived (send-later).
         getCampaignScheduler().start();
         logger.info('🗓️ Campaign scheduler started (every minute, sends due scheduled campaigns)');
+
+        // Start AI follow-up scheduler - runs every minute
+        // Sends AI inactivity follow-up/closing messages the assistant queued per shop memory.
+        getAiFollowupScheduler().start();
+        logger.info('💬 AI follow-up scheduler started (every minute, sends due inactivity follow-ups)');
 
         // Start campaign reward expiry sweep - runs hourly
         // Expires pending redeem-on-return rewards past their window.
