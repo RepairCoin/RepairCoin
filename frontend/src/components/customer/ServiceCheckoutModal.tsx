@@ -446,6 +446,9 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
 
   // Check if customer is suspended
   const isSuspended = noShowStatus?.tier === 'suspended' && !noShowStatus?.canBook;
+  // The shop hasn't finished Stripe payout setup, so it can't take bookings yet.
+  // Strict === false so services from surfaces that don't report the flag stay bookable.
+  const notAcceptingBookings = service.shopAcceptingBookings === false;
 
   // Validate advance booking hours
   const validateAdvanceBooking = (): { isValid: boolean; error: string | null } => {
@@ -1022,8 +1025,19 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                 </div>
               )}
 
+              {/* Shop hasn't set up payouts — can't accept bookings yet */}
+              {notAcceptingBookings && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6 text-center">
+                  <Clock className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                  <p className="text-amber-300 font-semibold">This shop isn&apos;t accepting bookings yet</p>
+                  <p className="text-gray-400 text-sm mt-1">
+                    It&apos;s still finishing payment setup. Check back soon.
+                  </p>
+                </div>
+              )}
+
               {/* Proceed to Payment Button */}
-              {!paymentInitialized && !isSuspended && (
+              {!paymentInitialized && !isSuspended && !notAcceptingBookings && (
                 <button
                   onClick={handleInitializePayment}
                   disabled={loading || !bookingDate || !bookingTimeSlot || !advanceBookingValidation.isValid}

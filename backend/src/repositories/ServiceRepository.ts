@@ -459,6 +459,13 @@ export class ServiceRepository extends BaseRepository {
         }
       }
 
+      // Always float bookable shops (Stripe payouts connected) to the top, ahead of
+      // the chosen sort — a customer shouldn't lead with services they can't book.
+      orderByClause = orderByClause.replace(
+        'ORDER BY ',
+        'ORDER BY (sh.stripe_connect_account_id IS NOT NULL AND sh.connect_charges_enabled = true) DESC, '
+      );
+
       // Get total count (must join shops table for location filters)
       const countQuery = `
         SELECT COUNT(*) as total
