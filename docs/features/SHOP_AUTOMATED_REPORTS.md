@@ -152,13 +152,11 @@ FRONTEND_URL=https://repaircoin.ai  # For email links
 
 ### **Email Provider**
 
-Ensure email service is configured in `.env`:
+Reports are sent through Resend via `EmailService`. Ensure it's configured in `.env`:
 ```bash
-SMTP_HOST=
-SMTP_PORT=
-SMTP_USER=
-SMTP_PASS=
-SMTP_FROM=
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+RESEND_FROM_NAME=
 ```
 
 ---
@@ -366,7 +364,7 @@ npm run build      # Verify compilation
 
 ### **Email not rendering:**
 - Check email service configuration
-- Verify SMTP credentials
+- Verify `RESEND_API_KEY` is set and the sending domain is verified in Resend
 - Test with different email clients
 - Check inline CSS is working
 

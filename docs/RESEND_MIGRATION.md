@@ -1,6 +1,6 @@
 # Resend Email Service Migration
 
-**Date:** June 1, 2026
+**Date:** June 1, 2026 (phase 1), July 24, 2026 (phase 2)
 **Status:** ✅ Complete
 **Migration Type:** Production-ready
 
@@ -8,7 +8,12 @@
 
 ## Overview
 
-Successfully migrated the RepairCoin platform's marketing campaign email system from SendGrid to Resend as the primary provider, with automatic fallback to Gmail SMTP for transactional emails.
+Migrated the RepairCoin platform off Gmail SMTP and onto Resend, in two phases:
+
+- **Phase 1 (June 1, 2026)** — marketing campaign email moved from SendGrid to Resend, with SendGrid kept as a fallback. Transactional email stayed on Gmail SMTP.
+- **Phase 2 (July 24, 2026)** — transactional email moved to Resend as well. Gmail SMTP and Nodemailer are gone from the codebase.
+
+The rest of this document describes phase 1 except where marked; see [Phase 2](#phase-2-transactional-email-july-24-2026) at the end for the current state.
 
 ---
 
@@ -21,10 +26,15 @@ Successfully migrated the RepairCoin platform's marketing campaign email system 
 - Transactional emails: Gmail SMTP (Nodemailer)
 - No fallback mechanism
 
-**After:**
+**After phase 1:**
 - Marketing campaigns: Resend (primary) → SendGrid (fallback)
 - Transactional emails: Gmail SMTP (unchanged)
 - Automatic fallback logic for campaign emails
+
+**After phase 2 (current):**
+- Marketing campaigns: Resend (primary) → SendGrid (fallback)
+- Transactional emails: Resend
+- No Gmail SMTP anywhere
 
 ### 2. **Files Created**
 
@@ -140,10 +150,15 @@ constructor() {
 | Email Type | Service Used | Fallback |
 |---|---|---|
 | Marketing Campaigns | Resend | SendGrid |
-| Payment Reminders | Gmail SMTP | None |
-| Booking Confirmations | Gmail SMTP | None |
-| Subscription Alerts | Gmail SMTP | None |
-| System Notifications | Gmail SMTP | None |
+| Payment Reminders | Resend | None |
+| Booking Confirmations | Resend | None |
+| Subscription Alerts | Resend | None |
+| System Notifications | Resend | None |
+| Shop-owned outreach | Shop's own Gmail (OAuth) | None |
+
+Everything but the last row goes through `ResendEmailService`. The last row is the
+per-shop "connect your own Gmail" feature (`GmailService`), which is intentionally
+separate — shops send from their own inbox so replies land there.
 
 ### API Compatibility
 
@@ -369,3 +384,88 @@ Monitor at: https://resend.com/emails
 ✅ **Cost Savings:** 50-80%
 
 **Next Step:** Deploy to production and add `RESEND_API_KEY` to DigitalOcean environment variables.
+
+---
+
+# Phase 2: Transactional Email (July 24, 2026)
+
+Phase 1 left transactional email on Gmail SMTP. Phase 2 moved it to Resend, removing
+Nodemailer from the codebase entirely.
+
+## What Changed
+
+`EmailService` was the last sender using Nodemailer over Gmail SMTP. Its core
+`sendEmail()` now delegates to `resendEmailService`, so every consumer moved over
+with no changes on their side — subscriptions, bookings, no-show tiers, disputes,
+digests and reports, reminders, bug reports, waitlist, and marketing. All ~40
+templates and every public method are unchanged.
+
+| File | Change |
+|---|---|
+| `services/EmailService.ts` | Nodemailer/SMTP → Resend; ~110 lines of transport config deleted |
+| `services/ResendEmailService.ts` | Lazy init so `RESEND_API_KEY` is read after dotenv, not at import time |
+| `domains/shop/routes/team.ts` | Removed dead "fall back to Gmail SMTP" branch |
+| `domains/MarketingDomain/controllers/MarketingController.ts` | Stale `EMAIL_USER/EMAIL_PASS` error strings now name `RESEND_API_KEY` |
+
+The lazy-init change matters because `EmailService` is constructed at module scope in
+several route files. Reading the API key in the `ResendEmailService` constructor made
+initialization dependent on import ordering relative to `dotenv.config()`.
+
+## Dependencies Removed
+
+```
+nodemailer
+@types/nodemailer
+```
+
+## Environment Variables
+
+Sender identity for transactional email is now **`RESEND_FROM_EMAIL` /
+`RESEND_FROM_NAME` only**. `EmailConfig.from` remains available as a per-instance
+override in code (nothing currently passes it).
+
+**No longer read — safe to remove:**
+
+```bash
+EMAIL_HOST
+EMAIL_PORT
+EMAIL_SECURE
+EMAIL_PASS
+EMAIL_FROM
+```
+
+⚠️ **`EMAIL_USER` is still read**, but only as the *recipient* fallback for admin
+notifications (`ADMIN_NOTIFICATION_EMAIL || EMAIL_USER`) in `WaitlistController.ts`
+and `EmailService.ts` — not as a credential. Prefer setting
+`ADMIN_NOTIFICATION_EMAIL` and dropping `EMAIL_USER`.
+
+## Deploy Prerequisite
+
+The sending domain must be verified on the Resend account **for each environment**.
+An unverified sender fails *every* transactional email at once, so this is the first
+thing to check if nothing is arriving.
+
+## Testing
+
+All senders share one code path, so a single successful send proves the transport.
+Suggested smoke test: **team invite** (the only other file with a Gmail path removed),
+**bug report**, and a **manual booking confirmation**.
+
+Verify in the Resend dashboard rather than app logs — preference-gated emails return
+`true` when *skipped* by shop preferences, so a success log does not prove delivery.
+
+## Known Follow-up
+
+The schedulers (`ReportSchedulerService`, `AppointmentReminderService`,
+`LowStockAlertService`, `SubscriptionEnforcementService`) loop over shops sending one
+email each with no throttle. That was fine over SMTP but can hit Resend's rate limit
+(~2 req/sec) at volume. No pacing was added in phase 2, since that is a behavior
+change beyond the transport swap.
+
+## Out of Scope
+
+- **`GmailService`** (+ `GmailController`, `GmailRepository`) — the per-shop OAuth
+  "connect your own Gmail" feature, where shops send from their own inbox and receive
+  replies there. Migrating it would delete the feature, not move it.
+- **SendGrid fallback in `CampaignEmailService`** — already Resend-primary; the
+  fallback is unrelated to Gmail.
