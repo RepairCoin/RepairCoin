@@ -165,9 +165,9 @@ export const FEATURE_LABELS: Record<string, string> = {
   marketing: 'Marketing assistant',
   help: 'How-To assistant',
   image: 'Image generation',
-  voice_stt: 'Voice transcription',
-  voice_router: 'Voice router',
-  voice_tts: 'Voice speech',
+  voice_stt: 'Voice — listening',   // speech-to-text (Whisper): the spoken message in
+  voice_router: 'Voice — routing',  // picks which tool a spoken request goes to
+  voice_tts: 'Voice — speaking',    // text-to-speech (tts-1): the AI's reply spoken back out
   brand_kit: 'Brand kit (vision)',
   faq_suggestion: 'FAQ suggestions',
   ads_creative: 'Ads — creative gen',
