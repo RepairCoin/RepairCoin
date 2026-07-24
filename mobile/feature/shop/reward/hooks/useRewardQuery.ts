@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { shopApi } from "../../services/shop.services";
 import { RewardRequest } from "../../services/shop.interface";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
+import { getShopActionErrorMessage } from "@/shared/utilities/shopApiError";
 
 export function useShopBalance() {
   const shopId = useAuthStore((state) => state.userProfile?.shopId);
@@ -75,19 +76,17 @@ export function useIssueReward(resetInputs?: () => void) {
     onError: (error: any) => {
       console.error("Failed to issue reward:", error);
 
-      let errorMessage = "Failed to issue reward. Please try again.";
-
-      if (error.response?.status === 401) {
-        errorMessage = "Authentication required. Please log in again.";
-      } else if (error.response?.status === 400) {
-        errorMessage =
-          error.response?.data?.error ||
-          "Invalid request. Please check your inputs.";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      showError(errorMessage);
+      // The endpoint is gated by requireShopOwnership /
+      // requireShopPermission('rewards:issue') / requireActiveSubscription, and
+      // answers 403/404 with the actual reason in the body. Showing
+      // error.message here leaked axios's "Request failed with status code 403".
+      showError(
+        getShopActionErrorMessage(error, {
+          action: "issue rewards",
+          permissionHint: "Issue Rewards access",
+          fallback: "Failed to issue reward. Please try again.",
+        })
+      );
     },
     onSettled: reset,
   });
@@ -99,6 +98,13 @@ export function useIssueReward(resetInputs?: () => void) {
       options?: Parameters<typeof mutation.mutate>[1]
     ) => {
       guard(() => mutation.mutate(request, options));
+    },
+    // Guarded too, so a double tap can't fire two rewards (and two toasts).
+    mutateAsync: async (
+      request: RewardRequest,
+      options?: Parameters<typeof mutation.mutateAsync>[1]
+    ) => {
+      return guard(() => mutation.mutateAsync(request, options));
     },
   };
 }
