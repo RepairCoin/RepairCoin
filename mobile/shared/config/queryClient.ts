@@ -66,6 +66,8 @@ export const queryKeys = {
     [...queryKeys.shops(), 'analytics', shopId, timeRange] as const,
   nearbyShops: (coordinates: { lat: number; lng: number }) =>
     [...queryKeys.shops(), 'nearby', coordinates] as const,
+  connectSummary: () => [...queryKeys.shops(), 'connect', 'summary'] as const,
+  connectStatus: () => [...queryKeys.shops(), 'connect', 'status'] as const,
 
   // Redemption related
   redemptions: () => [...queryKeys.all, 'redemptions'] as const,

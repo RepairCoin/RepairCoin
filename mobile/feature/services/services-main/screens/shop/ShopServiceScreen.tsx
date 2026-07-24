@@ -30,6 +30,7 @@ import { ServiceAnalyticsTab } from "@/feature/services/booking/components";
 
 // Constants
 import { SERVICE_TABS } from "@/shared/constants/services";
+import { StripeConnectGate } from "@/shared/components/shop/StripeConnectGate";
 
 export default function ShopServiceScreen() {
   const [showManualBookingModal, setShowManualBookingModal] = useState(false);
@@ -117,12 +118,18 @@ export default function ShopServiceScreen() {
 
         {/* Tab Content */}
         {activeTab === "Services" && (
-          <ServicesTab
-            setActionModalVisible={setActionModalVisible}
-            setSelectedService={setSelectedService}
-          />
+          <StripeConnectGate feature="Service Management">
+            <ServicesTab
+              setActionModalVisible={setActionModalVisible}
+              setSelectedService={setSelectedService}
+            />
+          </StripeConnectGate>
         )}
-        {activeTab === "Booking" && <BookingShopTab />}
+        {activeTab === "Booking" && (
+          <StripeConnectGate feature="Bookings">
+            <BookingShopTab />
+          </StripeConnectGate>
+        )}
         {activeTab === "Analytics" && <ServiceAnalyticsTab />}
       </View>
 

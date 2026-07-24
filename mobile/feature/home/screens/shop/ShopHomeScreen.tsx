@@ -13,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { DemoBanner } from "@/shared/components/ui/DemoBanner";
+import { PayoutSetupBanner } from "../../components/ui/PayoutSetupBanner";
 import { useHomeDataUI } from "@/feature/shop/account/hooks";
 import { useEndBootWhenReady } from "@/shared/hooks/useEndBootWhenReady";
 import { useBookingsData } from "@/feature/services/booking/hooks/useBookingsData";
@@ -391,6 +392,7 @@ export default function Home() {
 
         <View className="px-4 pt-4">
           <DemoBanner />
+          <PayoutSetupBanner />
 
           {/* Priority Actions */}
         <View>

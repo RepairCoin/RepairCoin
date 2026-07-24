@@ -26,6 +26,9 @@ import {
   CustomerBlockStatusResponse,
   FlagReviewRequest,
   FlagReviewResponse,
+  ConnectSummaryResponse,
+  ConnectOnboardingLinkResponse,
+  ConnectStatusResponse,
 } from "./shop.interface";
 import {
   PurchaseHistoryResponse,
@@ -421,6 +424,37 @@ class ShopApi {
       return await apiClient.post(`/shops/purchase-sync/check-payment/${purchaseId}`);
     } catch (error: any) {
       console.error("Failed to check payment status:", error.message);
+      throw error;
+    }
+  }
+
+  // ─── Stripe Connect (Payouts) Endpoints ──────────────────────────────────────
+
+  async getConnectSummary(): Promise<ConnectSummaryResponse> {
+    try {
+      return await apiClient.get("/shops/connect/summary");
+    } catch (error: any) {
+      console.error("Failed to get Stripe Connect summary:", error.message);
+      throw error;
+    }
+  }
+
+  async getConnectOnboardingLink(): Promise<ConnectOnboardingLinkResponse> {
+    try {
+      return await apiClient.post("/shops/connect/onboarding-link", {
+        platform: "mobile",
+      });
+    } catch (error: any) {
+      console.error("Failed to create Stripe Connect onboarding link:", error.message);
+      throw error;
+    }
+  }
+
+  async getConnectStatus(): Promise<ConnectStatusResponse> {
+    try {
+      return await apiClient.get("/shops/connect/status");
+    } catch (error: any) {
+      console.error("Failed to get Stripe Connect status:", error.message);
       throw error;
     }
   }
