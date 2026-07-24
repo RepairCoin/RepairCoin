@@ -1265,6 +1265,22 @@ export class MessageRepository extends BaseRepository {
     );
   }
 
+  /**
+   * Push a due follow-up back by whole hours, keeping its stage and drafted
+   * text. Used to hold an overnight follow-up until the shop's morning rather
+   * than sending it at 3am — or dropping it, which is what skipping would mean
+   * for a delay measured in days.
+   */
+  async deferAiFollowup(conversationId: string, hours: number): Promise<void> {
+    await this.pool.query(
+      `UPDATE conversations
+          SET ai_followup_due_at = NOW() + make_interval(hours => $2),
+              updated_at = NOW()
+        WHERE conversation_id = $1 AND ai_followup_due_at IS NOT NULL`,
+      [conversationId, hours]
+    );
+  }
+
   /** Due pending follow-ups for the worker to send. */
   async listDueAiFollowups(limit: number): Promise<DueAiFollowup[]> {
     const res = await this.pool.query(

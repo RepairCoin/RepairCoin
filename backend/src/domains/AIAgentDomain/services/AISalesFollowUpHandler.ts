@@ -13,6 +13,9 @@
 // Guards (all must pass — mirrors AgentOrchestrator + the strategy doc):
 //   - conversation is open, has a service, not under human takeover
 //     (ai_paused_until)
+//   - the AI hasn't armed its own context-aware follow-up for this conversation
+//     (ai_followup_due_at, migration 239) and didn't just send one — that path
+//     picks its own timing and copy, so it wins and this nudge stands down
 //   - shop AI globally enabled AND ai_followup_enabled (staged-rollout gate)
 //   - focused service has aiSalesEnabled
 //   - the last message is an AI message (not a human shop reply, not a
@@ -43,15 +46,17 @@ import { SpendCapEnforcer } from "./SpendCapEnforcer";
 import { WebSocketManager } from "../../../services/WebSocketManager";
 import { ClaudeModel } from "../types";
 import { cheapModel } from "../../../config/aiModels";
+import {
+  getShopTimezone,
+  isWithinShopDaytime,
+  shopLocalHour,
+} from "../../../utils/shopQuietHours";
 
 const FOLLOWUP_MODEL: ClaudeModel = cheapModel();
 const FOLLOWUP_MAX_TOKENS = 120;
 const DEFAULT_DELAY_MINUTES = 20;
 /** Beyond this the lead is cold — a different "win-back" mechanism's job. */
 const MAX_QUIET_HOURS = 6;
-/** Shop-local daytime window for sending nudges (no overnight nudges). */
-const DAYTIME_START_HOUR = 8;
-const DAYTIME_END_HOUR = 21;
 /** Hard ceiling so a long back-and-forth thread can't turn into nagging. */
 const MAX_FOLLOWUPS_PER_24H = 2;
 /** Conversation-tail size pulled into the prompt. */
@@ -64,6 +69,7 @@ interface ConversationRow {
   service_id: string | null;
   status: string;
   ai_paused_until: Date | null;
+  ai_followup_due_at: Date | null;
 }
 
 export interface AISalesFollowUpHandlerDeps {
@@ -124,7 +130,8 @@ export class AISalesFollowUpHandler {
     // 1. Conversation must exist, be open, have a service, not be under
     // human takeover.
     const convRes = await this.pool.query<ConversationRow>(
-      `SELECT conversation_id, customer_address, shop_id, service_id, status, ai_paused_until
+      `SELECT conversation_id, customer_address, shop_id, service_id, status, ai_paused_until,
+              ai_followup_due_at
        FROM conversations WHERE conversation_id = $1`,
       [conversationId]
     );
@@ -135,6 +142,11 @@ export class AISalesFollowUpHandler {
     if (conv.ai_paused_until && new Date(conv.ai_paused_until).getTime() > Date.now()) {
       return; // human takeover (or active race-window pause)
     }
+    // The AI already armed its own context-aware follow-up for this conversation
+    // (migration 239, sent by AiFollowupScheduler). That one picked its timing
+    // from the conversation and drafted its own copy, so it wins — this fixed-delay
+    // nudge stands down rather than sending a second message alongside it.
+    if (conv.ai_followup_due_at) return;
 
     // 2. Shop settings — AI on, follow-ups on (staged-rollout gate), delay.
     const settingsRes = await this.pool.query<{
@@ -175,6 +187,10 @@ export class AISalesFollowUpHandler {
     }
     const lastSource = (last.metadata as any)?.source;
     if (lastSource === "ai_followup" || lastSource === "booking_confirmed") return;
+    // Nor a follow-up already sent by the AI-scheduled path — those carry
+    // scheduled_followup rather than source=ai_followup, so without this they
+    // read as an ordinary AI reply and we would nudge on top of them.
+    if ((last.metadata as any)?.scheduled_followup === true) return;
 
     // The customer must have actually engaged.
     const customerMessages = messages.filter((m) => m.senderType === "customer");
@@ -226,12 +242,11 @@ export class AISalesFollowUpHandler {
     }
 
     // 7. Daytime window — no overnight nudges. Computed in the shop's tz.
-    const shopTimezone = await this.getShopTimezone(conv.shop_id);
-    const shopHour = this.shopLocalHour(shopTimezone);
-    if (shopHour < DAYTIME_START_HOUR || shopHour >= DAYTIME_END_HOUR) {
+    const shopTimezone = await getShopTimezone(conv.shop_id, this.pool);
+    if (!isWithinShopDaytime(shopTimezone)) {
       logger.debug("AISalesFollowUpHandler: outside shop daytime window, skipping", {
         conversationId,
-        shopHour,
+        shopHour: shopLocalHour(shopTimezone),
         shopTimezone,
       });
       return;
@@ -430,34 +445,4 @@ ${slotRule}
     return null;
   }
 
-  /** The shop's IANA timezone from shop_time_slot_config (default ET). */
-  private async getShopTimezone(shopId: string): Promise<string> {
-    try {
-      const res = await this.pool.query<{ timezone: string | null }>(
-        `SELECT timezone FROM shop_time_slot_config WHERE shop_id = $1 AND location_id IS NULL`,
-        [shopId]
-      );
-      return res.rows[0]?.timezone || "America/New_York";
-    } catch {
-      return "America/New_York";
-    }
-  }
-
-  /** Current hour-of-day (0-23) in the given IANA timezone. */
-  private shopLocalHour(timeZone: string): number {
-    try {
-      const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone,
-        hour: "2-digit",
-        hour12: false,
-      }).formatToParts(new Date());
-      let h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
-      if (h === 24) h = 0;
-      return h;
-    } catch {
-      // Unknown tz — fall back to a value inside the window so a config
-      // typo doesn't silently suppress every follow-up.
-      return 12;
-    }
-  }
 }

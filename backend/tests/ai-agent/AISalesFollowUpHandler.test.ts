@@ -261,6 +261,36 @@ describe("AISalesFollowUpHandler — skip paths", () => {
     expect(anthropicClient.complete).not.toHaveBeenCalled();
   });
 
+  it("stands down when the AI has armed its own follow-up (ai_followup_due_at set)", async () => {
+    const { handler, anthropicClient } = makeMocks({
+      conversation: { ...baseConversation(), ai_followup_due_at: minutesAgo(-30) },
+    });
+    await handler.processFollowUp("conv_xxx");
+    expect(anthropicClient.complete).not.toHaveBeenCalled();
+  });
+
+  it("stands down when the last message was an AI-scheduled follow-up", async () => {
+    // migration-239 messages carry scheduled_followup, not source=ai_followup —
+    // without that check they read as an ordinary AI reply and we double-nudge.
+    const { handler, anthropicClient } = makeMocks({
+      messages: [
+        { senderType: "customer", messageText: "hi", metadata: {}, createdAt: minutesAgo(60) },
+        {
+          senderType: "shop",
+          messageText: "just circling back!",
+          metadata: {
+            generated_by: "ai_agent",
+            scheduled_followup: true,
+            followup_stage: "followup",
+          },
+          createdAt: minutesAgo(25),
+        },
+      ],
+    });
+    await handler.processFollowUp("conv_xxx");
+    expect(anthropicClient.complete).not.toHaveBeenCalled();
+  });
+
   it("skips when the customer has not been quiet long enough", async () => {
     const { handler, anthropicClient } = makeMocks({
       messages: [
