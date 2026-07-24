@@ -175,7 +175,10 @@ export default function RescheduleModal({
   };
 
   const formatDateDisplay = (dateString: string) => {
-    const date = new Date(dateString + "T00:00:00");
+    // Accept both plain dates (YYYY-MM-DD) and full ISO timestamps by
+    // stripping any time portion before parsing as a local date.
+    const datePart = dateString.split("T")[0].split(" ")[0];
+    const date = new Date(datePart + "T00:00:00");
     return date.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
