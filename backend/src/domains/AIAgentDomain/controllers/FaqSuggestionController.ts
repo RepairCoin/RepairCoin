@@ -220,8 +220,14 @@ export function makeFaqSuggestionController(deps: FaqSuggestionControllerDeps = 
       });
 
       // Record spend regardless of how parseable the output was — the call
-      // was made and billed.
-      await spendCapEnforcer.recordSpend(service.shopId, response.costUsd);
+      // was made and billed. FAQ suggestions have no cost table of their own, so the `ledger`
+      // entry is what makes this spend visible to ai_usage_events (the spend cap's source).
+      await spendCapEnforcer.recordSpend(service.shopId, response.costUsd, {
+        feature: "faq_suggestion",
+        vendor: "anthropic",
+        model: SUGGEST_MODEL,
+        metadata: { serviceId: service.serviceId },
+      });
 
       const suggestions = parseFaqSuggestions(response.text);
 

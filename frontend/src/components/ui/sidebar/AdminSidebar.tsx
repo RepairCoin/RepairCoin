@@ -147,6 +147,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
       section("AI Tools"),
       { title: "Platform Copilot", href: "/admin?tab=copilot", icon: <Bot className="w-5 h-5" />, tabId: "copilot" },
+      { title: "AI Usage & Cost", href: "/admin?tab=ai-usage", icon: <DollarSign className="w-5 h-5" />, tabId: "ai-usage" },
       ...(messagingCostsEnabled ? [{ title: "AI Messaging Costs", href: "/admin?tab=messaging-costs", icon: <MessageSquare className="w-5 h-5" />, tabId: "messaging-costs" }] : []),
       { title: "AI Agent", href: "/admin?tab=ai-agent", icon: <Bot className="w-5 h-5" />, tabId: "ai-agent" },
       { title: "Content Moderation", href: "/admin?tab=content-moderation", icon: <ShieldCheck className="w-5 h-5" />, tabId: "content-moderation" },

@@ -84,6 +84,17 @@ const defaultNotifyOverageStarted: OverageNotifyFn = async (shopId, budgetUsd) =
   }
 };
 
+/** Audit row for an AI surface with no per-feature cost table — see recordSpend's `ledger` param. */
+export interface MiscUsageLedgerEntry {
+  feature: "brand_kit" | "faq_suggestion" | "voice_tts";
+  vendor: "anthropic" | "openai";
+  model?: string | null;
+  inputTokens?: number;
+  outputTokens?: number;
+  latencyMs?: number | null;
+  metadata?: Record<string, unknown>;
+}
+
 export class SpendCapEnforcer {
   constructor(
     private readonly pool: Pool = getSharedPool(),
@@ -104,14 +115,53 @@ export class SpendCapEnforcer {
     // Budget = the shop's CURRENT tier allowance ($10/$30/$75). Computed at read; not stored/editable.
     const budget = AI_TIER_ALLOWANCE[await this.resolveTier(shopId)];
 
-    const result = await this.pool.query<{ current_month_spend_usd: string; ai_overage_enabled: boolean; overage_cap_usd: string | null }>(
-      `SELECT current_month_spend_usd, ai_overage_enabled, overage_cap_usd FROM ai_shop_settings WHERE shop_id = $1`,
+    // Spend is DERIVED from ai_usage_events (migration 240), not read from the incrementing
+    // current_month_spend_usd counter. The counter drifts low — a missed increment or a mid-month
+    // reset of current_month_started_at silently hands the shop extra headroom (measured 2026-07-24:
+    // $1.78 of under-enforcement across 5 shops, $1.46 of it on one shop after a Jul-14 reset).
+    // Deriving makes that class of drift impossible: the number can't disagree with the audit
+    // because it IS the audit, and there is no month-start field left to corrupt.
+    //
+    // billable_to_shop filters out ads-attributed spend, which bills to the ads budget rather than
+    // the shop's AI allowance (D3). DATE_TRUNC on the calendar month IS the rollover — no reset needed.
+    //
+    // `NOT is_error` preserves the long-standing product rule that a shop is not charged for OUR
+    // failures (the orchestrator has always passed 0 to recordSpend on a failed call). Deriving from
+    // the audit would otherwise silently reverse that, because failed calls still carry the tokens
+    // they burned. The admin COGS panel deliberately does NOT filter these out — we still paid the
+    // vendor for them; they just don't come out of the shop's allowance.
+    // Driven by the view, LEFT JOINed to the settings row — deliberately NOT the other way round.
+    // The settings row only carries the overage preferences now; spend no longer lives there. A shop
+    // whose settings row is missing (mid-onboarding, or wiped by a cleanup) can still have real spend
+    // in the audit, and keying off the row would hand it an unlimited free pass — the same
+    // under-enforcement hole in a new place.
+    const result = await this.pool.query<{
+      derived_spend_usd: string;
+      ai_overage_enabled: boolean | null;
+      overage_cap_usd: string | null;
+      has_settings: boolean;
+    }>(
+      `SELECT COALESCE((
+                SELECT SUM(cost_usd) FROM ai_usage_events e
+                 WHERE e.shop_id = $1
+                   AND e.billable_to_shop
+                   AND NOT e.is_error
+                   AND DATE_TRUNC('month', e.created_at) = DATE_TRUNC('month', NOW())
+              ), 0)::text          AS derived_spend_usd,
+              s.ai_overage_enabled AS ai_overage_enabled,
+              s.overage_cap_usd    AS overage_cap_usd,
+              (s.shop_id IS NOT NULL) AS has_settings
+         FROM (SELECT $1::varchar AS shop_id) q
+         LEFT JOIN ai_shop_settings s ON s.shop_id = q.shop_id`,
       [shopId]
     );
 
-    if (result.rows.length === 0) {
-      // No settings row yet — a brand-new shop (e.g. mid-onboarding). Lazily provision a tracking row
-      // so recordSpend works, and allow the call against the tier budget (don't hard-block first-run AI).
+    const row = result.rows[0];
+
+    if (!row.has_settings) {
+      // Brand-new shop (e.g. mid-onboarding). Lazily provision a tracking row so the per-shop
+      // dashboard counter and the overage preferences have somewhere to live. Enforcement itself
+      // does NOT depend on this succeeding — spend below is already derived from the audit.
       try {
         await this.pool.query(
           `INSERT INTO ai_shop_settings (shop_id, current_month_started_at)
@@ -122,11 +172,10 @@ export class SpendCapEnforcer {
       } catch (err) {
         logger.error("SpendCapEnforcer.canSpend: default settings provision failed", err);
       }
-      return { allowed: true, useCheaperModel: false, currentSpendUsd: 0, monthlyBudgetUsd: budget, percentUsed: 0 };
     }
 
-    const spent = parseFloat(result.rows[0].current_month_spend_usd);
-    const overageOn = overageFeatureEnabled() && result.rows[0].ai_overage_enabled === true;
+    const spent = parseFloat(row.derived_spend_usd);
+    const overageOn = overageFeatureEnabled() && row.ai_overage_enabled === true;
     const percentUsed = budget > 0 ? spent / budget : 0;
 
     // AI Usage Overage (T3.2): the shop opted to keep full-power AI past the cap (billed Usage x3).
@@ -135,7 +184,7 @@ export class SpendCapEnforcer {
       // this month = (spent - budget) x multiplier — computed here with no extra query. Once it reaches
       // the cap, STOP lifting the model (revert to Haiku) to prevent a runaway invoice. The cap is the
       // shop's own overage_cap_usd if set, else the platform default (T3.2 per-shop cap).
-      const perShopCap = result.rows[0].overage_cap_usd != null ? Number(result.rows[0].overage_cap_usd) : null;
+      const perShopCap = row.overage_cap_usd != null ? Number(row.overage_cap_usd) : null;
       const cap = effectiveOverageCapUsd(perShopCap);
       const billableOverageUsd = (spent - budget) * OVERAGE_MULTIPLIER;
       if (cap > 0 && billableOverageUsd >= cap) {
@@ -175,13 +224,38 @@ export class SpendCapEnforcer {
    * Increment the shop's current_month_spend_usd by `costUsd`. Called by the
    * orchestrator after a successful Claude call. If the call failed, the
    * orchestrator passes 0 (no charge to the shop for failed requests).
+   *
+   * The counter is now a CACHE, not the enforcement source — canSpend derives from
+   * ai_usage_events. We keep incrementing it because per-shop dashboards read it and
+   * it stays useful as a drift signal against the audit.
+   *
+   * `ledger`: pass this from surfaces that have NO per-feature cost table of their own
+   * (brand-kit vision, FAQ suggestions, voice TTS). It writes the ai_misc_usage row that
+   * makes the spend visible to ai_usage_events. Without it those calls charge the counter
+   * but are invisible to the audit — which is exactly the hole that made the derived
+   * counter under-report before migration 240. Surfaces that already log to their own
+   * table (agent/orchestrate/insights/marketing/help/voice/image) must NOT pass it, or the
+   * cost would be double-counted.
    */
-  async recordSpend(shopId: string, costUsd: number): Promise<void> {
+  async recordSpend(shopId: string, costUsd: number, ledger?: MiscUsageLedgerEntry): Promise<void> {
     if (costUsd <= 0) return; // nothing to record
+    if (ledger) await this.recordMiscUsage(shopId, costUsd, ledger);
     try {
+      // The month rollover is folded INTO the increment rather than done as a separate statement.
+      // canSpend rolls the month too, and in practice every recordSpend follows a canSpend — but
+      // nothing enforces that pairing, and a caller that only ever calls recordSpend would accrue
+      // into a stale month and have the whole lot zeroed by the next canSpend. Doing it here as one
+      // CASE closes that hole for zero extra round-trips.
       const upd = await this.pool.query<{ current_month_spend_usd: string; ai_overage_enabled: boolean }>(
         `UPDATE ai_shop_settings
-         SET current_month_spend_usd = current_month_spend_usd + $1::numeric,
+         SET current_month_spend_usd =
+               CASE WHEN DATE_TRUNC('month', current_month_started_at) < DATE_TRUNC('month', NOW())
+                    THEN $1::numeric
+                    ELSE current_month_spend_usd + $1::numeric END,
+             current_month_started_at =
+               CASE WHEN DATE_TRUNC('month', current_month_started_at) < DATE_TRUNC('month', NOW())
+                    THEN DATE_TRUNC('month', NOW())
+                    ELSE current_month_started_at END,
              updated_at = NOW()
          WHERE shop_id = $2
          RETURNING current_month_spend_usd, ai_overage_enabled`,
@@ -222,20 +296,63 @@ export class SpendCapEnforcer {
   }
 
   /**
+   * Write the ai_usage_events audit row for a surface that has no cost table of its own.
+   * Best-effort in the sense that it never throws — but note this is the ONLY record of that
+   * spend, so a failure here means the call escapes the cap entirely. Logged loudly for that
+   * reason, unlike the counter increment which is merely a cache.
+   */
+  private async recordMiscUsage(shopId: string, costUsd: number, entry: MiscUsageLedgerEntry): Promise<void> {
+    try {
+      await this.pool.query(
+        `INSERT INTO ai_misc_usage
+           (shop_id, feature, vendor, model, input_tokens, output_tokens, cost_usd, latency_ms, metadata)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)`,
+        [
+          shopId,
+          entry.feature,
+          entry.vendor,
+          entry.model ?? null,
+          entry.inputTokens ?? 0,
+          entry.outputTokens ?? 0,
+          costUsd,
+          entry.latencyMs ?? null,
+          JSON.stringify(entry.metadata ?? {}),
+        ]
+      );
+    } catch (err) {
+      logger.error("SpendCapEnforcer.recordMiscUsage failed — this spend is now invisible to the cap", {
+        shopId,
+        feature: entry.feature,
+        costUsd,
+        error: (err as Error)?.message,
+      });
+    }
+  }
+
+  /**
    * If current_month_started_at is in a previous calendar month, reset
    * current_month_spend_usd to 0 and advance the timestamp. Idempotent.
+   *
+   * The stamp is DATE_TRUNC('month', NOW()) — the first instant of the month — not NOW(). It used
+   * to be NOW(), which made the column record "when we first noticed the month had turned over"
+   * rather than when the month began. Two consequences, both bad: a shop first touched on the 22nd
+   * got a stamp of the 22nd, and a background sweep that touches many shops at once stamped them
+   * all with the same mid-month second (staging shows clusters of 5, 7, 12 and 33 shops sharing a
+   * single minute). That made a genuinely anomalous mid-month value indistinguishable from routine
+   * noise — it read as data corruption while being nothing of the sort. With the truncated stamp,
+   * any mid-month value is now a real signal worth investigating.
    *
    * Concurrency: two parallel orchestrator calls that both detect a stale
    * month will each issue the UPDATE. The UPDATE is set-not-increment so
    * the result is the same regardless of order — both end with spend=0
-   * and timestamp=NOW.
+   * and the same truncated timestamp.
    */
   private async maybeRolloverMonth(shopId: string): Promise<void> {
     try {
       await this.pool.query(
         `UPDATE ai_shop_settings
          SET current_month_spend_usd = 0,
-             current_month_started_at = NOW(),
+             current_month_started_at = DATE_TRUNC('month', NOW()),
              updated_at = NOW()
          WHERE shop_id = $1
            AND DATE_TRUNC('month', current_month_started_at) < DATE_TRUNC('month', NOW())`,

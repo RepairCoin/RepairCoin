@@ -77,7 +77,14 @@ export function createVoiceSpeakController(deps: VoiceSpeakDeps = {}) {
 
     try {
       const result = await tts.synthesize(text, voice);
-      await spendCap.recordSpend(shopId, result.costUsd);
+      // TTS has no cost table of its own (unlike Whisper STT -> ai_voice_transcriptions), so the
+      // `ledger` entry is what makes this spend visible to ai_usage_events, the spend cap's source.
+      await spendCap.recordSpend(shopId, result.costUsd, {
+        feature: "voice_tts",
+        vendor: "openai",
+        latencyMs: result.latencyMs,
+        metadata: { charCount: result.charCount, voice },
+      });
       logger.info("VoiceSpeak", {
         shopId,
         chars: result.charCount,
