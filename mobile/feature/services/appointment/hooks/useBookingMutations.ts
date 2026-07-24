@@ -103,7 +103,9 @@ export function useCompleteOrderMutation() {
     },
     onError: (error: any) => {
       console.error("Failed to complete order:", error);
-      showError(error.message || "Failed to complete booking. Please try again.");
+      const errorMessage =
+        error.response?.data?.error || error.message || "";
+      showError(errorMessage || "Failed to complete booking. Please try again.");
     },
   });
 }
