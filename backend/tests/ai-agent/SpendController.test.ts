@@ -123,7 +123,7 @@ describe("SpendController.getAdminCostSummary", () => {
       ],
       // 2. by feature — includes an ads row, which is NOT billable to a shop
       [
-        { feature: "orchestrate", vendor: "anthropic", calls: "100", cost_usd: "12.50", billable: true },
+        { feature: "assistant", vendor: "anthropic", calls: "100", cost_usd: "12.50", billable: true },
         { feature: "ads_creative", vendor: "anthropic", calls: "50", cost_usd: "0.50", billable: false },
       ],
       // 3. by model — a null model is legitimate (sources that record none)
@@ -174,7 +174,7 @@ describe("SpendController.getAdminCostSummary", () => {
     expect(cogs.totalOutputTokens).toBe(12000);
 
     expect(cogs.byFeature).toEqual([
-      { feature: "orchestrate", vendor: "anthropic", calls: 100, costUsd: 12.5, billableToShop: true },
+      { feature: "assistant", vendor: "anthropic", calls: 100, costUsd: 12.5, billableToShop: true },
       { feature: "ads_creative", vendor: "anthropic", calls: 50, costUsd: 0.5, billableToShop: false },
     ]);
     expect(cogs.byModel[1].model).toBeNull();

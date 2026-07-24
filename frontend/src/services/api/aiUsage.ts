@@ -153,11 +153,15 @@ export const fmtUsd = (usd: number): string => {
   return `$${n.toFixed(2)}`;
 };
 
-/** Human label for a view `feature` value. Unknown features fall back to the raw slug. */
+/** Human label for a view `feature` value — named after the user-facing product surface so the
+ *  dashboard reads the way management knows the product, not the way the tables are laid out.
+ *  Unknown features fall back to the raw slug. Kept in sync with the ai_usage_events view (migration
+ *  241): `assistant` = orchestrator + the retired interactive insights panel; `ai_recommendation` =
+ *  the background anomaly/recommendation engine, split out of the same insights table by session_id. */
 export const FEATURE_LABELS: Record<string, string> = {
   agent: 'Customer chat (Sales Agent)',
-  orchestrate: 'Unified Assistant',
-  insights: 'Business insights',
+  assistant: 'AI Assistant',
+  ai_recommendation: 'AI Recommendation',
   marketing: 'Marketing assistant',
   help: 'How-To assistant',
   image: 'Image generation',
