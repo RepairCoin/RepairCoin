@@ -72,13 +72,26 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
         // Budget = the shop's tier allowance ($10/$30/$75), read-only. The stored monthly_budget_usd is inert.
         const budget = await getShopAiBudget(shopId);
 
+        // Spend is DERIVED from ai_usage_events, exactly as SpendCapEnforcer.canSpend derives it
+        // (same billable_to_shop + calendar-month scoping). This endpoint feeds the shop's own
+        // "AI usage this month" panel, so reading the drifting current_month_spend_usd counter here
+        // would show the shop a number lower than the one the cap is actually enforcing against —
+        // "the meter says 65% but the AI degraded to Haiku" is a support ticket, not a rounding
+        // difference (the counter ran $1.46 light on one shop this month).
         const settings = await pool.query<{
-          current_month_spend_usd: string;
+          derived_spend_usd: string;
           current_month_started_at: Date | null;
           ai_overage_enabled: boolean;
           overage_cap_usd: string | null;
         }>(
-          `SELECT current_month_spend_usd, current_month_started_at, ai_overage_enabled, overage_cap_usd
+          `SELECT COALESCE((
+                    SELECT SUM(cost_usd) FROM ai_usage_events e
+                     WHERE e.shop_id = $1
+                       AND e.billable_to_shop
+                       AND NOT e.is_error
+                       AND DATE_TRUNC('month', e.created_at) = DATE_TRUNC('month', NOW())
+                  ), 0)::text AS derived_spend_usd,
+                  current_month_started_at, ai_overage_enabled, overage_cap_usd
            FROM ai_shop_settings
            WHERE shop_id = $1`,
           [shopId]
@@ -110,18 +123,19 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
         }
 
         const row = settings.rows[0];
-        const spent = parseFloat(row.current_month_spend_usd) || 0;
+        const spent = parseFloat(row.derived_spend_usd) || 0;
         const percentUsed = budget > 0 ? spent / budget : 0;
 
-        // Bonus: count of successful Claude calls this month from the audit
-        // log. Useful diagnostic when the spend counter looks suspiciously
-        // low — operator can check whether calls are happening at all.
+        // Count of successful AI calls this month, across every surface. Previously counted
+        // ai_agent_messages alone, which meant a shop whose usage was all Unified Assistant or
+        // Insights saw "0 calls" next to a non-zero spend.
         const calls = await pool.query<{ count: string }>(
           `SELECT COUNT(*) AS count
-           FROM ai_agent_messages
+           FROM ai_usage_events
            WHERE shop_id = $1
-             AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
-             AND error_message IS NULL`,
+             AND billable_to_shop
+             AND NOT is_error
+             AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())`,
           [shopId]
         );
 
@@ -261,93 +275,185 @@ export function makeSpendControllers(deps: SpendControllerDeps = {}) {
       }
     },
 
-    getAdminCostSummary: async (_req: Request, res: Response): Promise<void> => {
+    /**
+     * GET /api/ai/admin/cost-summary?days=30 — platform-wide AI spend.
+     *
+     * Reads ai_usage_events (migration 240), the union of every per-feature cost table. It used to
+     * aggregate FROM ai_agent_messages alone, which reported ~30% of real spend — the customer-chat
+     * table is not even the biggest line item (the Unified Assistant is). Every surface now counts.
+     *
+     * Three lenses, deliberately NOT summed together (they are different directions of money):
+     *   cogs           — money OUT: what Anthropic/OpenAI/Stability cost us, ads AI included.
+     *   overage        — money IN: billed separately via /admin/overage-summary.
+     *   reconciliation — the audit vs the per-shop counters, as a drift alarm.
+     *
+     * `days` scopes cogs to a rolling window (default 30, max 365). Reconciliation ignores it and is
+     * always the current calendar month, because that is the window the spend cap enforces on —
+     * comparing a 90-day audit against a month-to-date counter would manufacture a drift that isn't real.
+     */
+    getAdminCostSummary: async (req: Request, res: Response): Promise<void> => {
       try {
-        // Platform-wide aggregate from the audit log (source of truth) + the
-        // per-shop counters (denormalized snapshot). We surface BOTH because
-        // a drift between them is a useful operational signal.
-        const auditAggregate = await pool.query<{
-          total_calls: string;
-          successful_calls: string;
-          failed_calls: string;
-          total_cost_usd: string;
-          total_input_tokens: string;
-          total_output_tokens: string;
-        }>(
-          `SELECT
-             COUNT(*)::text AS total_calls,
-             COUNT(*) FILTER (WHERE error_message IS NULL)::text AS successful_calls,
-             COUNT(*) FILTER (WHERE error_message IS NOT NULL)::text AS failed_calls,
-             COALESCE(SUM(cost_usd), 0)::text AS total_cost_usd,
-             COALESCE(SUM(input_tokens), 0)::text AS total_input_tokens,
-             COALESCE(SUM(output_tokens), 0)::text AS total_output_tokens
-           FROM ai_agent_messages
-           WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())`
-        );
+        const rawDays = Number((req.query?.days as string) ?? 30);
+        const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(Math.floor(rawDays), 365) : 30;
+        const since = `NOW() - INTERVAL '1 day' * ${days}`;
 
-        const topSpenders = await pool.query<{
-          shop_id: string;
-          calls: string;
-          cost_usd: string;
-        }>(
-          `SELECT shop_id,
-                  COUNT(*)::text AS calls,
-                  COALESCE(SUM(cost_usd), 0)::text AS cost_usd
-           FROM ai_agent_messages
-           WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
-             AND error_message IS NULL
-           GROUP BY shop_id
-           ORDER BY SUM(cost_usd) DESC NULLS LAST
-           LIMIT 10`
-        );
+        const [totals, byFeature, byModel, byShop, trend, recon] = await Promise.all([
+          // Headline COGS. `billable` splits out the ads-attributed spend, which bills to the ads
+          // budget rather than any shop's AI allowance (D3) — so it belongs in COGS but must never
+          // be mistaken for shop-consumed allowance.
+          pool.query<{
+            total_cost_usd: string; billable_cost_usd: string; ads_cost_usd: string;
+            total_calls: string; failed_calls: string;
+            total_input_tokens: string; total_output_tokens: string;
+          }>(
+            `SELECT COALESCE(SUM(cost_usd), 0)::text                                       AS total_cost_usd,
+                    COALESCE(SUM(cost_usd) FILTER (WHERE billable_to_shop), 0)::text       AS billable_cost_usd,
+                    COALESCE(SUM(cost_usd) FILTER (WHERE NOT billable_to_shop), 0)::text   AS ads_cost_usd,
+                    COUNT(*)::text                                                          AS total_calls,
+                    COUNT(*) FILTER (WHERE is_error)::text                                  AS failed_calls,
+                    COALESCE(SUM(input_tokens), 0)::text                                    AS total_input_tokens,
+                    COALESCE(SUM(output_tokens), 0)::text                                   AS total_output_tokens
+               FROM ai_usage_events
+              WHERE created_at >= ${since}`
+          ),
 
-        const denormalizedTotal = await pool.query<{
-          shops_with_spend: string;
-          ai_enabled_shops: string;
-          counter_total_usd: string;
-        }>(
-          `SELECT
-             COUNT(*) FILTER (WHERE current_month_spend_usd > 0)::text AS shops_with_spend,
-             COUNT(*) FILTER (WHERE ai_global_enabled = true)::text AS ai_enabled_shops,
-             COALESCE(SUM(current_month_spend_usd), 0)::text AS counter_total_usd
-           FROM ai_shop_settings`
-        );
+          pool.query<{ feature: string; vendor: string; calls: string; cost_usd: string; billable: boolean }>(
+            `SELECT feature, vendor, COUNT(*)::text AS calls,
+                    COALESCE(SUM(cost_usd), 0)::text AS cost_usd,
+                    bool_or(billable_to_shop) AS billable
+               FROM ai_usage_events
+              WHERE created_at >= ${since}
+              GROUP BY feature, vendor
+              ORDER BY SUM(cost_usd) DESC NULLS LAST`
+          ),
 
-        const audit = auditAggregate.rows[0];
-        const counters = denormalizedTotal.rows[0];
-        const totalCalls = parseInt(audit.total_calls, 10);
-        const successfulCalls = parseInt(audit.successful_calls, 10);
-        const failedCalls = parseInt(audit.failed_calls, 10);
-        const auditTotal = parseFloat(audit.total_cost_usd);
-        const counterTotal = parseFloat(counters.counter_total_usd);
+          // Model mix — the lever behind cost per call (Haiku vs Sonnet). NULL model = a source that
+          // doesn't record one (voice router, ads lead replies).
+          pool.query<{ model: string | null; calls: string; cost_usd: string; input_tokens: string; output_tokens: string }>(
+            `SELECT model, COUNT(*)::text AS calls,
+                    COALESCE(SUM(cost_usd), 0)::text AS cost_usd,
+                    COALESCE(SUM(input_tokens), 0)::text AS input_tokens,
+                    COALESCE(SUM(output_tokens), 0)::text AS output_tokens
+               FROM ai_usage_events
+              WHERE created_at >= ${since}
+              GROUP BY model
+              ORDER BY SUM(cost_usd) DESC NULLS LAST`
+          ),
+
+          pool.query<{ shop_id: string; shop_name: string | null; calls: string; cost_usd: string; billable_cost_usd: string }>(
+            `SELECT e.shop_id, s.name AS shop_name, COUNT(*)::text AS calls,
+                    COALESCE(SUM(e.cost_usd), 0)::text AS cost_usd,
+                    COALESCE(SUM(e.cost_usd) FILTER (WHERE e.billable_to_shop), 0)::text AS billable_cost_usd
+               FROM ai_usage_events e
+               LEFT JOIN shops s ON s.shop_id = e.shop_id
+              WHERE e.created_at >= ${since}
+              GROUP BY e.shop_id, s.name
+              ORDER BY SUM(e.cost_usd) DESC NULLS LAST
+              LIMIT 25`
+          ),
+
+          pool.query<{ day: string; cost_usd: string; calls: string }>(
+            `SELECT TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD') AS day,
+                    COALESCE(SUM(cost_usd), 0)::text AS cost_usd,
+                    COUNT(*)::text AS calls
+               FROM ai_usage_events
+              WHERE created_at >= ${since}
+              GROUP BY DATE_TRUNC('day', created_at)
+              ORDER BY DATE_TRUNC('day', created_at)`
+          ),
+
+          // Reconciliation: the derived truth vs the denormalized counter, per shop, THIS MONTH.
+          // Since canSpend now derives, the counter no longer gates anything — but it is still
+          // incremented on every call, which makes it a free canary: a growing drift means
+          // recordSpend is silently failing somewhere, or a surface is spending without logging.
+          pool.query<{ shop_id: string; shop_name: string | null; derived_usd: string; counter_usd: string }>(
+            `SELECT s.shop_id, sh.name AS shop_name,
+                    COALESCE(d.c, 0)::text            AS derived_usd,
+                    s.current_month_spend_usd::text   AS counter_usd
+               FROM ai_shop_settings s
+               LEFT JOIN shops sh ON sh.shop_id = s.shop_id
+               LEFT JOIN (
+                 -- Must match SpendCapEnforcer.canSpend's filter EXACTLY (billable, non-error,
+                 -- current month). A drift panel comparing two different definitions of "spend"
+                 -- reports differences that aren't drift.
+                 SELECT shop_id, SUM(cost_usd) AS c
+                   FROM ai_usage_events
+                  WHERE billable_to_shop
+                    AND NOT is_error
+                    AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
+                  GROUP BY shop_id
+               ) d ON d.shop_id = s.shop_id
+              WHERE COALESCE(d.c, 0) > 0 OR s.current_month_spend_usd > 0
+              ORDER BY COALESCE(d.c, 0) DESC`
+          ),
+        ]);
+
+        const t = totals.rows[0];
+        const totalCalls = parseInt(t.total_calls, 10);
+        const failedCalls = parseInt(t.failed_calls, 10);
+        const successfulCalls = totalCalls - failedCalls;
+        const totalCostUsd = parseFloat(t.total_cost_usd);
+
+        const reconShops = recon.rows.map((r) => {
+          const derivedUsd = parseFloat(r.derived_usd);
+          const counterUsd = parseFloat(r.counter_usd);
+          return {
+            shopId: r.shop_id,
+            shopName: r.shop_name,
+            derivedUsd,
+            counterUsd,
+            driftUsd: derivedUsd - counterUsd,
+          };
+        });
 
         res.json({
           success: true,
           data: {
-            month: {
+            periodDays: days,
+            cogs: {
+              totalCostUsd,
+              billableCostUsd: parseFloat(t.billable_cost_usd),
+              adsCostUsd: parseFloat(t.ads_cost_usd),
               totalCalls,
               successfulCalls,
               failedCalls,
               errorRate: totalCalls > 0 ? failedCalls / totalCalls : 0,
-              totalCostUsd: auditTotal,
-              avgCostPerCallUsd: successfulCalls > 0 ? auditTotal / successfulCalls : 0,
-              totalInputTokens: parseInt(audit.total_input_tokens, 10),
-              totalOutputTokens: parseInt(audit.total_output_tokens, 10),
+              avgCostPerCallUsd: successfulCalls > 0 ? totalCostUsd / successfulCalls : 0,
+              totalInputTokens: parseInt(t.total_input_tokens, 10),
+              totalOutputTokens: parseInt(t.total_output_tokens, 10),
+              byFeature: byFeature.rows.map((r) => ({
+                feature: r.feature,
+                vendor: r.vendor,
+                calls: parseInt(r.calls, 10),
+                costUsd: parseFloat(r.cost_usd),
+                billableToShop: r.billable === true,
+              })),
+              byModel: byModel.rows.map((r) => ({
+                model: r.model,
+                calls: parseInt(r.calls, 10),
+                costUsd: parseFloat(r.cost_usd),
+                inputTokens: parseInt(r.input_tokens, 10),
+                outputTokens: parseInt(r.output_tokens, 10),
+              })),
+              byShop: byShop.rows.map((r) => ({
+                shopId: r.shop_id,
+                shopName: r.shop_name,
+                calls: parseInt(r.calls, 10),
+                costUsd: parseFloat(r.cost_usd),
+                billableCostUsd: parseFloat(r.billable_cost_usd),
+              })),
+              trend: trend.rows.map((r) => ({
+                day: r.day,
+                costUsd: parseFloat(r.cost_usd),
+                calls: parseInt(r.calls, 10),
+              })),
             },
-            topSpenders: topSpenders.rows.map((r) => ({
-              shopId: r.shop_id,
-              calls: parseInt(r.calls, 10),
-              costUsd: parseFloat(r.cost_usd),
-            })),
-            shopCounters: {
-              shopsWithSpend: parseInt(counters.shops_with_spend, 10),
-              aiEnabledShops: parseInt(counters.ai_enabled_shops, 10),
-              denormalizedTotalUsd: counterTotal,
-              // Drift between the audit log (source of truth) and the
-              // denormalized per-shop counters. A non-zero drift suggests
-              // SpendCapEnforcer.recordSpend() is silently failing for some
-              // calls (e.g., DB transient errors that get swallowed).
-              counterDriftUsd: auditTotal - counterTotal,
+            reconciliation: {
+              scope: "current-month",
+              derivedTotalUsd: reconShops.reduce((n, s) => n + s.derivedUsd, 0),
+              counterTotalUsd: reconShops.reduce((n, s) => n + s.counterUsd, 0),
+              driftUsd: reconShops.reduce((n, s) => n + s.driftUsd, 0),
+              shops: reconShops,
             },
           },
         });

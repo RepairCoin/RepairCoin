@@ -8,8 +8,8 @@ jest.mock("../../src/utils/shopTier", () => ({ getShopAiBudget: jest.fn().mockRe
 
 import { makeSpendControllers } from "../../src/domains/AIAgentDomain/controllers/SpendController";
 
-const makeReq = (opts: { user?: any } = {}) =>
-  ({ user: opts.user ?? {} } as any);
+const makeReq = (opts: { user?: any; query?: any } = {}) =>
+  ({ user: opts.user ?? {}, query: opts.query ?? {} } as any);
 
 const makeRes = () => {
   const res: any = {};
@@ -36,15 +36,17 @@ describe("SpendController.getOwnShopSpend", () => {
 
   it("returns spend snapshot for the authenticated shop", async () => {
     const pool = makePool([
-      // First query: ai_shop_settings
+      // First query: ai_shop_settings joined to the DERIVED spend from ai_usage_events. Spend no
+      // longer comes from the current_month_spend_usd counter — the shop's panel has to show the
+      // same number the cap enforces against.
       [
         {
           monthly_budget_usd: "20.00",
-          current_month_spend_usd: "1.25",
+          derived_spend_usd: "1.25",
           current_month_started_at: new Date("2026-05-01"),
         },
       ],
-      // Second query: count of successful calls this month
+      // Second query: count of successful calls this month (all surfaces, via the view)
       [{ count: "42" }],
     ]);
     const controllers = makeSpendControllers({ pool: pool as any });
@@ -101,88 +103,123 @@ describe("SpendController.getOwnShopSpend", () => {
   });
 });
 
+// getAdminCostSummary reads the ai_usage_events view (migration 240) — the union of every
+// per-feature cost table. It used to aggregate ai_agent_messages alone and reported ~30% of real
+// spend. makePool serves rows in query order: totals, byFeature, byModel, byShop, trend, recon.
 describe("SpendController.getAdminCostSummary", () => {
-  it("aggregates audit log + per-shop counters into a single response", async () => {
-    const pool = makePool([
-      // Query 1: audit aggregate
+  const summaryPool = () =>
+    makePool([
+      // 1. headline totals
       [
         {
+          total_cost_usd: "13.00",
+          billable_cost_usd: "12.50",
+          ads_cost_usd: "0.50",
           total_calls: "150",
-          successful_calls: "147",
           failed_calls: "3",
-          total_cost_usd: "4.875",
           total_input_tokens: "150000",
           total_output_tokens: "12000",
         },
       ],
-      // Query 2: top spenders
+      // 2. by feature — includes an ads row, which is NOT billable to a shop
       [
-        { shop_id: "peanut", calls: "80", cost_usd: "2.5" },
-        { shop_id: "zwift-tech", calls: "67", cost_usd: "2.375" },
+        { feature: "orchestrate", vendor: "anthropic", calls: "100", cost_usd: "12.50", billable: true },
+        { feature: "ads_creative", vendor: "anthropic", calls: "50", cost_usd: "0.50", billable: false },
       ],
-      // Query 3: per-shop counters
+      // 3. by model — a null model is legitimate (sources that record none)
       [
-        {
-          shops_with_spend: "5",
-          ai_enabled_shops: "8",
-          counter_total_usd: "4.80",
-        },
+        { model: "claude-sonnet-5", calls: "100", cost_usd: "12.50", input_tokens: "140000", output_tokens: "11000" },
+        { model: null, calls: "50", cost_usd: "0.50", input_tokens: "10000", output_tokens: "1000" },
+      ],
+      // 4. by shop
+      [
+        { shop_id: "peanut", shop_name: "Peanut", calls: "100", cost_usd: "12.50", billable_cost_usd: "12.50" },
+        { shop_id: "zwift-tech", shop_name: null, calls: "50", cost_usd: "0.50", billable_cost_usd: "0" },
+      ],
+      // 5. daily trend
+      [
+        { day: "2026-07-22", cost_usd: "6.00", calls: "70" },
+        { day: "2026-07-23", cost_usd: "7.00", calls: "80" },
+      ],
+      // 6. reconciliation — audit vs the denormalized counters, current month
+      [
+        { shop_id: "peanut", shop_name: "Peanut", derived_usd: "12.50", counter_usd: "11.00" },
+        { shop_id: "zwift-tech", shop_name: null, derived_usd: "0.25", counter_usd: "0.25" },
       ],
     ]);
-    const controllers = makeSpendControllers({ pool: pool as any });
-    const req = makeReq({ user: { role: "admin" } });
-    const res = makeRes();
-    await controllers.getAdminCostSummary(req, res);
 
-    expect(res.json).toHaveBeenCalledWith({
-      success: true,
-      data: {
-        month: {
-          totalCalls: 150,
-          successfulCalls: 147,
-          failedCalls: 3,
-          errorRate: 3 / 150,
-          totalCostUsd: 4.875,
-          // 4.875 / 147 = 0.0331632...
-          avgCostPerCallUsd: 4.875 / 147,
-          totalInputTokens: 150000,
-          totalOutputTokens: 12000,
-        },
-        topSpenders: [
-          { shopId: "peanut", calls: 80, costUsd: 2.5 },
-          { shopId: "zwift-tech", calls: 67, costUsd: 2.375 },
-        ],
-        shopCounters: {
-          shopsWithSpend: 5,
-          aiEnabledShops: 8,
-          denormalizedTotalUsd: 4.8,
-          // Audit total ($4.875) - counter total ($4.80) = $0.075 drift
-          counterDriftUsd: 4.875 - 4.8,
-        },
-      },
+  it("splits spend into COGS + reconciliation, keeping ads separate from shop-billable", async () => {
+    const controllers = makeSpendControllers({ pool: summaryPool() as any });
+    const res = makeRes();
+    await controllers.getAdminCostSummary(makeReq({ query: { days: "30" } }), res);
+
+    const body = res.json.mock.calls[0][0];
+    expect(body.success).toBe(true);
+    expect(body.data.periodDays).toBe(30);
+
+    const { cogs } = body.data;
+    expect(cogs.totalCostUsd).toBe(13);
+    // Ads AI is real vendor cost but bills to the ads budget, so it must stay separable from the
+    // spend that counts against shop allowances.
+    expect(cogs.billableCostUsd).toBe(12.5);
+    expect(cogs.adsCostUsd).toBe(0.5);
+    expect(cogs.billableCostUsd + cogs.adsCostUsd).toBe(cogs.totalCostUsd);
+
+    expect(cogs.totalCalls).toBe(150);
+    expect(cogs.failedCalls).toBe(3);
+    expect(cogs.successfulCalls).toBe(147);
+    expect(cogs.errorRate).toBe(3 / 150);
+    expect(cogs.avgCostPerCallUsd).toBe(13 / 147);
+    expect(cogs.totalInputTokens).toBe(150000);
+    expect(cogs.totalOutputTokens).toBe(12000);
+
+    expect(cogs.byFeature).toEqual([
+      { feature: "orchestrate", vendor: "anthropic", calls: 100, costUsd: 12.5, billableToShop: true },
+      { feature: "ads_creative", vendor: "anthropic", calls: 50, costUsd: 0.5, billableToShop: false },
+    ]);
+    expect(cogs.byModel[1].model).toBeNull();
+    expect(cogs.byShop[0]).toEqual({
+      shopId: "peanut", shopName: "Peanut", calls: 100, costUsd: 12.5, billableCostUsd: 12.5,
     });
+    expect(cogs.trend).toEqual([
+      { day: "2026-07-22", costUsd: 6, calls: 70 },
+      { day: "2026-07-23", costUsd: 7, calls: 80 },
+    ]);
+
+    // Reconciliation is the drift alarm: audit vs the counters that recordSpend increments.
+    const { reconciliation } = body.data;
+    expect(reconciliation.scope).toBe("current-month");
+    expect(reconciliation.derivedTotalUsd).toBeCloseTo(12.75, 6);
+    expect(reconciliation.counterTotalUsd).toBeCloseTo(11.25, 6);
+    expect(reconciliation.driftUsd).toBeCloseTo(1.5, 6);
+    expect(reconciliation.shops[0].driftUsd).toBeCloseTo(1.5, 6);
+    expect(reconciliation.shops[1].driftUsd).toBeCloseTo(0, 6);
+  });
+
+  it("clamps the days window (default 30, capped at 365, rejects junk)", async () => {
+    const run = async (days?: string) => {
+      const controllers = makeSpendControllers({ pool: summaryPool() as any });
+      const res = makeRes();
+      await controllers.getAdminCostSummary(makeReq(days ? { query: { days } } : {}), res);
+      return res.json.mock.calls[0][0].data.periodDays;
+    };
+    expect(await run()).toBe(30);          // no param
+    expect(await run("7")).toBe(7);
+    expect(await run("9999")).toBe(365);   // capped — an unbounded scan is a DoS on a shared pool
+    expect(await run("-5")).toBe(30);      // nonsense falls back
+    expect(await run("abc")).toBe(30);
   });
 
   it("handles zero data gracefully (new platform with no AI calls yet)", async () => {
     const pool = makePool([
       [
         {
-          total_calls: "0",
-          successful_calls: "0",
-          failed_calls: "0",
-          total_cost_usd: "0",
-          total_input_tokens: "0",
-          total_output_tokens: "0",
+          total_cost_usd: "0", billable_cost_usd: "0", ads_cost_usd: "0",
+          total_calls: "0", failed_calls: "0",
+          total_input_tokens: "0", total_output_tokens: "0",
         },
       ],
-      [],
-      [
-        {
-          shops_with_spend: "0",
-          ai_enabled_shops: "0",
-          counter_total_usd: "0",
-        },
-      ],
+      [], [], [], [], [],
     ]);
     const controllers = makeSpendControllers({ pool: pool as any });
     const res = makeRes();
@@ -190,10 +227,13 @@ describe("SpendController.getAdminCostSummary", () => {
 
     const body = res.json.mock.calls[0][0];
     expect(body.success).toBe(true);
-    expect(body.data.month.totalCalls).toBe(0);
-    expect(body.data.month.errorRate).toBe(0);
-    expect(body.data.month.avgCostPerCallUsd).toBe(0);
-    expect(body.data.topSpenders).toEqual([]);
+    expect(body.data.cogs.totalCostUsd).toBe(0);
+    expect(body.data.cogs.errorRate).toBe(0);
+    expect(body.data.cogs.avgCostPerCallUsd).toBe(0);
+    expect(body.data.cogs.byFeature).toEqual([]);
+    expect(body.data.cogs.trend).toEqual([]);
+    expect(body.data.reconciliation.driftUsd).toBe(0);
+    expect(body.data.reconciliation.shops).toEqual([]);
   });
 
   it("returns 500 on DB failure", async () => {
