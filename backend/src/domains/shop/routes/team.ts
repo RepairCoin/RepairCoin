@@ -6,12 +6,10 @@ import { requireTier } from '../../../middleware/tierGuard';
 import { shopTeamRepository, shopRepository } from '../../../repositories';
 import { getSharedPool } from '../../../utils/database-pool';
 import { resendEmailService } from '../../../services/ResendEmailService';
-import { EmailService } from '../../../services/EmailService';
 import { logger } from '../../../utils/logger';
 import { ROLE_TEMPLATES, sanitizePermissions } from '../permissions';
 
 const router = Router();
-const emailService = new EmailService();
 
 const hashToken = (raw: string) => crypto.createHash('sha256').update(raw).digest('hex');
 
@@ -29,24 +27,14 @@ const inviteEmailHtml = (role: string, shopName: string | undefined, acceptUrl: 
     <p style="color:#666;font-size:13px;">This invitation expires in 7 days. If you weren't expecting it, you can ignore this email.</p>
   </div>`;
 
-// Resend is primary; fall back to Gmail SMTP (EmailService) when it fails or is
-// unconfigured. Returns the provider that succeeded, or an error if both failed.
 const sendInviteEmail = async (
   params: { email: string; role: string; shopName?: string; acceptUrl: string }
-): Promise<{ success: boolean; provider?: 'resend' | 'gmail'; error?: string }> => {
+): Promise<{ success: boolean; provider?: 'resend'; error?: string }> => {
   const subject = `You've been invited to join ${params.shopName || 'a shop'} on RepairCoin`;
   const html = inviteEmailHtml(params.role, params.shopName, params.acceptUrl);
 
   const resend = await resendEmailService.sendEmail({ to: params.email, subject, html });
   if (resend.success) return { success: true, provider: 'resend' };
-
-  if (emailService.isReady()) {
-    const sent = await emailService.sendContactCampaignEmail(params.email, subject, html);
-    if (sent) {
-      logger.info('Team invite sent via Gmail SMTP fallback', { email: params.email });
-      return { success: true, provider: 'gmail' };
-    }
-  }
 
   return { success: false, error: resend.error || 'No email provider available' };
 };
