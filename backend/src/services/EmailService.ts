@@ -1,15 +1,9 @@
-import nodemailer from 'nodemailer';
 import { logger } from '../utils/logger';
 import { EmailPreferencesService } from './EmailPreferencesService';
+import { resendEmailService } from './ResendEmailService';
 
 export interface EmailConfig {
-  host?: string;
-  port?: number;
-  secure?: boolean;
-  auth?: {
-    user: string;
-    pass: string;
-  };
+  /** Sender identity, either "Name <address@domain>" or a bare address. */
   from?: string;
 }
 
@@ -90,88 +84,27 @@ export interface AppointmentExpiredData {
   stripeRefunded: number;
 }
 
+/**
+ * Parse a sender string into the { name, email } pair Resend expects.
+ * Accepts "RepairCoin <noreply@repaircoin.com>" or "noreply@repaircoin.com".
+ */
+function parseSender(from: string): { email: string; name: string } {
+  const match = from.match(/^\s*(.*?)\s*<\s*([^>]+?)\s*>\s*$/);
+  if (match) {
+    return { name: match[1].replace(/^"|"$/g, ''), email: match[2] };
+  }
+  return { name: process.env.RESEND_FROM_NAME || 'RepairCoin', email: from.trim() };
+}
+
 export class EmailService {
-  private transporter: nodemailer.Transporter | null = null;
-  private config: EmailConfig | null = null;
-  private isConfigured: boolean = false;
-  private initialized: boolean = false;
+  /** Overrides the RESEND_FROM_EMAIL / RESEND_FROM_NAME default when set. */
+  private from: { email: string; name: string } | undefined;
   private emailPrefsService: EmailPreferencesService;
 
   constructor(config?: EmailConfig) {
     this.emailPrefsService = new EmailPreferencesService();
-    // Store explicit config if provided, otherwise will load from env on first use
-    if (config) {
-      this.config = config;
-      this.initializeTransporter();
-    }
-    // If no config provided, delay initialization until first use
-    // This allows environment variables to be loaded before we check them
-  }
-
-  /**
-   * Ensure the transporter is initialized (lazy initialization)
-   * This is called before each email send to handle cases where
-   * env vars weren't available at module load time
-   */
-  private ensureInitialized(): void {
-    if (this.initialized) {
-      return;
-    }
-
-    // Load config from env if not already set
-    if (!this.config) {
-      this.config = this.loadConfigFromEnv();
-    }
-
-    this.initializeTransporter();
-    this.initialized = true;
-  }
-
-  private loadConfigFromEnv(): EmailConfig {
-    return {
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.EMAIL_PORT || '587'),
-      secure: process.env.EMAIL_SECURE === 'true',
-      auth: process.env.EMAIL_USER ? {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS || ''
-      } : undefined,
-      from: process.env.EMAIL_FROM || 'RepairCoin <noreply@repaircoin.com>'
-    };
-  }
-
-  private initializeTransporter() {
-    logger.debug('Initializing email service with config:', {
-      host: this.config?.host,
-      port: this.config?.port,
-      secure: this.config?.secure,
-      hasAuth: !!this.config?.auth?.user,
-      from: this.config?.from,
-    });
-
-    if (!this.config?.auth?.user) {
-      logger.warn('Email service not configured - emails will be logged only. Set EMAIL_USER env variable.');
-      this.isConfigured = false;
-      return;
-    }
-
-    try {
-      this.transporter = nodemailer.createTransport({
-        host: this.config.host,
-        port: this.config.port,
-        secure: this.config.secure,
-        auth: this.config.auth
-      });
-
-      this.isConfigured = true;
-      logger.info('Email service initialized successfully', {
-        host: this.config.host,
-        port: this.config.port,
-        user: this.config.auth.user,
-      });
-    } catch (error) {
-      logger.error('Failed to initialize email service:', error);
-      this.isConfigured = false;
+    if (config?.from) {
+      this.from = parseSender(config.from);
     }
   }
 
@@ -2842,57 +2775,49 @@ export class EmailService {
    * Core email sending method
    */
   private async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
-    // Lazy initialization - ensures env vars are loaded before checking config
-    this.ensureInitialized();
-
-    if (!this.isConfigured || !this.transporter) {
+    if (!resendEmailService.isReady()) {
       // Log email content if not configured
-      logger.info('Email Service - Mock Send (not configured):', {
+      logger.info('Email Service - Mock Send (Resend not configured):', {
         to,
         subject,
-        isConfigured: this.isConfigured,
-        hasTransporter: !!this.transporter,
         preview: html.substring(0, 200) + '...'
       });
       return true;
     }
 
-    try {
-      logger.debug('Attempting to send email:', {
-        to,
-        subject,
-        from: this.config!.from,
-      });
+    logger.debug('Attempting to send email:', {
+      to,
+      subject,
+      from: this.from,
+    });
 
-      const info = await this.transporter.sendMail({
-        from: this.config!.from,
-        to,
-        subject,
-        html
-      });
+    const result = await resendEmailService.sendEmail({
+      to,
+      subject,
+      html,
+      from: this.from,
+    });
 
-      logger.info('Email sent successfully:', {
-        to,
-        subject,
-        messageId: info.messageId
-      });
-
-      return true;
-    } catch (error: any) {
+    if (!result.success) {
       logger.error('Failed to send email:', {
         to,
         subject,
-        errorMessage: error.message,
-        errorCode: error.code,
-        errorResponse: error.response,
+        errorMessage: result.error,
       });
       return false;
     }
+
+    logger.info('Email sent successfully:', {
+      to,
+      subject,
+      messageId: result.messageId
+    });
+
+    return true;
   }
 
   public isReady(): boolean {
-    this.ensureInitialized();
-    return this.isConfigured && !!this.transporter;
+    return resendEmailService.isReady();
   }
 
   public async sendContactCampaignEmail(to: string, subject: string, html: string): Promise<boolean> {

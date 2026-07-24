@@ -942,11 +942,11 @@ export class MarketingController {
         return;
       }
 
-      // Check if the SMTP email service is configured
+      // Check if the email service is configured
       if (!this.emailService.isReady()) {
         res.status(500).json({
           success: false,
-          error: 'Email service is not configured. Please set EMAIL_USER/EMAIL_PASS in environment variables.'
+          error: 'Email service is not configured. Please set RESEND_API_KEY in environment variables.'
         });
         return;
       }
@@ -981,7 +981,7 @@ export class MarketingController {
       const shop = await this.shopRepo.getShop(shopId);
       const shopName = shop?.name || 'Shop';
 
-      // Sent sequentially to stay within the SMTP transport's connection limits.
+      // Sent sequentially to stay within Resend's rate limits.
       const results: Array<{ contactId: string; email: string; status: 'sent' | 'failed' }> = [];
       for (const recipient of emailRecipients) {
         const brandedHtml = this.marketingService.renderSimpleCampaignEmail(
@@ -1059,11 +1059,11 @@ export class MarketingController {
         return;
       }
 
-      // Check if the SMTP email service is configured
+      // Check if the email service is configured
       if (!this.emailService.isReady()) {
         res.status(500).json({
           success: false,
-          error: 'Email service is not configured. Please set EMAIL_USER/EMAIL_PASS in environment variables.'
+          error: 'Email service is not configured. Please set RESEND_API_KEY in environment variables.'
         });
         return;
       }
