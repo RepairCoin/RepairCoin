@@ -64,12 +64,16 @@ import {
   triggerMetaInsightsSync, getShopMetaAccount,
 } from './controllers/MetaConnectController';
 import { getCampaignLanding, getLandingConfig, updateLandingConfig } from './controllers/LandingController';
+import { getAppPlacements, recordPlacementClick } from './controllers/AppPlacementController';
 import { taxonomyFor } from './services/industryTaxonomies';
 
 export function initializeRoutes(): Router {
   const router = Router();
   const admin = [authMiddleware, requireRole(['admin'])];
   const shop = [authMiddleware, requireRole(['shop']), requireShopPermission('marketing:manage')];
+  // Customer = the in-app ad placements audience. Logged-in only: sponsored cards expose shop
+  // campaign copy, so this is not a public surface (unlike the /landing page).
+  const customer = [authMiddleware, requireRole(['customer'])];
   // Multipart for the designer-image upload on a campaign creative (memory → DO Spaces).
   const creativeUpload = multer({
     storage: multer.memoryStorage(),
@@ -204,6 +208,12 @@ export function initializeRoutes(): Router {
   // ---- Admin: ad-program enrollment requests ----
   router.get('/enrollments', ...admin, listEnrollments);
   router.post('/enrollments/:shopId/decide', ...admin, decideEnrollment);
+
+  // ---- Customer: in-app sponsored placements ----
+  // The first placement of ad_campaigns inside the app itself (Trending Services grid), as
+  // opposed to Meta/Google. Public-safe fields only; see AppPlacementController.
+  router.get('/app-placements', ...customer, getAppPlacements);
+  router.post('/app-placements/:campaignId/click', ...customer, recordPlacementClick);
 
   // ---- Shop: own read-only + self-serve enrollment ----
   router.get('/shop/campaigns', ...shop, listShopCampaigns);

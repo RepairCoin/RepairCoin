@@ -3,6 +3,7 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tansta
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";
 import { serviceApi } from "@/feature/services/services/service.services";
+import { adsApi } from "@/feature/services/services/ads.services";
 import { useAppToast } from "@/shared/hooks";
 import apiClient from "@/shared/utilities/axios";
 import {
@@ -136,6 +137,50 @@ export function useGetSimilarServicesQuery(serviceId: string, options?: { limit?
     },
     enabled: !!serviceId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ============================================
+// In-app Ad Placements (sponsored cards)
+// ============================================
+
+export const DEFAULT_AD_PLACEMENT = "trending_services";
+/** Surface id for the services marketplace tab — keeps its click analytics separable. */
+export const MARKETPLACE_AD_PLACEMENT = "marketplace";
+const AD_PLACEMENT_LIMIT = 5;
+
+/**
+ * Sponsored cards for an in-app surface. Deliberately fault-tolerant: `retry: false` so a
+ * failing ads endpoint never retry-storms while the customer scrolls, and callers must treat
+ * an empty/undefined result as "render the grid with no ads".
+ */
+export function useAdPlacementsQuery(placement: string = DEFAULT_AD_PLACEMENT) {
+  const { accessToken } = useAuthStore();
+  return useQuery({
+    queryKey: queryKeys.adPlacements(placement),
+    queryFn: async () => {
+      const response = await adsApi.getAppPlacements({
+        limit: AD_PLACEMENT_LIMIT,
+        placement,
+      });
+      return response.data ?? [];
+    },
+    enabled: !!accessToken,
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+}
+
+/** Tap log. Fire-and-forget — never surfaces an error to the customer. */
+export function useRecordAdClickMutation() {
+  return useMutation({
+    mutationFn: async ({
+      campaignId,
+      placement = DEFAULT_AD_PLACEMENT,
+    }: {
+      campaignId: string;
+      placement?: string;
+    }) => adsApi.recordAdClick(campaignId, placement),
   });
 }
 

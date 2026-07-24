@@ -44,6 +44,9 @@ const KNOWN_DRIFT: Record<number, string> = {
   // the bare name. Already-applied auto-message migrations; benign name-format mismatch.
   232: '232_add_auto_message_sequences',
   233: '233_add_auto_message_ab_test',
+  // 240: same "NNN_" prefix drift. Verified applied on staging 2026-07-25 — both objects the
+  // migration creates are present (view ai_usage_events, table ai_misc_usage).
+  240: '240_create_ai_usage_events_view',
 };
 
 // Legacy duplicate-numbered migration files (kept in sync with
