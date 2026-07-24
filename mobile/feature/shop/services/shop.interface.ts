@@ -426,6 +426,26 @@ export interface ShopCustomerGrowthResponse extends BaseResponse<CustomerGrowthD
 export interface ShopResponse extends BaseResponse<ShopResponseData> {}
 export interface RewardResponse extends BaseResponse<RewardData> {}
 
+// ==================== Stripe Connect (Payouts) ====================
+export interface ConnectOnboardingLinkData {
+  url: string;
+}
+export interface ConnectSummaryData {
+  hasAccount: boolean;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+}
+export interface ConnectStatusData {
+  accountId: string | null;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+  requirementsDue: string[];
+}
+export interface ConnectOnboardingLinkResponse extends BaseResponse<ConnectOnboardingLinkData> {}
+export interface ConnectSummaryResponse extends BaseResponse<ConnectSummaryData> {}
+export interface ConnectStatusResponse extends BaseResponse<ConnectStatusData> {}
+
 // ==================== Moderation: Issue Reports ====================
 export type IssueReportCategory =
   | "spam"

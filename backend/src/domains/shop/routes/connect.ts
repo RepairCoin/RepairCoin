@@ -24,6 +24,14 @@ const publicRouter = Router();
 const frontendBase = (): string =>
   (process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:3001').trim();
 
+// Where a mobile-initiated onboarding flow returns to. Same scheme env var the existing
+// Stripe Checkout (RCN purchase) redirect already uses. Path is deliberately nested under
+// /shop/payouts/callback — NOT /shared/... — so it matches a real expo-router file
+// (app/(dashboard)/shop/payouts/callback.tsx; route groups like (dashboard) are stripped
+// from the resolved path).
+const mobileDeepLinkBase = (): string =>
+  `${(process.env.MOBILE_DEEP_LINK_SCHEME || 'repaircoin').trim()}://shop/payouts/callback`;
+
 /**
  * GET /api/shops/connect/oauth/callback  (PUBLIC)
  * Stripe redirects the shop's browser here after they authorize. There's no app session on
@@ -32,7 +40,13 @@ const frontendBase = (): string =>
  */
 publicRouter.get('/connect/oauth/callback', async (req: Request, res: Response) => {
   const { code, state, error } = req.query;
-  const returnTo = `${frontendBase()}/register/shop/payouts`;
+
+  // Route the shop back to whichever surface started the flow. state carries the platform
+  // hint (see createOnboardingLink); resolvable even on the error/cancel path since Stripe
+  // still echoes state back on denial, and independently of the completeOAuth() verify below.
+  const platform = state ? getStripeConnectService().getOAuthStatePlatform(String(state)) : 'web';
+  const returnTo =
+    platform === 'mobile' ? mobileDeepLinkBase() : `${frontendBase()}/register/shop/payouts`;
 
   // Shop cancelled or Stripe denied the authorization.
   if (error || !code || !state) {
@@ -64,7 +78,8 @@ router.post('/connect/onboarding-link', async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: 'Shop authentication required' });
     }
 
-    const url = await getStripeConnectService().createOnboardingLink(shopId);
+    const platform = req.body?.platform === 'mobile' ? 'mobile' : 'web';
+    const url = await getStripeConnectService().createOnboardingLink(shopId, platform);
 
     return res.json({ success: true, data: { url } });
   } catch (error) {

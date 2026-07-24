@@ -66,9 +66,11 @@ export class StripeConnectService {
    * callback.
    *
    * `state` is a short-lived signed token carrying the shopId, so the (public) callback can
-   * trust which shop authorized without relying on a session cookie.
+   * trust which shop authorized without relying on a session cookie. `platform` rides along
+   * in the same token so the callback knows whether to hand the shop back to the web app or
+   * deep-link back into the mobile app — see the callback route for the redirect branch.
    */
-  async createOnboardingLink(shopId: string): Promise<string> {
+  async createOnboardingLink(shopId: string, platform: 'web' | 'mobile' = 'web'): Promise<string> {
     const clientId = process.env.STRIPE_CONNECT_CLIENT_ID;
     if (!clientId) {
       throw new Error('STRIPE_CONNECT_CLIENT_ID is not configured');
@@ -80,7 +82,7 @@ export class StripeConnectService {
     }
 
     const state = jwt.sign(
-      { shopId, purpose: 'connect_oauth' },
+      { shopId, purpose: 'connect_oauth', platform },
       process.env.JWT_SECRET as string,
       { expiresIn: '30m' }
     );
@@ -97,6 +99,25 @@ export class StripeConnectService {
     });
 
     return `https://connect.stripe.com/oauth/authorize?${params.toString()}`;
+  }
+
+  /**
+   * Read the `platform` a `state` token was minted for, without touching account linking.
+   * Used by the (public) OAuth callback to decide whether to hand the shop back to the web
+   * app or deep-link into mobile — kept independent of completeOAuth's own verify below so
+   * this stays a pure, side-effect-free read even if that verification logic changes.
+   * Defaults to 'web' on any decode failure (expired/malformed/legacy pre-platform tokens),
+   * since 'web' is the redirect this app has always used.
+   */
+  getOAuthStatePlatform(state: string): 'web' | 'mobile' {
+    try {
+      const payload = jwt.verify(state, process.env.JWT_SECRET as string) as {
+        platform?: string;
+      };
+      return payload.platform === 'mobile' ? 'mobile' : 'web';
+    } catch {
+      return 'web';
+    }
   }
 
   /**
