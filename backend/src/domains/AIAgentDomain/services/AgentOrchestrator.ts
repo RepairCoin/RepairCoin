@@ -63,6 +63,16 @@ import {
  */
 const BOOKING_TOOL_NAME = "propose_booking_slot";
 const SCHEDULE_FOLLOWUP_TOOL_NAME = "schedule_followup";
+/**
+ * Bounds on the follow-up delay the AI may pick. The ceiling was 60 minutes,
+ * which capped the feature at same-session nudges; context-aware follow-ups need
+ * a quote to be chased in hours and a general enquiry the next day, so it now
+ * runs to a week. Beyond that a lead is cold and this is the wrong mechanism.
+ */
+const FOLLOWUP_MIN_DELAY_MINUTES = 1;
+const FOLLOWUP_MAX_DELAY_MINUTES = 7 * 24 * 60;
+/** Used only when the AI calls the tool with an unparseable delay. */
+const FOLLOWUP_FALLBACK_DELAY_MINUTES = 3;
 // Phase 2.6-2.8 + 2.9-2.11 of the reschedule + cancel chat work
 // (docs/tasks/strategy/ai-sales-agent/reschedule-cancel-*).
 const CANCELLATION_TOOL_NAME = "propose_cancellation";
@@ -1190,8 +1200,11 @@ export class AgentOrchestrator {
       if (scheduleBlock) {
         const rawDelay = Number(scheduleBlock.input.delay_minutes);
         const delayMinutes = Number.isFinite(rawDelay)
-          ? Math.min(60, Math.max(1, Math.round(rawDelay)))
-          : 3;
+          ? Math.min(
+              FOLLOWUP_MAX_DELAY_MINUTES,
+              Math.max(FOLLOWUP_MIN_DELAY_MINUTES, Math.round(rawDelay))
+            )
+          : FOLLOWUP_FALLBACK_DELAY_MINUTES;
         const followupText = String(scheduleBlock.input.followup_text ?? "").trim();
         const closingRaw = scheduleBlock.input.closing_text;
         const closingText =
@@ -1515,9 +1528,16 @@ function buildScheduleFollowupTool(): ClaudeTool {
     name: SCHEDULE_FOLLOWUP_TOOL_NAME,
     description: [
       "Arm an automatic follow-up message that sends only if the customer goes quiet after this reply.",
-      "When to call: if the shop's standing instructions (see OWNER PREFERENCES & STANDING INSTRUCTIONS) ask you to follow up after a period of customer inactivity, you MUST call this tool — because you cannot act on your own during silence, this tool is the ONLY way that follow-up ever gets sent. If there is no such instruction, do NOT call this tool.",
-      "Call it PROACTIVELY on essentially EVERY reply where you have answered and are now waiting on the customer — even mid-conversation, and even after a normal question. Do NOT wait for the customer to say goodbye or for the conversation to feel 'finished'. The follow-up is auto-cancelled the instant the customer replies, so arming it on each turn is safe and expected; re-calling it each turn just resets the timer.",
-      "delay_minutes = minutes of customer silence before the follow-up (use the number the instruction specifies, e.g. 3). followup_text = the message to send if they stay quiet. closing_text = OPTIONAL final message sent one more delay_minutes later if they STILL haven't replied — put the business contact info here when the instruction asks for it; omit it if the instruction doesn't want a closing message.",
+      "When to call: on essentially EVERY reply where you have answered and are now waiting on the customer — because you cannot act on your own during silence, this tool is the ONLY way a follow-up ever gets sent. If the shop's standing instructions (see OWNER PREFERENCES & STANDING INSTRUCTIONS) ask you to follow up after a period of inactivity, you MUST call it and use the timing they specify.",
+      "Call it PROACTIVELY — even mid-conversation, and even after a normal question. Do NOT wait for the customer to say goodbye or for the conversation to feel 'finished'. The follow-up is auto-cancelled the instant the customer replies, so arming it on each turn is safe and expected; re-calling it each turn just resets the timer.",
+      "delay_minutes = minutes of customer silence before the follow-up. A shop instruction always wins. Otherwise pick the delay from how urgent the customer's need actually is:",
+      "• Urgent / same-day repair, customer is waiting on an answer to act, or a slot has been offered and just needs confirming → 10 minutes.",
+      "• Quote, estimate, or price question they are likely comparing elsewhere → 240 minutes (4 hours).",
+      "• General enquiry, browsing, 'thinking about it', or no clear deadline → 1440 minutes (24 hours).",
+      "• They explicitly said they'd get back to you later, need to check with someone, or are waiting on a third party (insurance, landlord, payday) → 4320 minutes (3 days).",
+      "Judge from what the customer said, not from the service name. 'Can you do it today?' is urgent even for a routine service; 'just pricing things up' is not urgent even for a major repair. When genuinely torn, choose the LONGER delay — an early nudge reads as pushy, a late one merely reads as polite.",
+      "followup_text = the message to send if they stay quiet. Write it for the moment it will ARRIVE, not for now: at 10 minutes you can pick up mid-thought, but at 4 hours or more the customer has moved on, so briefly re-establish what this is about (the service, and the quote or slot if there was one) before your nudge.",
+      "closing_text = OPTIONAL final message sent one more delay_minutes later if they STILL haven't replied — put the business contact info here when the instruction asks for it; omit it if the instruction doesn't want a closing message.",
       "The ONLY time to skip it: the customer is mid-booking/purchase and expects an immediate next step from you, or they have already clearly ended the conversation.",
       "You never manage or cancel it yourself — a customer reply cancels it automatically.",
     ].join(" "),
