@@ -11,12 +11,18 @@ import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ServiceGridCard } from "@/shared/components/shared/ServiceGridCard";
+import SponsoredAdCard from "@/shared/components/shared/SponsoredAdCard";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
 import { ThemedText } from "@/shared/components/ui/ThemedText";
 import { useTheme } from "@/shared/hooks/theme/useTheme";
-import { useToggleFavoriteMutation } from "../../feature-tab/hooks/useFeatureTabQuery";
+import {
+  useToggleFavoriteMutation,
+  MARKETPLACE_AD_PLACEMENT,
+} from "../../feature-tab/hooks/useFeatureTabQuery";
 import { useServicesTab } from "../../feature-tab/hooks";
+import { useAdPlacements } from "../../feature-tab/hooks/useAdPlacements";
+import { buildAdRows, ServiceGridRow } from "../../feature-tab/utils/buildAdRows";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../../feature-tab/components";
 import { ServiceData, ServiceSortOption } from "@/feature/services/services/service.interface";
 
@@ -78,10 +84,22 @@ export default function ServicesTabContent() {
   // One favorite mutation for the whole list — NOT one per card.
   const { toggleFavorite } = useToggleFavoriteMutation();
 
-  // Stable render/key callbacks so cells don't remount on every parent render.
-  const renderServiceItem = useCallback(
-    ({ item }: { item: ServiceData }) => (
+  // Sponsored cards. Additive only: an empty/failed ads query leaves the grid exactly as it
+  // renders without ads, and never affects loading, filters or the empty state.
+  const { ads, handleAdPress } = useAdPlacements(MARKETPLACE_AD_PLACEMENT);
+
+  // Rows are pre-chunked instead of using numColumns, because a sponsored card spans both
+  // columns and numColumns forces every item to the same width. ServiceGridCard already
+  // carries its own fixed width + margins, so a row is just a flex-row of cards.
+  const rows = useMemo(
+    () => buildAdRows(filteredServices, ads),
+    [filteredServices, ads]
+  );
+
+  const renderServiceCard = useCallback(
+    (item: ServiceData) => (
       <ServiceGridCard
+        key={item.serviceId}
         service={item}
         isFavorited={favoritedIds.has(item.serviceId)}
         onPress={handleServicePress}
@@ -91,12 +109,27 @@ export default function ServicesTabContent() {
     [handleServicePress, favoritedIds, toggleFavorite]
   );
 
-  const keyExtractor = useCallback((item: ServiceData) => item.serviceId, []);
+  // Stable render/key callbacks so cells don't remount on every parent render.
+  const renderRow = useCallback(
+    ({ item }: { item: ServiceGridRow }) => {
+      if (item.kind === "ad") {
+        return (
+          <View style={{ marginHorizontal: 4, marginVertical: 8 }}>
+            <SponsoredAdCard ad={item.ad} onPress={() => handleAdPress(item.ad)} />
+          </View>
+        );
+      }
+      return <View className="flex-row">{item.items.map(renderServiceCard)}</View>;
+    },
+    [renderServiceCard, handleAdPress]
+  );
 
-  // NOTE: no getItemLayout here — it is unreliable with numColumns > 1 (RN maps
-  // scroll offsets to the wrong item indices, so cells render the wrong service
-  // and "shift" data while scrolling/paginating). The cards are fixed-height, so
-  // native measurement stays cheap without it.
+  const keyExtractor = useCallback((row: ServiceGridRow) => row.key, []);
+
+  // NOTE: still no getItemLayout. The list is single-column now (rows are pre-chunked),
+  // but rows are no longer uniform height — a sponsored ad row is shorter than a service
+  // row — so a fixed offset calculation would be wrong. Cards are fixed-height, so native
+  // measurement stays cheap without it.
 
   // Guard onEndReached against a recursive multi-fetch loop: it fires on mount
   // and repeatedly whenever the loaded rows don't fill the viewport (client-side
@@ -240,10 +273,9 @@ export default function ServicesTabContent() {
         </View>
       ) : (
         <FlatList
-          data={filteredServices}
+          data={rows}
           keyExtractor={keyExtractor}
-          renderItem={renderServiceItem}
-          numColumns={2}
+          renderItem={renderRow}
           extraData={favoritedIds}
           // flex:1 gives the list a bounded height so it becomes the scroller —
           // without it onEndReached never fires and infinite scroll won't work.
@@ -256,8 +288,10 @@ export default function ServicesTabContent() {
           removeClippedSubviews={false}
           // Windowing tuned for smooth scrolling: small per-batch/window sizes
           // keep each frame cheap (cards are fixed-height so measurement is fast).
-          initialNumToRender={6}
-          maxToRenderPerBatch={6}
+          // These count ROWS now, not cards — halved so each batch still mounts
+          // roughly the same number of cards as before the row-chunking change.
+          initialNumToRender={3}
+          maxToRenderPerBatch={3}
           windowSize={7}
           updateCellsBatchingPeriod={50}
           onScrollBeginDrag={handleScrollBeginDrag}

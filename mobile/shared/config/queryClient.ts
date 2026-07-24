@@ -113,6 +113,10 @@ export const queryKeys = {
   serviceSimilar: (serviceId: string, options?: { limit?: number }) =>
     [...queryKeys.services(), 'similar', serviceId, options] as const,
 
+  // In-app ad placements (sponsored cards)
+  adPlacements: (placement?: string) =>
+    [...queryKeys.all, 'ads', 'placements', placement] as const,
+
   // Booking related
   bookings: () => [...queryKeys.all, 'bookings'] as const,
   shopBookings: (filters?: BookingFilters) => [...queryKeys.bookings(), 'shop', filters] as const,
