@@ -2,12 +2,60 @@
 
 Companion to `scope.md`. Branch `deo/ai-usage-tracking`. Checkpointed for crash recovery.
 
-## Status
+## Status — SHIPPED
 
-- **Scope** — DONE (committed: `082261f44`, `263973f89`).
-- **Phase 1 — Integrity fix** — CODE COMPLETE, verified on staging. **Uncommitted.**
-- **Phase 2 — Admin visibility** — CODE COMPLETE, verified on staging. **Uncommitted.**
-- **Phase 3 — Cleanup** — CODE COMPLETE, verified on staging. **Uncommitted.**
+All three phases are **merged to `main` and deployed to staging** (commit `553a93542`).
+
+- **Scope** — DONE (`082261f44`, `263973f89`).
+- **Phase 1 — Integrity fix** — SHIPPED.
+- **Phase 2 — Admin visibility** — SHIPPED.
+- **Phase 3 — Cleanup** — SHIPPED.
+
+### Post-deploy verification (2026-07-24, against staging)
+
+- `schema_migrations` has **240** recorded; `ai_usage_events` and `ai_misc_usage` both exist.
+- All 10 populated legs present: agent(524) orchestrate(606) insights(1188) image(201) voice_stt(418)
+  help(38) marketing(52) voice_router(39) ads_creative(71) ads_lead(15). `ai_misc_usage` is the 11th
+  and is empty, as expected until someone uses brand-kit / FAQ suggestions / TTS.
+- **`ai_usage_events.shop_id` is still `character varying(255)`** — the deploy re-ran the migration
+  and the ads-leg casts survived, so qual pushdown did not silently regress to a full scan.
+- Backend health `200`; `GET /api/ai/admin/cost-summary` returns `401 MISSING_AUTH_TOKEN` (deployed
+  and admin-gated) rather than `404`.
+
+### Follow-up: management-legible feature labels (migration 241, commit `5147defdb`)
+
+The "Cost by feature" panel named lines after source tables. Management couldn't place
+"Business insights" — which turned out to be ~98% a background job, not the standalone panel
+(42 interactive calls in 60 days vs 1045 anomaly-phraser calls). Migration 241 re-labels by product
+surface, view-side only (no cost/attribution/enforcement change):
+
+- `orchestrate` → `assistant` ("AI Assistant"), and the interactive insights panel folds into it
+  (both are "ask the AI a business question"; the panel is effectively retired).
+- The anomaly phraser splits out of the insights table as `ai_recommendation` ("AI Recommendation"),
+  since it's the engine behind the AI Recommendations section, keyed on `session_id LIKE 'anomaly-%'`.
+
+Staging after 241: AI Assistant $6.32, AI Recommendation $0.42, no orphan "Business insights" line.
+
+**DEPLOY ORDER MATTERS for this one.** Migration 241 is already applied to staging, so the view now
+emits `assistant` / `ai_recommendation`. The *deployed* frontend's `FEATURE_LABELS` doesn't know
+those slugs yet, so until commit `5147defdb` ships the panel shows the raw lowercase slugs (and the
+old "Unified Assistant" / "Business insights" lines disappear). Functionally fine — totals are
+correct — but cosmetically raw until the frontend redeploys. Merge + deploy `5147defdb` to restore
+the labels.
+
+### What to watch next
+
+1. **The rollover fix is unobservable until 1 Aug.** The truncated `DATE_TRUNC('month', NOW())` stamp
+   only gets written when a shop crosses a month boundary. Every current stamp is still the legacy
+   `NOW()` form; the fix is correct in a rolled-back-transaction test but has not yet fired for real.
+   First rollover after 1 Aug is the live proof — expect every rolled shop to read `YYYY-08-01
+   00:00:00` exactly, with no mid-month clusters.
+2. **`ai_misc_usage` should start filling.** Any row there is a surface that previously charged the
+   cap invisibly. If it stays empty for weeks while brand-kit/FAQ/TTS are in use, the wiring is wrong.
+3. **The drift panel.** `nail-lash` still shows $0.01 of counter-above-audit (unlogged spend). Left
+   unrepaired on purpose so the signal stays visible.
+4. **The admin tab has still never been opened in a browser.** It is now live at
+   `/admin?tab=ai-usage` — layout, label collisions and chart geometry remain unverified.
 
 ### Phase 1 — what shipped
 
