@@ -238,8 +238,8 @@ export default function TermsPage() {
             </p>
             <p className="text-gray-300">
               Email:{" "}
-              <a href="mailto:admin@repaircoin.ai" className="text-[#FFCC00] hover:underline">
-                admin@repaircoin.ai
+              <a href="mailto:admin@fixflow.ai" className="text-[#FFCC00] hover:underline">
+                admin@fixflow.ai
               </a>
             </p>
           </div>
