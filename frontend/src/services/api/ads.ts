@@ -211,11 +211,27 @@ export type AdPlanType = 'a' | 'b' | 'c' | 'flat';
 export type PlanCModel = 'per_booking' | 'revenue_share';
 export type FlatTierName = 'starter' | 'growth' | 'business';
 
+// Display names for the ads billing tiers. Deliberately DISTINCT from the general subscription plan,
+// which reuses the same starter/growth/business slugs with "Starter AI / Growth AI / Business AI"
+// labels — so a shop on the "Business" subscription looking at the "Business" ads tier can't tell
+// them apart. The ads tiers read as Ads Lite / Ads Plus / Ads Pro. The stored slug is unchanged
+// (ad_billing_plans.flat_tier_name stays starter/growth/business for billing + history); only the
+// label moves. Route every shop-facing ads-tier mention through adsTierLabel().
+export const ADS_TIER_LABELS: Record<FlatTierName, string> = {
+  starter: 'Ads Lite',
+  growth: 'Ads Plus',
+  business: 'Ads Pro',
+};
+
+/** Slug → display name ("Ads Lite/Plus/Pro"). Falls back to the raw value for legacy/unknown tiers. */
+export const adsTierLabel = (tier: string | null | undefined): string =>
+  ADS_TIER_LABELS[(tier ?? '') as FlatTierName] ?? (tier ?? '');
+
 // The live flat tiers (Decision 2026-06-15). a/b/c are legacy/dormant.
 export const FLAT_TIERS: { name: FlatTierName; label: string; feeCents: number; blurb: string }[] = [
-  { name: 'starter',  label: 'Starter — $199/mo',  feeCents: 19900, blurb: 'Facebook · 1 campaign · you reply to leads' },
-  { name: 'growth',   label: 'Growth — $499/mo',   feeCents: 49900, blurb: 'FB + Instagram · 3 campaigns · AI answers leads' },
-  { name: 'business', label: 'Business — $999/mo', feeCents: 99900, blurb: 'FB + IG + Google · 10 campaigns · priority' },
+  { name: 'starter',  label: 'Ads Lite — $199/mo', feeCents: 19900, blurb: 'Facebook · 1 campaign · you reply to leads' },
+  { name: 'growth',   label: 'Ads Plus — $499/mo', feeCents: 49900, blurb: 'FB + Instagram · 3 campaigns · AI answers leads' },
+  { name: 'business', label: 'Ads Pro — $999/mo',  feeCents: 99900, blurb: 'FB + IG + Google · 10 campaigns · priority' },
 ];
 
 export interface AdBillingPlan {
@@ -827,6 +843,16 @@ export interface PlanChange {
   proratedAmountCents: number;
   createdAt: string;
 }
+/** One ads tier's fee + inclusions, from the backend TIER_LIMITS (the source billing enforces).
+ *  Rendered as the plan comparison; label via adsTierLabel(name). */
+export interface AdTierOption {
+  name: FlatTierName;
+  feeCents: number;
+  maxCampaigns: number;
+  channels: string[];       // 'facebook' | 'instagram' | 'google'
+  aiAutoAnswer: boolean;
+}
+
 export interface AdSubscription {
   tier: FlatTierName | null;
   flatFeeCents: number;
@@ -834,6 +860,8 @@ export interface AdSubscription {
   billingStartedAt: string | null;
   adsAccountConnected: boolean;
   history: PlanChange[];
+  /** The full tier catalog (fee + inclusions) for the comparison panel. */
+  tiers: AdTierOption[];
 }
 export const getMySubscription = async (): Promise<AdSubscription> => {
   const res = await apiClient.get('/ads/shop/subscription');

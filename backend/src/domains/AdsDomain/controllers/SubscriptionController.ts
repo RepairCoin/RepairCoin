@@ -6,7 +6,9 @@
 
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
-import { BillingPlanRepository, FlatTierName } from '../repositories/BillingPlanRepository';
+import {
+  BillingPlanRepository, FlatTierName, FLAT_TIER_FEES, TIER_LIMITS,
+} from '../repositories/BillingPlanRepository';
 import { PlanChangeRepository } from '../repositories/PlanChangeRepository';
 import { SubscriptionService } from '../services/SubscriptionService';
 
@@ -15,6 +17,20 @@ const changes = new PlanChangeRepository();
 const subscriptions = new SubscriptionService();
 
 const shopIdOf = (req: Request): string | undefined => (req as any).user?.shopId;
+
+// The full tier catalog (fee + inclusions), sent with every subscription read so the shop's plan
+// panel can render a comparison of what each tier includes — the capability data lives HERE
+// (TIER_LIMITS is what billing actually enforces), not duplicated in the frontend, so the two can't
+// drift. Ordered cheapest → richest for display.
+const ADS_TIER_ORDER: FlatTierName[] = ['starter', 'growth', 'business'];
+const adsTierCatalog = () =>
+  ADS_TIER_ORDER.map((name) => ({
+    name,
+    feeCents: FLAT_TIER_FEES[name],
+    maxCampaigns: TIER_LIMITS[name].maxCampaigns,
+    channels: TIER_LIMITS[name].channels,
+    aiAutoAnswer: TIER_LIMITS[name].aiAutoAnswer,
+  }));
 
 // GET /shop/subscription
 export async function getMySubscription(req: Request, res: Response): Promise<void> {
@@ -36,6 +52,7 @@ export async function getMySubscription(req: Request, res: Response): Promise<vo
         billingStartedAt: plan?.billingStartedAt ?? null,
         adsAccountConnected,
         history,
+        tiers: adsTierCatalog(),
       },
     });
   } catch (err) {
