@@ -138,8 +138,8 @@ export default function PrivacyPolicyPage() {
           </ul>
           <p className="mt-3">
             To exercise these rights, contact us at{" "}
-            <a href="mailto:Hello@repaircoin.ai" className="text-[#FFCC00] hover:underline">
-              Hello@repaircoin.ai
+            <a href="mailto:admin@fixflow.ai" className="text-[#FFCC00] hover:underline">
+              admin@fixflow.ai
             </a>
           </p>
         </Section>
@@ -224,8 +224,8 @@ export default function PrivacyPolicyPage() {
             <p className="text-gray-300"><strong>FixFlow</strong></p>
             <p className="text-gray-300">
               Email:{" "}
-              <a href="mailto:Hello@repaircoin.ai" className="text-[#FFCC00] hover:underline">
-                Hello@repaircoin.ai
+              <a href="mailto:admin@fixflow.ai" className="text-[#FFCC00] hover:underline">
+                admin@fixflow.ai
               </a>
             </p>
           </div>

@@ -14,7 +14,7 @@ There is a **7-day prioritized resubmission window** from the rejection; after t
 
 | Code | Twilio's complaint | Fix | Owner |
 |---|---|---|---|
-| **30482** | Business email must use an official domain (a Gmail/personal address was used) | Use `admin@repaircoin.ai` (or support@/legal@) in the submission | Management (submission field) |
+| **30482** | Business email must use an official domain (a Gmail/personal address was used) | Use `admin@fixflow.ai` — matches the fixflow.ai website (Google Workspace @fixflow.ai exists) | Management (submission field) |
 | **30496** | Use case and use-case summary are inconsistent | One canonical use-case paragraph, pasted identically into every field | Management (copy) — **draft below** |
 | **30498** | Opt-in workflow must match the submission | A real, explicit SMS opt-in on the site + policy pages Twilio can read | **Engineering** — the actual blocker |
 
@@ -52,8 +52,9 @@ signup** — not necessarily wallet-based account registration, which may collec
 ## Strategy — three lanes
 
 ### Lane A — Submission fixes (management, no code)
-1. Set the business email to `@repaircoin.ai`. **Verify that inbox actually receives mail** — Twilio
-   may confirm it.
+1. Set the business email to `admin@fixflow.ai` (NOT `@repaircoin.ai`). The submission website is
+   fixflow.ai, so the email must be on the same domain — a `@repaircoin.ai` email on a fixflow.ai
+   site is the exact inconsistency that gets flagged. **Verify that inbox actually receives mail.**
 2. Use the canonical use-case paragraph (below) verbatim in both the use-case and use-case-summary
    fields so 30496 can't recur.
 
@@ -102,7 +103,7 @@ appear in the Privacy Policy, not only the SMS Policy.
 ### SMS Policy page — required sections
 Program name (FixFlow) · message types (the canonical list) · how to opt in (the checkbox) · message
 frequency · "Msg & data rates may apply" · STOP to opt out / HELP for help · the no-third-party-sharing
-statement · support contact (`support@repaircoin.ai`).
+statement · support contact (`admin@fixflow.ai`).
 
 ---
 
@@ -156,7 +157,9 @@ path + two content pages.
 
 ## Resubmission checklist (Lane C)
 
-- [ ] Business email is `@repaircoin.ai` and receives mail.
+- [ ] Business email is `admin@fixflow.ai` (same domain as the submitted website) and receives mail.
+- [ ] Submit **fixflow.ai** policy URLs (production), NOT staging — `fixflow.ai/sms-policy`,
+      `fixflow.ai/privacy-policy`. Both are live in production as of this release.
 - [ ] Use-case + summary both use the canonical paragraph verbatim.
 - [ ] `/sms-policy` live; Privacy Policy has the SMS + no-share clause; Terms SMS language consistent.
 - [ ] Opt-in checkbox live and unchecked-by-default at a phone-capture point.
@@ -188,4 +191,5 @@ Lanes A and B run in parallel; C waits on both.
 - Which phone-capture surfaces exist today for customers (booking definitely; does registration collect
   a phone)? Confirms where the primary checkbox lands.
 - Is there a HELP auto-responder wired, or only STOP handling? If only STOP, add a HELP reply.
-- Is `support@repaircoin.ai` the right published support contact for the SMS Policy?
+- ~~Is `support@repaircoin.ai` the right support contact?~~ RESOLVED — all policy pages use
+  `admin@fixflow.ai` (one consistent @fixflow.ai address, matching the website domain).
