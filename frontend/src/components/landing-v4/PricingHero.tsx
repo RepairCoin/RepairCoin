@@ -12,6 +12,7 @@ import {
   PaidTier,
   SUBSCRIPTION_PLANS,
   getPlanByTier,
+  FREE_TIER_FEATURES,
 } from "@/config/subscriptionPlans";
 import Badge from "./Badge";
 
@@ -129,7 +130,43 @@ export default function PricingHero() {
           </m.p>
         </div>
 
-        <div className="mt-20 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Free tier — the no-subscription starting point, shown as a slim banner
+            above the paid cards (it isn't purchasable, so it's not a full card). */}
+        <m.div
+          {...fadeUp(0.2)}
+          className="mt-16 rounded-lg bg-white/95 shadow-xl p-6 sm:p-7 flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8"
+        >
+          <div className="lg:flex-shrink-0">
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-gray-900 font-bold text-2xl">Free</h3>
+              <span className="text-gray-900 font-bold text-2xl">$0</span>
+              <span className="text-gray-500 text-sm">/ month</span>
+            </div>
+            <p className="mt-1 text-gray-500 text-sm max-w-xs">
+              Get started at no cost. Upgrade anytime to unlock AI, branding and RCN rewards.
+            </p>
+          </div>
+
+          <ul className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+            {FREE_TIER_FEATURES.map((feature) => (
+              <li key={feature} className="flex items-center gap-2.5">
+                <span className="flex items-center justify-center w-5 h-5 flex-shrink-0 rounded-full bg-[#F7CC00]">
+                  <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                </span>
+                <span className="text-gray-600 text-sm">{feature}</span>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            onClick={() => openWelcomeModal()}
+            className="lg:flex-shrink-0 bg-[#0a0a0a] hover:bg-black text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200"
+          >
+            Get started
+          </button>
+        </m.div>
+
+        <div className="mt-16 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           {plans.map((plan, index) => (
             <m.div
               key={plan.name}

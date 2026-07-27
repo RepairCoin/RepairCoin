@@ -31,6 +31,22 @@ describe("tierAllowsFeature — cumulative (min-tier)", () => {
     expect(tierAllowsFeature("business", "aiMemory")).toBe(true);
   });
 
+  it("the token economy is gated at Starter — free tier denied, every paid tier allowed", () => {
+    expect(FEATURE_TIERS.tokenEconomy).toBe("starter");
+    expect(tierAllowsFeature("free", "tokenEconomy")).toBe(false);
+    expect(tierAllowsFeature("starter", "tokenEconomy")).toBe(true);
+    expect(tierAllowsFeature("growth", "tokenEconomy")).toBe(true);
+    expect(tierAllowsFeature("business", "tokenEconomy")).toBe(true);
+  });
+
+  it("free tier is denied every gated feature (most restrictive)", () => {
+    expect(tierAllowsFeature("free", "tokenEconomy")).toBe(false);
+    expect(tierAllowsFeature("free", "inventoryManagement")).toBe(false);
+    expect(tierAllowsFeature("free", "aiMemory")).toBe(false);
+    // but an ungated feature is still available on free
+    expect(tierAllowsFeature("free", "aiGlobalEnabled")).toBe(true);
+  });
+
   it("the AI Sales Agent master (not in the matrix) is ungated — allowed on every tier", () => {
     expect(getRequiredTier("aiGlobalEnabled")).toBeUndefined();
     expect(tierAllowsFeature("starter", "aiGlobalEnabled")).toBe(true);

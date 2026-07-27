@@ -19,16 +19,12 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanInfo[] = [
     tier: "starter",
     label: "Starter AI",
     price: 80,
-    includesLabel: "Includes",
+    includesLabel: "Includes everything in Free, plus:",
     features: [
-      "Online Booking & Scheduling",
-      "CRM & Customer Management",
-      "Review Management",
+      "RCN Rewards & Redemptions",
       "AI Assistant (Basic)",
       "Branding Studio (Basic)",
       "Email & SMS Marketing (SMS)",
-      "Mobile App",
-      "Basic Reports",
     ],
   },
   {
@@ -73,6 +69,17 @@ export const SUBSCRIBE_TIER_STORAGE_KEY = "rc_subscribe_tier";
 export const DEFAULT_TIER: PaidTier = "growth";
 
 export const FREE_TIER_LABEL = "Free";
+
+// The Free tier is the no-subscription fallback (not purchasable), so it lives outside
+// SUBSCRIPTION_PLANS. These are the base features a shop gets before any upgrade —
+// Starter minus AI, Branding, and the RCN token economy.
+export const FREE_TIER_FEATURES: string[] = [
+  "Online Booking & Scheduling",
+  "CRM & Customer Management",
+  "Review Management",
+  "Mobile App",
+  "Basic Reports",
+];
 
 export const TRIAL_PERIOD_DAYS = 14;
 

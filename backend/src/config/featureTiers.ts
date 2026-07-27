@@ -4,6 +4,10 @@ import { SubscriptionTier, PaidTier } from './subscriptionPlans';
 // any feature absent here is ungated (available on every tier) — including on
 // 'free'. Keep in sync with frontend/src/config/featureTiers.ts.
 export const FEATURE_TIERS: Record<string, PaidTier> = {
+  // Starter+ — the RCN token economy (issue rewards, process redemptions, buy RCN).
+  // This is one of the three things free tier lacks (alongside AI and branding);
+  // gating it here is what makes free = "starter minus AI, branding, tokens".
+  tokenEconomy: 'starter',
   // Growth (also available on Business — cumulative). Decisions locked 2026-07-14.
   inventoryManagement: 'growth',
   campaignBuilder: 'growth',

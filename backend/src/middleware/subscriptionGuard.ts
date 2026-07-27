@@ -14,10 +14,22 @@ import { isEntitledByAgency } from '../utils/agencyEntitlement';
 
 export interface SubscriptionGuardOptions {
   allowRcgQualified?: boolean;  // Allow RCG-qualified shops (default: true)
+  /**
+   * Permit shops with no active subscription — the free tier (see utils/shopTier.ts,
+   * where absence of a subscription resolves to 'free'). Use on routes a free shop is
+   * entitled to: marketplace presence and service management. Do NOT use on the token
+   * economy (issuing rewards, redemptions, RCN purchase), which stays paid-only.
+   *
+   * This only relaxes the *subscription* requirement. Shop-level blocks — suspended,
+   * rejected, admin-paused, pending verification — still reject, because those are
+   * states a free shop can also be in.
+   */
+  allowFree?: boolean;
 }
 
 const DEFAULT_OPTIONS: SubscriptionGuardOptions = {
-  allowRcgQualified: true
+  allowRcgQualified: true,
+  allowFree: false
 };
 
 /**
@@ -202,16 +214,21 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
               }
             }
 
-            return res.status(403).json({
-              success: false,
-              error: 'Subscription expired',
-              code: 'SUBSCRIPTION_EXPIRED',
-              details: {
-                status: 'expired',
-                expiredAt: periodEnd,
-                message: getBlockedMessage('expired')
-              }
-            });
+            // An expired subscription is exactly how a shop arrives at the free
+            // tier, so on free-allowed routes we self-heal the status above and
+            // carry on rather than blocking.
+            if (!opts.allowFree) {
+              return res.status(403).json({
+                success: false,
+                error: 'Subscription expired',
+                code: 'SUBSCRIPTION_EXPIRED',
+                details: {
+                  status: 'expired',
+                  expiredAt: periodEnd,
+                  message: getBlockedMessage('expired')
+                }
+              });
+            }
           }
         }
       } catch (dbError) {
@@ -222,8 +239,12 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
         // Continue with other checks if this query fails
       }
 
-      // Check operational status for blocked states
-      const blockedStatuses = ['paused', 'not_qualified', 'pending'];
+      // Check operational status for blocked states. 'not_qualified' is the
+      // free tier (no active subscription) — allowed on free-permitted routes.
+      // 'paused' (admin action) and 'pending' (unverified) block regardless.
+      const blockedStatuses = opts.allowFree
+        ? ['paused', 'pending']
+        : ['paused', 'not_qualified', 'pending'];
 
       if (blockedStatuses.includes(shop.operational_status || '')) {
         logger.warn('Subscription guard: Operation blocked', {
@@ -246,6 +267,12 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
 
       // Check subscription_qualified status or active subscription
       if (shop.operational_status === 'subscription_qualified' || shop.subscriptionActive) {
+        return next();
+      }
+
+      // Free tier reaching here (no subscription, not blocked above) is allowed
+      // on free-permitted routes.
+      if (opts.allowFree) {
         return next();
       }
 

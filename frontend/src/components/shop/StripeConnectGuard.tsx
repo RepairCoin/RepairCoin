@@ -60,8 +60,11 @@ export const StripeConnectGuard: React.FC<StripeConnectGuardProps> = ({
   }, []);
 
   // Defer to the subscription overlay when it's already blocking — otherwise the two
-  // absolute overlays stack and overflow into each other.
-  if (state === "blocked" && subscription.canPerformOperations) {
+  // absolute overlays stack and overflow into each other. Keyed off canManageStorefront
+  // (not canPerformOperations) because the features this wraps — services, bookings —
+  // allow the free tier through, so a free shop shows no subscription overlay and this
+  // Stripe overlay must still surface when payouts aren't connected.
+  if (state === "blocked" && subscription.canManageStorefront) {
     return (
       <div className="relative min-h-[420px]">
         {children}

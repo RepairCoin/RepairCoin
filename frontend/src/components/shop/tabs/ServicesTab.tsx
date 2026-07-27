@@ -232,9 +232,10 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   // Use the subscription status hook for comprehensive status checking
   const subscriptionStatus = useSubscriptionStatus(shopData);
 
-  // Check if shop meets requirements to create services
-  // This now includes proper handling of 'paused' status
-  const canCreateServices = subscriptionStatus.canPerformOperations;
+  // Service management is a storefront feature — available to the free tier, so
+  // it uses canManageStorefront (blocked only by suspended/pending/paused), not
+  // the paid-only canPerformOperations gate. Mirrors the backend allowFree route.
+  const canCreateServices = subscriptionStatus.canManageStorefront;
 
   if (loading) {
     return (
