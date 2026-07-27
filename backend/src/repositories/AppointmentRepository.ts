@@ -78,6 +78,32 @@ export interface CalendarBooking {
 export class AppointmentRepository extends BaseRepository {
   // ==================== SHOP AVAILABILITY ====================
 
+  /**
+   * Idempotently seed a shop's SHOP-LEVEL (location_id IS NULL) default hours — Mon–Fri
+   * 09:00–18:00, weekend closed. Seeds each day independently with the partial unique index's
+   * predicate, so a MISSING day or a single stray/partial row never blocks the rest (the old
+   * "only seed when there are zero rows" guard left half-seeded shops stuck with empty hours).
+   * Cheap on the hot path: a COUNT short-circuits once all 7 shop-level days exist.
+   */
+  async ensureDefaultShopAvailability(shopId: string): Promise<boolean> {
+    const { rows } = await this.pool.query(
+      `SELECT COUNT(*)::int AS n FROM shop_availability WHERE shop_id = $1 AND location_id IS NULL`,
+      [shopId]
+    );
+    if (rows[0].n >= 7) return false; // all shop-level days present → nothing to seed
+
+    for (let day = 0; day <= 6; day++) {
+      const isOpen = day >= 1 && day <= 5; // Mon–Fri open, weekend closed
+      await this.pool.query(
+        `INSERT INTO shop_availability (shop_id, location_id, day_of_week, is_open, open_time, close_time)
+         VALUES ($1, NULL, $2, $3, $4, $5)
+         ON CONFLICT (shop_id, day_of_week) WHERE location_id IS NULL DO NOTHING`,
+        [shopId, day, isOpen, isOpen ? '09:00:00' : null, isOpen ? '18:00:00' : null]
+      );
+    }
+    return true;
+  }
+
   // Prefer the branch's own hours (per day), fall back to shop-level (location_id IS NULL).
   async getShopAvailability(shopId: string, locationId?: string | null): Promise<ShopAvailability[]> {
     try {

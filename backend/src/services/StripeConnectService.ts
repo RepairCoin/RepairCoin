@@ -28,7 +28,8 @@ export interface ConnectAccountStatus {
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
-  requirementsDue: string[];
+  requirementsDue: string[];    // currently_due — needed now to reach the next threshold
+  eventuallyDue: string[];      // will be required but not yet — i.e. "still to do", not "done"
   // Submitted and waiting on Stripe's review — NOT something the shop can act on.
   // Without these, "charges disabled" is indistinguishable from "you owe us data".
   pendingVerification: string[];
@@ -192,6 +193,7 @@ export class StripeConnectService {
         payoutsEnabled: false,
         detailsSubmitted: false,
         requirementsDue: [],
+        eventuallyDue: [],
         pendingVerification: [],
         disabledReason: null,
       };
@@ -204,6 +206,7 @@ export class StripeConnectService {
       payoutsEnabled: account.payouts_enabled === true,
       detailsSubmitted: account.details_submitted === true,
       requirementsDue: account.requirements?.currently_due ?? [],
+      eventuallyDue: account.requirements?.eventually_due ?? [],
       pendingVerification: account.requirements?.pending_verification ?? [],
       disabledReason: account.requirements?.disabled_reason ?? null,
     };
@@ -253,6 +256,75 @@ export class StripeConnectService {
     if (firstTimeEnabled) {
       logger.info('Stripe Connect onboarding completed', { shopId });
     }
+  }
+
+  /**
+   * Get the shop's Express connected account, creating one if it doesn't have an Express
+   * account yet. The embedded "Get Paid" onboarding uses Express accounts (created by the
+   * platform via the API), NOT the legacy Standard/OAuth account. A shop migrating off a
+   * Standard account gets a brand-new Express account — we never deauthorize the old Standard
+   * account (that is irreversible and bricks it), we just repoint stripe_connect_account_id
+   * once the Express account exists.
+   */
+  async getOrCreateExpressAccount(shopId: string): Promise<string> {
+    const shop = await shopRepository.getShop(shopId);
+    if (!shop) {
+      throw new Error(`Shop not found: ${shopId}`);
+    }
+
+    // Reuse only if we've already created an Express account for this shop.
+    if (shop.stripeConnectAccountId && shop.connectAccountType === 'express') {
+      return shop.stripeConnectAccountId;
+    }
+
+    const account = await this.stripe.accounts.create({
+      type: 'express',
+      email: shop.email || undefined,
+      business_profile: {
+        name: shop.name || undefined,
+      },
+      // Request the capabilities needed to take card payments via direct charges on the
+      // connected account (with the platform application fee). Without these, Stripe rejects
+      // charges with "card_payments capability not enabled". They activate once the shop
+      // finishes onboarding (charges_enabled flips true via the account.updated webhook).
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      metadata: { shopId },
+    });
+
+    await shopRepository.updateShop(shopId, {
+      stripeConnectAccountId: account.id,
+      connectAccountType: 'express',
+      // A fresh account isn't enabled yet — reset the mirror flags so guards/banners stay honest
+      // until the account.updated webhook (or a live status read) confirms charges are live.
+      connectChargesEnabled: false,
+      connectPayoutsEnabled: false,
+    });
+
+    logger.info('Created Stripe Connect Express account', { shopId, accountId: account.id });
+    return account.id;
+  }
+
+  /**
+   * Mint an Account Session for the embedded "Get Paid" onboarding component. The returned
+   * client secret is short-lived and scoped to this account; the frontend hands it to
+   * @stripe/connect-js to render <ConnectAccountOnboarding> in-app — no redirect to Stripe.
+   */
+  async createAccountSession(
+    shopId: string
+  ): Promise<{ clientSecret: string; accountId: string }> {
+    const accountId = await this.getOrCreateExpressAccount(shopId);
+
+    const session = await this.stripe.accountSessions.create({
+      account: accountId,
+      components: {
+        account_onboarding: { enabled: true },
+      },
+    });
+
+    return { clientSecret: session.client_secret, accountId };
   }
 
   /**
