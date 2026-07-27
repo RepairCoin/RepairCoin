@@ -168,6 +168,32 @@ export class ShopLocationRepository extends BaseRepository {
     return (result.rowCount ?? 0) > 0;
   }
 
+  /**
+   * Self-heal a shop that has no location row yet (e.g. it predates the migration-192 backfill,
+   * or that backfill never ran on this DB) by seeding its primary straight from the `shops` row.
+   * Same source columns as the migration-192 backfill. Idempotent — inserts only when the shop
+   * has zero locations; ON CONFLICT guards against a concurrent read seeding at the same time.
+   * Returns true if a row was inserted.
+   */
+  async ensurePrimaryFromShop(shopId: string, client?: PoolClient): Promise<boolean> {
+    const runner = client ?? this.pool;
+    const result = await runner.query(
+      `INSERT INTO shop_locations (
+         shop_id, name, address, location_city, location_state, location_zip_code,
+         location_lat, location_lng, phone, is_primary, active
+       )
+       SELECT
+         s.shop_id, s.name, s.address, s.location_city, s.location_state, s.location_zip_code,
+         s.location_lat, s.location_lng, s.phone, true, true
+       FROM shops s
+       WHERE s.shop_id = $1
+         AND NOT EXISTS (SELECT 1 FROM shop_locations l WHERE l.shop_id = $1)
+       ON CONFLICT (shop_id) WHERE is_primary DO NOTHING`,
+      [shopId]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   // Mirror the primary location back onto the canonical `shops` columns (kept for shop profile
   // display and any consumer still reading shops.address). Address/phone preserved when blank.
   async syncShopCanonicalAddress(shopId: string, client?: PoolClient): Promise<void> {

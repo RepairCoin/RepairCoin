@@ -302,6 +302,10 @@ export default function ShopDashboardClient() {
 
   // Suspended/Rejected modal state
   const [showSuspendedModal, setShowSuspendedModal] = useState(true);
+  // Guards the block / free-tier modal so it's decided once per browser load —
+  // it won't re-pop on tab switches or background shopData polling, but a real
+  // page refresh remounts the component and resets this ref.
+  const blockModalDecided = useRef(false);
 
   // Delayed loading state - prevents flash when cache loads quickly
   const [showLoadingModal, setShowLoadingModal] = useState(false);
@@ -637,6 +641,17 @@ export default function ShopDashboardClient() {
   // However, if subscription is cancelled but still within the billing period, shop should NOT be blocked
   const isBlocked = !!(isSuspended || isRejected || isPending || isPaused || (!isOperational && !isCancelledButActive));
 
+  // Free tier: unsubscribed but in good standing — verified, active, and none of
+  // the hard-block states (suspended/rejected/pending/paused), nor mid-cancellation.
+  // This is a normal state, not trouble: token-economy features stay gated (isBlocked
+  // remains true, so the banner + tools/purchase disabling still apply), but the shop
+  // gets a once-per-session upgrade nudge instead of the persistent block modal.
+  const isFreeTier = !!(
+    shopData &&
+    !isSuspended && !isRejected && !isPending && !isPaused &&
+    !isOperational && !isCancelledButActive
+  );
+
   // Branding Studio first-run: once per session, for operational/non-blocked
   // shops, open the wizard if onboarding isn't done AND no brand colors exist yet.
   // Failures (no kit / API down) silently no-op — onboarding is never a blocker.
@@ -673,27 +688,38 @@ export default function ShopDashboardClient() {
     return "Shop is not operational";
   };
 
-  // Show appropriate modal based on shop status
-  // Don't show if we're on the settings tab
+  // Show appropriate modal based on shop status. Decided once per browser load
+  // (via blockModalDecided) so the block / free-tier modal shows on refresh but
+  // doesn't re-pop on tab switches or background shopData polling.
   useEffect(() => {
-    if (shopData && activeTab !== "settings") {
-      // For pending shops without subscription, show onboarding modal
-      if (isPending && !shopData.subscriptionActive) {
-        setShowOnboardingModal(true);
-        setShowSuspendedModal(false);
-      } else if (isSuspended || isRejected || isPaused || !isOperational) {
-        // Show suspended modal for suspended/rejected/paused/unsubscribed shops
-        setShowSuspendedModal(true);
-        setShowOnboardingModal(false);
-      } else {
-        setShowSuspendedModal(false);
-        setShowOnboardingModal(false);
-      }
+    if (!shopData) return;
+
+    // Pending shops without a subscription get the onboarding modal instead.
+    if (isPending && !shopData.subscriptionActive) {
+      setShowOnboardingModal(true);
+      setShowSuspendedModal(false);
+      return;
+    }
+
+    if (blockModalDecided.current) return;
+    blockModalDecided.current = true;
+
+    // Don't auto-open over the settings tab (where the shop manages billing).
+    if (activeTab === "settings") {
+      setShowSuspendedModal(false);
+      setShowOnboardingModal(false);
+      return;
+    }
+
+    // Persistent modal for block states and the free tier (!isOperational).
+    if (isSuspended || isRejected || isPaused || !isOperational) {
+      setShowSuspendedModal(true);
+      setShowOnboardingModal(false);
     } else {
       setShowSuspendedModal(false);
       setShowOnboardingModal(false);
     }
-  }, [shopData, isOperational, isSuspended, isRejected, isPending, isPaused, activeTab]);
+  }, [shopData, isOperational, isSuspended, isRejected, isPending, isPaused, isFreeTier, activeTab]);
 
   // Show cancelled subscription modal once when detected (unless on settings tab)
   useEffect(() => {
@@ -1452,7 +1478,10 @@ export default function ShopDashboardClient() {
               banners. The shop owner sees this on every other tab they
               land on; hiding it here reclaims ~80-120px of vertical space
               so the chat region fills the viewport. */}
-          {!isMessagesTab && shopData && isBlocked && !showSuspendedModal && !showOnboardingModal && (
+          {/* Free tier is excluded — it's a valid tier, not a blocked state, so it
+              gets per-feature TierGate upgrade panels rather than this global
+              "cannot perform operations" banner (which stays for suspended/paused/pending). */}
+          {!isMessagesTab && shopData && isBlocked && !isFreeTier && !showSuspendedModal && !showOnboardingModal && (
             <div className={`mb-6 rounded-xl p-4 ${
               isPending ? 'bg-yellow-900/20 border-2 border-yellow-500/50' :
               isPaused ? 'bg-blue-900/20 border-2 border-blue-500/50' :
@@ -1566,7 +1595,7 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "services" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
+            <SubscriptionGuard shopData={shopData} allowFree>
               <StripeConnectGuard feature="service management" shopData={shopData}>
                 <ServicesTab shopId={shopData.shopId} shopData={shopData} />
               </StripeConnectGuard>
@@ -1606,7 +1635,7 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "bookings" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
+            <SubscriptionGuard shopData={shopData} allowFree>
               <StripeConnectGuard feature="bookings" shopData={shopData}>
                 <div className="flex justify-end mb-4">
                   <LocationSwitcher />
@@ -1627,7 +1656,7 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "appointments" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
+            <SubscriptionGuard shopData={shopData} allowFree>
               <div className="flex justify-end mb-4">
                 <LocationSwitcher />
               </div>
@@ -1636,7 +1665,7 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "disputes" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
+            <SubscriptionGuard shopData={shopData} allowFree>
               <ShopDisputePanel shopId={shopData.shopId} />
             </SubscriptionGuard>
           )}
@@ -1654,23 +1683,28 @@ export default function ShopDashboardClient() {
 
           {/* Reschedules tab is now a sub-tab inside Appointments */}
           {activeTab === "reschedules" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
+            <SubscriptionGuard shopData={shopData} allowFree>
               <AppointmentsTab defaultSubTab="reschedules" />
             </SubscriptionGuard>
           )}
 
           {activeTab === "purchase" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
-              <PurchaseTab
-                purchaseAmount={purchaseAmount}
-                setPurchaseAmount={setPurchaseAmount}
-                purchasing={purchasing}
-                purchases={purchases}
-                onInitiatePurchase={initiatePurchase}
-                onCheckPurchaseStatus={checkPurchaseStatus}
-                isBlocked={isBlocked}
-                blockReason={getBlockReason()}
-              />
+            // Buying RCN is the token economy — a Starter+ tier feature. Free tier
+            // sees the TierGate upgrade panel; suspended/paused still overlay via
+            // the lifecycle guard (allowFree = don't block merely for being free).
+            <SubscriptionGuard shopData={shopData} allowFree>
+              <TierGate feature="tokenEconomy">
+                <PurchaseTab
+                  purchaseAmount={purchaseAmount}
+                  setPurchaseAmount={setPurchaseAmount}
+                  purchasing={purchasing}
+                  purchases={purchases}
+                  onInitiatePurchase={initiatePurchase}
+                  onCheckPurchaseStatus={checkPurchaseStatus}
+                  isBlocked={isBlocked}
+                  blockReason={getBlockReason()}
+                />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
@@ -1687,17 +1721,22 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "tools" && shopData && (
-            <SubscriptionGuard shopData={shopData}>
-              <ToolsTab
-                shopId={shopData.shopId}
-                shopData={shopData}
-                onRewardIssued={loadShopData}
-                onRedemptionComplete={loadShopData}
-                isOperational={!!isOperational}
-                isBlocked={isBlocked}
-                blockReason={getBlockReason()}
-                setShowOnboardingModal={setShowOnboardingModal}
-              />
+            // Tools = issue rewards + process redemptions, the token economy.
+            // Starter+ tier feature; free sees the TierGate upgrade panel,
+            // suspended/paused overlay via the lifecycle guard.
+            <SubscriptionGuard shopData={shopData} allowFree>
+              <TierGate feature="tokenEconomy">
+                <ToolsTab
+                  shopId={shopData.shopId}
+                  shopData={shopData}
+                  onRewardIssued={loadShopData}
+                  onRedemptionComplete={loadShopData}
+                  isOperational={!!isOperational}
+                  isBlocked={isBlocked}
+                  blockReason={getBlockReason()}
+                  setShowOnboardingModal={setShowOnboardingModal}
+                />
+              </TierGate>
             </SubscriptionGuard>
           )}
 
@@ -1746,6 +1785,10 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "locations" && shopData && (
+            // Adding/removing locations is Business-tier — enforced inside
+            // LocationsTab (locked "Add" button) and on the backend. All tiers can
+            // still open the tab to edit their primary location, so no TierGate here;
+            // SubscriptionGuard only blocks lifecycle states (suspended/expired).
             <SubscriptionGuard shopData={shopData}>
               <LocationsTab shopId={shopData.shopId} />
             </SubscriptionGuard>
@@ -1905,7 +1948,10 @@ export default function ShopDashboardClient() {
                 }}
               />
 
-              {/* Suspended/Rejected/Unsubscribed/Pending Shop Modal */}
+              {/* Suspended/Rejected/Unsubscribed/Pending Shop Modal.
+                  Both hard blocks and the free tier use the persistent
+                  showSuspendedModal, so it re-pops on every refresh until dismissed
+                  (free tier renders the 'unsubscribed' upgrade copy via modalType). */}
               <SuspendedShopModal
                 isOpen={isBlocked && showSuspendedModal}
                 onClose={() => {

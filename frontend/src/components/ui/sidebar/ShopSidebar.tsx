@@ -41,10 +41,8 @@ import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 // the tab, where the upgrade prompt explains why).
 const TAB_FEATURE: Record<string, string> = {
   inventory: "inventoryManagement",
-  reports: "advancedReports",
   marketing: "campaignBuilder",
   team: "teamManagement",
-  locations: "multiLocation",
 };
 
 interface ShopSidebarProps {

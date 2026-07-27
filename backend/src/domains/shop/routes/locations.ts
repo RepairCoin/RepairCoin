@@ -36,7 +36,11 @@ const toStr = (v: unknown): string | null => {
 // GET /api/shops/locations — list this shop's locations
 router.get('/', readGuard, async (req: Request, res: Response) => {
   try {
-    const locations = await shopLocationRepository.listByShop(req.user!.shopId!);
+    const shopId = req.user!.shopId!;
+    // Self-heal shops that never got the migration-192 backfill: seed the primary from the
+    // shop's own address so every tier always has an editable primary location. Idempotent.
+    await shopLocationRepository.ensurePrimaryFromShop(shopId);
+    const locations = await shopLocationRepository.listByShop(shopId);
     res.json({ success: true, data: locations });
   } catch (error) {
     logger.error('Error listing shop locations:', error);

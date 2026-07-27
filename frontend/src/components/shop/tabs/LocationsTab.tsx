@@ -111,9 +111,9 @@ export function LocationsTab({ shopId }: LocationsTabProps) {
             </button>
           ) : (
             <a
-              href="/shop?tab=settings"
+              href="/shop?tab=settings&section=subscription"
               className="flex items-center gap-2 px-4 py-2 rounded-md border border-[#303236] text-gray-300 hover:bg-[#303236] transition-colors"
-              title={`Available on the ${TIER_LABELS.business} plan`}
+              title={`Adding locations is available on the ${TIER_LABELS.business} plan — upgrade to unlock`}
             >
               <Lock className="w-4 h-4" /> Add location
             </a>

@@ -28,6 +28,21 @@ export interface SubscriptionStatus {
   isSuspended: boolean;
   isRcgQualified: boolean;
   canPerformOperations: boolean;
+  /**
+   * True when the shop has no active subscription but is otherwise in good
+   * standing (verified, not suspended, not admin-paused). This is the free
+   * tier — a normal state, NOT a block. Free shops keep marketplace presence
+   * and can manage services; only the token economy (rewards, redemptions, RCN
+   * purchase) stays behind `canPerformOperations`.
+   */
+  isFreeTier: boolean;
+  /**
+   * True when the shop is allowed to run its storefront — manage services, take
+   * bookings, use messaging. Free tier included; only hard blocks (suspended,
+   * pending verification, admin-paused) turn this off. Distinct from
+   * `canPerformOperations`, which remains the paid-only token-economy gate.
+   */
+  canManageStorefront: boolean;
   statusMessage: string | null;
   operationalStatus: string | null;
 }
@@ -50,6 +65,8 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
         isSuspended: false,
         isRcgQualified: false,
         canPerformOperations: false,
+        isFreeTier: false,
+        canManageStorefront: false,
         statusMessage: 'Loading shop data...',
         operationalStatus: null
       };
@@ -95,6 +112,19 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
     // 3. AND (RCG qualified OR has active subscription and not paused/expired)
     const canPerformOperations = !isSuspended && !isPending && (isRcgQualified || (isOperational && !isExpired && !isPaused));
 
+    // Hard blocks — nothing works in any of these states.
+    const isHardBlocked = isSuspended || isPending || isPaused;
+
+    // Free tier: in good standing but with no active paid subscription (and not
+    // RCG-qualified, which is its own full-access path). This is a normal state,
+    // not a block — it must not trigger the suspended/expired UI.
+    const isFreeTier = !isHardBlocked && !isRcgQualified && !isOperational;
+
+    // Storefront (services, bookings, messaging) is available to any shop that
+    // isn't hard-blocked — free tier included. Token-economy operations remain
+    // behind canPerformOperations.
+    const canManageStorefront = !isHardBlocked;
+
     let statusMessage: string | null = null;
     if (isSuspended) {
       statusMessage = 'Your shop account has been suspended by the administrator. Please contact support or submit an unsuspend request.';
@@ -124,6 +154,8 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
       isSuspended,
       isRcgQualified,
       canPerformOperations,
+      isFreeTier,
+      canManageStorefront,
       statusMessage,
       operationalStatus: shopData.operational_status || null
     };

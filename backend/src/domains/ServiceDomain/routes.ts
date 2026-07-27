@@ -85,7 +85,9 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('services:manage'),
-    requireActiveSubscription(),
+    // Free tier keeps marketplace presence — service management is allowed
+    // without a subscription; only the token economy stays paid-only.
+    requireActiveSubscription({ allowFree: true }),
     requireStripeConnected(),
     serviceController.createService
   );
@@ -606,7 +608,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('services:manage'),
-    requireActiveSubscription(),
+    requireActiveSubscription({ allowFree: true }),
     serviceController.updateService
   );
 
@@ -636,7 +638,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     requireShopPermission('services:manage'),
-    requireActiveSubscription(),
+    requireActiveSubscription({ allowFree: true }),
     serviceController.deleteService
   );
 
