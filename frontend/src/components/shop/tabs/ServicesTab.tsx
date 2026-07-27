@@ -37,6 +37,7 @@ import { ServiceExportModal } from "@/components/shop/modals/ServiceExportModal"
 import { AIAssistantBadge } from "@/components/shared/AIAssistantBadge";
 import { getShopAiSettings, type ShopAiSettings } from "@/services/api/aiSettings";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
 interface ShopData {
   shopName?: string;
@@ -237,6 +238,15 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   // the paid-only canPerformOperations gate. Mirrors the backend allowFree route.
   const canCreateServices = subscriptionStatus.canManageStorefront;
 
+  // In database-only mode there's no RCG, so the qualification is subscription-only.
+  const blockchainEnabled = useBlockchainEnabled();
+  const requireCopyShort = blockchainEnabled
+    ? "Subscription or 10,000+ RCG required"
+    : "Active subscription required";
+  const requireCopyLong = blockchainEnabled
+    ? "You need an active subscription or 10,000+ RCG to create services"
+    : "You need an active subscription to create services";
+
   if (loading) {
     return (
       <div className="bg-[#101010] min-h-[600px] rounded-xl p-6 flex items-center justify-center">
@@ -264,7 +274,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
           <button
             onClick={() => setShowImportModal(true)}
             disabled={!canCreateServices}
-            title={canCreateServices ? "Import Services" : "Subscription or 10,000+ RCG required"}
+            title={canCreateServices ? "Import Services" : requireCopyShort}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
               canCreateServices
                 ? "bg-gray-800 text-white hover:bg-gray-700 border border-gray-700"
@@ -286,7 +296,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
           <button
             onClick={() => {
               if (!canCreateServices) {
-                toast.error("You need an active subscription or 10,000+ RCG to create services", {
+                toast.error(requireCopyLong, {
                   duration: 5000,
                   position: 'top-right'
                 });
@@ -295,7 +305,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
               router.push("/shop/services/new");
             }}
             disabled={!canCreateServices}
-            title={canCreateServices ? "Create New Service" : "Subscription or 10,000+ RCG required"}
+            title={canCreateServices ? "Create New Service" : requireCopyShort}
             className={`p-2 rounded-lg transition-all duration-200 ${
               canCreateServices
                 ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
@@ -315,12 +325,12 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
           <p className="text-gray-400 mb-6">
             {canCreateServices
               ? "Create your first service to start accepting bookings from customers"
-              : "You need an active subscription or 10,000+ RCG to create services"}
+              : requireCopyLong}
           </p>
           <button
             onClick={() => {
               if (!canCreateServices) {
-                toast.error("You need an active subscription or 10,000+ RCG to create services", {
+                toast.error(requireCopyLong, {
                   duration: 5000,
                   position: 'top-right'
                 });
