@@ -51,6 +51,7 @@ interface ShopData {
   subscriptionId?: string;
   // Stripe Connect (the shop as a SELLER) — distinct from the subscription customer id
   stripeConnectAccountId?: string;
+  connectAccountType?: string; // null (not connected) | 'standard' (legacy OAuth) | 'express' (embedded)
   connectChargesEnabled?: boolean;
   connectPayoutsEnabled?: boolean;
   connectOnboardedAt?: string;
@@ -158,6 +159,7 @@ export class ShopRepository extends BaseRepository {
         locationState: row.location_state,
         locationZipCode: row.location_zip_code,
         stripeConnectAccountId: row.stripe_connect_account_id,
+        connectAccountType: row.connect_account_type,
         connectChargesEnabled: row.connect_charges_enabled,
         connectPayoutsEnabled: row.connect_payouts_enabled,
         connectOnboardedAt: row.connect_onboarded_at,
@@ -319,7 +321,7 @@ export class ShopRepository extends BaseRepository {
         await this.pool.query(`
           INSERT INTO shop_availability (shop_id, day_of_week, is_open, open_time, close_time)
           VALUES ($1, $2, $3, $4, $5)
-          ON CONFLICT (shop_id, day_of_week) DO NOTHING
+          ON CONFLICT (shop_id, day_of_week) WHERE location_id IS NULL DO NOTHING
         `, [
           shopId,
           day,
@@ -419,6 +421,7 @@ export class ShopRepository extends BaseRepository {
         operational_status: 'operational_status',
         // Stripe Connect
         stripeConnectAccountId: 'stripe_connect_account_id',
+        connectAccountType: 'connect_account_type',
         connectChargesEnabled: 'connect_charges_enabled',
         connectPayoutsEnabled: 'connect_payouts_enabled',
         connectOnboardedAt: 'connect_onboarded_at',

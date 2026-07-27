@@ -104,6 +104,18 @@ export class AppointmentController {
         (req.query.locationId as string) || undefined
       );
 
+      // Self-heal: seed shop-level default hours when missing, so a shop that never got seeded
+      // (or was left half-seeded by a stray row) shows generic hours instead of an empty tab.
+      // Best-effort — a seeding failure must not block reading whatever hours already exist.
+      try {
+        await this.appointmentRepo.ensureDefaultShopAvailability(shopId);
+      } catch (seedError) {
+        logger.warn('Failed to seed default shop availability (non-fatal)', {
+          shopId,
+          error: seedError instanceof Error ? seedError.message : seedError,
+        });
+      }
+
       const availability = await this.appointmentRepo.getShopAvailability(shopId, resolvedLocationId);
 
       res.json({

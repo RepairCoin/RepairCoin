@@ -160,14 +160,10 @@ export class ServiceManagementService {
         throw new Error('Shop must be active and verified to create services');
       }
 
-      // Require active subscription OR RCG qualification (10K+ RCG tokens)
-      const isRcgQualified = shop.operational_status === 'rcg_qualified' ||
-                             (shop.rcg_balance && parseFloat(shop.rcg_balance.toString()) >= 10000);
-      const isSubscriptionQualified = shop.subscriptionActive || shop.operational_status === 'subscription_qualified';
-
-      if (!isRcgQualified && !isSubscriptionQualified) {
-        throw new Error('Active RepairCoin subscription or RCG qualification (10K+ RCG tokens) required to create services.');
-      }
+      // Service management is a free-tier feature: the route's
+      // requireActiveSubscription({ allowFree: true }) already blocks the bad-standing
+      // states (suspended/rejected/paused/pending) and allows free/subscribed/RCG shops.
+      // No extra subscription/RCG gate here — that would wrongly block the free tier.
 
       // Validate service name
       if (!request.serviceName || request.serviceName.trim().length === 0) {
@@ -359,14 +355,9 @@ export class ServiceManagementService {
         throw new Error('Shop not found');
       }
 
-      // Require active subscription OR RCG qualification (10K+ RCG tokens)
-      const isRcgQualified = shop.operational_status === 'rcg_qualified' ||
-                             (shop.rcg_balance && parseFloat(shop.rcg_balance.toString()) >= 10000);
-      const isSubscriptionQualified = shop.subscriptionActive || shop.operational_status === 'subscription_qualified';
-
-      if (!isRcgQualified && !isSubscriptionQualified) {
-        throw new Error('Active RepairCoin subscription or RCG qualification (10K+ RCG tokens) required to update services.');
-      }
+      // Service management is a free-tier feature — gating is handled by the route's
+      // requireActiveSubscription({ allowFree: true }); no subscription/RCG gate here
+      // (it would wrongly block free-tier shops from editing their own services).
 
       // Validate updates
       if (updates.serviceName !== undefined && updates.serviceName.length > 100) {

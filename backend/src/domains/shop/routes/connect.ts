@@ -95,6 +95,34 @@ router.post('/connect/onboarding-link', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/shops/connect/account-session
+ * Mints a short-lived Account Session client secret for the embedded "Get Paid" onboarding.
+ * Creates the shop's Express connected account on first call. The client passes the secret to
+ * @stripe/connect-js to render the onboarding component in-app — no redirect to Stripe.
+ */
+router.post('/connect/account-session', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    if (!shopId) {
+      return res.status(401).json({ success: false, error: 'Shop authentication required' });
+    }
+
+    const session = await getStripeConnectService().createAccountSession(shopId);
+
+    return res.json({ success: true, data: session });
+  } catch (error) {
+    logger.error('Failed to create Connect account session', {
+      shopId: req.user?.shopId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to start payment onboarding'
+    });
+  }
+});
+
+/**
  * GET /api/shops/connect/summary
  * Cheap, DB-only onboarding status for the dashboard payout-setup banner. Unlike
  * /connect/status this does NOT call Stripe, so it's safe to hit on every dashboard load.
