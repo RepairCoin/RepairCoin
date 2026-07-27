@@ -86,7 +86,7 @@ const defaultNotifyOverageStarted: OverageNotifyFn = async (shopId, budgetUsd) =
 
 /** Audit row for an AI surface with no per-feature cost table — see recordSpend's `ledger` param. */
 export interface MiscUsageLedgerEntry {
-  feature: "brand_kit" | "faq_suggestion" | "voice_tts";
+  feature: "brand_kit" | "faq_suggestion" | "voice_tts" | "memory_autoextract";
   vendor: "anthropic" | "openai";
   model?: string | null;
   inputTokens?: number;

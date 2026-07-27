@@ -2,7 +2,16 @@
 
 **Date:** 2026-07-27
 **Scope:** `ai-memory-scope.md` (D0–D7) · **Base plan:** `ai-memory-implementation-plan.md` (Phase 3).
-**Status:** plan — no code written. Standing rule: do not commit unless told.
+**Status (2026-07-27): AX-1 – AX-4 BUILT behind `AI_MEMORY_AUTOEXTRACT` (default OFF). AX-5 eval
+remaining before turn-on.** Backend build clean; 23/23 memory tests (9 new extractor cases).
+- `AiMemoryExtractor.ts` — pre-filter + Haiku intent-only pass + confidence/fact guards + cost
+  metered to `ai_misc_usage` (feature `memory_autoextract`).
+- `AiMemoryService.remember` now threads `confidence` (repo column already existed).
+- `UnifiedAssistantController` — fire-and-forget hook after the reply, gated by
+  `memoryEnabled && isAutoExtractEnabled()` (i.e. flag + Business tier).
+- Settings UI badges auto-captured memories; admin AI-usage dashboard labels the new cost line.
+- **Left:** AX-5 precision eval (below) — the gate before flipping `AI_MEMORY_AUTOEXTRACT` on in any
+  environment.
 **Flag:** build behind `AI_MEMORY_AUTOEXTRACT` (default OFF), *under* the existing `ENABLE_AI_MEMORY`
 and the Business-tier gate → zero behaviour change until deliberately turned on.
 
