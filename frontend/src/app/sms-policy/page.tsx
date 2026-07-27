@@ -69,8 +69,8 @@ export default function SmsPolicyPage() {
             You can opt out of SMS at any time by replying <strong>STOP</strong> to any message. You
             will receive one confirmation message and then no further texts unless you opt in again.
             Reply <strong>HELP</strong> for assistance, or contact us at{" "}
-            <a href="mailto:support@repaircoin.ai" className="text-[#FFCC00] hover:underline">
-              support@repaircoin.ai
+            <a href="mailto:admin@fixflow.ai" className="text-[#FFCC00] hover:underline">
+              admin@fixflow.ai
             </a>
             .
           </p>
@@ -100,8 +100,8 @@ export default function SmsPolicyPage() {
             </p>
             <p className="text-gray-300">
               Email:{" "}
-              <a href="mailto:support@repaircoin.ai" className="text-[#FFCC00] hover:underline">
-                support@repaircoin.ai
+              <a href="mailto:admin@fixflow.ai" className="text-[#FFCC00] hover:underline">
+                admin@fixflow.ai
               </a>
             </p>
           </div>
