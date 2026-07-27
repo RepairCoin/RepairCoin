@@ -458,6 +458,16 @@ export const updateAppointmentNotificationPreferences = async (
   }
 };
 
+/**
+ * Record the customer's explicit SMS opt-in/opt-out (Twilio toll-free compliance — the consent must
+ * be affirmative and recorded, not implied). The phone is resolved server-side from the authenticated
+ * customer's profile. THROWS on failure so the caller can react — notably a 400 with
+ * error==='no_phone' when the customer has no number on file yet.
+ */
+export const setSmsConsent = async (granted: boolean): Promise<void> => {
+  await apiClient.post('/messages/consent', { channel: 'sms', granted });
+};
+
 // ==================== ACCOUNT CLAIM API ====================
 
 export interface ClaimableAccount {
@@ -571,6 +581,7 @@ export const customerApi = {
   updateNotificationPreferences,
   getAppointmentNotificationPreferences,
   updateAppointmentNotificationPreferences,
+  setSmsConsent,
   requestSuspension,
   requestUnsuspension,
   exportData: exportCustomerData,

@@ -40,6 +40,27 @@ export class CustomerConsentService {
   }
 
   /**
+   * Record EXPLICIT affirmative consent — a customer ticked the compliant SMS opt-in in their
+   * preferences. Distinct from grantOnInbound's implied consent: `source` names the surface
+   * (e.g. 'notification_preferences') so the opt-in trail matches what Twilio's toll-free
+   * verification was shown. Throws on failure — unlike the best-effort implied path, an explicit
+   * opt-in the customer just made must be recorded (the caller surfaces the error).
+   */
+  async grantExplicit(phone: string, channel: ConsentChannel, source: string): Promise<void> {
+    await this.repo.grant(phone, channel, source);
+  }
+
+  /** Customer turned SMS off — revoke consent for (phone, channel). `source` names the surface. */
+  async revoke(phone: string, channel: ConsentChannel, source: string): Promise<void> {
+    await this.repo.revoke(phone, channel, source);
+  }
+
+  /** Current opt-in state for (phone, channel) — drives the settings toggle's initial value. */
+  async hasConsent(phone: string, channel: ConsentChannel): Promise<boolean> {
+    return this.repo.hasConsent(phone, channel);
+  }
+
+  /**
    * Whether an automated message may be sent to (phone, channel). Returns true when enforcement is
    * off (the default). When on, requires a granted consent row. Fail-OPEN on a lookup error only
    * matters when enforced — there we fail CLOSED (deny) to stay compliant.

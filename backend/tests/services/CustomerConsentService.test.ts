@@ -7,11 +7,13 @@ import { CustomerConsentService } from '../../src/domains/messaging/services/Cus
 
 function svc(over: any = {}) {
   const grants: any[] = [];
+  const revokes: any[] = [];
   const repo = {
     grant: over.grant ?? (async (phone: string, channel: string, source: string) => { grants.push({ phone, channel, source }); }),
+    revoke: over.revoke ?? (async (phone: string, channel: string, source: string) => { revokes.push({ phone, channel, source }); }),
     hasConsent: over.hasConsent ?? (async () => false),
   } as any;
-  return { s: new CustomerConsentService(repo), grants };
+  return { s: new CustomerConsentService(repo), grants, revokes };
 }
 
 describe('CustomerConsentService', () => {
@@ -27,6 +29,29 @@ describe('CustomerConsentService', () => {
     it('never throws when the repo write fails', async () => {
       const { s } = svc({ grant: async () => { throw new Error('db down'); } });
       await expect(s.grantOnInbound('+1', 'whatsapp')).resolves.toBeUndefined();
+    });
+  });
+
+  // Explicit opt-in from the compliant settings toggle (Twilio toll-free). Unlike grantOnInbound,
+  // the source names the surface and the write is NOT swallowed — the caller must know it failed.
+  describe('grantExplicit / revoke / hasConsent', () => {
+    it('grantExplicit records consent with the given source', async () => {
+      const { s, grants } = svc();
+      await s.grantExplicit('+15551112222', 'sms', 'notification_preferences');
+      expect(grants).toEqual([{ phone: '+15551112222', channel: 'sms', source: 'notification_preferences' }]);
+    });
+    it('grantExplicit propagates repo failures (not best-effort)', async () => {
+      const { s } = svc({ grant: async () => { throw new Error('db down'); } });
+      await expect(s.grantExplicit('+1', 'sms', 'notification_preferences')).rejects.toThrow('db down');
+    });
+    it('revoke records a revocation with the given source', async () => {
+      const { s, revokes } = svc();
+      await s.revoke('+15551112222', 'sms', 'notification_preferences');
+      expect(revokes).toEqual([{ phone: '+15551112222', channel: 'sms', source: 'notification_preferences' }]);
+    });
+    it('hasConsent delegates to the repo', async () => {
+      expect(await svc({ hasConsent: async () => true }).s.hasConsent('+1', 'sms')).toBe(true);
+      expect(await svc({ hasConsent: async () => false }).s.hasConsent('+1', 'sms')).toBe(false);
     });
   });
 
