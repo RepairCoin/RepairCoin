@@ -22,7 +22,7 @@ import { AdEnrollmentCTA } from "@/components/ads/AdEnrollmentCTA";
 import { CampaignBriefFields, briefToApi, emptyBrief, type BriefValue } from "@/components/ads/CampaignBriefFields";
 import {
   listShopCampaigns, getShopCampaignPerformance, getShopCapacity, setShopCampaignOutreachMode,
-  listMyCampaignRequests, submitCampaignRequest, getMySubscription, getMetaConnection, fmtMoney, fmtRoi,
+  listMyCampaignRequests, submitCampaignRequest, getMySubscription, getMetaConnection, fmtMoney, fmtRoi, adsTierLabel,
   type AdCampaign, type CampaignPerformance, type ShopCapacity, type AdCampaignRequest,
   type FlatTierName, type MetaConnection,
 } from "@/services/api/ads";
@@ -194,7 +194,7 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
         </h2>
         {subscribed && capacity && (
           <span className="text-sm text-gray-300">
-            <span className="capitalize">{capacity.tier}</span> plan ·{" "}
+            {adsTierLabel(capacity.tier)} ·{" "}
             <span className={capacity.remaining <= 0 ? "text-amber-400" : "text-white"}>
               {capacity.usedCampaigns} of {capacity.maxCampaigns} campaigns
             </span>
@@ -211,7 +211,7 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ shopId, reviewScore, pho
       ) : (
         <>
           {/* Plan summary (always, once subscribed) */}
-          <SubscriptionPanel onChanged={load} />
+          <SubscriptionPanel onChanged={load} capacity={capacity} />
 
           {/* STEP 2 — connect Meta (renders connect/connected/null based on state) */}
           <MetaConnectCard onChanged={load} />
