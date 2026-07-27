@@ -170,6 +170,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   voice_tts: 'Voice — speaking',    // text-to-speech (tts-1): the AI's reply spoken back out
   brand_kit: 'Brand kit (vision)',
   faq_suggestion: 'FAQ suggestions',
+  memory_autoextract: 'AI Memory — auto-capture',
   ads_creative: 'Ads — creative gen',
   ads_lead: 'Ads — lead replies',
 };

@@ -55,6 +55,7 @@ import {
   getOrchestratorOwnToolByName,
 } from "../services/orchestrator/registry";
 import { AiMemoryService, isAiMemoryEnabled, getAiMemoryService, formatMemoryBlock } from "../services/AiMemoryService";
+import { getAiMemoryExtractor, isAutoExtractEnabled } from "../services/AiMemoryExtractor";
 import { shopHasFeature } from "../../../utils/shopTier";
 import type { AiMemory } from "../../../repositories/AiMemoryRepository";
 import { getDefaultHelpCorpusLoader } from "../services/HelpCorpusLoader";
@@ -628,6 +629,36 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           overageCapReached: spendCheck.overageCapReached ?? false,
         };
         res.json({ success: true, data });
+
+        // AI Memory auto-extract (Phase 3, "Advanced AI Memory") — AFTER the reply is sent, and only
+        // for Business shops with the flag on. Fire-and-forget: a cheap Haiku pass captures any
+        // standing owner intent stated this turn (source='auto', unpinned, aged out if never used).
+        // Never blocks or breaks the response; the extractor pre-filters so most turns cost nothing.
+        if (memoryEnabled && isAutoExtractEnabled()) {
+          const ownerMessage = lastUserText(messages);
+          const assistantReply = data.reply;
+          setImmediate(() => {
+            getAiMemoryExtractor()
+              .extract(shopId, { ownerMessage, assistantReply })
+              .then((cands) =>
+                Promise.all(
+                  cands.map((c) =>
+                    memory.remember(shopId, {
+                      kind: c.kind,
+                      content: c.content,
+                      tags: c.tags,
+                      source: "auto",
+                      conversationId: sessionId,
+                      confidence: c.confidence,
+                    })
+                  )
+                )
+              )
+              .catch((e) =>
+                logger.error("AI memory auto-extract (post-turn) failed", { shopId, error: (e as Error)?.message })
+              );
+          });
+        }
       } catch (err) {
         logger.error("UnifiedAssistantController error", err);
         res

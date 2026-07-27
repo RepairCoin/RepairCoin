@@ -89,6 +89,8 @@ export interface RememberInput {
   tags?: string[];
   source?: AiMemorySource;
   conversationId?: string | null;
+  /** Auto-extract (Phase 3) only — the extractor's 0–1 confidence. NULL for explicit owner input. */
+  confidence?: number | null;
 }
 
 export interface RememberResult {
@@ -126,6 +128,7 @@ export class AiMemoryService {
       // from auto-aging (Q2). Auto-extracted (phase 3) memories stay unpinned.
       pinned: source === 'explicit',
       sourceConversationId: input.conversationId ?? null,
+      confidence: input.confidence ?? null,
     });
     return { saved: true, memory };
   }
