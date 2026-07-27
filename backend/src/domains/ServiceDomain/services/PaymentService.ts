@@ -17,6 +17,8 @@ import { NoShowPolicyService } from '../../../services/NoShowPolicyService';
 import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
 import { resolveBookingLocationId, getCalendarLocationLabel } from '../../../utils/multiLocationEntitlement';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
+import { isShopStripeConnected } from '../../../middleware/stripeConnectGuard';
+import { computeBookingCommissionCents } from '../../../utils/platformCommission';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
 export interface CreatePaymentIntentRequest {
@@ -122,6 +124,9 @@ export interface CreatePaymentIntentResponse {
   rcnDiscountUsd?: number;
   finalAmount?: number;
   customerRcnBalance?: number;
+  // Direct charge: the PaymentIntent lives on this connected account, so the frontend must
+  // init Stripe.js with { stripeAccount: connectedAccountId } to confirm it.
+  connectedAccountId?: string;
 }
 
 export interface CreateStripeCheckoutResponse {
@@ -190,6 +195,12 @@ export class PaymentService {
       const shop = await shopRepository.getShop(service.shopId);
       if (shop?.suspendedAt) {
         throw new Error('This shop is currently suspended and cannot accept new bookings.');
+      }
+
+      // The shop must have Stripe payouts connected before it can take bookings —
+      // otherwise there is nowhere for the customer's payment to settle.
+      if (!isShopStripeConnected(shop)) {
+        throw new Error('This shop is not accepting bookings yet.');
       }
 
       // Check if customer is blocked by this shop
@@ -346,9 +357,17 @@ export class PaymentService {
       // NOTE: Order is NOT created in DB - all data stored in Stripe metadata
       const amountInCents = Math.round(finalAmountUsd * 100);
 
+      // Connect: route the payment to the shop's own Stripe account and retain the
+      // tier-based platform commission (Starter/Growth 1%, Business 0.5%). The shop is
+      // guaranteed connected here — the isShopStripeConnected() guard above already blocked
+      // the booking otherwise.
+      const commissionCents = await computeBookingCommissionCents(service.shopId, amountInCents);
+
       const paymentIntent = await this.stripeService.createPaymentIntent({
         amount: amountInCents,
         currency: 'usd',
+        connectedAccountId: shop?.stripeConnectAccountId,
+        applicationFeeAmount: commissionCents,
         metadata: {
           orderId,
           serviceId: service.serviceId,
@@ -360,6 +379,7 @@ export class PaymentService {
           depositAmount: depositAmount.toString(),
           requiresDeposit: requiresDeposit.toString(),
           finalAmountUsd: finalAmountUsd.toString(),
+          platformCommissionUsd: (commissionCents / 100).toString(),
           bookingDate: bookingDateStr || '',
           bookingTime: request.bookingTime || '',
           bookingEndTime: bookingEndTime || '',
@@ -390,7 +410,8 @@ export class PaymentService {
         rcnRedeemed,
         rcnDiscountUsd,
         finalAmount: finalAmountUsd,
-        customerRcnBalance
+        customerRcnBalance,
+        connectedAccountId: shop?.stripeConnectAccountId
       };
     } catch (error) {
       logger.error('Error creating payment intent:', error);
@@ -419,6 +440,12 @@ export class PaymentService {
       const shopCheckout = await shopRepository.getShop(service.shopId);
       if (shopCheckout?.suspendedAt) {
         throw new Error('This shop is currently suspended and cannot accept new bookings.');
+      }
+
+      // The shop must have Stripe payouts connected before it can take bookings —
+      // otherwise there is nowhere for the customer's payment to settle.
+      if (!isShopStripeConnected(shopCheckout)) {
+        throw new Error('This shop is not accepting bookings yet.');
       }
 
       // Check if customer is blocked by this shop
@@ -571,6 +598,12 @@ export class PaymentService {
       const stripe = this.stripeService.getStripe();
       const amountInCents = Math.round(finalAmountUsd * 100);
 
+      // Connect: route the payment to the shop's own Stripe account and retain the tier-based
+      // platform commission (Starter/Growth 1%, Business 0.5%). The shop is guaranteed connected
+      // here — the isShopStripeConnected() guard above already blocked the booking otherwise.
+      const commissionCents = await computeBookingCommissionCents(service.shopId, amountInCents);
+      const connectedAccountId = shop?.stripeConnectAccountId;
+
       // Set redirect URLs - use deep links for mobile (shared payment success screen)
       const mobileScheme = process.env.MOBILE_DEEP_LINK_SCHEME || 'repaircoin';
       const successUrl = `${mobileScheme}://shared/payment-sucess?order_id=${orderId}`;
@@ -590,6 +623,11 @@ export class PaymentService {
           quantity: 1,
         }],
         mode: 'payment',
+        // Direct charge: the commission is an application fee on the connected account (the
+        // session itself is created ON that account via the stripeAccount option below).
+        ...(connectedAccountId && commissionCents > 0
+          ? { payment_intent_data: { application_fee_amount: commissionCents } }
+          : {}),
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: {
@@ -601,6 +639,7 @@ export class PaymentService {
           rcnRedeemed: rcnRedeemed.toString(),
           rcnDiscountUsd: rcnDiscountUsd.toString(),
           finalAmountUsd: finalAmountUsd.toString(),
+          platformCommissionUsd: (commissionCents / 100).toString(),
           bookingDate: bookingDateStr || '',
           bookingTime: request.bookingTime || '',
           bookingEndTime: bookingEndTime || '',
@@ -608,7 +647,7 @@ export class PaymentService {
           locationId: request.locationId || '',
           type: 'service_booking'
         }
-      });
+      }, connectedAccountId ? { stripeAccount: connectedAccountId } : undefined);
 
       logger.info('Stripe checkout session created (order will be created on payment success)', {
         orderId,
@@ -643,9 +682,17 @@ export class PaymentService {
    * Creates order in DB from Stripe metadata (no pending status - order only exists after payment)
    * Supports both payment intent IDs (pi_xxx) and checkout session IDs (cs_xxx)
    */
-  async handlePaymentSuccess(paymentIntentOrSessionId: string): Promise<ServiceOrder> {
+  async handlePaymentSuccess(
+    paymentIntentOrSessionId: string,
+    connectedAccountId?: string
+  ): Promise<ServiceOrder> {
     try {
       const stripe = this.stripeService.getStripe();
+      // Direct-charge bookings live on the shop's connected account, so reads must target it.
+      // (Passed from the webhook's event.account, or the confirm endpoint.)
+      const stripeOpts: Stripe.RequestOptions | undefined = connectedAccountId
+        ? { stripeAccount: connectedAccountId }
+        : undefined;
       let metadata: Stripe.Metadata;
       let paymentIntentId = paymentIntentOrSessionId;
 
@@ -662,7 +709,7 @@ export class PaymentService {
       // Get metadata from Stripe to create the order
       if (paymentIntentOrSessionId.startsWith('cs_')) {
         // It's a checkout session ID
-        const session = await stripe.checkout.sessions.retrieve(paymentIntentOrSessionId);
+        const session = await stripe.checkout.sessions.retrieve(paymentIntentOrSessionId, stripeOpts);
         if (session.payment_status !== 'paid') {
           throw new Error('Checkout session payment not completed');
         }
@@ -675,7 +722,7 @@ export class PaymentService {
         });
       } else {
         // It's a payment intent ID
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentOrSessionId);
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentOrSessionId, stripeOpts);
         if (paymentIntent.status !== 'succeeded') {
           throw new Error('Payment intent not succeeded');
         }
@@ -922,15 +969,18 @@ export class PaymentService {
    * NOTE: Since orders are only created on successful payment, there's no DB order to update.
    * We just log the failure and optionally notify the customer.
    */
-  async handlePaymentFailure(paymentIntentId: string, reason?: string): Promise<void> {
+  async handlePaymentFailure(paymentIntentId: string, reason?: string, connectedAccountId?: string): Promise<void> {
     try {
       // Get payment intent from Stripe to access metadata
       const stripe = this.stripeService.getStripe();
+      const stripeOpts: Stripe.RequestOptions | undefined = connectedAccountId
+        ? { stripeAccount: connectedAccountId }
+        : undefined;
       let metadata: Stripe.Metadata = {};
       let serviceName = 'Service';
 
       try {
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, stripeOpts);
         metadata = paymentIntent.metadata || {};
 
         // Get service name for notification
@@ -1113,12 +1163,18 @@ export class PaymentService {
       // 2. Process Stripe refund if payment was made
       if (order.stripePaymentIntentId && (order.status === 'paid')) {
         try {
+          // Direct-charge bookings live on the shop's account — the session lookup and the
+          // refund must both target it (and the refund returns the platform commission).
+          const connectedAccountId = (await shopRepository.getShop(order.shopId))?.stripeConnectAccountId;
           let paymentIntentId = order.stripePaymentIntentId;
 
           // If stored ID is a checkout session (cs_), retrieve the actual PaymentIntent ID
           if (paymentIntentId.startsWith('cs_')) {
             const stripe = this.stripeService.getStripe();
-            const session = await stripe.checkout.sessions.retrieve(paymentIntentId);
+            const session = await stripe.checkout.sessions.retrieve(
+              paymentIntentId,
+              connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
+            );
             if (session.payment_intent) {
               paymentIntentId = session.payment_intent as string;
               logger.info('Retrieved PaymentIntent ID from checkout session for refund', {
@@ -1132,7 +1188,8 @@ export class PaymentService {
 
           await this.stripeService.refundPayment(
             paymentIntentId,
-            'requested_by_customer'
+            'requested_by_customer',
+            connectedAccountId
           );
           refundDetails.push(`$${order.finalAmountUsd?.toFixed(2) || '0.00'} refunded to card`);
           logger.info('Stripe payment refunded for cancelled order', {
@@ -1408,12 +1465,18 @@ export class PaymentService {
       if (order.stripePaymentIntentId && order.status !== 'pending') {
         logger.info('=== PROCESSING STRIPE REFUND ===');
         try {
+          // Direct-charge bookings live on the shop's account — session lookup and refund both
+          // target it (and the refund returns the platform commission).
+          const connectedAccountId = (await shopRepository.getShop(order.shopId))?.stripeConnectAccountId;
           let paymentIntentId = order.stripePaymentIntentId;
 
           // If stored ID is a checkout session (cs_), retrieve the actual PaymentIntent ID
           if (paymentIntentId.startsWith('cs_')) {
             const stripe = this.stripeService.getStripe();
-            const session = await stripe.checkout.sessions.retrieve(paymentIntentId);
+            const session = await stripe.checkout.sessions.retrieve(
+              paymentIntentId,
+              connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
+            );
             if (session.payment_intent) {
               paymentIntentId = session.payment_intent as string;
               logger.info('Retrieved PaymentIntent ID from checkout session for refund', {
@@ -1427,7 +1490,8 @@ export class PaymentService {
 
           await this.stripeService.refundPayment(
             paymentIntentId,
-            'requested_by_customer'  // Stripe only accepts: duplicate, fraudulent, requested_by_customer
+            'requested_by_customer',  // Stripe only accepts: duplicate, fraudulent, requested_by_customer
+            connectedAccountId
           );
           stripeRefunded = order.finalAmountUsd || 0;
           refundDetails.push(`$${stripeRefunded.toFixed(2)} refunded to card`);

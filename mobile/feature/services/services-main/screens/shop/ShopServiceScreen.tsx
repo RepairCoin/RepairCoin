@@ -30,6 +30,8 @@ import { ServiceAnalyticsTab } from "@/feature/services/booking/components";
 
 // Constants
 import { SERVICE_TABS } from "@/shared/constants/services";
+import { StripeConnectGate } from "@/shared/components/shop/StripeConnectGate";
+import { useConnectSummaryQuery } from "@/feature/shop/payouts/hooks/useShopPayoutsQuery";
 
 export default function ShopServiceScreen() {
   const [showManualBookingModal, setShowManualBookingModal] = useState(false);
@@ -51,6 +53,12 @@ export default function ShopServiceScreen() {
   const { isUpdating, handleToggleStatus } = useServiceStatusUI();
   const { handleEdit, handleAddService } = useShopServiceNavigation();
   const deleteServiceMutation = useDeleteServiceMutation();
+
+  // Same fail-open-while-loading rule as StripeConnectGate — hide the FABs
+  // only once we positively know payouts aren't connected, so the gate
+  // overlay and the FAB visibility never disagree with each other.
+  const { data: connectSummary } = useConnectSummaryQuery();
+  const isStripeBlocked = connectSummary?.chargesEnabled === false;
 
   const handleViewDetails = () => {
     closeActionModal();
@@ -117,20 +125,28 @@ export default function ShopServiceScreen() {
 
         {/* Tab Content */}
         {activeTab === "Services" && (
-          <ServicesTab
-            setActionModalVisible={setActionModalVisible}
-            setSelectedService={setSelectedService}
-          />
+          <StripeConnectGate feature="Service Management">
+            <ServicesTab
+              setActionModalVisible={setActionModalVisible}
+              setSelectedService={setSelectedService}
+            />
+          </StripeConnectGate>
         )}
-        {activeTab === "Booking" && <BookingShopTab />}
+        {activeTab === "Booking" && (
+          <StripeConnectGate feature="Bookings">
+            <BookingShopTab />
+          </StripeConnectGate>
+        )}
         {activeTab === "Analytics" && <ServiceAnalyticsTab />}
       </View>
 
-      {/* Add Service FAB - show when Services tab */}
-      {activeTab === "Services" && <AddServiceFab onPress={handleAddService} />}
+      {/* Add Service FAB - show when Services tab, hidden while Stripe is blocked */}
+      {activeTab === "Services" && !isStripeBlocked && (
+        <AddServiceFab onPress={handleAddService} />
+      )}
 
-      {/* Manual Booking FAB - show when Booking tab */}
-      {activeTab === "Booking" && (
+      {/* Manual Booking FAB - show when Booking tab, hidden while Stripe is blocked */}
+      {activeTab === "Booking" && !isStripeBlocked && (
         <TouchableOpacity
           onPress={() => setShowManualBookingModal(true)}
           className="absolute bottom-6 right-4 w-14 h-14 rounded-full bg-[#FFCC00] items-center justify-center"

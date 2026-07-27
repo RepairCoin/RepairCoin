@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Feature Spec · Multi-Account Switching</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+    --amber: #b45309; --amber-bg: #fef3e2; --red: #b91c1c; --red-bg: #fdecec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-plan { color: #ffd873; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  h3 { font-size: 15px; margin: 20px 0 4px; color: var(--ink); letter-spacing: -.01em; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-plan { background: var(--amber-bg); color: var(--amber); }
+  .tag-be { background: #e4eeff; color: #1d4ed8; }
+  .tag-fe { background: var(--violet-bg); color: var(--violet); }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  pre { background: #1a1a2e; color: #e8eaf4; padding: 16px 18px; border-radius: 10px; overflow-x: auto; font-size: 13px; line-height: 1.6; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  pre .c { color: #8b93b0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  td .warn { color: var(--amber); font-weight: 700; }
+  td .no { color: var(--red); font-weight: 700; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.amber { background: var(--amber-bg); border: 1px solid #f6d9a8; }
+  .callout.red { background: var(--red-bg); border: 1px solid #f5c2c2; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+  .callout.amber strong { color: var(--amber); }
+  .callout.red strong { color: var(--red); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Feature Spec</span>
+    <h1>Multi-Account Switching (Facebook-style)</h1>
+    <p class="sub">Let a user stay signed into several accounts at once and switch instantly — no logout, no re-verification.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 22, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-plan">◆ Planned — not yet built</span></span>
+      <span class="meta-pill"><strong>Area:</strong>&nbsp; Authentication</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      Today, switching accounts signs you out and makes you log in again. Facebook doesn't work that way — it
+      keeps every account you've added signed in, and switching between them is a single instant click. This
+      document specifies how to get the same behavior in RepairCoin, why it requires backend work, and where the
+      risk sits.
+    </p>
+    <div class="callout amber">
+      <strong>Why this isn't a UI tweak:</strong> the session lives in an <code class="inline">httpOnly</code>
+      cookie, which JavaScript deliberately cannot read or swap. Any real switching therefore has to happen on
+      the server. This is an authentication-subsystem change, not a front-end change.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Current Behavior vs. Target</h2>
+    <table>
+      <thead><tr><th>Step</th><th>Today</th><th>Target (Facebook-style)</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Add a second account</td>
+          <td><span class="no">Signs you out</span> of the first</td>
+          <td><span class="ok">First stays signed in</span></td>
+        </tr>
+        <tr>
+          <td>Switch back to the first</td>
+          <td>Full login + email OTP again</td>
+          <td><span class="ok">One click, instant</span></td>
+        </tr>
+        <tr>
+          <td>Accounts remembered</td>
+          <td><span class="warn">Name/avatar only</span> (a shortcut to the login screen)</td>
+          <td>Live sessions</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      What exists today (shipped): the profile menu remembers accounts you've used and takes you to that
+      account's sign-in with the email pre-filled. It shortens the round trip — it does not remove the logout or
+      the one-time code.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Why the server has to be involved</h2>
+    <ul>
+      <li>The browser session is an <code class="inline">httpOnly</code> cookie
+          (<code class="inline">auth_token</code>, 15&nbsp;min + <code class="inline">refresh_token</code>,
+          7&nbsp;days). Script can't read or rewrite it — that's the point of the flag, and we should not weaken it.</li>
+      <li>Each account is a <strong>separate wallet</strong>. Signing in requires that account's own proof (an
+          email one-time code, or a wallet signature), so the second sign-in can never be skipped
+          <em>the first time</em>.</li>
+      <li>But it <strong>can</strong> be skipped on every switch afterwards — if the server remembers that this
+          browser already proved ownership of that account and still holds a valid refresh token for it.</li>
+    </ul>
+    <div class="callout green">
+      <strong>The good news:</strong> the foundation already exists. There is a
+      <code class="inline">refresh_tokens</code> table and a <code class="inline">RefreshTokenRepository</code>
+      (migration 29), with revoke/expiry handling. Multi-session is largely a matter of scoping those tokens to a
+      device and adding a way to activate one.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Design</h2>
+    <p>
+      Keep exactly one <em>active</em> session cookie (so every existing route and middleware keeps working
+      untouched), and let the client ask the server to <strong>re-point</strong> that cookie at another account it
+      has already authenticated on this device.
+    </p>
+<pre><span class="c">// One browser, three remembered accounts, one active session</span>
+device_id: "dev_a1b2c3"            <span class="c">// stable per browser, survives logout</span>
+
+refresh_tokens
+  ├─ (dev_a1b2c3, 0xAAA…)  valid   <span class="c">// shop  — ACTIVE</span>
+  ├─ (dev_a1b2c3, 0xBBB…)  valid   <span class="c">// customer</span>
+  └─ (dev_a1b2c3, 0xCCC…)  expired <span class="c">// → needs full sign-in again</span>
+
+POST /auth/switch { address: "0xBBB…" }
+  → verify a live refresh token exists for (device_id, 0xBBB…)
+  → rotate it, mint a new access token
+  → Set-Cookie: auth_token / refresh_token   <span class="c">// now the customer</span>
+</pre>
+
+    <h3>Backend <span class="tag tag-be">BE</span></h3>
+    <ol>
+      <li><strong>Migration</strong> — add <code class="inline">device_id</code> to
+          <code class="inline">refresh_tokens</code>, indexed on <code class="inline">(device_id, address)</code>.</li>
+      <li><strong>Record it on login</strong> — every authenticate endpoint stores the caller's
+          <code class="inline">device_id</code> with the issued refresh token.</li>
+      <li><strong><code class="inline">GET /auth/sessions</code></strong> — returns the accounts with a live,
+          unrevoked token for this device (address, name, role, avatar). This is what the switcher lists.</li>
+      <li><strong><code class="inline">POST /auth/switch</code></strong> — validates a live token for
+          (device, address), rotates it, and sets the session cookies to that account.</li>
+      <li><strong>Scope logout</strong> — signing out of one account must revoke only that account's token, not
+          the other accounts on the device. "Log out everywhere" stays available as a separate action.</li>
+    </ol>
+
+    <h3>Frontend <span class="tag tag-fe">FE</span></h3>
+    <ol>
+      <li><strong>Device id</strong> — generate once, persist locally, survive the logout wipe (the saved-accounts
+          key already does this), and send it on login and switch.</li>
+      <li><strong>Switcher</strong> — the profile menu's "Switch to" list is populated from
+          <code class="inline">GET /auth/sessions</code>; picking one calls
+          <code class="inline">POST /auth/switch</code>, refetches the profile, and re-renders. No sign-out, no code.</li>
+      <li><strong>Expired sessions</strong> — an account whose token has lapsed falls back to today's behavior:
+          go to sign-in with the email pre-filled.</li>
+      <li><strong>"Add another account"</strong> — signs in a new account <em>without</em> discarding the current
+          one's refresh token, so both are live afterwards.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> The hard part — wallet vs. session</h2>
+    <p>
+      The endpoints are the straightforward half. The real difficulty is that the front-end auth initializer
+      currently treats <strong>the connected wallet as the source of truth</strong>: it watches the active wallet
+      and will re-authenticate or sign you out whenever the session and the wallet disagree.
+    </p>
+    <p>
+      After switching to account B, the connected wallet still holds account A — so that logic will fight the
+      switch and try to pull you back. It has to learn that a session may <em>legitimately</em> differ from the
+      connected wallet.
+    </p>
+    <div class="callout violet">
+      <strong>What makes this tractable:</strong> the platform is running in database-only mode, so the wallet
+      isn't required for ordinary actions — it's a login credential, not a per-request dependency. Blockchain-only
+      surfaces (e.g. minting to wallet) should prompt to reconnect the matching wallet on demand.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Security requirements</h2>
+    <ul>
+      <li><strong>Never trust the client's account claim.</strong> A switch is only permitted when the server finds
+          a live, unrevoked refresh token for that exact (device, address) pair. The address in the request is a
+          lookup key, never authorization.</li>
+      <li><strong>Keep cookies <code class="inline">httpOnly</code>.</strong> No design that exposes tokens to
+          JavaScript.</li>
+      <li><strong>Rotate on switch</strong>, exactly as the refresh flow already does, so a captured token can't be
+          replayed.</li>
+      <li><strong>Device id is not a secret</strong> — it only narrows a lookup. Possessing it must never be
+          sufficient to switch.</li>
+      <li><strong>Rate-limit</strong> the switch endpoint, and log switches for audit.</li>
+      <li><strong>Shared devices</strong> — "Log out everywhere" must revoke every token for the device.</li>
+    </ul>
+    <div class="callout red">
+      <strong>Failure mode to guard against:</strong> session confusion — one account acting with another's
+      privileges. Every switch must fully replace the session identity; nothing account-scoped may be cached
+      across a switch (profile, permissions, tier, shop id, cart).
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span> Test plan</h2>
+    <ol>
+      <li>Sign into A, add B → <strong>both</strong> appear in the switcher; A's session survives.</li>
+      <li>Switch A → B → no logout, no code, correct dashboard and role.</li>
+      <li>Switch back B → A → instant.</li>
+      <li>Cross-role: shop ↔ customer, confirming sidebar, permissions and tier all follow the switch.</li>
+      <li>Expired token → falls back to sign-in with the email pre-filled.</li>
+      <li>Log out of B → A remains signed in; "log out everywhere" clears both.</li>
+      <li>Permissions: a staff member's restricted view must not leak across a switch.</li>
+      <li>Second browser/device → its own session list, unaffected.</li>
+      <li>Blockchain action after a switch → prompts to reconnect the matching wallet rather than misfiring.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span> Scope &amp; rollout</h2>
+    <table>
+      <thead><tr><th>Phase</th><th>Work</th><th>Risk</th></tr></thead>
+      <tbody>
+        <tr><td>0 — Interim</td><td>Relabel to "Log out &amp; sign in as another account" so the UI stops implying Facebook behavior</td><td><span class="ok">None</span></td></tr>
+        <tr><td>1 — Backend</td><td>Migration, device id on login, <code class="inline">/auth/sessions</code>, <code class="inline">/auth/switch</code>, scoped logout</td><td><span class="warn">Medium</span> — self-contained; existing login unaffected</td></tr>
+        <tr><td>2 — Frontend</td><td>Device id, live switcher, switch call + profile refetch</td><td><span class="warn">Medium</span></td></tr>
+        <tr><td>3 — Auth state</td><td>Teach the auth initializer that session ≠ connected wallet</td><td><span class="no">High</span> — the bug-prone part</td></tr>
+        <tr><td>4 — Hardening</td><td>Rate limits, audit logging, "log out everywhere", full test matrix</td><td><span class="warn">Medium</span></td></tr>
+      </tbody>
+    </table>
+    <p>
+      Phases 1 and 2 can ship behind a flag with the switcher hidden, so nothing user-visible changes until
+      phase 3 is proven.
+    </p>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>
+      Facebook-style switching is achievable and the groundwork — persisted, revocable refresh tokens — is already
+      in place. The work is to scope those tokens per device, add two endpoints to list and activate them, and
+      then untangle the front-end assumption that the connected wallet defines who you are. That last piece is the
+      genuine cost, and it is the one to plan for. Until it ships, the interim label change keeps the interface
+      honest about what it actually does.
+    </p>
+  </section>
+
+  <footer>RepairCoin · Feature Spec · Multi-Account Switching · July 22, 2026</footer>
+</div>
+</body>
+</html>

@@ -7,9 +7,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw, MessageSquare, DollarSign, Truck, ShieldCheck } from "lucide-react";
-import {
-  getMessagingCostSummary, fmtCents, type MessagingCostSummary,
-} from "@/services/api/messagingCosts";
+import { getMessagingCostSummary, fmtCents, type MessagingCostSummary } from "@/services/api/messagingCosts";
 
 const PERIODS: { label: string; days?: number }[] = [
   { label: "7 days", days: 7 },

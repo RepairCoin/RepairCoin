@@ -48,6 +48,26 @@ const PRICING_USD_PER_MTOK: Record<
     cacheWrite: 3.75,
     cacheRead: 0.3,
   },
+  // Sonnet 5 standard rate ($3/$15). Intro pricing of $2/$10 applies through 2026-08-31; we use the
+  // standard rate here so cost tracking never under-estimates and there's no cliff when intro ends.
+  "claude-sonnet-5": {
+    input: 3.0,
+    output: 15.0,
+    cacheWrite: 3.75,
+    cacheRead: 0.3,
+  },
+  "claude-opus-4-8": {
+    input: 5.0,
+    output: 25.0,
+    cacheWrite: 6.25,
+    cacheRead: 0.5,
+  },
+  "claude-fable-5": {
+    input: 10.0,
+    output: 50.0,
+    cacheWrite: 12.5,
+    cacheRead: 1.0,
+  },
   "claude-haiku-4-5-20251001": {
     input: 0.8,
     output: 4.0,

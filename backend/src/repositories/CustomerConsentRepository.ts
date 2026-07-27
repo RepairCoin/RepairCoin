@@ -41,6 +41,23 @@ export class CustomerConsentRepository extends BaseRepository {
     }
   }
 
+  /** Revoke consent for (phone, channel). Sets status='revoked' if a row exists; a no-op otherwise
+   *  (nothing to revoke). Idempotent. Used when a customer turns off SMS in their preferences. */
+  async revoke(phone: string, channel: ConsentChannel, source: string): Promise<void> {
+    try {
+      await this.pool.query(
+        `INSERT INTO customer_messaging_consent (phone, channel, status, source)
+         VALUES ($1, $2, 'revoked', $3)
+         ON CONFLICT (phone, channel)
+           DO UPDATE SET status = 'revoked', source = EXCLUDED.source, updated_at = now()`,
+        [phone, channel, source]
+      );
+    } catch (error) {
+      logger.error('Error in CustomerConsentRepository.revoke:', error);
+      throw error;
+    }
+  }
+
   /** True when (phone, channel) has an active 'granted' consent row. */
   async hasConsent(phone: string, channel: ConsentChannel): Promise<boolean> {
     try {

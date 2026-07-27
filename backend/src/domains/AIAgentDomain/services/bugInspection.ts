@@ -10,6 +10,7 @@
 import { Pool } from "pg";
 import { getSharedPool } from "../../../utils/database-pool";
 import { logger } from "../../../utils/logger";
+import { cheapModel } from "../../../config/aiModels";
 import { AnthropicClient } from "./AnthropicClient";
 
 const SEVERITIES = ["low", "medium", "high", "critical"] as const;
@@ -106,7 +107,7 @@ async function analyze(bug: BugRow): Promise<BugInspection> {
       const out = await ai.complete({
         systemPrompt: [{ text: systemPrompt, cache: true }],
         messages: [{ role: "user", content }],
-        model: "claude-haiku-4-5-20251001",
+        model: cheapModel(),
         maxTokens: 700,
       });
       const parsed = parseInspection(out.text);

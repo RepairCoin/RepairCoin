@@ -151,8 +151,10 @@ describe('Messages Export CSV - MessagesTab', () => {
       expect(source).toContain("import { MessagesContainer }");
     });
 
-    it('still imports AutoMessagesManager', () => {
-      expect(source).toContain("import { AutoMessagesManager }");
+    it('no longer hosts AutoMessagesManager (relocated to Marketing → AI Campaigns)', () => {
+      // Auto-Messages moved out of the Messages tab into the Marketing tab's "AI Campaigns" section
+      // (AI Campaigns Advanced, Phase 2 Slice B). MessagesTab should no longer import it.
+      expect(source).not.toContain("import { AutoMessagesManager }");
     });
 
     it('still imports messagingApi', () => {

@@ -34,6 +34,7 @@ import {
 import { buildHelpSystemPrompt } from "../services/HelpPromptBuilder";
 import { HelpAuditLogger } from "../services/HelpAuditLogger";
 import { ClaudeModel, ClaudeResponse } from "../types";
+import { cheapModel } from "../../../config/aiModels";
 
 export type HelpMessageRole = "user" | "assistant";
 
@@ -64,7 +65,7 @@ export const MAX_SESSION_ID_CHARS = 64;
 // Per scope decision the spend cap is shared with the AI Sales Agent;
 // switching to Sonnet would burn that cap fast with no quality win on
 // corpus-only Q&A.
-const HELP_MODEL: ClaudeModel = "claude-haiku-4-5-20251001";
+const HELP_MODEL: ClaudeModel = cheapModel();
 const HELP_MAX_TOKENS = 1024;
 
 export interface ValidationResult {

@@ -256,7 +256,7 @@ The system is designed to support:
    ```
 
 3. **Verify email configuration:**
-   - `EMAIL_USER` and `EMAIL_PASS` environment variables
+   - `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_FROM_NAME` environment variables
    - Email service initialization logs
 
 ### Preferences Not Saving

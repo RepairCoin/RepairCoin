@@ -195,7 +195,13 @@ describe("FaqSuggestionController", () => {
       makeReq({ user: { role: "shop", shopId: "peanut" }, params: { serviceId: "srv_1" } }),
       res
     );
-    expect(deps.spendCapEnforcer.recordSpend).toHaveBeenCalledWith("peanut", 0.0012);
+    // Passes a `ledger` entry: FAQ suggestions have no cost table of their own, so this is what
+    // writes the ai_misc_usage row that makes the spend visible to ai_usage_events (the cap's source).
+    expect(deps.spendCapEnforcer.recordSpend).toHaveBeenCalledWith(
+      "peanut",
+      0.0012,
+      expect.objectContaining({ feature: "faq_suggestion", vendor: "anthropic" })
+    );
     expect(res.json).toHaveBeenCalledWith({
       success: true,
       data: {

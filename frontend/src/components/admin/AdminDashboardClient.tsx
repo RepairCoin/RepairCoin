@@ -25,6 +25,7 @@ import { AdminWaitlistTab } from "@/components/admin/tabs/AdminWaitlistTab";
 import AdminDisputeTab from "@/components/admin/tabs/AdminDisputeTab";
 import AdminAdsTab from "@/components/admin/tabs/AdminAdsTab";
 import AdminMessagingCostsTab from "@/components/admin/tabs/AdminMessagingCostsTab";
+import AdminAIUsageTab from "@/components/admin/tabs/AdminAIUsageTab";
 import { AdminSettingsTab } from "@/components/admin/tabs/AdminSettingsTab";
 import { BugReportsTab } from "@/components/admin/tabs/BugReportsTab";
 import { AuditLogTab } from "@/components/admin/tabs/AuditLogTab";
@@ -558,6 +559,13 @@ export default function AdminDashboardClient() {
           {activeTab === "messaging-costs" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "messaging-costs"}>
                 <AdminMessagingCostsTab />
+              </LazyTabWrapper>
+            )}
+
+          {/* AI Usage & Cost — platform-wide AI spend from the ai_usage_events view */}
+          {activeTab === "ai-usage" && hasAdminAccess && (
+              <LazyTabWrapper isActive={activeTab === "ai-usage"}>
+                <AdminAIUsageTab />
               </LazyTabWrapper>
             )}
 

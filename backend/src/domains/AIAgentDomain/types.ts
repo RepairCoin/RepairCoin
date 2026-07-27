@@ -10,8 +10,11 @@
  * (ANTHROPIC_DEFAULT_MODEL / ANTHROPIC_FALLBACK_MODEL) actually point at.
  */
 export type ClaudeModel =
-  | "claude-sonnet-4-6"
-  | "claude-haiku-4-5-20251001";
+  | "claude-sonnet-4-6"          // current SMART default (Claude 4.x / now legacy generation)
+  | "claude-sonnet-5"            // SMART upgrade + current pilot target (same price as 4.6, current-gen)
+  | "claude-opus-4-8"            // available for high-capability env overrides
+  | "claude-fable-5"             // available for top-tier env overrides (most capable, ~3.3x Sonnet cost)
+  | "claude-haiku-4-5-20251001"; // CHEAP tier + spend-cap soft-landing fallback
 
 /**
  * One turn in the back-and-forth conversation. The system prompt is passed

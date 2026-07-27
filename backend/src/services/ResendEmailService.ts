@@ -43,21 +43,28 @@ interface SimpleEmailOptions {
 export class ResendEmailService {
   private client: Resend | null = null;
   private initialized: boolean = false;
-  private defaultFrom: { email: string; name: string };
+  private attemptedInit: boolean = false;
+  private defaultFrom: { email: string; name: string } = { email: '', name: '' };
 
-  constructor() {
+  /**
+   * Lazy initialization - module-level singletons can be constructed before
+   * dotenv has populated process.env, so we resolve config on first use.
+   */
+  private ensureInitialized(): void {
+    if (this.attemptedInit) {
+      return;
+    }
+    this.attemptedInit = true;
+
     this.defaultFrom = {
       email: process.env.RESEND_FROM_EMAIL || 'noreply@repaircoin.com',
       name: process.env.RESEND_FROM_NAME || 'RepairCoin',
     };
-    this.initialize();
-  }
 
-  private initialize(): void {
     const apiKey = process.env.RESEND_API_KEY;
 
     if (!apiKey) {
-      logger.warn('Resend API key not configured - emails will fall back to Gmail SMTP');
+      logger.warn('Resend API key not configured - emails will be logged only. Set RESEND_API_KEY.');
       this.initialized = false;
       return;
     }
@@ -76,6 +83,7 @@ export class ResendEmailService {
    * Check if the service is properly initialized
    */
   public isReady(): boolean {
+    this.ensureInitialized();
     return this.initialized && this.client !== null;
   }
 

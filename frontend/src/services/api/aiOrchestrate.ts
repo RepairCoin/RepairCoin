@@ -74,6 +74,7 @@ export interface OrchestrateResponse {
   // WS3 soft-landing — true once the shop's monthly AI allowance is spent (reply
   // still came through on a lighter model). Powers the AiLimitNotice banner.
   limitReached?: boolean;
+  overageCapReached?: boolean;
   budgetUsd?: number;
   spentUsd?: number;
 }

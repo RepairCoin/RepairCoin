@@ -15,13 +15,14 @@ import { BrandKitService } from '../../AIAgentDomain/services/BrandKitService';
 import { imageGenerationService, ImageGenerationService } from '../../AIAgentDomain/services/ImageGenerationService';
 import { shopRepository } from '../../../repositories';
 import { ClaudeModel } from '../../AIAgentDomain/types';
+import { cheapModel } from '../../../config/aiModels';
 import { AdCampaignRequest } from '../repositories/CampaignRequestRepository';
 import { AiCostRepository } from '../repositories/AiCostRepository';
 import { parseAdCopy, truncateAtWord } from './adCopyParse';
 
 export { parseAdCopy };
 
-const COPY_MODEL: ClaudeModel = 'claude-haiku-4-5-20251001';
+const COPY_MODEL: ClaudeModel = cheapModel();
 
 const COPY_SYSTEM =
   'You write short Facebook/Instagram ad copy for a local service business. ' +

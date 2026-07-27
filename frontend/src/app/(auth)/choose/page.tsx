@@ -7,12 +7,159 @@ import { createThirdwebClient } from "thirdweb";
 import { useAuthStore } from "@/stores/authStore";
 import { getApiBaseUrl } from "@/utils/apiUrl";
 import Image from "next/image";
+import { Store, UserRound } from "lucide-react";
 
 const client = createThirdwebClient({
   clientId:
     process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
     "1969ac335e07ba13ad0f8d1a1de4f6ab",
 });
+
+type CardShellProps = {
+  children: React.ReactNode;
+};
+
+function CardShell({ children }: CardShellProps) {
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-[20px] bg-[#101010] text-left">
+      {children}
+    </div>
+  );
+}
+
+type RoleCardProps = {
+  image: string;
+  alt: string;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  cta: string;
+  onClick: () => void;
+};
+
+function RoleCard({
+  image,
+  alt,
+  icon,
+  title,
+  description,
+  cta,
+  onClick,
+}: RoleCardProps) {
+  return (
+    <CardShell>
+      <div className="relative aspect-[585/348] w-full shrink-0">
+        <Image
+          src={image}
+          alt={alt}
+          fill
+          priority
+          sizes="(max-width: 768px) 100vw, 585px"
+          className="object-cover"
+        />
+      </div>
+      <div className="flex flex-grow flex-col items-center px-6 pb-[50px] text-center">
+        <div className="relative z-10 -mt-[35px] flex h-[70px] w-[70px] shrink-0 items-center justify-center rounded-full border-2 border-[#FFCC00] bg-[#101010]">
+          {icon}
+        </div>
+        <h2 className="mt-[5px] text-[28px] font-bold leading-[56px] tracking-[0.5253px] text-white md:text-[34px] md:leading-[72px]">
+          {title}
+        </h2>
+        <p className="max-w-[450px] text-base leading-[1.5] tracking-[-0.32px] text-[#999999]">
+          {description}
+        </p>
+        <button
+          onClick={onClick}
+          className="mt-10 h-12 w-full max-w-[416px] cursor-pointer rounded-md bg-[#FFCC00] text-base font-medium text-black transition-colors duration-200 hover:bg-[#E5BB00]"
+        >
+          {cta}
+        </button>
+      </div>
+    </CardShell>
+  );
+}
+
+type StatusCardProps = {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  details?: { label: string; value: string }[];
+  cta: string;
+  onClick: () => void;
+};
+
+function StatusCard({
+  icon,
+  title,
+  description,
+  details,
+  cta,
+  onClick,
+}: StatusCardProps) {
+  return (
+    <CardShell>
+      <div className="flex h-full flex-col items-center px-6 py-[50px] text-center">
+        <div className="flex h-[70px] w-[70px] shrink-0 items-center justify-center rounded-full border-2 border-[#FFCC00] bg-[#101010]">
+          {icon}
+        </div>
+        <h2 className="mt-4 text-[28px] font-bold leading-tight tracking-[0.5253px] text-white">
+          {title}
+        </h2>
+        <p className="mt-3 max-w-[450px] text-base leading-[1.5] tracking-[-0.32px] text-[#999999]">
+          {description}
+        </p>
+        {details && details.length > 0 && (
+          <dl className="mt-6 w-full max-w-[416px] space-y-2 rounded-md border border-white/10 bg-white/5 p-4 text-left">
+            {details.map((detail) => (
+              <div
+                key={detail.label}
+                className="flex items-center justify-between gap-4"
+              >
+                <dt className="text-sm text-[#999999]">{detail.label}</dt>
+                <dd className="text-sm font-medium text-white">
+                  {detail.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        <button
+          onClick={onClick}
+          className="mt-auto h-12 w-full max-w-[416px] cursor-pointer rounded-md bg-[#FFCC00] text-base font-medium text-black transition-colors duration-200 hover:bg-[#E5BB00]"
+        >
+          {cta}
+        </button>
+      </div>
+    </CardShell>
+  );
+}
+
+function SkeletonCard({ title }: { title: string }) {
+  return (
+    <CardShell>
+      <div className="relative aspect-[585/348] w-full shrink-0 animate-pulse bg-white/5">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#FFCC00]" />
+        </div>
+      </div>
+      <div className="flex flex-grow flex-col items-center px-6 pb-[50px] text-center">
+        <div className="relative z-10 -mt-[35px] h-[70px] w-[70px] shrink-0 rounded-full border-2 border-[#FFCC00] bg-[#101010]" />
+        <h2 className="mt-[5px] text-[28px] font-bold leading-[56px] tracking-[0.5253px] text-white md:text-[34px] md:leading-[72px]">
+          {title}
+        </h2>
+        <p className="max-w-[450px] text-base leading-[1.5] tracking-[-0.32px] text-[#999999]">
+          Checking registration status...
+        </p>
+        <button
+          disabled
+          className="mt-10 h-12 w-full max-w-[416px] cursor-not-allowed rounded-md bg-white/10 text-base font-medium text-[#999999]"
+        >
+          Please wait...
+        </button>
+      </div>
+    </CardShell>
+  );
+}
 
 export default function ChoosePage() {
   const { account, isLoading } = useAuthStore();
@@ -92,26 +239,32 @@ export default function ChoosePage() {
   useEffect(() => {
     if (activeAccount?.address) {
       // Check if this is a NEW connection (address changed from different address)
-      const isNewConnection = 
-        previousAccountRef.current !== activeAccount.address && 
+      const isNewConnection =
+        previousAccountRef.current !== activeAccount.address &&
         previousAccountRef.current !== undefined &&
         !hasCheckedRef.current;
-      
+
       // Initialize the ref on first render without triggering check
       if (previousAccountRef.current === undefined) {
         previousAccountRef.current = activeAccount.address;
         // On first render with existing connection, check registration
-        console.log("Checking existing registrations for:", activeAccount.address);
+        console.log(
+          "Checking existing registrations for:",
+          activeAccount.address
+        );
         checkExistingRegistrations(activeAccount.address);
         return;
       }
-      
+
       if (isNewConnection) {
         hasCheckedRef.current = true;
-        console.log("New connection - Checking existing registrations for:", activeAccount.address);
+        console.log(
+          "New connection - Checking existing registrations for:",
+          activeAccount.address
+        );
         checkExistingRegistrations(activeAccount.address);
       }
-      
+
       previousAccountRef.current = activeAccount.address;
     } else if (!activeAccount?.address && previousAccountRef.current) {
       // Reset refs when wallet disconnects
@@ -125,7 +278,9 @@ export default function ChoosePage() {
     // Only redirect after we've finished checking applications
     if (!checkingApplications && !isLoading) {
       if (customerStatus.isRegistered) {
-        console.log("Customer already registered, redirecting to customer dashboard");
+        console.log(
+          "Customer already registered, redirecting to customer dashboard"
+        );
         router.push("/customer");
       } else if (
         shopApplicationStatus.hasApplication &&
@@ -147,15 +302,13 @@ export default function ChoosePage() {
   // Show loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
-        <div className="max-w-md w-full bg-[#1C1C1C] rounded-2xl shadow-xl p-8 border border-gray-800">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
-            <h2 className="text-xl font-semibold text-white mb-2">
-              Loading FixFlow...
-            </h2>
-            <p className="text-gray-300">Checking your authentication status</p>
-          </div>
+      <div className="flex min-h-screen items-center justify-center bg-[#191919]">
+        <div className="w-full max-w-md rounded-[20px] bg-[#101010] p-8 text-center shadow-xl">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-[#FFCC00]" />
+          <h2 className="mb-2 text-xl font-semibold text-white">
+            Loading FixFlow...
+          </h2>
+          <p className="text-[#999999]">Checking your authentication status</p>
         </div>
       </div>
     );
@@ -163,16 +316,18 @@ export default function ChoosePage() {
 
   if (!account) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
-        <div className="max-w-md w-full bg-[#1C1C1C] rounded-2xl shadow-xl p-8 border border-gray-800">
-          <div className="text-center">
-            <div className="text-6xl mb-6">🏪</div>
-            <h1 className="text-3xl font-bold text-white mb-4">
-              Choose your role
-            </h1>
-            <p className="text-gray-300 mb-8">
-              Connect your wallet to choose your role
-            </p>
+      <div className="flex min-h-screen items-center justify-center bg-[#191919]">
+        <div className="w-full max-w-md rounded-[20px] bg-[#101010] p-8 text-center shadow-xl">
+          <div className="mx-auto mb-6 flex h-[70px] w-[70px] items-center justify-center rounded-full border-2 border-[#FFCC00] bg-[#101010]">
+            <Store className="h-8 w-8 text-[#FFCC00]" strokeWidth={1.5} />
+          </div>
+          <h1 className="mb-4 text-3xl font-bold text-white">
+            Choose your role
+          </h1>
+          <p className="mb-8 text-[#999999]">
+            Connect your wallet to choose your role
+          </p>
+          <div className="flex justify-center">
             <ConnectButton
               client={client}
               theme="dark"
@@ -184,524 +339,164 @@ export default function ChoosePage() {
     );
   }
 
+  const customerIcon = (
+    <UserRound className="h-8 w-8 text-[#FFCC00]" strokeWidth={1.5} />
+  );
+  const shopIcon = <Store className="h-8 w-8 text-[#FFCC00]" strokeWidth={1.5} />;
+
   return (
-    <div
-      className="min-h-screen pb-10 pt-36 bg-[#0D0D0D]"
-      style={{
-        backgroundImage: `url('/img/dashboard-bg.png')`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <div className="max-w-screen-2xl w-[70%] mx-auto">
+    <div className="relative min-h-screen overflow-hidden bg-[#191919]">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-[88px] h-[723px] bg-[url('/img/choose/hero-gradient.png')] bg-[length:100%_100%] bg-no-repeat"
+      />
+
+      <div className="relative mx-auto w-full max-w-[1230px] px-6 pb-24 pt-32 md:pt-[164px]">
         {/* Header */}
-        <div className="w-full flex flex-col  items-center md:gap-6 gap-4">
-          <p className="md:text-5xl text-3xl text-center font-bold text-white tracking-wide">
+        <div className="text-center">
+          <h1 className="text-[40px] font-bold leading-tight tracking-[0.5253px] text-white md:text-[64px] md:leading-[72px]">
             Welcome to FixFlow
-          </p>
-          <p className="text-white text-xs md:text-base mb-6 xl:w-2/3 md:w-2/4 text-center tracking-wide">
-            Choose how you'd like to join our rewards-powered ecosystem
+          </h1>
+          <p className="mt-4 text-lg font-medium tracking-[0.2064px] text-white md:text-[22px] md:leading-[33px]">
+            How would you like to get started?
           </p>
         </div>
 
         {/* Registration Options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 my-8">
+        <div className="mt-[55px] grid grid-cols-1 gap-[60px] md:grid-cols-2">
           {/* Customer Registration */}
-          <div className="rounded-2xl shadow-xl hover:shadow-2xl transition-shadow h-full">
-            <div className="text-center h-full flex flex-col">
-              {checkingApplications ? (
-                <div className="flex flex-col h-full bg-[#1C1C1C] rounded-2xl overflow-hidden shadow-lg">
-                  <div className="relative w-full bg-[#1C1C1C] overflow-hidden">
-                    <div className="w-full pt-[56.25%] relative bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a]">
-                      <Image
-                        src="/img/choose-avatar1.png"
-                        alt="Customer"
-                        fill
-                        priority
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                        className="object-cover opacity-50"
-                        placeholder="blur"
-                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAUH/8QAIRAAAgIBAwUBAAAAAAAAAAAAAQIDBAAFERIGEyExQVH/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABkRAAIDAQAAAAAAAAAAAAAAAAABAhEhMf/aAAwDAQACEQMRAD8AzLT9Rv6fFNFVnaNZgBIB7gPz+ZMpzywzSRTOXkRirMfZI2z+YxkKdMrSP//Z"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FFCC00]"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col flex-grow p-5 sm:p-6 gap-2">
-                    <p className="text-2xl font-semibold text-white mb-2 sm:mb-3">
-                      I'm a Customer
-                    </p>
-                    <p className="text-gray-400 text-xs mb-4">
-                      Checking registration status...
-                    </p>
-                    <div className="mt-auto">
-                      <button
-                        disabled
-                        className="w-full bg-gray-600 text-gray-400 font-semibold py-4 px-6 rounded-xl cursor-not-allowed"
-                      >
-                        Please wait...
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : customerStatus.isRegistered ? (
-                <>
-                  <div className="text-5xl mb-4">✅</div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                    Already Registered
-                  </h3>
-                  <p className="text-gray-600 mb-6 flex-grow">
-                    You're already registered as a customer in our network
-                  </p>
-                  <div className="bg-green-50 rounded-lg p-4 mb-6">
-                    <p className="text-sm text-green-600">Customer Status:</p>
-                    <p className="font-semibold text-green-900">Active</p>
-                    {customerStatus.customerData?.tier && (
-                      <>
-                        <p className="text-sm text-green-600 mt-2">
-                          Current Tier:
-                        </p>
-                        <p className="font-semibold text-green-900">
-                          {customerStatus.customerData.tier}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                  <div className="mt-auto">
-                    <button
-                      onClick={() => router.push("/customer")}
-                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
-                    >
-                      Go to Customer Dashboard
-                    </button>
-                  </div>
-                </>
-              ) : shopApplicationStatus.hasApplication ? (
-                <>
-                  <div className="text-5xl mb-4">🚫</div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                    Shop Application Found
-                  </h3>
-                  <p className="text-gray-600 mb-6 flex-grow">
-                    You have a{" "}
-                    {shopApplicationStatus.status === "pending"
-                      ? "pending"
-                      : "verified"}{" "}
-                    shop application. You cannot register as both a customer and
-                    a shop with the same wallet.
-                  </p>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                    <div className="text-sm text-yellow-700">
-                      <p className="font-medium mb-1">Existing Shop:</p>
-                      <p className="font-semibold">
-                        {shopApplicationStatus.shopName}
-                      </p>
-                      <p className="mt-2">
-                        Status:{" "}
-                        <span className="font-medium">
-                          {shopApplicationStatus.status === "pending"
-                            ? "Pending Approval"
-                            : "Verified"}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-auto">
-                    <button
-                      onClick={() => router.push("/shop?tab=profile")}
-                      className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
-                    >
-                      View Shop Application
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col h-full bg-[#1C1C1C] rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                  <div className="relative w-full bg-[#1C1C1C] overflow-hidden">
-                    <div className="w-full pt-[56.25%] relative bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a]">
-                      <Image
-                        src="/img/choose-avatar1.png"
-                        alt="Customer"
-                        fill
-                        priority
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                        className="object-cover"
-                        placeholder="blur"
-                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAUH/8QAIRAAAgIBAwUBAAAAAAAAAAAAAQIDBAAFERIGEyExQVH/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABkRAAIDAQAAAAAAAAAAAAAAAAABAhEhMf/aAAwDAQACEQMRAD8AzLT9Rv6fFNFVnaNZgBIB7gPz+ZMpzywzSRTOXkRirMfZI2z+YxkKdMrSP//Z"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex flex-col flex-grow p-5 sm:p-6 gap-2">
-                    <p className="text-2xl font-semibold text-white mb-2 sm:mb-3 line-clamp-2">
-                      I'm a Customer
-                    </p>
-                    <p className="text-gray-300 text-xs mb-4 line-clamp-3">
-                      Start earning RepairCoin tokens for your device repairs
-                      and redeem them for discounts
-                    </p>
-                    <div className="flex flex-col mt-4 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <svg
-                          width="25"
-                          height="25"
-                          viewBox="0 0 30 30"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
-                            fill="#FFCC00"
-                          />
-                        </svg>
-                        <span className="text-gray-300">
-                          Earn 10-25 RCN per repair
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <svg
-                          width="25"
-                          height="25"
-                          viewBox="0 0 30 30"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
-                            fill="#FFCC00"
-                          />
-                        </svg>
-                        <span className="text-gray-300">
-                          Redeem tokens for discounts
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <svg
-                          width="25"
-                          height="25"
-                          viewBox="0 0 30 30"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
-                            fill="#FFCC00"
-                          />
-                        </svg>
-                        <span className="text-gray-300">
-                          Access tier benefits
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-8">
-                      <button
-                        onClick={() => router.push("/register/customer")}
-                        className="w-full bg-[#FFCC00] text-black font-semibold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
-                      >
-                        Register as Customer
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          {checkingApplications ? (
+            <SkeletonCard title="Customer" />
+          ) : customerStatus.isRegistered ? (
+            <StatusCard
+              icon={customerIcon}
+              title="Already Registered"
+              description="You're already registered as a customer in our network."
+              details={[
+                { label: "Customer status", value: "Active" },
+                ...(customerStatus.customerData?.tier
+                  ? [
+                      {
+                        label: "Current tier",
+                        value: String(customerStatus.customerData.tier),
+                      },
+                    ]
+                  : []),
+              ]}
+              cta="Go to Customer Dashboard →"
+              onClick={() => router.push("/customer")}
+            />
+          ) : shopApplicationStatus.hasApplication ? (
+            <StatusCard
+              icon={customerIcon}
+              title="Shop Application Found"
+              description={`You have a ${
+                shopApplicationStatus.status === "pending"
+                  ? "pending"
+                  : "verified"
+              } shop application. You cannot register as both a customer and a shop with the same wallet.`}
+              details={[
+                ...(shopApplicationStatus.shopName
+                  ? [
+                      {
+                        label: "Existing shop",
+                        value: shopApplicationStatus.shopName,
+                      },
+                    ]
+                  : []),
+                {
+                  label: "Status",
+                  value:
+                    shopApplicationStatus.status === "pending"
+                      ? "Pending approval"
+                      : "Verified",
+                },
+              ]}
+              cta="View Shop Application →"
+              onClick={() => router.push("/shop?tab=profile")}
+            />
+          ) : (
+            <RoleCard
+              image="/img/choose/customer-card.png"
+              alt="Customer booking a repair on their phone"
+              icon={customerIcon}
+              title="Customer"
+              description="Book services, earn rewards, track appointments and discover trusted local businesses."
+              cta="Continue as Customer →"
+              onClick={() => router.push("/register/customer")}
+            />
+          )}
 
           {/* Shop Registration */}
-          <div className="rounded-2xl shadow-xl hover:shadow-2xl transition-shadow h-full">
-            <div className="text-center h-full flex flex-col">
-              {checkingApplications ? (
-                <div className="flex flex-col h-full bg-[#1C1C1C] rounded-2xl overflow-hidden shadow-lg">
-                  <div className="relative w-full bg-[#1C1C1C] overflow-hidden">
-                    <div className="w-full pt-[56.25%] relative bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a]">
-                      <Image
-                        src="/img/choose-avatar2.png"
-                        alt="Repair Shop Owner"
-                        fill
-                        priority
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                        className="object-cover opacity-50"
-                        placeholder="blur"
-                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAUH/8QAIRAAAgIBAwUBAAAAAAAAAAAAAQIDBAAFERIGEyExQVH/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABkRAAIDAQAAAAAAAAAAAAAAAAABAhEhMf/aAAwDAQACEQMRAD8AzLT9Rv6fFNFVnaNZgBIB7gPz+ZMpzywzSRTOXkRirMfZI2z+YxkKdMrSP//Z"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FFCC00]"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col flex-grow p-5 sm:p-6 gap-2">
-                    <p className="text-2xl font-semibold text-white mb-2 sm:mb-3">
-                      I'm a Shop Owner
-                    </p>
-                    <p className="text-gray-400 text-xs mb-4">
-                      Checking registration status...
-                    </p>
-                    <div className="mt-auto">
-                      <button
-                        disabled
-                        className="w-full bg-gray-600 text-gray-400 font-semibold py-4 px-6 rounded-xl cursor-not-allowed"
-                      >
-                        Please wait...
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : customerStatus.isRegistered ? (
-                <>
-                  <div className="text-5xl mb-4">🚫</div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                    Customer Registration Found
-                  </h3>
-                  <p className="text-gray-600 mb-6 flex-grow">
-                    You're already registered as a customer in our network. You
-                    cannot register as both a customer and a shop with the same
-                    wallet.
-                  </p>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <div className="text-sm text-blue-700">
-                      <p className="font-medium mb-1">Existing Registration:</p>
-                      <p className="font-semibold">Customer Account</p>
-                      {customerStatus.customerData?.tier && (
-                        <p className="mt-2">
-                          Tier:{" "}
-                          <span className="font-medium">
-                            {customerStatus.customerData.tier}
-                          </span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-auto">
-                    <button
-                      onClick={() => router.push("/customer")}
-                      className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
-                    >
-                      View Customer Dashboard
-                    </button>
-                  </div>
-                </>
-              ) : shopApplicationStatus.hasApplication ? (
-                <>
-                  <div className="text-5xl mb-4">
-                    {shopApplicationStatus.status === "pending" ? "⏳" : "✅"}
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                    {shopApplicationStatus.status === "pending"
-                      ? "Application Pending"
-                      : "Shop Registered"}
-                  </h3>
-                  <p className="text-gray-600 mb-6 flex-grow">
-                    {shopApplicationStatus.status === "pending"
-                      ? "Your shop application is being reviewed by our admin team"
-                      : "Your shop is registered and verified in our network"}
-                  </p>
-                  {shopApplicationStatus.shopName && (
-                    <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                      <p className="text-sm text-gray-600">Shop Name:</p>
-                      <p className="font-semibold text-gray-900">
-                        {shopApplicationStatus.shopName}
-                      </p>
-                    </div>
-                  )}
-                  <div className="space-y-3 text-sm mb-6">
-                    {shopApplicationStatus.status === "pending" ? (
-                      <div className="text-yellow-600 bg-yellow-50 rounded-lg p-3">
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                          <span>⏳</span>
-                          <span className="font-medium">
-                            Awaiting Admin Review
-                          </span>
-                        </div>
-                        <p className="text-xs">
-                          You'll receive access once approved
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-green-600 bg-green-50 rounded-lg p-3">
-                        <div className="flex items-center justify-center gap-2">
-                          <span>✓</span>
-                          <span className="font-medium">
-                            Ready to Use Dashboard
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-auto">
-                    <button
-                      onClick={() => router.push("/shop?tab=profile")}
-                      className={`w-full font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer ${
-                        shopApplicationStatus.status === "pending"
-                          ? "bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white"
-                          : "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
-                      }`}
-                    >
-                      {shopApplicationStatus.status === "pending"
-                        ? "View Application Status"
-                        : "Go to Shop Dashboard"}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex flex-col h-full bg-[#1C1C1C] rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <div className="relative w-full bg-[#1C1C1C] overflow-hidden">
-                      <div className="w-full pt-[56.25%] relative bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a]">
-                        <Image
-                          src="/img/choose-avatar2.png"
-                          alt="Repair Shop Owner"
-                          fill
-                          priority
-                          sizes="(max-width: 768px) 100vw, 50vw"
-                          className="object-cover"
-                          placeholder="blur"
-                          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAUH/8QAIRAAAgIBAwUBAAAAAAAAAAAAAQIDBAAFERIGEyExQVH/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABkRAAIDAQAAAAAAAAAAAAAAAAABAhEhMf/aAAwDAQACEQMRAD8AzLT9Rv6fFNFVnaNZgBIB7gPz+ZMpzywzSRTOXkRirMfZI2z+YxkKdMrSP//Z"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-col flex-grow p-5 sm:p-6 gap-2">
-                      <p className="text-2xl font-semibold text-white mb-2 sm:mb-3 line-clamp-2">
-                        I'm a Shop Owner
-                      </p>
-                      <p className="text-gray-300 text-xs mb-4 line-clamp-3">
-                        Join our network to offer loyalty tokens to your
-                        customers and boost retentions
-                      </p>
-                      <div className="flex flex-col mt-4 space-y-3">
-                        <div className="flex items-center gap-3">
-                          <svg
-                            width="25"
-                            height="25"
-                            viewBox="0 0 30 30"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
-                              fill="#FFCC00"
-                            />
-                          </svg>
-                          <span className="text-gray-300">
-                            Purchase RCN at $0.10 per token
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <svg
-                            width="25"
-                            height="25"
-                            viewBox="0 0 30 30"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
-                              fill="#FFCC00"
-                            />
-                          </svg>
-                          <span className="text-gray-300">
-                            Automatic Tier Bonuses
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <svg
-                            width="25"
-                            height="25"
-                            viewBox="0 0 30 30"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
-                              fill="#FFCC00"
-                            />
-                          </svg>
-                          <span className="text-gray-300">
-                            Cross-shop redemption network
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-8">
-                        <button
-                          onClick={() => router.push("/register/shop")}
-                          className="w-full bg-[#FFCC00] text-black font-semibold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
-                        >
-                          Register as Shop
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* How to Earn More RepairCoin Section */}
-        <div
-          className="my-28 bg-gradient-to-b from-[#1A1A1A] to-[#2A2A2A] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
-          style={{
-            backgroundImage: `url('/img/cus-how-to-earn.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <h2 className="text-3xl tracking-wide font-bold text-white my-6 text-center">
-            How to Earn More RepairCoin
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-            {/* Refer Friends Card */}
-            <div className="rounded-2xl p-6">
-              <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
-                <img
-                  src="/img/story1.png"
-                  alt="Refer Friends"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <h3 className="text-[#FFCC00] text-lg font-semibold mb-2 text-center tracking-wide">
-                1. Get Services
-              </h3>
-              <p className="text-gray-300 text-sm tracking-wide text-center">
-                Customers get services from participating shops.
-              </p>
-            </div>
-
-            {/* Complete Repairs Card */}
-            <div className="rounded-2xl p-6">
-              <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
-                <img
-                  src="/img/whatWeDo3.png"
-                  alt="Complete Repairs"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <h3 className="text-[#FFCC00] text-lg font-semibold mb-2 text-center tracking-wide">
-                2. Earn Tokens
-              </h3>
-              <p className="text-gray-300 text-sm tracking-wide text-center">
-                Receive RCN tokens based on service value and tier.
-              </p>
-            </div>
-
-            {/* Upgrade Your Tier Card */}
-            <div className="rounded-2xl p-6">
-              <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
-                <img
-                  src="/img/customer-avatar.png"
-                  alt="Upgrade Your Tier"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <h3 className="text-[#FFCC00] text-lg font-semibold mb-2 text-center tracking-wide">
-                3. Redeem Benefits
-              </h3>
-              <p className="text-gray-300 text-sm tracking-wide text-center">
-                Use tokens for discounts at any participating shop.
-              </p>
-            </div>
-          </div>
+          {checkingApplications ? (
+            <SkeletonCard title="Shop Owner" />
+          ) : customerStatus.isRegistered ? (
+            <StatusCard
+              icon={shopIcon}
+              title="Customer Registration Found"
+              description="You're already registered as a customer in our network. You cannot register as both a customer and a shop with the same wallet."
+              details={[
+                { label: "Existing registration", value: "Customer account" },
+                ...(customerStatus.customerData?.tier
+                  ? [
+                      {
+                        label: "Tier",
+                        value: String(customerStatus.customerData.tier),
+                      },
+                    ]
+                  : []),
+              ]}
+              cta="View Customer Dashboard →"
+              onClick={() => router.push("/customer")}
+            />
+          ) : shopApplicationStatus.hasApplication ? (
+            <StatusCard
+              icon={shopIcon}
+              title={
+                shopApplicationStatus.status === "pending"
+                  ? "Application Pending"
+                  : "Shop Registered"
+              }
+              description={
+                shopApplicationStatus.status === "pending"
+                  ? "Your shop application is being reviewed by our admin team. You'll receive access once approved."
+                  : "Your shop is registered and verified in our network."
+              }
+              details={[
+                ...(shopApplicationStatus.shopName
+                  ? [
+                      {
+                        label: "Shop name",
+                        value: shopApplicationStatus.shopName,
+                      },
+                    ]
+                  : []),
+                {
+                  label: "Status",
+                  value:
+                    shopApplicationStatus.status === "pending"
+                      ? "Awaiting admin review"
+                      : "Ready to use dashboard",
+                },
+              ]}
+              cta={
+                shopApplicationStatus.status === "pending"
+                  ? "View Application Status →"
+                  : "Go to Shop Dashboard →"
+              }
+              onClick={() => router.push("/shop?tab=profile")}
+            />
+          ) : (
+            <RoleCard
+              image="/img/choose/shop-card.png"
+              alt="Shop owner managing their business"
+              icon={shopIcon}
+              title="Shop Owner"
+              description="Grow your business with AI, smart bookings, CRM, marketing tools, rewards and powerful insights."
+              cta="Continue as Shop Owner →"
+              onClick={() => router.push("/register/shop")}
+            />
+          )}
         </div>
       </div>
     </div>

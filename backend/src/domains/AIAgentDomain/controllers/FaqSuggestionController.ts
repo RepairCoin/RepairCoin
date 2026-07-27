@@ -24,8 +24,9 @@ import { AnthropicClient } from "../services/AnthropicClient";
 import { SpendCapEnforcer } from "../services/SpendCapEnforcer";
 import { logger } from "../../../utils/logger";
 import { ClaudeModel } from "../types";
+import { cheapModel } from "../../../config/aiModels";
 
-const SUGGEST_MODEL: ClaudeModel = "claude-haiku-4-5-20251001";
+const SUGGEST_MODEL: ClaudeModel = cheapModel();
 const SUGGEST_MAX_TOKENS = 1100;
 const SUGGESTION_COUNT = 6;
 const MAX_QUESTION_LEN = 200;
@@ -219,8 +220,14 @@ export function makeFaqSuggestionController(deps: FaqSuggestionControllerDeps = 
       });
 
       // Record spend regardless of how parseable the output was — the call
-      // was made and billed.
-      await spendCapEnforcer.recordSpend(service.shopId, response.costUsd);
+      // was made and billed. FAQ suggestions have no cost table of their own, so the `ledger`
+      // entry is what makes this spend visible to ai_usage_events (the spend cap's source).
+      await spendCapEnforcer.recordSpend(service.shopId, response.costUsd, {
+        feature: "faq_suggestion",
+        vendor: "anthropic",
+        model: SUGGEST_MODEL,
+        metadata: { serviceId: service.serviceId },
+      });
 
       const suggestions = parseFaqSuggestions(response.text);
 

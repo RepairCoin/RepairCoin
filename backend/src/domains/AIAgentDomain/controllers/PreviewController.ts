@@ -26,8 +26,9 @@ import {
   AITone,
   ClaudeModel,
 } from "../types";
+import { cheapModel } from "../../../config/aiModels";
 
-const PREVIEW_MODEL: ClaudeModel = "claude-haiku-4-5-20251001";
+const PREVIEW_MODEL: ClaudeModel = cheapModel();
 const PREVIEW_MAX_TOKENS = 250;
 const DEFAULT_SAMPLE_QUESTION = "Hi! How much does this cost and when can I book?";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour

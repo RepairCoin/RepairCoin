@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 21, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+    --amber: #b45309; --amber-bg: #fef3e2; --red: #b91c1c; --red-bg: #fdecec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  h3 { font-size: 15px; margin: 18px 0 4px; color: var(--ink); letter-spacing: -.01em; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-done { background: var(--green-bg); color: #14753b; }
+  .tag-new { background: var(--violet-bg); color: var(--violet); }
+  .tag-fix { background: #e4eeff; color: #1d4ed8; }
+  .tag-review { background: var(--amber-bg); color: var(--amber); }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  td .warn { color: var(--amber); font-weight: 700; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.amber { background: var(--amber-bg); border: 1px solid #f6d9a8; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+  .callout.amber strong { color: var(--amber); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>UI Consistency Pass, Service Cards &amp; Stripe Audit</h1>
+    <p class="sub">Unified the app's dark theme across customer &amp; shop screens, streamlined the service cards, and audited the full Stripe integration.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 21, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Implemented · lint-clean · pending commit</span></span>
+      <span class="meta-pill"><strong>Focus:</strong>&nbsp; UI polish + payments review</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      A focused polish day: several screens were still rendering as bright white cards against the app's dark
+      theme, so we brought them in line, then simplified the shop's service cards down to what actually matters.
+      We also ran a full audit of the Stripe integration — code, config, webhooks, and a live connectivity check.
+      All UI changes pass linting with zero errors and are ready for review.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Customer Home — Theme Consistency <span class="tag tag-fix">FIXED</span></h2>
+    <p>
+      On the customer dashboard's <strong>Overview</strong>, two large sections were rendering as bright white cards
+      while everything around them was dark — they stood out as visually "off."
+    </p>
+    <ul>
+      <li><strong>"Trusted Professionals in Every Service"</strong> and <strong>"Popular Services Near You"</strong>
+          were converted to the app's dark card style, matching the surrounding panels.</li>
+      <li>Category tiles, service thumbnails, ratings, "See more" links, and the scroll arrows were all re-styled so
+          they read clearly on the dark background.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Shop "Auto Sales &amp; Booking" AI Panel — Theme Consistency <span class="tag tag-fix">FIXED</span></h2>
+    <p>
+      On the service create/edit screen, the entire <strong>AI Sales Assistant</strong> panel was a white card sitting
+      right next to the dark "Live Preview" — a jarring mismatch.
+    </p>
+    <ul>
+      <li>Re-themed the whole cluster (the assistant panel, the customer-questions FAQ editor, and the AI-spend
+          indicator) to the dark form style, while keeping the <strong>green accents</strong> so the AI feature still
+          stands out as distinct.</li>
+      <li>Tone selector, sample-reply bubbles, FAQ inputs, tip boxes, and the spend chip were each adjusted for
+          dark-mode contrast and legibility.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Service Cards — Simplified &amp; Clearer <span class="tag tag-new">NEW</span> <span class="tag tag-fix">FIXED</span></h2>
+    <p>
+      The shop's service cards had a cluttered 2×2 grid of four look-alike buttons (Edit, Delete, Availability,
+      Calendar), where even <em>Delete</em> highlighted the same color as the safe actions. We reworked the whole
+      interaction:
+    </p>
+    <ul>
+      <li><strong>Click the card to open the service</strong> — the card now navigates straight to the service page
+          (replacing the old pop-up modal), so the whole card is the primary action.</li>
+      <li><strong>Trimmed to Edit + Delete.</strong> Availability and Calendar were removed from the card because
+          they already live <em>inside</em> the service page as tabs — no need to duplicate them.</li>
+      <li><strong>Delete is now clearly destructive</strong> — a compact icon button that turns red on hover, set
+          apart from Edit, with a hover <strong>tooltip</strong> and a subtle "deleting…" animation.</li>
+      <li>The <strong>Share QR Code</strong> action stays as the prominent primary button.</li>
+    </ul>
+    <div class="callout violet">
+      <strong>Why it matters:</strong> less visual noise, a clear primary action (open the service), and a
+      delete that finally <em>looks</em> like a delete — fewer accidental clicks, cleaner cards.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> Stripe Integration — Full Audit <span class="tag tag-review">REVIEW</span></h2>
+    <p>
+      Reviewed the entire Stripe setup end-to-end — service code, environment config, webhook handling, and a live
+      connectivity check. Core payments are healthy; a few configuration gaps were flagged for ops.
+    </p>
+    <ul>
+      <li><strong>Healthy:</strong> Stripe is reachable (test mode), the monthly subscription price is valid, and the
+          webhook signature/raw-body handling is wired correctly — the most common integration mistake is <em>not</em>
+          present here.</li>
+      <li><strong>Flagged for ops:</strong> the tier-specific price IDs (Starter / Growth / Business) and the Agency
+          plan price aren't set locally, so tiers silently fall back to the legacy $500 price; the staging env file has
+          no Stripe keys; and a TLS-verification override is enabled in the local env (dev-only, must not reach
+          production).</li>
+    </ul>
+    <div class="callout amber">
+      <strong>Action:</strong> these are configuration / operations items (live keys + per-tier price IDs), not code
+      bugs — they belong to the go-live checklist.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Manual Test Flow</h2>
+    <p>
+      How to verify everything above. Run the app locally (<code class="inline">npm run dev</code> — frontend on
+      <code class="inline">:3001</code>, backend on <code class="inline">:4000</code>).
+    </p>
+
+    <h3>A · Sign Up &amp; Login</h3>
+    <ol>
+      <li>Open the app and choose <strong>Log In / Connect</strong>.</li>
+      <li><strong>New user:</strong> connect a fresh wallet → complete onboarding / role selection → land on the correct
+          dashboard (customer vs. shop).</li>
+      <li><strong>Returning user:</strong> reconnect the same wallet → no re-onboarding, routed straight to your
+          dashboard.</li>
+      <li>Refresh to confirm the session persists; log out / switch account to confirm it fully clears.</li>
+    </ol>
+
+    <h3>B · Customer Home (change #1)</h3>
+    <ol>
+      <li>Log in as a <strong>customer</strong> → Overview tab.</li>
+      <li>Confirm <strong>"Trusted Professionals"</strong> and <strong>"Popular Services Near You"</strong> are now
+          dark cards matching the rest of the page — no white boxes.</li>
+      <li>Check tiles, thumbnails, ratings, and scroll arrows are all legible.</li>
+    </ol>
+
+    <h3>C · Service Creation + AI Panel (change #2)</h3>
+    <ol>
+      <li>Log in as a <strong>shop</strong> (active subscription) → Services → <strong>Create Service</strong>.</li>
+      <li>Fill name / price / duration / category and save → the new service appears in the list.</li>
+      <li>Confirm the <strong>"Auto Sales &amp; Booking"</strong> panel is a dark card (not white): toggle, tone
+          buttons, reply preview, FAQ inputs, tip box, and spend chip.</li>
+      <li>Toggle AI on/off, switch tones, and add an FAQ entry — no visual glitches.</li>
+    </ol>
+
+    <h3>D · Service Cards (change #3)</h3>
+    <ol>
+      <li>On the Services tab, <strong>click a card</strong> → it navigates to the service page (no modal).</li>
+      <li>Confirm the card now shows only <strong>Edit</strong>, <strong>Delete</strong>, and <strong>Share QR
+          Code</strong>.</li>
+      <li>Open a service → confirm <strong>Availability</strong> and <strong>Calendar</strong> are reachable as tabs
+          inside it.</li>
+      <li>Hover <strong>Delete</strong> → tooltip appears and it turns red; deleting shows the animation and removes the
+          service.</li>
+      <li>With a blocked / no-subscription shop, confirm actions show the "Operations are blocked" message instead of
+          navigating.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>What's done vs. what's left</h2>
+    <table>
+      <thead><tr><th>Area</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Customer overview — dark theme (2 cards)</td><td><span class="ok">✓ Implemented</span></td></tr>
+        <tr><td>Shop AI panel — dark theme (3 components)</td><td><span class="ok">✓ Implemented</span></td></tr>
+        <tr><td>Service cards — click-to-open + Edit/Delete + tooltips</td><td><span class="ok">✓ Implemented</span></td></tr>
+        <tr><td>Stripe integration audit</td><td><span class="ok">✓ Reviewed</span></td></tr>
+        <tr><td>Commit / push UI changes</td><td><span class="warn">⚠ Pending review</span></td></tr>
+        <tr><td>Stripe live keys + per-tier price IDs (ops)</td><td><span class="warn">⚠ Ops hand-off</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>
+      The app now reads as one consistent dark product — the customer home and the shop's AI panel no longer break the
+      theme — and the service cards are simpler and more intentional, with a clear "click to open" and an unmistakable
+      delete. The Stripe audit confirms payments are structurally sound, with the remaining items being live
+      configuration for go-live. All UI work is implemented and lint-clean, pending review before committing to
+      <code class="inline">main</code>.
+    </p>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 21, 2026</footer>
+</div>
+</body>
+</html>

@@ -971,18 +971,56 @@ export class MessageRepository extends BaseRepository {
   /**
    * Soft-delete a single message. Only the original sender may delete it.
    * Returns true if a row was updated, false if not found / not the sender.
+   *
+   * Also refreshes the conversation's denormalized preview. Thread reads filter on
+   * is_deleted, but the conversation list reads last_message_preview — without this the
+   * deleted message keeps showing in the inbox after it has vanished from the thread.
    */
   async deleteMessage(messageId: string, senderAddress: string): Promise<boolean> {
     try {
-      const query = `
-        UPDATE messages
-        SET is_deleted = TRUE, updated_at = NOW()
-        WHERE message_id = $1
-          AND sender_address = $2
-          AND is_deleted = FALSE
-      `;
-      const result = await this.pool.query(query, [messageId, senderAddress]);
-      return (result.rowCount ?? 0) > 0;
+      return await this.withTransaction(async (client) => {
+        const result = await client.query(
+          `UPDATE messages
+              SET is_deleted = TRUE, updated_at = NOW()
+            WHERE message_id = $1
+              AND sender_address = $2
+              AND is_deleted = FALSE
+            RETURNING conversation_id`,
+          [messageId, senderAddress]
+        );
+
+        if ((result.rowCount ?? 0) === 0) return false;
+        const conversationId = result.rows[0].conversation_id;
+
+        // Point the preview at the newest surviving message...
+        await client.query(
+          `UPDATE conversations c
+              SET last_message_preview = LEFT(m.message_text, 100),
+                  last_message_at = m.created_at
+             FROM (
+               SELECT message_text, created_at
+                 FROM messages
+                WHERE conversation_id = $1 AND is_deleted = FALSE
+                ORDER BY created_at DESC
+                LIMIT 1
+             ) m
+            WHERE c.conversation_id = $1`,
+          [conversationId]
+        );
+
+        // ...or clear it when nothing survives (the FROM above matches no rows then).
+        await client.query(
+          `UPDATE conversations
+              SET last_message_preview = NULL
+            WHERE conversation_id = $1
+              AND NOT EXISTS (
+                SELECT 1 FROM messages WHERE conversation_id = $1 AND is_deleted = FALSE
+              )`,
+          [conversationId]
+        );
+
+        return true;
+      });
     } catch (error) {
       logger.error('Error in deleteMessage:', error);
       throw error;
@@ -1175,4 +1213,105 @@ export class MessageRepository extends BaseRepository {
       expiresAt: row.expires_at
     };
   }
+
+  // --- AI inactivity follow-up scheduling (migration 239) ---------------------
+  // The customer-messaging AI parks a drafted follow-up (and optional closing)
+  // on the conversation; AiFollowupScheduler sends due ones; a customer reply
+  // clears them. State machine: NULL -> 'followup' -> 'closing' -> NULL.
+
+  /** Park a drafted follow-up on the conversation, due `delayMinutes` from now. */
+  async scheduleAiFollowup(
+    conversationId: string,
+    params: { delayMinutes: number; followupText: string; closingText: string | null }
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE conversations
+          SET ai_followup_due_at = NOW() + make_interval(mins => $2),
+              ai_followup_stage = 'followup',
+              ai_followup_text = $3,
+              ai_closing_text = $4,
+              ai_followup_gap_min = $2,
+              updated_at = NOW()
+        WHERE conversation_id = $1`,
+      [conversationId, params.delayMinutes, params.followupText, params.closingText]
+    );
+  }
+
+  /** Clear any pending follow-up (customer replied, or the sequence finished). */
+  async clearAiFollowup(conversationId: string): Promise<number> {
+    const res = await this.pool.query(
+      `UPDATE conversations
+          SET ai_followup_due_at = NULL,
+              ai_followup_stage = NULL,
+              ai_followup_text = NULL,
+              ai_closing_text = NULL,
+              ai_followup_gap_min = NULL,
+              updated_at = NOW()
+        WHERE conversation_id = $1 AND ai_followup_due_at IS NOT NULL`,
+      [conversationId]
+    );
+    return res.rowCount ?? 0;
+  }
+
+  /** After the follow-up sends, queue the closing one gap later. */
+  async advanceAiFollowupToClosing(conversationId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE conversations
+          SET ai_followup_due_at = NOW() + make_interval(mins => COALESCE(ai_followup_gap_min, 3)),
+              ai_followup_stage = 'closing',
+              updated_at = NOW()
+        WHERE conversation_id = $1`,
+      [conversationId]
+    );
+  }
+
+  /**
+   * Push a due follow-up back by whole hours, keeping its stage and drafted
+   * text. Used to hold an overnight follow-up until the shop's morning rather
+   * than sending it at 3am — or dropping it, which is what skipping would mean
+   * for a delay measured in days.
+   */
+  async deferAiFollowup(conversationId: string, hours: number): Promise<void> {
+    await this.pool.query(
+      `UPDATE conversations
+          SET ai_followup_due_at = NOW() + make_interval(hours => $2),
+              updated_at = NOW()
+        WHERE conversation_id = $1 AND ai_followup_due_at IS NOT NULL`,
+      [conversationId, hours]
+    );
+  }
+
+  /** Due pending follow-ups for the worker to send. */
+  async listDueAiFollowups(limit: number): Promise<DueAiFollowup[]> {
+    const res = await this.pool.query(
+      `SELECT conversation_id, shop_id, customer_address, service_id, channel,
+              ai_followup_stage, ai_followup_text, ai_closing_text
+         FROM conversations
+        WHERE ai_followup_due_at IS NOT NULL AND ai_followup_due_at <= NOW()
+        ORDER BY ai_followup_due_at ASC
+        LIMIT $1`,
+      [limit]
+    );
+    return res.rows.map((r) => ({
+      conversationId: r.conversation_id,
+      shopId: r.shop_id,
+      customerAddress: r.customer_address,
+      serviceId: r.service_id ?? null,
+      channel: (r.channel ?? 'app') as ConversationChannel,
+      stage: r.ai_followup_stage as 'followup' | 'closing',
+      followupText: r.ai_followup_text ?? null,
+      closingText: r.ai_closing_text ?? null,
+    }));
+  }
+}
+
+export interface DueAiFollowup {
+  conversationId: string;
+  shopId: string;
+  customerAddress: string;
+  serviceId: string | null;
+  channel: ConversationChannel;
+  stage: 'followup' | 'closing';
+  followupText: string | null;
+  closingText: string | null;
 }

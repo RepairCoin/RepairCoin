@@ -550,6 +550,12 @@ export class StripeService {
     paymentMethodId?: string;
     metadata?: Record<string, string>;
     description?: string;
+    // Stripe Connect (DIRECT charge): create the PaymentIntent ON the shop's connected account
+    // so the money lands directly in the shop's balance (never the platform's), and retain
+    // `applicationFeeAmount` (cents) as the platform commission, which is routed to the platform
+    // automatically. The shop is the merchant of record.
+    applicationFeeAmount?: number;
+    connectedAccountId?: string;
   }): Promise<Stripe.PaymentIntent> {
     try {
       const paymentIntentData: Stripe.PaymentIntentCreateParams = {
@@ -561,6 +567,11 @@ export class StripeService {
           ...data.metadata
         }
       };
+
+      // Direct charge: the commission is taken as an application fee on the connected account.
+      if (data.connectedAccountId && data.applicationFeeAmount && data.applicationFeeAmount > 0) {
+        paymentIntentData.application_fee_amount = data.applicationFeeAmount;
+      }
 
       if (data.customerId) {
         paymentIntentData.customer = data.customerId;
@@ -574,7 +585,13 @@ export class StripeService {
         paymentIntentData.description = data.description;
       }
 
-      const paymentIntent = await this.stripe.paymentIntents.create(paymentIntentData);
+      // When connectedAccountId is set, the whole request runs "on behalf of" the shop's
+      // account (direct charge) — the PI, its client secret, and later its refund all live there.
+      const requestOptions: Stripe.RequestOptions | undefined = data.connectedAccountId
+        ? { stripeAccount: data.connectedAccountId }
+        : undefined;
+
+      const paymentIntent = await this.stripe.paymentIntents.create(paymentIntentData, requestOptions);
 
       logger.info('Payment intent created', {
         paymentIntentId: paymentIntent.id,
@@ -595,17 +612,28 @@ export class StripeService {
   }
 
   /**
-   * Refund a payment intent
+   * Refund a payment intent.
+   *
+   * `connectedAccountId` — for a DIRECT-charge booking the charge lives on the shop's account,
+   * so the refund must run there (`stripeAccount`) and also give back the platform's commission
+   * (`refund_application_fee: true`). Omit it for ordinary platform charges (unchanged behavior).
    */
-  async refundPayment(paymentIntentId: string, reason?: string): Promise<Stripe.Refund> {
+  async refundPayment(paymentIntentId: string, reason?: string, connectedAccountId?: string): Promise<Stripe.Refund> {
     try {
-      const refund = await this.stripe.refunds.create({
+      const params: Stripe.RefundCreateParams = {
         payment_intent: paymentIntentId,
         reason: reason as Stripe.RefundCreateParams.Reason,
         metadata: {
           environment: this.config.isTestMode ? 'test' : 'production'
         }
-      });
+      };
+      if (connectedAccountId) {
+        params.refund_application_fee = true;
+      }
+      const refund = await this.stripe.refunds.create(
+        params,
+        connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
+      );
 
       logger.info('Payment refunded', {
         refundId: refund.id,
@@ -627,9 +655,9 @@ export class StripeService {
   /**
    * Partial refund a payment intent (e.g. deposit refund)
    */
-  async partialRefund(paymentIntentId: string, amountCents: number, reason?: string): Promise<Stripe.Refund> {
+  async partialRefund(paymentIntentId: string, amountCents: number, reason?: string, connectedAccountId?: string): Promise<Stripe.Refund> {
     try {
-      const refund = await this.stripe.refunds.create({
+      const params: Stripe.RefundCreateParams = {
         payment_intent: paymentIntentId,
         amount: amountCents,
         reason: (reason as Stripe.RefundCreateParams.Reason) || 'requested_by_customer',
@@ -637,7 +665,15 @@ export class StripeService {
           environment: this.config.isTestMode ? 'test' : 'production',
           type: 'deposit_refund'
         }
-      });
+      };
+      if (connectedAccountId) {
+        // Direct charge: refund proportionally on the shop's account and return the fee.
+        params.refund_application_fee = true;
+      }
+      const refund = await this.stripe.refunds.create(
+        params,
+        connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
+      );
 
       logger.info('Partial refund processed', {
         refundId: refund.id,
@@ -660,9 +696,12 @@ export class StripeService {
   /**
    * Get payment intent metadata
    */
-  async getPaymentIntentMetadata(paymentIntentId: string): Promise<Stripe.Metadata> {
+  async getPaymentIntentMetadata(paymentIntentId: string, connectedAccountId?: string): Promise<Stripe.Metadata> {
     try {
-      const pi = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      const pi = await this.stripe.paymentIntents.retrieve(
+        paymentIntentId,
+        connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
+      );
       return pi.metadata;
     } catch (error) {
       logger.error('Failed to retrieve payment intent', {

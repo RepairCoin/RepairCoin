@@ -10,6 +10,7 @@ export type ServiceCategory =
   | "education_classes"
   | "tech_it_services"
   | "food_beverage"
+  | "legal_services"
   | "other_local_services";
 
 import type { Ionicons } from "@expo/vector-icons";
@@ -30,6 +31,7 @@ export const CATEGORY_ICONS: Record<
   education_classes: "school",
   tech_it_services: "hardware-chip",
   food_beverage: "restaurant",
+  legal_services: "document-text",
   other_local_services: "grid",
 };
 
@@ -62,5 +64,6 @@ export const SERVICE_CATEGORIES: Array<{
   { value: "education_classes", label: "Education & Classes" },
   { value: "tech_it_services", label: "Tech & IT Services" },
   { value: "food_beverage", label: "Food & Beverage" },
+  { value: "legal_services", label: "Legal Services" },
   { value: "other_local_services", label: "Other Local Services" },
 ];

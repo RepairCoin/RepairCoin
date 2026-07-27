@@ -38,7 +38,7 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
         };
       case 'unsubscribed':
         return {
-          title: "Subscription Required",
+          title: "You're on the Free Plan",
           icon: CreditCard,
           color: "yellow",
         };
@@ -211,33 +211,33 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
               <div className={`${colors.contentBg} border ${colors.border} rounded-xl p-4`}>
                 <h3 className={`font-semibold ${colors.text} mb-2 flex items-center gap-2`}>
                   <CreditCard className="w-5 h-5" />
-                  Active subscription required
+                  You're on the Free plan
                 </h3>
                 <p className="text-gray-300 text-sm">
-                  Your shop subscription is currently inactive. An active monthly subscription is required to use FixFlow shop features.
+                  Your shop is on the Free plan, so token-economy features stay locked. Subscribe to a monthly plan anytime to unlock the full FixFlow feature set.
                 </p>
               </div>
 
               <div className="bg-blue-900/10 border border-blue-500/30 rounded-xl p-4">
-                <h4 className="font-semibold text-blue-400 mb-2">What you need to do:</h4>
+                <h4 className="font-semibold text-blue-400 mb-2">How to upgrade:</h4>
                 <ul className="space-y-2 text-sm text-gray-300">
                   <li className="flex items-start gap-2">
                     <span className="text-blue-400 mt-1">•</span>
-                    <span>Go to Settings → Subscription tab</span>
+                    <span>Open the subscription page using the button below</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-blue-400 mt-1">•</span>
-                    <span>Click "Subscribe Now" to activate your monthly subscription</span>
+                    <span>Choose a plan and click "Subscribe" to upgrade</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-blue-400 mt-1">•</span>
-                    <span>Once subscribed, you'll have full access to all shop features</span>
+                    <span>Once upgraded, you'll unlock all shop features</span>
                   </li>
                 </ul>
               </div>
 
               <div className="bg-[#2F2F2F] rounded-xl p-4 border border-gray-700">
-                <h4 className="font-semibold text-white mb-2">Subscription Benefits:</h4>
+                <h4 className="font-semibold text-white mb-2">What you'll unlock:</h4>
                 <ul className="space-y-2 text-sm text-gray-300">
                   <li className="flex items-start gap-2">
                     <span className="text-[#FFCC00] mt-1">✓</span>
@@ -398,8 +398,8 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
             <button
               onClick={() => {
                 onClose();
-                // Navigate to settings tab
-                window.location.href = '/shop?tab=settings';
+                // Go straight to the subscription page, not the settings tab.
+                window.location.href = '/shop/subscription-form';
               }}
               className="px-6 py-2 bg-[#FFCC00] hover:bg-[#FFCC00]/90 text-black font-semibold rounded-xl transition-colors"
             >

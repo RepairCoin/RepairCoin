@@ -134,13 +134,15 @@ export class OrderController {
    */
   confirmPayment = async (req: Request, res: Response) => {
     try {
-      const { paymentIntentId } = req.body;
+      // connectedAccountId: for direct-charge bookings the PaymentIntent lives on the shop's
+      // account, so the frontend sends it back (from createPaymentIntent) for the status read.
+      const { paymentIntentId, connectedAccountId } = req.body;
 
       if (!paymentIntentId) {
         return res.status(400).json({ success: false, error: 'Payment Intent ID is required' });
       }
 
-      const order = await this.paymentService.handlePaymentSuccess(paymentIntentId);
+      const order = await this.paymentService.handlePaymentSuccess(paymentIntentId, connectedAccountId);
 
       res.json({
         success: true,
@@ -474,7 +476,11 @@ export class OrderController {
         try {
           if (updatedOrder.stripePaymentIntentId) {
             const stripeService = getStripeService();
-            const metadata = await stripeService.getPaymentIntentMetadata(updatedOrder.stripePaymentIntentId);
+            // Direct-charge bookings live on the shop's account — the metadata read and the
+            // deposit refund both target it (and the refund returns the platform commission).
+            const depositShop = await shopRepository.getShop(updatedOrder.shopId);
+            const connectedAccountId = depositShop?.stripeConnectAccountId;
+            const metadata = await stripeService.getPaymentIntentMetadata(updatedOrder.stripePaymentIntentId, connectedAccountId);
 
             if (metadata.requiresDeposit === 'true' && metadata.depositAmount) {
               const depositAmountUsd = parseFloat(metadata.depositAmount);
@@ -483,7 +489,8 @@ export class OrderController {
                 await stripeService.partialRefund(
                   updatedOrder.stripePaymentIntentId,
                   depositCents,
-                  'requested_by_customer'
+                  'requested_by_customer',
+                  connectedAccountId
                 );
                 logger.info('Deposit refunded on order completion', {
                   orderId: updatedOrder.orderId,

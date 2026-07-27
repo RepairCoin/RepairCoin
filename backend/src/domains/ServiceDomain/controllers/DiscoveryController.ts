@@ -505,6 +505,8 @@ export class DiscoveryController {
           sh.location_city,
           sh.location_state,
           sh.location_zip_code,
+          sh.stripe_connect_account_id as shop_connect_account_id,
+          sh.connect_charges_enabled as shop_charges_enabled,
           ${favoritesSelect}
           ${distanceSelect},
           COUNT(o.order_id) as booking_count,
@@ -536,7 +538,7 @@ export class DiscoveryController {
         WHERE s.active = true
           AND sh.active = true
           ${proximityFilter}
-        GROUP BY s.service_id, s.shop_id, s.service_name, s.description, s.price_usd, s.duration_minutes, s.category, s.image_url, s.tags, s.active, s.average_rating, s.review_count, sh.shop_id, sh.name, sh.address, sh.location_city, sh.country, sh.phone, sh.email, sh.verified, sh.location_lat, sh.location_lng, sh.location_state, sh.location_zip_code${favoritesGroupBy}
+        GROUP BY s.service_id, s.shop_id, s.service_name, s.description, s.price_usd, s.duration_minutes, s.category, s.image_url, s.tags, s.active, s.average_rating, s.review_count, sh.shop_id, sh.name, sh.address, sh.location_city, sh.country, sh.phone, sh.email, sh.verified, sh.location_lat, sh.location_lng, sh.location_state, sh.location_zip_code, sh.stripe_connect_account_id, sh.connect_charges_enabled${favoritesGroupBy}
         HAVING COUNT(o.order_id) > 0
         ORDER BY trending_score DESC, booking_count DESC
         LIMIT $${limitIdx}
@@ -576,7 +578,8 @@ export class DiscoveryController {
         groups: row.groups || [],
         bookingCount: parseInt(row.booking_count),
         trendingScore: parseFloat(row.trending_score),
-        distanceMiles: row.distance_miles != null ? parseFloat(row.distance_miles) : null
+        distanceMiles: row.distance_miles != null ? parseFloat(row.distance_miles) : null,
+        shopAcceptingBookings: !!row.shop_connect_account_id && row.shop_charges_enabled === true
       }));
 
       res.json({

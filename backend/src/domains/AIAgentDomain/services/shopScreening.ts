@@ -10,6 +10,7 @@
 import { Pool } from "pg";
 import { getSharedPool } from "../../../utils/database-pool";
 import { logger } from "../../../utils/logger";
+import { cheapModel } from "../../../config/aiModels";
 import { AnthropicClient } from "./AnthropicClient";
 
 export interface ShopScreening {
@@ -134,7 +135,7 @@ async function assess(
             content: `Profile: ${JSON.stringify(profile)}\nSignals: ${JSON.stringify(signals)}`,
           },
         ],
-        model: "claude-haiku-4-5-20251001",
+        model: cheapModel(),
         maxTokens: 400,
       });
       const parsed = parseAssessment(res.text);

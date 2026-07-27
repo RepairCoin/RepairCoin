@@ -175,6 +175,61 @@ export const refreshToken = async (): Promise<boolean> => {
   }
 };
 
+/**
+ * Multi-account switching — accounts this device is still signed into.
+ * These can be switched to instantly (no re-verification).
+ */
+export interface DeviceSession {
+  address: string;
+  role: 'admin' | 'shop' | 'customer';
+  shopId?: string;
+  name?: string;
+  avatarUrl?: string;
+  lastUsedAt?: string;
+}
+
+export const getDeviceSessions = async (): Promise<DeviceSession[]> => {
+  try {
+    const response = await apiClient.get<{ success: boolean; data?: { sessions?: DeviceSession[] } }>(
+      '/auth/sessions'
+    );
+    return response?.data?.sessions ?? [];
+  } catch (error) {
+    console.error('Failed to list device sessions:', error);
+    return [];
+  }
+};
+
+/**
+ * Instantly switch the active session to another account this device already holds.
+ * Resolves the switched-to user on success; throws with a `code` on failure so the
+ * caller can fall back to a normal sign-in (e.g. code === 'NO_DEVICE_SESSION').
+ */
+export const switchAccount = async (
+  address: string
+): Promise<{ address: string; role: string; shopId?: string; name?: string }> => {
+  try {
+    const response = await apiClient.post<{
+      success: boolean;
+      data?: { user?: { address: string; role: string; shopId?: string; name?: string } };
+      error?: string;
+      code?: string;
+    }>('/auth/switch', { address });
+    if (!response?.success || !response.data?.user) {
+      const err = new Error(response?.error || 'Switch failed') as Error & { code?: string };
+      err.code = response?.code;
+      throw err;
+    }
+    return response.data.user;
+  } catch (error) {
+    // apiClient rejects non-2xx with an enhanced error carrying `.code`
+    // (e.g. 'NO_DEVICE_SESSION' when the device no longer holds a live token).
+    const e = error as Error & { code?: string };
+    if (!e.code) e.code = 'SWITCH_FAILED';
+    throw e;
+  }
+};
+
 // Named exports grouped as namespace for convenience
 export const authApi = {
   checkUser,
@@ -186,4 +241,6 @@ export const authApi = {
   isAuthenticated,
   logout,
   refreshToken,
+  getDeviceSessions,
+  switchAccount,
 } as const;

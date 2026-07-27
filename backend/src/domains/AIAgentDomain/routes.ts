@@ -9,7 +9,7 @@ import { transcribeVoice } from './controllers/VoiceTranscribeController';
 import { speakVoice } from './controllers/VoiceSpeakController';
 import { dispatchVoice } from './controllers/VoiceDispatchController';
 import { suggestServiceFaqs } from './controllers/FaqSuggestionController';
-import { getOwnShopSpend, getAdminCostSummary, setOwnShopOverage } from './controllers/SpendController';
+import { getOwnShopSpend, getAdminCostSummary, setOwnShopOverage, setOwnShopOverageCap, getAdminOverageSummary, invoiceOverage } from './controllers/SpendController';
 import {
   getOwnShopAiSettings,
   updateOwnShopAiSettings,
@@ -33,6 +33,11 @@ import {
   listAnomalies,
   dismissAnomaly,
 } from './controllers/InsightsAnomaliesController';
+import {
+  listRecommendations,
+  dismissRecommendation,
+  markRecommendationActed,
+} from './controllers/RecommendationsController';
 import {
   listPinned,
   createPinned,
@@ -128,6 +133,10 @@ export function initializeRoutes(): Router {
   // AI Usage Overage (T3.2) — shop opts in/out of full-power AI past the monthly allowance.
   // Gated by ENABLE_AI_OVERAGE inside the controller (409 until the feature is live).
   router.post('/overage', authMiddleware, requireRole(['shop']), setOwnShopOverage);
+
+  // AI Usage Overage per-shop bill-shock cap — shop sets its own ceiling on billable overage
+  // (null = inherit the platform default). Gated by ENABLE_AI_OVERAGE inside the controller.
+  router.post('/overage/cap', authMiddleware, requireRole(['shop']), setOwnShopOverageCap);
 
   // Shop-side AI settings. Both gate on `shop` role; the controller reads
   // shopId from the JWT (no path param) so a shop can only ever read/write
@@ -252,6 +261,34 @@ export function initializeRoutes(): Router {
     dismissAnomaly
   );
 
+  // AI Recommendations (dashboard overview feed) — P0.
+  // Scope: docs/tasks/strategy/ai-recommendations/scope.md
+  // Gated on aiInsights (Growth), same as the anomaly feed it extends. Each
+  // recommendation ALSO carries its own required_feature, re-checked against
+  // the current tier inside the service — so the route gate is the floor, not
+  // the whole story. Shop-scoped via JWT; :id never determines scope.
+  router.get(
+    '/recommendations',
+    authMiddleware,
+    requireRole(['shop']),
+    requireTier('aiInsights'),
+    listRecommendations
+  );
+  router.post(
+    '/recommendations/:id/dismiss',
+    authMiddleware,
+    requireRole(['shop']),
+    requireTier('aiInsights'),
+    dismissRecommendation
+  );
+  router.post(
+    '/recommendations/:id/acted',
+    authMiddleware,
+    requireRole(['shop']),
+    requireTier('aiInsights'),
+    markRecommendationActed
+  );
+
   // Phase 7.3 — saved queries (pinned questions). All shop-scoped via
   // JWT; URL :id never determines scope, so guessing UUIDs can't
   // touch another shop's pins.
@@ -333,6 +370,22 @@ export function initializeRoutes(): Router {
     authMiddleware,
     requireRole(['admin']),
     getAdminCostSummary
+  );
+
+  // Admin: per-shop AI Usage Overage this month + grand total (billing rollup).
+  router.get(
+    '/admin/overage-summary',
+    authMiddleware,
+    requireRole(['admin']),
+    getAdminOverageSummary
+  );
+
+  // Admin: invoice a shop's pending overage via Stripe (or all due). Gated by AI_OVERAGE_STRIPE_ENABLED.
+  router.post(
+    '/admin/overage-invoice',
+    authMiddleware,
+    requireRole(['admin']),
+    invoiceOverage
   );
 
   // Admin gate — per-shop AI capability controls. List every shop's AI

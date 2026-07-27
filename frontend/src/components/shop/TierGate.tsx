@@ -42,7 +42,7 @@ export function TierGate({ feature, children, fallback, minHeight = "600px" }: T
               Upgrade your plan to unlock this feature.
             </p>
             <button
-              onClick={() => router.push("/shop?tab=settings")}
+              onClick={() => router.push("/shop?tab=settings&section=subscription")}
               className="mt-3 sm:mt-4 px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm bg-[#FFCC00] hover:bg-[#E6B800] text-black transition-all duration-200"
             >
               Upgrade plan

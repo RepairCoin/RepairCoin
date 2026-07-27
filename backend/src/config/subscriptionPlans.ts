@@ -1,25 +1,35 @@
-export type SubscriptionTier = 'starter' | 'growth' | 'business';
+// Tiers a shop can actually BUY. 'free' is deliberately not one of them: it has no Stripe
+// price, so it must never reach resolveCheckoutPriceId.
+export type PaidTier = 'starter' | 'growth' | 'business';
+
+// Every tier a shop can RESOLVE to at runtime. 'free' is the implicit tier for a shop with no
+// active subscription — a fresh signup, or a trial that ended without converting. Nothing
+// assigns it; getShopTier derives it from live subscription state (see utils/shopTier.ts).
+export type SubscriptionTier = PaidTier | 'free';
 
 export interface SubscriptionPlan {
-  tier: SubscriptionTier;
+  tier: PaidTier;
   label: string;
   amount: number;
   priceEnvKey: string;
 }
 
-export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
+export const SUBSCRIPTION_PLANS: Record<PaidTier, SubscriptionPlan> = {
   starter: { tier: 'starter', label: 'Starter AI', amount: 80, priceEnvKey: 'STRIPE_PRICE_STARTER' },
   growth: { tier: 'growth', label: 'Growth AI', amount: 299, priceEnvKey: 'STRIPE_PRICE_GROWTH' },
   business: { tier: 'business', label: 'Business AI', amount: 599, priceEnvKey: 'STRIPE_PRICE_BUSINESS' },
 };
 
-export const DEFAULT_TIER: SubscriptionTier = 'business';
+export const FREE_TIER_LABEL = 'Free';
+
+export const DEFAULT_TIER: PaidTier = 'business';
 
 // Monthly AI-usage allowance (raw AI cost, USD) INCLUDED per tier — the unit
 // ai_shop_settings.current_month_spend_usd measures. Pricing sheet: $10 / $30 / $75.
 // The AI budget is a pure function of the tier (never hand-set by an admin); the
 // enforcer computes it from the shop's current tier at read time.
 export const AI_TIER_ALLOWANCE: Record<SubscriptionTier, number> = {
+  free: 0,
   starter: 10,
   growth: 30,
   business: 75,
@@ -29,11 +39,13 @@ export const LEGACY_MONTHLY_AMOUNT = 500;
 
 export const TRIAL_PERIOD_DAYS = 14;
 
-export function isValidTier(value: unknown): value is SubscriptionTier {
+// Guards a REQUESTED tier (checkout, trial start, admin plan change). Intentionally rejects
+// 'free' — free is never something a shop selects, only something it falls back to.
+export function isValidTier(value: unknown): value is PaidTier {
   return value === 'starter' || value === 'growth' || value === 'business';
 }
 
-export function getPlanByTier(tier: SubscriptionTier): SubscriptionPlan {
+export function getPlanByTier(tier: PaidTier): SubscriptionPlan {
   return SUBSCRIPTION_PLANS[tier];
 }
 

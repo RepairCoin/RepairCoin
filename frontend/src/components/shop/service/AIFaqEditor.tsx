@@ -23,8 +23,8 @@ import {
  * these entries when responding to customers in chat (alongside the
  * service description). Lives inline in the service create/edit form.
  *
- * Styled for the LIGHT card it sits in (the "Auto Sales & Booking" panel) —
- * green heading to match "See How the AI Replies", light inputs.
+ * Styled for the DARK card it sits in (the "Auto Sales & Booking" panel) —
+ * green heading to match "See How the AI Replies", dark inputs.
  *
  * Controlled component: parent owns the array, this component just renders
  * + emits changes via `onChange`. Caller is responsible for sanitization
@@ -208,10 +208,10 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
     <div className="space-y-3">
       {/* Heading — matches the "See How the AI Replies" heading style. */}
       <div>
-        <h4 className="text-sm font-semibold text-green-700">
+        <h4 className="text-sm font-semibold text-green-400">
           Customer questions the AI should answer
         </h4>
-        <p className="text-sm text-gray-600 mt-1">
+        <p className="text-sm text-gray-400 mt-1">
           Answer the questions your customers ask most often — the AI quotes
           from these directly when chatting with customers. Leave an answer
           blank and the AI falls back to your service description.
@@ -219,12 +219,12 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
       </div>
 
       {/* Tip — boxed, with an icon, so it reads as guidance not body text. */}
-      <div className="flex items-start gap-2 border border-amber-200 bg-amber-50 rounded-lg px-3 py-2">
+      <div className="flex items-start gap-2 border border-amber-500/30 bg-amber-500/10 rounded-lg px-3 py-2">
         <Lightbulb
-          className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5"
+          className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5"
           aria-hidden="true"
         />
-        <p className="text-xs text-amber-800">
+        <p className="text-xs text-amber-300">
           Price and duration already have their own fields — you don&apos;t
           need FAQ entries for those. Keeping them out avoids a stale answer
           if you change the price later.
@@ -250,16 +250,16 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
       {/* AI suggestion review list — drafts only, nothing saved until the
           shop adds an entry and saves the service form. */}
       {suggestions.length > 0 && (
-        <div className="border border-green-200 bg-green-50 rounded-lg p-3 space-y-2">
+        <div className="border border-green-500/30 bg-green-500/10 rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-green-700">
+            <span className="text-xs font-semibold text-green-300">
               AI suggestions — review before adding
             </span>
             <button
               type="button"
               onClick={acceptAllSuggestions}
               disabled={disabled}
-              className="text-xs font-medium text-green-700 hover:text-green-800 disabled:opacity-50"
+              className="text-xs font-medium text-green-400 hover:text-green-300 disabled:opacity-50"
             >
               Add all
             </button>
@@ -267,18 +267,18 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
           {suggestions.map((s, idx) => (
             <div
               key={idx}
-              className="bg-white border border-gray-200 rounded-md p-2.5"
+              className="bg-[#1A1A1A] border border-gray-700 rounded-md p-2.5"
             >
-              <p className="text-sm text-gray-900 font-medium">{s.question}</p>
+              <p className="text-sm text-white font-medium">{s.question}</p>
               {s.answer ? (
-                <p className="text-xs text-gray-600 mt-1">{s.answer}</p>
+                <p className="text-xs text-gray-400 mt-1">{s.answer}</p>
               ) : s.answerHint ? (
-                <p className="text-xs text-amber-600 mt-1">
+                <p className="text-xs text-amber-400 mt-1">
                   <span className="italic">You&apos;ll write this — </span>
                   {s.answerHint}
                 </p>
               ) : (
-                <p className="text-xs text-amber-600 mt-1 italic">
+                <p className="text-xs text-amber-400 mt-1 italic">
                   Answer left blank — you&apos;ll write this one in.
                 </p>
               )}
@@ -287,7 +287,7 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
                   type="button"
                   onClick={() => acceptSuggestion(idx)}
                   disabled={disabled}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded disabled:opacity-50"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-green-300 bg-green-500/15 hover:bg-green-500/25 rounded disabled:opacity-50"
                 >
                   <Plus className="w-3 h-3" aria-hidden="true" />
                   Add
@@ -295,7 +295,7 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => dismissSuggestion(idx)}
-                  className="px-2.5 py-1 text-xs text-gray-500 hover:text-gray-800"
+                  className="px-2.5 py-1 text-xs text-gray-400 hover:text-gray-200"
                 >
                   Dismiss
                 </button>
@@ -306,16 +306,16 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
       )}
 
       {suggestNotice && (
-        <div className="flex items-start gap-2 border border-amber-200 bg-amber-50 rounded-lg px-3 py-2">
+        <div className="flex items-start gap-2 border border-amber-500/30 bg-amber-500/10 rounded-lg px-3 py-2">
           <Lightbulb
-            className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5"
+            className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5"
             aria-hidden="true"
           />
-          <p className="text-xs text-amber-800">{suggestNotice}</p>
+          <p className="text-xs text-amber-300">{suggestNotice}</p>
         </div>
       )}
 
-      {suggestError && <p className="text-sm text-gray-600">{suggestError}</p>}
+      {suggestError && <p className="text-sm text-gray-400">{suggestError}</p>}
 
       {/* Optional pasted source material — feeds the AI extra facts to draft
           answers from. Collapsed by default; transient (never stored). */}
@@ -324,7 +324,7 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
           <button
             type="button"
             onClick={() => setSourceOpen((o) => !o)}
-            className="inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800"
+            className="inline-flex items-center gap-1 text-xs font-medium text-green-400 hover:text-green-300"
           >
             {sourceOpen ? (
               <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
@@ -342,7 +342,7 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
                 rows={4}
                 maxLength={4000}
                 placeholder="Paste anything about this service — notes, your website copy, a flyer. The AI will draft FAQ answers from it."
-                className="w-full bg-white border border-gray-300 focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none rounded-md px-3 py-2 text-sm text-gray-900 placeholder-gray-400 resize-y disabled:opacity-60 disabled:bg-gray-100"
+                className="w-full bg-[#1A1A1A] border border-gray-700 focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none rounded-md px-3 py-2 text-sm text-white placeholder-gray-500 resize-y disabled:opacity-60 disabled:bg-[#0D0D0D]"
               />
               <p className="mt-1 text-[11px] text-gray-500">
                 Used only to improve the suggestions below — it isn&apos;t
@@ -353,7 +353,7 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
         </div>
       )}
 
-      {/* Action buttons — high-contrast so they read clearly on the white
+      {/* Action buttons — high-contrast so they read clearly on the dark
           card. "Suggest" is the primary (solid green); "Add" is secondary. */}
       <div className="flex flex-col sm:flex-row gap-2">
         <button
@@ -379,7 +379,7 @@ export const AIFaqEditor: React.FC<AIFaqEditorProps> = ({
           type="button"
           onClick={add}
           disabled={disabled}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium text-gray-300 bg-[#1A1A1A] border border-gray-700 hover:bg-[#262626] hover:border-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
           Add another question
@@ -427,9 +427,9 @@ const FaqEntryRow: React.FC<FaqEntryRowProps> = ({
     : "Type the answer here. Plain text — bullet lists are fine.";
 
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+    <div className="bg-[#0D0D0D] border border-gray-700 rounded-lg p-3 space-y-2">
       <div className="flex items-start gap-2">
-        <span className="text-xs text-gray-500 font-medium mt-2.5 flex-shrink-0 w-4 text-right">
+        <span className="text-xs text-gray-400 font-medium mt-2.5 flex-shrink-0 w-4 text-right">
           {index + 1}.
         </span>
         <input
@@ -439,7 +439,7 @@ const FaqEntryRow: React.FC<FaqEntryRowProps> = ({
           placeholder="What question do customers ask?"
           disabled={disabled}
           onChange={(e) => onChange({ question: e.target.value })}
-          className="flex-1 bg-white border border-gray-300 focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none rounded-md px-3 py-2 text-sm text-gray-900 placeholder-gray-400 disabled:opacity-60 disabled:bg-gray-100"
+          className="flex-1 bg-[#1A1A1A] border border-gray-700 focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none rounded-md px-3 py-2 text-sm text-white placeholder-gray-500 disabled:opacity-60 disabled:bg-[#0D0D0D]"
         />
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
@@ -447,7 +447,7 @@ const FaqEntryRow: React.FC<FaqEntryRowProps> = ({
             onClick={onMoveUp}
             disabled={disabled || isFirst}
             aria-label="Move up"
-            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#262626] rounded disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronUp className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -456,7 +456,7 @@ const FaqEntryRow: React.FC<FaqEntryRowProps> = ({
             onClick={onMoveDown}
             disabled={disabled || isLast}
             aria-label="Move down"
-            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#262626] rounded disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronDown className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -465,7 +465,7 @@ const FaqEntryRow: React.FC<FaqEntryRowProps> = ({
             onClick={onRemove}
             disabled={disabled}
             aria-label="Remove question"
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Trash2 className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -478,12 +478,12 @@ const FaqEntryRow: React.FC<FaqEntryRowProps> = ({
           disabled={disabled}
           rows={3}
           onChange={(e) => onChange({ answer: e.target.value })}
-          className="w-full bg-white border border-gray-300 focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none rounded-md px-3 py-2 text-sm text-gray-900 placeholder-gray-400 resize-y disabled:opacity-60 disabled:bg-gray-100"
+          className="w-full bg-[#1A1A1A] border border-gray-700 focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none rounded-md px-3 py-2 text-sm text-white placeholder-gray-500 resize-y disabled:opacity-60 disabled:bg-[#0D0D0D]"
         />
         {(answerNearCap || answerOverCap) && (
           <div
             className={`text-[11px] mt-1 ${
-              answerOverCap ? "text-red-500" : "text-amber-600"
+              answerOverCap ? "text-red-400" : "text-amber-400"
             }`}
           >
             {answerLen} / {MAX_ANSWER} characters

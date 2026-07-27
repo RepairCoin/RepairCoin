@@ -19,6 +19,7 @@
 import { Pool } from "pg";
 import { logger } from "../../../../../utils/logger";
 import { getSharedPool } from "../../../../../utils/database-pool";
+import { smartModel } from "../../../../../config/aiModels";
 import { AnthropicClient } from "../../AnthropicClient";
 import { SpendCapEnforcer } from "../../SpendCapEnforcer";
 import { insightsAuditLogger, InsightsAuditLogger } from "../../InsightsAuditLogger";
@@ -107,7 +108,7 @@ export class AnomalyPhraser {
       const response = await anthropic.complete({
         systemPrompt: [{ text: systemPrompt, cache: true }],
         messages: [{ role: "user", content: userMessage }],
-        model: "claude-sonnet-4-6",
+        model: smartModel(),
         maxTokens: 300,
       });
 
@@ -161,7 +162,7 @@ export class AnomalyPhraser {
           metricKey: a.metricKey,
         },
         responsePayload: null,
-        model: "claude-sonnet-4-6",
+        model: smartModel(),
         inputTokens: 0,
         outputTokens: 0,
         cachedInputTokens: 0,

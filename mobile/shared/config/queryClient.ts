@@ -66,6 +66,8 @@ export const queryKeys = {
     [...queryKeys.shops(), 'analytics', shopId, timeRange] as const,
   nearbyShops: (coordinates: { lat: number; lng: number }) =>
     [...queryKeys.shops(), 'nearby', coordinates] as const,
+  connectSummary: () => [...queryKeys.shops(), 'connect', 'summary'] as const,
+  connectStatus: () => [...queryKeys.shops(), 'connect', 'status'] as const,
 
   // Redemption related
   redemptions: () => [...queryKeys.all, 'redemptions'] as const,
@@ -110,6 +112,10 @@ export const queryKeys = {
     [...queryKeys.services(), 'recently-viewed', options] as const,
   serviceSimilar: (serviceId: string, options?: { limit?: number }) =>
     [...queryKeys.services(), 'similar', serviceId, options] as const,
+
+  // In-app ad placements (sponsored cards)
+  adPlacements: (placement?: string) =>
+    [...queryKeys.all, 'ads', 'placements', placement] as const,
 
   // Booking related
   bookings: () => [...queryKeys.all, 'bookings'] as const,

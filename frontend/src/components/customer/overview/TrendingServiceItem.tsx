@@ -23,7 +23,7 @@ export const TrendingServiceItem: React.FC<TrendingServiceItemProps> = ({
       className="flex flex-col text-left group"
     >
       {/* Service Image */}
-      <div className="relative h-24 w-full overflow-hidden rounded-lg bg-gray-100">
+      <div className="relative h-24 w-full overflow-hidden rounded-lg bg-[#0a0a0a]">
         {service.imageUrl ? (
           <Image
             src={service.imageUrl}
@@ -40,13 +40,13 @@ export const TrendingServiceItem: React.FC<TrendingServiceItemProps> = ({
       </div>
 
       {/* Service Info */}
-      <p className="mt-2 truncate text-sm font-semibold text-gray-900">
+      <p className="mt-2 truncate text-sm font-semibold text-white">
         {service.serviceName}
       </p>
-      <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+      <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
         <Star className="w-3.5 h-3.5 fill-[#FFCC00] text-[#FFCC00]" />
-        <span className="font-medium text-gray-900">{rating.toFixed(1)}</span>
-        <span className="text-gray-400">·</span>
+        <span className="font-medium text-white">{rating.toFixed(1)}</span>
+        <span className="text-gray-600">·</span>
         <span>{bookingCount} bookings</span>
       </div>
     </button>

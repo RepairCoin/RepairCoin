@@ -8,34 +8,28 @@ interface CustomerTabBarProps {
 }
 
 export function CustomerTabBar({ activeTab, onTabChange }: CustomerTabBarProps) {
-  const getTabStyle = (tab: CustomerServiceTab, index: number) => {
-    const isActive = activeTab === tab;
-    let roundedClass = "";
-    if (index === 0) roundedClass = "rounded-l-lg";
-    else if (index === CUSTOMER_SERVICE_TABS.length - 1) roundedClass = "rounded-r-lg";
-
-    return `flex-1 items-center justify-center ${
-      isActive ? "bg-[#FFCC00]" : "bg-[#121212]"
-    } ${roundedClass}`;
-  };
-
   return (
-    <View className="flex-row w-full h-10 bg-[#121212] rounded-xl">
-      {CUSTOMER_SERVICE_TABS.map((tab, i) => (
-        <Pressable
-          key={i}
-          onPress={() => onTabChange(tab)}
-          className={getTabStyle(tab, i)}
-        >
-          <Text
-            className={`text-base font-bold ${
-              activeTab === tab ? "text-black" : "text-gray-400"
+    <View className="flex-row w-full bg-[#121212] rounded-2xl p-1 border border-zinc-800">
+      {CUSTOMER_SERVICE_TABS.map((tab) => {
+        const isActive = activeTab === tab;
+        return (
+          <Pressable
+            key={tab}
+            onPress={() => onTabChange(tab)}
+            className={`flex-1 items-center justify-center py-2.5 rounded-xl ${
+              isActive ? "bg-[#FFCC00]" : ""
             }`}
           >
-            {tab}
-          </Text>
-        </Pressable>
-      ))}
+            <Text
+              className={`text-sm font-bold ${
+                isActive ? "text-black" : "text-gray-400"
+              }`}
+            >
+              {tab}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

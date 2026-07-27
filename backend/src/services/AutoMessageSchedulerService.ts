@@ -178,6 +178,18 @@ export class AutoMessageSchedulerService {
   /**
    * Send auto-message to a single customer
    */
+  /**
+   * A/B variant pick (Phase 4). If the rule has a variant B, 50/50 between A (messageTemplate) and B;
+   * returns the chosen message + label so the send can be attributed. No variant B → variant null.
+   */
+  private pickVariant(rule: AutoMessage): { message: string; variant: string | null } {
+    if (rule.variantB && rule.variantB.trim()) {
+      const isA = Math.random() < 0.5;
+      return { message: isA ? rule.messageTemplate : rule.variantB, variant: isA ? 'A' : 'B' };
+    }
+    return { message: rule.messageTemplate, variant: null };
+  }
+
   private async sendToCustomer(
     rule: AutoMessage,
     customer: { walletAddress: string; name?: string; rcnBalance?: number; lastServiceName?: string; lastVisitDate?: string },
@@ -208,8 +220,11 @@ export class AutoMessageSchedulerService {
         return { success: false };
       }
 
+      // A/B: pick a variant (if any) so the send can be attributed.
+      const { message: variantMessage, variant } = this.pickVariant(rule);
+
       // Resolve template variables
-      const messageText = resolveTemplate(rule.messageTemplate, {
+      const messageText = resolveTemplate(variantMessage, {
         customerName: customer.name,
         rcnBalance: customer.rcnBalance,
         shopName,
@@ -248,6 +263,7 @@ export class AutoMessageSchedulerService {
         conversationId: conversation.conversationId,
         messageId: message.messageId,
         status: 'sent',
+        variant,
       });
 
       return { success: true, messageId: message.messageId, conversationId: conversation.conversationId };
@@ -312,6 +328,27 @@ export class AutoMessageSchedulerService {
               logger.debug('Duplicate trigger reference, skipping', { ruleId: rule.id, orderId: data.orderId });
               continue;
             }
+          }
+
+          // Drip sequence (Phase 3): enrol the customer by enqueuing step 0 as a pending send. Firing a
+          // step enqueues the next (see the pending-send processor), so the whole sequence runs off the
+          // existing queue. A rule with no steps falls through to the single-message behavior below.
+          if (rule.steps && rule.steps.length > 0) {
+            const step0 = rule.steps[0];
+            const seqAt = new Date();
+            seqAt.setHours(seqAt.getHours() + (step0.delayHours || 0));
+            await this.autoMessageRepo.recordSend({
+              autoMessageId: rule.id,
+              shopId: data.shopId,
+              customerAddress: data.customerAddress,
+              triggerReference: data.orderId || undefined,
+              status: 'pending',
+              scheduledSendAt: seqAt,
+              stepIndex: 0,
+            });
+            scheduledCount++;
+            logger.info(`Enrolled ${data.customerAddress} in sequence "${rule.name}" (step 1 at ${seqAt.toISOString()})`, { ruleId: rule.id });
+            continue;
           }
 
           // Calculate when to send
@@ -441,6 +478,107 @@ export class AutoMessageSchedulerService {
   }
 
   /**
+   * Drip stop-on-booking exit check (Phase 3): has the customer completed a booking at this shop SINCE
+   * enrolling in the sequence? Enrollment time ≈ the earliest (step-0) pending send for this rule+customer.
+   */
+  private async bookedSinceEnrollment(ruleId: string, customerAddress: string, shopId: string): Promise<boolean> {
+    try {
+      const pool = getSharedPool();
+      const enroll = await pool.query(
+        `SELECT MIN(scheduled_send_at) AS enrolled_at
+           FROM auto_message_sends
+          WHERE auto_message_id = $1 AND LOWER(customer_address) = LOWER($2) AND step_index = 0`,
+        [ruleId, customerAddress]
+      );
+      const enrolledAt = enroll.rows[0]?.enrolled_at;
+      if (!enrolledAt) return false;
+      const booked = await pool.query(
+        `SELECT 1 FROM service_orders
+          WHERE shop_id = $1 AND LOWER(customer_address) = LOWER($2)
+            AND status = 'completed' AND updated_at >= $3
+          LIMIT 1`,
+        [shopId, customerAddress, enrolledAt]
+      );
+      return booked.rows.length > 0;
+    } catch (error) {
+      logger.error('bookedSinceEnrollment check failed', { ruleId, error: (error as Error)?.message });
+      return false; // fail open — don't block the sequence on a check error
+    }
+  }
+
+  /**
+   * Process low_bookings rules — the "slow week" autonomous trigger (AI Campaigns Advanced, Phase 2).
+   * For each active rule: if the shop's bookings over the last 7 days dropped notably below its OWN
+   * trailing 4-week weekly average, fire the rule's message to its target audience (a win-back / promo
+   * nudge). Shop-relative so it adapts per shop; the trailing baseline (>= 4 prior bookings) avoids
+   * firing for brand-new/empty shops. Per-customer 7-day dedup + maxSendsPerCustomer prevent re-blasting.
+   * Threshold is a v1 heuristic (this week < 50% of the weekly average) — a configurable cap can come later.
+   */
+  async processLowBookings(): Promise<{ rulesFired: number; messagesSent: number }> {
+    let rulesFired = 0;
+    let messagesSent = 0;
+
+    try {
+      const rules = await this.autoMessageRepo.getAllActiveEventRulesByType('low_bookings');
+      if (rules.length === 0) return { rulesFired: 0, messagesSent: 0 };
+
+      logger.info(`Processing ${rules.length} low_bookings rules`);
+      const pool = getSharedPool();
+
+      for (const rule of rules) {
+        try {
+          const shop = await this.shopRepo.getShop(rule.shopId);
+          if (!shop || !shop.active) continue;
+
+          // last-7-days bookings vs the trailing 4 weeks (the 28-day window just before the last 7 days)
+          const stats = await pool.query(`
+            SELECT
+              COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS last7,
+              COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '35 days'
+                               AND created_at <  NOW() - INTERVAL '7 days')   AS prior28
+            FROM service_orders
+            WHERE shop_id = $1 AND status <> 'cancelled'
+          `, [rule.shopId]);
+          const last7 = Number(stats.rows[0]?.last7) || 0;
+          const prior28 = Number(stats.rows[0]?.prior28) || 0;
+          const weeklyAvg = prior28 / 4;
+          const isSlow = prior28 >= 4 && weeklyAvg > 0 && last7 < weeklyAvg * 0.5;
+          if (!isSlow) continue;
+
+          rulesFired++;
+          logger.info(`Rule "${rule.name}" fired — slow week (${last7} vs ~${weeklyAvg.toFixed(1)}/wk avg)`, {
+            ruleId: rule.id, shopId: rule.shopId,
+          });
+
+          const customers = await this.getTargetCustomers(rule);
+          for (const cust of customers) {
+            const sendCount = await this.autoMessageRepo.countSendsForCustomer(rule.id, cust.walletAddress);
+            if (rule.maxSendsPerCustomer && sendCount >= rule.maxSendsPerCustomer) continue;
+            // Don't re-blast the same customer within 7 days (also caps repeat slow-week firings).
+            if (await this.autoMessageRepo.hasSentWithinDays(rule.id, cust.walletAddress, 7)) continue;
+
+            const sendResult = await this.sendToCustomer(rule, cust, shop.name || 'Our Shop');
+            if (sendResult.success) messagesSent++;
+          }
+        } catch (error) {
+          logger.error(`Error processing low_bookings rule "${rule.name}"`, {
+            ruleId: rule.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Error in processLowBookings:', error);
+    }
+
+    if (rulesFired > 0) {
+      logger.info('Low bookings processing completed', { rulesFired, messagesSent });
+    }
+
+    return { rulesFired, messagesSent };
+  }
+
+  /**
    * Process all active schedule-based auto-message rules
    */
   async processScheduledMessages(): Promise<{
@@ -555,16 +693,38 @@ export class AutoMessageSchedulerService {
               // Get customer info
               const customer = await this.customerRepo.getCustomer(send.customerAddress);
 
+              // Drip sequence step (Phase 3): resolve which step's message to send, honor stop-on-booking,
+              // and enqueue the next step after this one fires. A null step_index = legacy single message.
+              const isSequenceStep = send.stepIndex !== null && !!rule.steps && rule.steps.length > 0;
+              const step = isSequenceStep ? rule.steps![send.stepIndex as number] : null;
+              if (isSequenceStep && !step) {
+                // The step was removed from the rule since enrollment — end the sequence cleanly.
+                await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
+                continue;
+              }
+
+              // Exit condition: if the sequence is set to stop once the customer books, and they've
+              // completed a booking since enrolling, end the sequence without sending this step.
+              if (isSequenceStep && rule.stopOnBooking) {
+                if (await this.bookedSinceEnrollment(send.autoMessageId, send.customerAddress, send.shopId)) {
+                  await this.autoMessageRepo.updateSendStatus(send.id, 'sent'); // processed, no message, no next
+                  logger.info(`Sequence "${rule.name}" exited for ${send.customerAddress} — customer booked`, { ruleId: rule.id });
+                  continue;
+                }
+              }
+
               const conversation = await this.messageRepo.getOrCreateConversation(send.customerAddress, send.shopId);
               if (conversation.isBlocked) {
                 await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
                 continue;
               }
 
-              const messageText = resolveTemplate(rule.messageTemplate, {
-                customerName: customer?.name || undefined,
-                shopName,
-              });
+              // A/B on delayed single-message sends: pick a variant at send time (sequence steps skip A/B).
+              const abPick = isSequenceStep ? null : this.pickVariant(rule);
+              const messageText = resolveTemplate(
+                step ? step.messageTemplate : (abPick ? abPick.message : rule.messageTemplate),
+                { customerName: customer?.name || undefined, shopName }
+              );
 
               const messageId = `msg_${uuidv4()}`;
               const { message } = await this.messageRepo.createMessage({
@@ -582,8 +742,26 @@ export class AutoMessageSchedulerService {
               });
 
               await this.messageRepo.incrementUnreadCount(conversation.conversationId, 'customer', messageText);
-              await this.autoMessageRepo.updateSendStatus(send.id, 'sent', message.messageId, conversation.conversationId);
+              await this.autoMessageRepo.updateSendStatus(send.id, 'sent', message.messageId, conversation.conversationId, abPick?.variant ?? null);
               result.messagesSent++;
+
+              // Sequence: enqueue the next step (if any) after this one fired.
+              if (isSequenceStep) {
+                const nextIndex = (send.stepIndex as number) + 1;
+                const nextStep = rule.steps![nextIndex];
+                if (nextStep) {
+                  const nextAt = new Date();
+                  nextAt.setHours(nextAt.getHours() + (nextStep.delayHours || 0));
+                  await this.autoMessageRepo.recordSend({
+                    autoMessageId: rule.id,
+                    shopId: send.shopId,
+                    customerAddress: send.customerAddress,
+                    status: 'pending',
+                    scheduledSendAt: nextAt,
+                    stepIndex: nextIndex,
+                  });
+                }
+              }
             } catch (error) {
               logger.error('Error processing pending send', { sendId: send.id, error });
               await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
@@ -602,6 +780,15 @@ export class AutoMessageSchedulerService {
         result.messagesSent += inactiveResult.messagesSent;
       } catch (error) {
         logger.error('Error processing inactive customers:', error);
+      }
+
+      // Process low_bookings ("slow week") rules
+      try {
+        const lowResult = await this.processLowBookings();
+        result.rulesFired += lowResult.rulesFired;
+        result.messagesSent += lowResult.messagesSent;
+      } catch (error) {
+        logger.error('Error processing low bookings:', error);
       }
 
       if (result.messagesSent > 0 || result.rulesFired > 0) {

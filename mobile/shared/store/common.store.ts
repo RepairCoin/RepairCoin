@@ -8,6 +8,12 @@ interface ModalState {
   setShowSubscriptionModal: (show: boolean) => void;
   setSubscriptionModalLoading: (loading: boolean) => void;
 
+  // Stripe Connect Modal — opened from mutation onError handlers (services/bookings)
+  // when the backend returns 403 STRIPE_NOT_CONNECTED. Global store because the
+  // trigger sites are unrelated hook files with no shared parent component.
+  showStripeConnectModal: boolean;
+  setShowStripeConnectModal: (show: boolean) => void;
+
   // Generic Modal (for future use)
   activeModal: string | null;
   modalData: any;
@@ -27,6 +33,11 @@ export const useModalStore = create<ModalState>()(
       setSubscriptionModalLoading: (loading: boolean) =>
         set(() => ({ subscriptionModalLoading: loading }), false, "setSubscriptionModalLoading"),
 
+      // Stripe Connect Modal State
+      showStripeConnectModal: false,
+      setShowStripeConnectModal: (show: boolean) =>
+        set(() => ({ showStripeConnectModal: show }), false, "setShowStripeConnectModal"),
+
       // Generic Modal State
       activeModal: null,
       modalData: null,
@@ -39,6 +50,7 @@ export const useModalStore = create<ModalState>()(
           () => ({
             showSubscriptionModal: false,
             subscriptionModalLoading: false,
+            showStripeConnectModal: false,
             activeModal: null,
             modalData: null,
           }),

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { X, DollarSign, Clock, CheckCircle, AlertCircle, Coins, Calendar, Ban } from "lucide-react";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
 import { createPaymentIntent, getBookableLocations, BookableLocation } from "@/services/api/services";
@@ -152,9 +152,10 @@ const CheckoutForm: React.FC<{
   clientSecret: string;
   orderId: string;
   finalAmount: number;
+  connectedAccountId?: string;
   onSuccess: () => void;
   onError: (error: string) => void;
-}> = ({ service, clientSecret, orderId, finalAmount, onSuccess, onError }) => {
+}> = ({ service, clientSecret, orderId, finalAmount, connectedAccountId, onSuccess, onError }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -209,7 +210,8 @@ const CheckoutForm: React.FC<{
             },
             credentials: 'include',
             body: JSON.stringify({
-              paymentIntentId: result.paymentIntent.id
+              paymentIntentId: result.paymentIntent.id,
+              connectedAccountId
             })
           });
 
@@ -289,6 +291,9 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   const userProfile = useAuthStore((state) => state.userProfile);
   const [clientSecret, setClientSecret] = useState<string>("");
   const [orderId, setOrderId] = useState<string>("");
+  // Direct charge: the PaymentIntent lives on the shop's connected account, so Stripe.js must be
+  // initialised against it to confirm the payment.
+  const [connectedAccountId, setConnectedAccountId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [paymentSuccess, setPaymentSuccess] = useState(false);
@@ -441,6 +446,9 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
 
   // Check if customer is suspended
   const isSuspended = noShowStatus?.tier === 'suspended' && !noShowStatus?.canBook;
+  // The shop hasn't finished Stripe payout setup, so it can't take bookings yet.
+  // Strict === false so services from surfaces that don't report the flag stay bookable.
+  const notAcceptingBookings = service.shopAcceptingBookings === false;
 
   // Validate advance booking hours
   const validateAdvanceBooking = (): { isValid: boolean; error: string | null } => {
@@ -515,6 +523,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
       if (response) {
         setClientSecret(response.clientSecret);
         setOrderId(response.orderId);
+        setConnectedAccountId(response.connectedAccountId);
       } else {
         setError("Failed to initialize payment. Please try again.");
         setPaymentInitialized(false);
@@ -553,6 +562,16 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
       },
     },
   };
+
+  // Direct-charge bookings must confirm in the shop's Stripe account context — same publishable
+  // key and same form, just scoped to the connected account. Falls back to the platform instance
+  // if (unexpectedly) there's no connected account.
+  const activeStripePromise = useMemo(() => {
+    if (!connectedAccountId) return stripePromise;
+    return loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "", {
+      stripeAccount: connectedAccountId,
+    });
+  }, [connectedAccountId]);
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1006,8 +1025,19 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                 </div>
               )}
 
+              {/* Shop hasn't set up payouts — can't accept bookings yet */}
+              {notAcceptingBookings && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6 text-center">
+                  <Clock className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                  <p className="text-amber-300 font-semibold">This shop isn&apos;t accepting bookings yet</p>
+                  <p className="text-gray-400 text-sm mt-1">
+                    It&apos;s still finishing payment setup. Check back soon.
+                  </p>
+                </div>
+              )}
+
               {/* Proceed to Payment Button */}
-              {!paymentInitialized && !isSuspended && (
+              {!paymentInitialized && !isSuspended && !notAcceptingBookings && (
                 <button
                   onClick={handleInitializePayment}
                   disabled={loading || !bookingDate || !bookingTimeSlot || !advanceBookingValidation.isValid}
@@ -1048,12 +1078,13 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
               {clientSecret && !loading && (
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-4">Payment Information</h3>
-                  <Elements stripe={stripePromise} options={options}>
+                  <Elements stripe={activeStripePromise} options={options}>
                     <CheckoutForm
                       service={service}
                       clientSecret={clientSecret}
                       orderId={orderId}
                       finalAmount={finalAmount}
+                      connectedAccountId={connectedAccountId}
                       onSuccess={handlePaymentSuccess}
                       onError={handlePaymentError}
                     />

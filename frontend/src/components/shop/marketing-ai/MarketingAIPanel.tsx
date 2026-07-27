@@ -67,7 +67,7 @@ export const MarketingAIPanel: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // WS3 soft-landing — set once a reply reports the monthly AI allowance is spent.
-  const [aiLimit, setAiLimit] = useState<{ budgetUsd?: number; spentUsd?: number } | null>(null);
+  const [aiLimit, setAiLimit] = useState<{ budgetUsd?: number; spentUsd?: number; overageCapReached?: boolean } | null>(null);
   const voicePendingDispatchId = useVoiceDispatchStore(
     (s) => s.pending?.dispatchId
   );
@@ -150,7 +150,7 @@ export const MarketingAIPanel: React.FC = () => {
         },
       ]);
       setAiLimit(
-        res.limitReached ? { budgetUsd: res.budgetUsd, spentUsd: res.spentUsd } : null
+        res.limitReached ? { budgetUsd: res.budgetUsd, spentUsd: res.spentUsd, overageCapReached: res.overageCapReached } : null
       );
     } catch (err) {
       const ax = err as {
@@ -239,6 +239,7 @@ export const MarketingAIPanel: React.FC = () => {
           className="mt-3"
           budgetUsd={aiLimit.budgetUsd}
           spentUsd={aiLimit.spentUsd}
+          overageCapReached={aiLimit.overageCapReached}
         />
       )}
 

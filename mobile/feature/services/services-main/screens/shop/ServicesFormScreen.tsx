@@ -387,7 +387,9 @@ export default function ServicesFormScreen() {
                                               ? "desktop"
                                               : item.value === "food_beverage"
                                                 ? "restaurant"
-                                                : "ellipsis-horizontal"
+                                                : item.value === "legal_services"
+                                                  ? "document-text"
+                                                  : "ellipsis-horizontal"
                         }
                         size={20}
                         color="#FFCC00"

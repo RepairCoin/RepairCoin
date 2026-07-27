@@ -12,8 +12,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { logger } from "../../../utils/logger";
 import { ClaudeModel } from "../types";
+import { smartModel } from "../../../config/aiModels";
 
-const VISION_MODEL: ClaudeModel = "claude-sonnet-4-6";
+const VISION_MODEL: ClaudeModel = smartModel();
 const MAX_TOKENS = 300;
 // Sonnet list pricing (USD per token).
 const INPUT_RATE = 3 / 1_000_000;

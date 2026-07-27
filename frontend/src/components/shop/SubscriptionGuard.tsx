@@ -47,6 +47,15 @@ interface SubscriptionGuardProps {
   customMessage?: string;
   /** Render function for custom blocked UI */
   renderBlocked?: (status: SubscriptionStatus) => React.ReactNode;
+  /**
+   * DEPRECATED as a toggle — the guard is now lifecycle-only and free tier always
+   * passes it. Feature access (free vs paid) is decided by <TierGate>, never here:
+   * a plain <SubscriptionGuard> must not stand in for "needs a paid plan", or a
+   * free shop sees "Subscription Required" instead of the correct per-feature
+   * upgrade panel. Kept only so existing `allowFree` call sites still type-check.
+   * Setting it to false no longer re-enables blocking free.
+   */
+  allowFree?: boolean;
 }
 
 /**
@@ -213,7 +222,12 @@ export const SubscriptionGuard: React.FC<SubscriptionGuardProps> = ({
 }) => {
   const status = useSubscriptionStatus(shopData);
 
-  if (!status.canPerformOperations && showOverlay) {
+  // Lifecycle-only: the overlay is for shops that genuinely can't operate —
+  // suspended, pending verification, admin-paused. Free tier passes; whether a
+  // free shop can use a given feature is <TierGate>'s call, not this guard's.
+  const isAllowed = status.canManageStorefront;
+
+  if (!isAllowed && showOverlay) {
     return (
       <div className="relative">
         {children}

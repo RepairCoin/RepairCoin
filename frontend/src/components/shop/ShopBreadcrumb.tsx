@@ -1,8 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useActiveWallet, useDisconnect } from "thirdweb/react";
 import { useAuthStore } from "@/stores/authStore";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { performSwitchAccount } from "@/utils/switchAccount";
+import { rememberAccount, type SavedAccount } from "@/utils/savedAccounts";
+import { SavedAccountsMenuSection } from "@/components/account/SavedAccountsMenuSection";
+import { SHOP_TAB_PERMISSIONS } from "@/config/shopTabPermissions";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { CartIcon } from "@/components/ui/CartIcon";
 import { MessageIcon } from "@/components/messaging/MessageIcon";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -36,6 +50,9 @@ import {
   FileBarChart,
   LifeBuoy,
   Wallet,
+  LogOut,
+  RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 
 // Tab configuration with icons, titles, and descriptions
@@ -222,11 +239,28 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
   const memberName = useAuthStore((s) => s.userProfile?.memberName);
   const profileFirstName = useAuthStore((s) => s.userProfile?.firstName);
   const avatarUrl = useAuthStore((s) => s.userProfile?.avatarUrl);
+  const walletAddress = useAuthStore((s) => s.userProfile?.address);
+  const profileEmail = useAuthStore((s) => s.userProfile?.email);
+  const resetAuth = useAuthStore((s) => s.resetAuth);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  // Staff management lives in this menu now; hide it from members who can't manage the team.
+  const canManageTeam = hasPermission(SHOP_TAB_PERMISSIONS.team);
   // Header badge shows the SUBSCRIPTION plan (Starter/Growth/Business) — the tier
   // that governs feature access — not the RCG governance-token tier (which is a
   // blockchain concept and is hidden in DB-only mode).
   const { tier: planTier } = useFeatureAccess();
   const [avatarError, setAvatarError] = useState(false);
+
+  const router = useRouter();
+  const wallet = useActiveWallet();
+  const { disconnect } = useDisconnect();
+
+  const handleSwitchAccount = useCallback(
+    (targetAccount?: SavedAccount) =>
+      performSwitchAccount({ wallet, disconnect, resetAuth, targetAccount }),
+    [resetAuth, wallet, disconnect]
+  );
+
 
   const tabConfig = TAB_CONFIG[activeTab] || DEFAULT_TAB;
   const isHome = activeTab === "overview";
@@ -236,6 +270,18 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
   const firstName = (personName || "there").split(" ")[0];
   const tier = planTier ? capitalize(planTier) : null;
   const showAvatar = avatarUrl && !avatarError;
+
+  // Remember this account so it appears in the "Switch to" list next time.
+  useEffect(() => {
+    if (!walletAddress) return;
+    rememberAccount({
+      address: walletAddress,
+      name: personName || undefined,
+      email: profileEmail || undefined,
+      avatarUrl: avatarUrl || undefined,
+      role: "shop",
+    });
+  }, [walletAddress, personName, profileEmail, avatarUrl]);
 
   const handleHomeClick = () => {
     onTabChange("overview");
@@ -272,24 +318,97 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
         <HeaderVoiceMic variant="subtle" />
         <UnifiedAssistantLauncher variant="subtle" />
 
-        <div className="ml-6 flex items-center gap-2.5">
-          {showAvatar ? (
-            <img
-              src={avatarUrl}
-              alt={firstName}
-              onError={() => setAvatarError(true)}
-              className="h-9 w-9 rounded-xl object-cover"
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Open account menu"
+              className="ml-6 flex items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-[#303236] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFCC00]/50 data-[state=open]:bg-[#303236]"
+            >
+              {showAvatar ? (
+                <img
+                  src={avatarUrl}
+                  alt={firstName}
+                  onError={() => setAvatarError(true)}
+                  className="h-9 w-9 rounded-xl object-cover"
+                />
+              ) : (
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFCC00] text-sm font-bold text-[#101010]">
+                  {firstName.charAt(0).toUpperCase()}
+                </span>
+              )}
+              <div className="leading-tight text-left">
+                <p className="text-sm font-medium text-white">Hi, {firstName}</p>
+                {tier && <p className="text-xs text-[#FFCC00]">{tier} Plan</p>}
+              </div>
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            </button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent
+            align="end"
+            className="w-56 border border-gray-800 bg-[#1A1A1A] text-white"
+          >
+            <DropdownMenuLabel className="font-normal">
+              <p className="text-sm font-medium text-white">Hi, {firstName}</p>
+              {tier && <p className="text-xs text-[#FFCC00]">{tier} Plan</p>}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-gray-800" />
+
+            {canManageTeam && (
+              <DropdownMenuItem
+                onSelect={() => onTabChange("team")}
+                className="cursor-pointer focus:bg-[#262626] focus:text-white"
+              >
+                <UsersIcon className="h-4 w-4" />
+                Team
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              onSelect={() => onTabChange("settings")}
+              className="cursor-pointer focus:bg-[#262626] focus:text-white"
+            >
+              <Settings className="h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => router.push("/register/shop/payouts")}
+              className="cursor-pointer focus:bg-[#262626] focus:text-white"
+            >
+              <Wallet className="h-4 w-4" />
+              Payouts (Stripe)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => onTabChange("support")}
+              className="cursor-pointer focus:bg-[#262626] focus:text-white"
+            >
+              <LifeBuoy className="h-4 w-4" />
+              Support
+            </DropdownMenuItem>
+
+            <SavedAccountsMenuSection
+              currentAddress={walletAddress}
+              onSelect={(account) => handleSwitchAccount(account)}
             />
-          ) : (
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFCC00] text-sm font-bold text-[#101010]">
-              {firstName.charAt(0).toUpperCase()}
-            </span>
-          )}
-          <div className="leading-tight">
-            <p className="text-sm font-medium text-white">Hi, {firstName}</p>
-            {tier && <p className="text-xs text-[#FFCC00]">{tier} Plan</p>}
-          </div>
-        </div>
+
+            <DropdownMenuSeparator className="bg-gray-800" />
+
+            <DropdownMenuItem
+              onSelect={() => handleSwitchAccount()}
+              className="cursor-pointer focus:bg-[#262626] focus:text-white"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Add another account
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => handleSwitchAccount()}
+              className="cursor-pointer text-red-400 focus:bg-red-500/10 focus:text-red-300"
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

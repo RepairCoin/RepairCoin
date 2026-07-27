@@ -41,3 +41,6 @@ export const getMessagingCostSummary = async (days?: number): Promise<MessagingC
 
 /** Cents (fractional allowed) → "$0.14". */
 export const fmtCents = (cents: number): string => `$${((cents || 0) / 100).toFixed(2)}`;
+
+// AI Usage Overage moved to ./aiUsage — it is AI revenue, not carrier cost, and now renders on
+// the Admin "AI Usage & Cost" tab.

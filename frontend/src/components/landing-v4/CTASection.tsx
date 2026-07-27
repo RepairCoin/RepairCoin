@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { m } from "framer-motion";
 import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
 import { useModalStore } from "@/stores/modalStore";
@@ -11,6 +12,8 @@ interface CTASectionProps {
   line2?: string;
   description?: string;
   ctaLabel?: string;
+  secondaryLabel?: string;
+  secondaryHref?: string;
 }
 
 export default function CTASection({
@@ -18,6 +21,8 @@ export default function CTASection({
   line2 = "Endless Possibilities.",
   description = "From bookings and customer management to rewards and AI insights, FixFlow gives you everything you need to succeed.",
   ctaLabel = "Start Free Trial →",
+  secondaryLabel,
+  secondaryHref,
 }: CTASectionProps = {}) {
   const { openWelcomeModal } = useModalStore();
 
@@ -41,7 +46,7 @@ export default function CTASection({
             <span className="relative inline-block">
               {line2}
               <svg
-                className="absolute -bottom-8 left-1/4 w-1/2 h-[18px]"
+                className="absolute -bottom-8 left-[15%] w-[70%] h-[18px]"
                 viewBox="0 0 311 8"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -68,13 +73,22 @@ export default function CTASection({
             {description}
           </p>
 
-          <div className="flex justify-center mt-6 sm:mt-8">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mt-6 sm:mt-8">
             <button
               onClick={openWelcomeModal}
               className="btn-shimmer bg-[#F7CC00] hover:bg-[#E5BB00] text-black font-semibold px-8 sm:px-10 py-3.5 sm:py-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl text-base sm:text-lg"
             >
               {ctaLabel}
             </button>
+
+            {secondaryLabel && secondaryHref && (
+              <Link
+                href={secondaryHref}
+                className="bg-white hover:bg-gray-100 text-black font-semibold px-8 sm:px-10 py-3.5 sm:py-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl text-base sm:text-lg"
+              >
+                {secondaryLabel}
+              </Link>
+            )}
           </div>
         </AnimateOnScroll>
       </div>

@@ -6,6 +6,7 @@ import { ManualBookingData } from "@/feature/services/services/service.interface
 import { usePaymentStore } from "@/feature/services/payment/store/payment.store";
 import { useAppToast } from "@/shared/hooks";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
+import { useModalStore } from "@/shared/store/common.store";
 import {
   BookingFormData,
   BookingResponse,
@@ -102,6 +103,12 @@ export function useApproveOrderMutation() {
     },
     onError: (error: any) => {
       console.error("Failed to approve order:", error);
+
+      if (error.response?.data?.code === "STRIPE_NOT_CONNECTED") {
+        useModalStore.getState().setShowStripeConnectModal(true);
+        return;
+      }
+
       const errorMessage =
         error.response?.data?.error || error.message || "";
 
@@ -153,8 +160,16 @@ export function useCompleteOrderMutation() {
     },
     onError: (error: any) => {
       console.error("Failed to complete order:", error);
+
+      if (error.response?.data?.code === "STRIPE_NOT_CONNECTED") {
+        useModalStore.getState().setShowStripeConnectModal(true);
+        return;
+      }
+
       showError(
-        error.message || "Failed to complete booking. Please try again."
+        error.response?.data?.error ||
+          error.message ||
+          "Failed to complete booking. Please try again."
       );
     },
     onSettled: reset,

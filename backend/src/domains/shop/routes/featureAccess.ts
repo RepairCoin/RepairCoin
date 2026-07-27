@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getShopTier } from '../../../utils/shopTier';
 import { hasPaidMultiLocation } from '../../../utils/multiLocationEntitlement';
-import { FEATURE_TIERS, tierAllowsFeature } from '../../../config/featureTiers';
+import { FEATURE_TIERS, effectiveTierAllows } from '../../../config/featureTiers';
 import { logger } from '../../../utils/logger';
 
 const router = Router();
@@ -14,7 +14,10 @@ router.get('/', async (req: Request, res: Response) => {
 
     const features: Record<string, boolean> = {};
     for (const feature of Object.keys(FEATURE_TIERS)) {
-      features[feature] = tierAllowsFeature(tier, feature);
+      // effectiveTierAllows honors rollout flags — a deferred feature (e.g. aiCampaignsAdvanced until
+      // ENFORCE_CAMPAIGN_AUTOMATION_TIER flips) reads as allowed for all tiers, keeping the UI in step
+      // with the backend route guard.
+      features[feature] = effectiveTierAllows(tier, feature);
     }
 
     // Paid multi-location entitlement is stricter than the tier map (excludes trial): it gates the

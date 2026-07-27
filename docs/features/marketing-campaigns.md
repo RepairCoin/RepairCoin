@@ -288,7 +288,7 @@ Core functionality:
 - Audience targeting and counting
 - Email rendering from design blocks
 - In-app notification delivery via WebSocket
-- Email delivery via nodemailer
+- Email delivery via Resend
 
 ### MarketingCampaignRepository
 Located at: `backend/src/repositories/MarketingCampaignRepository.ts`

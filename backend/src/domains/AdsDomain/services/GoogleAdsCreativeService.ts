@@ -9,11 +9,12 @@ import { AnthropicClient } from '../../AIAgentDomain/services/AnthropicClient';
 import { SpendCapEnforcer } from '../../AIAgentDomain/services/SpendCapEnforcer';
 import { BrandKitService } from '../../AIAgentDomain/services/BrandKitService';
 import { ChatMessage, ClaudeModel } from '../../AIAgentDomain/types';
+import { cheapModel } from '../../../config/aiModels';
 import { shopRepository } from '../../../repositories';
 import { AiCostRepository } from '../repositories/AiCostRepository';
 import { logger } from '../../../utils/logger';
 
-const MODEL: ClaudeModel = 'claude-haiku-4-5-20251001';
+const MODEL: ClaudeModel = cheapModel();
 const clip = (s: string, n: number): string => (s.length <= n ? s : s.slice(0, n).trim());
 const uniq = (arr: string[]): string[] => Array.from(new Set(arr.map((s) => s.trim()).filter(Boolean)));
 

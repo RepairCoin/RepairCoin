@@ -69,10 +69,10 @@ export function AISpendIndicator() {
   const warning = !overCap && percent >= CHEAPER_MODEL_THRESHOLD;
 
   const colorClass = overCap
-    ? "text-red-700 bg-red-50 border-red-200"
+    ? "text-red-300 bg-red-500/10 border-red-500/30"
     : warning
-      ? "text-amber-700 bg-amber-50 border-amber-200"
-      : "text-green-700 bg-green-50 border-green-200";
+      ? "text-amber-300 bg-amber-500/10 border-amber-500/30"
+      : "text-green-300 bg-green-500/10 border-green-500/30";
 
   const Icon = overCap || warning ? AlertTriangle : DollarSign;
   const percentDisplay = (percent * 100).toFixed(percent < 0.01 ? 2 : 1);

@@ -8,11 +8,17 @@ import { logger } from './logger';
 // Legacy pre-3-tier plans that paid the top historical price; grandfather to business.
 const LEGACY_BUSINESS_TYPES = new Set(['standard', 'premium', 'custom']);
 
-// Unknown/missing types fail closed to the lowest tier; legacy paid plans stay business.
+// No active subscription (fresh signup, or a trial that lapsed without converting) resolves to
+// 'free' — that IS the free tier, derived rather than assigned, so it needs no cron or backfill.
+// Unknown types fail closed to the same place; legacy paid plans stay business.
 function normalizeTier(subscriptionType?: string | null): SubscriptionTier {
   if (subscriptionType && isValidTier(subscriptionType)) return subscriptionType;
   if (subscriptionType && LEGACY_BUSINESS_TYPES.has(subscriptionType)) return 'business';
-  return 'starter';
+  // A trial started WITHOUT Stripe (no-card / admin-granted) has no 'trialing' row for
+  // isShopInTrial to find, so it arrives here. Same rule as a Stripe trial: full access.
+  // Without this a shop mid-trial would fall through to 'free'.
+  if (subscriptionType === 'trial') return 'business';
+  return 'free';
 }
 
 async function isShopInTrial(shopId: string): Promise<boolean> {
@@ -37,11 +43,11 @@ export async function getShopTier(shopId: string): Promise<SubscriptionTier> {
     const sub = await shopSubscriptionRepository.getActiveSubscriptionByShopId(shopId);
     return normalizeTier(sub?.subscriptionType);
   } catch (error) {
-    logger.warn('getShopTier failed, defaulting to starter', {
+    logger.warn('getShopTier failed, defaulting to free', {
       shopId,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return 'starter';
+    return 'free';
   }
 }
 

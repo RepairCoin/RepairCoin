@@ -14,6 +14,7 @@ import { BrandKitService } from '../../AIAgentDomain/services/BrandKitService';
 import { getAiMemoryService } from '../../AIAgentDomain/services/AiMemoryService';
 import { shopRepository } from '../../../repositories';
 import { ChatMessage, ClaudeModel } from '../../AIAgentDomain/types';
+import { cheapModel } from '../../../config/aiModels';
 import { LeadRepository } from '../repositories/LeadRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { CreativeRepository } from '../repositories/CreativeRepository';
@@ -26,7 +27,7 @@ import { getCurrentTimeInTimezone } from '../../../utils/timezoneUtils';
 import { LeadBookingService } from './LeadBookingService';
 import { LeadChannelSender } from './LeadChannelSender';
 
-const MODEL: ClaudeModel = 'claude-haiku-4-5-20251001';
+const MODEL: ClaudeModel = cheapModel();
 
 /** Ground lead replies in the shop's live service catalog + the ad's creative copy (default on;
  *  set ADS_AI_CATALOG_GROUNDING=false to fall back to name/voice-only grounding). */

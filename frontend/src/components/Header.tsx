@@ -15,6 +15,9 @@ import { WalletDetectionService } from "@/services/walletDetectionService";
 import { useModalStore } from "@/stores/modalStore";
 import { authApi } from "@/services/api/auth";
 import { useAuthStore } from "@/stores/authStore";
+import { performSwitchAccount } from "@/utils/switchAccount";
+import { consumePendingAccount, consumeOpenLogin, type SavedAccount } from "@/utils/savedAccounts";
+import { SavedProfilesLogin } from "@/components/auth/SavedProfilesLogin";
 
 const Header: React.FC = () => {
   const account = useActiveAccount();
@@ -77,29 +80,23 @@ const Header: React.FC = () => {
   // wallet, wipes auth localStorage, clears the backend cookie, then reloads to
   // home so the user can sign in with a different account. Mirrors the sidebar
   // logout so behaviour is consistent across the app.
-  const handleSwitchAccount = useCallback(async () => {
-    try {
-      resetAuth();
-      if (wallet && disconnect) {
-        try {
-          disconnect(wallet);
-        } catch (e) {
-          console.warn("Wallet disconnect error (non-blocking):", e);
-        }
-      }
-      const keysToPreserve = ["accessibility-storage"];
-      Object.keys(localStorage).forEach((key) => {
-        if (!keysToPreserve.includes(key)) localStorage.removeItem(key);
-      });
-      try {
-        await authApi.logout();
-      } catch (e) {
-        console.warn("Backend logout error (non-blocking):", e);
-      }
-    } finally {
-      if (typeof window !== "undefined") window.location.href = "/";
-    }
-  }, [resetAuth, wallet, disconnect]);
+  const handleSwitchAccount = useCallback(
+    () => performSwitchAccount({ wallet, disconnect, resetAuth }),
+    [resetAuth, wallet, disconnect]
+  );
+
+  // Arrived here from "Switch to <account>" or "Add another account": open sign-in
+  // straight away (greeting the specific account when we know it) instead of
+  // dropping the user on the bare landing page.
+  const [pendingAccount, setPendingAccount] = useState<SavedAccount | null>(null);
+  useEffect(() => {
+    const pending = consumePendingAccount();
+    const wantsLogin = consumeOpenLogin();
+    if (!pending && !wantsLogin) return;
+    if (pending) setPendingAccount(pending);
+    setAuthIntent("login");
+    openWelcomeModal();
+  }, [openWelcomeModal]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -610,7 +607,7 @@ const Header: React.FC = () => {
           />
 
           {/* Modal Content */}
-          <div className="relative bg-gray-100 rounded-3xl p-8 max-w-2xl w-full mx-4 shadow-2xl overflow-hidden">
+          <div className="relative bg-gray-100 rounded-3xl px-8 py-8 max-w-[45rem] w-full mx-4 shadow-2xl overflow-hidden">
             {/* Close button */}
             <button
               onClick={closeWelcomeModal}
@@ -631,16 +628,16 @@ const Header: React.FC = () => {
               </svg>
             </button>
 
-            <div className="flex flex-col md:flex-row items-center gap-8 h-full">
+            <div className="flex flex-col md:flex-row items-center md:items-stretch md:justify-center gap-6 md:gap-2 h-full">
               {/* Left Content */}
-              <div className="flex-1 h-full flex flex-col items-center space-y-10 text-center md:text-left">
+              <div className="w-full md:w-[23rem] md:flex-none flex flex-col items-center justify-center gap-6 py-4 text-center">
                 <div className="w-full flex flex-col items-center justify-center gap-4">
-                  <h1 className="text-4xl md:text-4xl text-center font-bold text-gray-900 leading-tight">
-                    {isSignup ? (
+                  <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
+                    {pendingAccount ? (
                       <>
-                        Join
+                        Welcome back,
                         <br />
-                        FixFlow
+                        {pendingAccount.name || "there"}
                       </>
                     ) : (
                       <>
@@ -650,39 +647,49 @@ const Header: React.FC = () => {
                       </>
                     )}
                   </h1>
-                  <p className="text-gray-500 text-center text-sm">
-                    {isSignup
-                      ? "Create your account to start earning rewards on every repair."
-                      : "Earn. Track. Redeem. Log in to manage your rewards and repairs."}
+                  <p className="text-gray-500 text-center text-sm leading-relaxed">
+                    {pendingAccount
+                      ? `Sign in again${
+                          pendingAccount.email ? ` with ${pendingAccount.email}` : ""
+                        } to switch to this account.`
+                      : isSignup
+                      ? "Securely connect your wallet to create your FixFlow account and start earning rewards on every repair."
+                      : "Securely connect your wallet to sign in and access your FixFlow account, rewards, and personalized experience."}
                   </p>
                 </div>
 
-                {/* Auth Button */}
-                <div className="pt-4 w-full">
-                  <ConnectButton
-                    client={client}
-                    wallets={loginWallets}
-                    connectModal={{
-                      size: "compact",
-                      title: isSignup ? "Create your account" : "Sign in to FixFlow",
-                      showThirdwebBranding: false,
-                    }}
-                    connectButton={{
-                      label: isSignup ? "Sign Up" : "Log In",
-                      className:
-                        "!bg-[#F7CC00] hover:!bg-[#E5BB00] !text-gray-900 !justify-center !w-full !font-semibold !px-8 !py-3 !rounded-full !inline-flex !items-center !gap-3 !transition-all !duration-200 !shadow-lg hover:!shadow-xl !border-none",
-                      style: {
-                        backgroundColor: "#F7CC00",
-                        color: "#111827",
-                        borderRadius: "9999px",
-                        fontWeight: "600",
-                        width: "100%",
-                        justifyContent: "center",
-                        padding: "0.75rem 2rem",
-                        boxShadow:
-                          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                      },
-                    }}
+                {/* Auth: saved-profiles list (login) → falls back to the standard
+                    connect for "Use another profile" / sign-up / no saved accounts. */}
+                <div className="w-full">
+                  <SavedProfilesLogin
+                    enabled={!isSignup}
+                    renderConnect={() => (
+                      <ConnectButton
+                        client={client}
+                        wallets={loginWallets}
+                        connectModal={{
+                          size: "compact",
+                          title: isSignup ? "Create your account" : "Sign in to FixFlow",
+                          showThirdwebBranding: false,
+                        }}
+                        connectButton={{
+                          label: isSignup ? "Create Account" : "Connect Account",
+                          className:
+                            "!bg-[#F7CC00] hover:!bg-[#E5BB00] !text-gray-900 !justify-center !w-full !font-semibold !px-8 !py-3 !rounded-full !inline-flex !items-center !gap-3 !transition-all !duration-200 !shadow-lg hover:!shadow-xl !border-none",
+                          style: {
+                            backgroundColor: "#F7CC00",
+                            color: "#111827",
+                            borderRadius: "9999px",
+                            fontWeight: "600",
+                            width: "100%",
+                            justifyContent: "center",
+                            padding: "0.75rem 2rem",
+                            boxShadow:
+                              "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                          },
+                        }}
+                      />
+                    )}
                   />
                   <p className="text-center text-xs text-gray-400 mt-4">
                     {isSignup
@@ -692,14 +699,14 @@ const Header: React.FC = () => {
                 </div>
               </div>
 
-              {/* Right Content - Character Illustrations */}
-              <div className="flex-1 relative h-64 md:h-80">
+              {/* Right Content - Character Illustration */}
+              <div className="w-full md:w-auto md:flex-none flex justify-center">
                 <Image
-                  src="/img/connect-modal.png"
-                  alt="FixFlow Characters"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="object-contain"
+                  src="/img/connect-hero.png"
+                  alt="FixFlow mascot"
+                  width={304}
+                  height={315}
+                  className="h-52 md:h-[17rem] w-auto max-w-full object-contain"
                   priority
                 />
               </div>

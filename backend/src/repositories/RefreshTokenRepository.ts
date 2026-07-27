@@ -272,6 +272,44 @@ export class RefreshTokenRepository extends BaseRepository {
     }
   }
 
+  // Multi-account switching: the accounts THIS device has a live session for.
+  // One row per user_address (the most-recently-used), so the switcher lists each
+  // account once. Backs GET /auth/sessions and gates POST /auth/switch.
+  async getDeviceSessions(deviceId: string): Promise<RefreshToken[]> {
+    if (!deviceId) return [];
+    try {
+      const query = `
+        SELECT DISTINCT ON (user_address) *
+        FROM refresh_tokens
+        WHERE device_id = $1 AND revoked = false AND expires_at > NOW()
+        ORDER BY user_address, last_used_at DESC, created_at DESC
+      `;
+      const result = await this.pool.query(query, [deviceId]);
+      return result.rows.map((row) => this.mapSnakeToCamel(row));
+    } catch (error) {
+      logger.error('Error getting device sessions:', error);
+      throw new Error('Failed to get device sessions');
+    }
+  }
+
+  // Whether this device currently holds a live (unrevoked, unexpired) session for
+  // the given account — the precondition for an instant switch to it.
+  async hasLiveDeviceSession(deviceId: string, userAddress: string): Promise<boolean> {
+    if (!deviceId) return false;
+    try {
+      const result = await this.pool.query(
+        `SELECT 1 FROM refresh_tokens
+         WHERE device_id = $1 AND user_address = $2 AND revoked = false AND expires_at > NOW()
+         LIMIT 1`,
+        [deviceId, userAddress.toLowerCase()]
+      );
+      return result.rows.length > 0;
+    } catch (error) {
+      logger.error('Error checking live device session:', error);
+      return false;
+    }
+  }
+
   // Get all active tokens for a user (for "active sessions" feature)
   async getActiveTokens(userAddress: string): Promise<RefreshToken[]> {
     try {

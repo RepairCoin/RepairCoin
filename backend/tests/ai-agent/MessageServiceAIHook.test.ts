@@ -20,12 +20,14 @@ const mockGetOrCreateConversation = jest.fn();
 const mockGetConversationById = jest.fn();
 const mockCreateMessage = jest.fn();
 const mockIncrementUnreadCount = jest.fn();
+const mockClearAiFollowup = jest.fn().mockResolvedValue(0);
 jest.mock('../../src/repositories/MessageRepository', () => ({
   MessageRepository: jest.fn().mockImplementation(() => ({
     getOrCreateConversation: mockGetOrCreateConversation,
     getConversationById: mockGetConversationById,
     createMessage: mockCreateMessage,
     incrementUnreadCount: mockIncrementUnreadCount,
+    clearAiFollowup: mockClearAiFollowup,
   })),
 }));
 

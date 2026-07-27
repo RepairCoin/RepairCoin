@@ -32,8 +32,8 @@ export const TrendingServicesList: React.FC<TrendingServicesListProps> = ({
   const visible = services.slice(0, limit);
 
   return (
-    <div className="rounded-xl bg-white p-5">
-      <h3 className="mb-4 text-base font-semibold text-gray-900">Trending Services</h3>
+    <div className="rounded-2xl border border-[#262626] bg-[#161616] p-5">
+      <h3 className="mb-4 text-base font-semibold text-white">Trending Services</h3>
 
       {loading ? (
         <div className="flex items-center justify-center py-10">
@@ -41,7 +41,7 @@ export const TrendingServicesList: React.FC<TrendingServicesListProps> = ({
         </div>
       ) : visible.length === 0 ? (
         <div className="py-8 text-center">
-          <p className="text-sm text-gray-500">No trending services yet</p>
+          <p className="text-sm text-gray-400">No trending services yet</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-x-4 gap-y-5">

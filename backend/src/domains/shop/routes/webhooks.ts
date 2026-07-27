@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getStripeService } from '../../../services/StripeService';
+import { getStripeConnectService } from '../../../services/StripeConnectService';
 import { getSubscriptionService } from '../../../services/SubscriptionService';
 import { getPaymentRetryService } from '../../../services/PaymentRetryService';
 import { PaymentService } from '../../ServiceDomain/services/PaymentService';
@@ -13,7 +14,78 @@ import { setMultiLocationActive } from '../../../utils/multiLocationEntitlement'
 import { NotificationService } from '../../notification/services/NotificationService';
 import { EmailService } from '../../../services/EmailService';
 import { generalNotificationPreferencesRepository } from '../../../repositories/GeneralNotificationPreferencesRepository';
+import { AiOverageChargeRepository } from '../../../repositories/AiOverageChargeRepository';
+
+// T3.2 Slice 3: when a paid Stripe invoice is an AI Usage Overage invoice (metadata.kind), mark its
+// ledger rows paid. Best-effort — never affects the main subscription-webhook handling.
+async function reconcileOverageInvoice(event: any): Promise<void> {
+  const invoice = event?.data?.object;
+  if (invoice?.metadata?.kind !== 'ai_overage_billing' || !invoice?.id) return;
+  const n = await new AiOverageChargeRepository().markPaidByInvoiceId(invoice.id);
+  if (n > 0) {
+    logger.info('AI overage invoice reconciled to paid', { invoiceId: invoice.id, rows: n });
+    // #3 receipt (delayed-collection path): only send when THIS event flipped rows invoiced→paid, so a
+    // re-delivered webhook — or an immediate-pay invoice already emailed at creation — never double-sends.
+    await aiOverageReceiptService.sendReceipt(invoice, invoice.metadata?.shop_id).catch((e) =>
+      logger.error('AI overage receipt (webhook) failed', e));
+  }
+}
+
+// T3.2 prod-hardening — best-effort notify to a shop about an overage billing event. Addresses the
+// SHOP ID (not the wallet): a shop's login can be a social wallet ≠ shops.wallet_address, and the bell
+// resolves the inbox as [req.user.address, req.user.shopId], so shopId-addressed reliably reaches it.
+async function notifyOverageShop(shopId: string, type: string, message: string): Promise<void> {
+  try {
+    if (!shopId) return;
+    await getNotificationGateway().dispatch(type, shopId, { message, metadata: { shopId } });
+  } catch (e) {
+    logger.error('AI overage notify failed', { shopId, type, error: (e as Error)?.message });
+  }
+}
+
+// #6/#10: a card charge for an overage invoice failed — alert (structured log) + tell the shop it'll retry.
+async function handleOveragePaymentFailed(event: any): Promise<void> {
+  const invoice = event?.data?.object;
+  if (invoice?.metadata?.kind !== 'ai_overage_billing') return;
+  const shopId = invoice.metadata.shop_id;
+  logger.error('AI overage payment failed', { alert: 'ai_overage_payment_failed', shopId, invoiceId: invoice.id });
+  if (shopId) {
+    await notifyOverageShop(shopId, 'ai_overage_payment_failed',
+      'We couldn’t charge your card for this month’s AI overage. We’ll retry automatically — please check your payment method in Plans & Billing.');
+  }
+}
+
+// #6: Stripe gave up on an overage invoice (marked uncollectible) → mark the ledger + AUTO-DISABLE the
+// shop's overage so it reverts to the safe soft-landing (never a hard AI cutoff), and tell the shop.
+async function handleOverageUncollectible(event: any): Promise<void> {
+  const invoice = event?.data?.object;
+  if (invoice?.metadata?.kind !== 'ai_overage_billing' || !invoice?.id) return;
+  const shopId = invoice.metadata.shop_id;
+  await new AiOverageChargeRepository().markStatusByInvoiceId(invoice.id, 'uncollectible');
+  if (shopId) {
+    await getSharedPool().query(
+      `UPDATE ai_shop_settings SET ai_overage_enabled = false, updated_at = now() WHERE shop_id = $1`,
+      [shopId]
+    );
+    logger.error('AI overage auto-disabled after uncollectible', { alert: 'ai_overage_uncollectible', shopId, invoiceId: invoice.id });
+    await notifyOverageShop(shopId, 'ai_overage_disabled',
+      'AI overage was turned off because a payment couldn’t be collected. Your AI still works on your included monthly allowance — re-enable overage anytime after updating your card.');
+  }
+}
+
+// #13: a credit note / refund was issued against an overage invoice → record it on the ledger so the
+// row reflects the reversal instead of staying 'paid'. Matches by stripe_invoice_id (no-op if not ours).
+async function reconcileOverageRefund(event: any): Promise<void> {
+  const cn = event?.data?.object;
+  const invoiceId = cn?.invoice;
+  if (!invoiceId) return;
+  const n = await new AiOverageChargeRepository().recordRefundByInvoiceId(invoiceId, Number(cn.amount) || 0);
+  if (n > 0) logger.info('AI overage refund recorded', { invoiceId, refundedCents: Number(cn.amount) || 0, rows: n });
+}
 import { shopRepository } from '../../../repositories';
+import { getSharedPool } from '../../../utils/database-pool';
+import { getNotificationGateway } from '../../notification/services/NotificationGateway';
+import { aiOverageReceiptService } from '../../AIAgentDomain/services/AiOverageReceiptService';
 import { getPlanByPriceId } from '../../../config/subscriptionPlans';
 import { agencyService } from '../../agency/services/AgencyService';
 import Stripe from 'stripe';
@@ -60,7 +132,9 @@ async function handleServicePaymentSuccess(event: Stripe.Event, paymentService: 
   try {
     // Check if this is a service booking payment by looking at metadata
     if (paymentIntent.metadata?.type === 'service_booking') {
-      await paymentService.handlePaymentSuccess(paymentIntent.id);
+      // Direct-charge bookings arrive as CONNECT events — event.account is the shop's account,
+      // which the handler needs to read the PaymentIntent (it lives on that account, not ours).
+      await paymentService.handlePaymentSuccess(paymentIntent.id, event.account);
 
       logger.info('Service payment processed successfully', {
         paymentIntentId: paymentIntent.id,
@@ -366,7 +440,7 @@ async function handleServicePaymentFailed(event: Stripe.Event, paymentService: P
     // Check if this is a service booking payment
     if (paymentIntent.metadata?.type === 'service_booking') {
       const failureMessage = paymentIntent.last_payment_error?.message || 'Payment failed';
-      await paymentService.handlePaymentFailure(paymentIntent.id, failureMessage);
+      await paymentService.handlePaymentFailure(paymentIntent.id, failureMessage, event.account);
 
       logger.info('Service payment failure processed', {
         paymentIntentId: paymentIntent.id,
@@ -385,6 +459,46 @@ async function handleServicePaymentFailed(event: Stripe.Event, paymentService: P
 /**
  * Handle canceled service payment
  */
+/**
+ * Stripe Connect onboarding progress. Fires whenever the connected account changes —
+ * most importantly when the shop finishes KYC and `charges_enabled` flips true.
+ *
+ * This is the authoritative completion signal: the shop returning to our return_url only
+ * means they came back from Stripe, not that Stripe approved them.
+ */
+async function handleConnectAccountUpdated(event: Stripe.Event) {
+  const account = event.data.object as Stripe.Account;
+
+  try {
+    const connectService = getStripeConnectService();
+    const shopId = await connectService.findShopIdByAccount(account);
+
+    if (!shopId) {
+      logger.warn('account.updated for an unknown Connect account', { accountId: account.id });
+      return;
+    }
+
+    await connectService.syncAccountState(
+      shopId,
+      account.charges_enabled === true,
+      account.payouts_enabled === true
+    );
+
+    logger.info('Connect account state synced from webhook', {
+      shopId,
+      accountId: account.id,
+      chargesEnabled: account.charges_enabled,
+      payoutsEnabled: account.payouts_enabled,
+      requirementsDue: account.requirements?.currently_due?.length ?? 0
+    });
+  } catch (error) {
+    logger.error('Failed to process account.updated', {
+      accountId: account.id,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
 async function handleServicePaymentCanceled(event: Stripe.Event, paymentService: PaymentService) {
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
@@ -397,7 +511,7 @@ async function handleServicePaymentCanceled(event: Stripe.Event, paymentService:
   try {
     // Check if this is a service booking payment
     if (paymentIntent.metadata?.type === 'service_booking') {
-      await paymentService.handlePaymentFailure(paymentIntent.id, 'Payment canceled by user or system');
+      await paymentService.handlePaymentFailure(paymentIntent.id, 'Payment canceled by user or system', event.account);
 
       logger.info('Service payment cancellation processed', {
         paymentIntentId: paymentIntent.id,
@@ -482,12 +596,22 @@ router.post('/stripe', async (req: Request, res: Response) => {
         
       case 'invoice.payment_succeeded':
         await handlePaymentSucceeded(event, subscriptionService);
+        await reconcileOverageInvoice(event).catch((e) => logger.error('AI overage reconcile failed', e));
         break;
         
       case 'invoice.payment_failed':
         await handlePaymentFailed(event, subscriptionService, paymentRetryService);
+        await handleOveragePaymentFailed(event).catch((e) => logger.error('AI overage payment-failed handling failed', e));
         break;
-        
+
+      case 'invoice.marked_uncollectible':
+        await handleOverageUncollectible(event).catch((e) => logger.error('AI overage uncollectible handling failed', e));
+        break;
+
+      case 'credit_note.created':
+        await reconcileOverageRefund(event).catch((e) => logger.error('AI overage refund reconcile failed', e));
+        break;
+
       case 'invoice.payment_action_required':
         await handlePaymentActionRequired(event, subscriptionService);
         break;
@@ -510,6 +634,10 @@ router.post('/stripe', async (req: Request, res: Response) => {
 
       case 'payment_intent.canceled':
         await handleServicePaymentCanceled(event, paymentService);
+        break;
+
+      case 'account.updated':
+        await handleConnectAccountUpdated(event);
         break;
 
       default:

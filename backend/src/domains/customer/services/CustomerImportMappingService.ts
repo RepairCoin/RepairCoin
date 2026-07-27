@@ -8,8 +8,9 @@ import { logger } from '../../../utils/logger';
 import { AnthropicClient } from '../../AIAgentDomain/services/AnthropicClient';
 import { SpendCapEnforcer } from '../../AIAgentDomain/services/SpendCapEnforcer';
 import { ClaudeModel } from '../../AIAgentDomain/types';
+import { cheapModel } from '../../../config/aiModels';
 
-const MODEL: ClaudeModel = 'claude-haiku-4-5-20251001';
+const MODEL: ClaudeModel = cheapModel();
 
 export type ImportSchema = 'customers' | 'services';
 

@@ -4,12 +4,22 @@ import multer from 'multer';
 import { MessageController } from './controllers/MessageController';
 import { AutoMessageController } from './controllers/AutoMessageController';
 import { MessagingAdminController } from './controllers/MessagingAdminController';
+import { getMyConsent, setMyConsent } from './controllers/CustomerConsentController';
 import { authMiddleware, requireRole } from '../../middleware/auth';
+import { requireTierRollout } from '../../middleware/tierGuard';
 
 const router = Router();
 const messageController = new MessageController();
 const autoMessageController = new AutoMessageController();
 const messagingAdminController = new MessagingAdminController();
+
+// Auto-Messages = the shop's scheduled/triggered automated-messaging engine (the shared automation core
+// that AI Campaigns (Advanced) — and, later, Custom Workflows — build on). A Business-tier feature.
+// requireTierRollout enforces ONLY when ENFORCE_CAMPAIGN_AUTOMATION_TIER=true, so this ships dark: today
+// it stays open to all tiers (it always was), and enforcement is flipped on deliberately per the pricing
+// rollout. Gate is under `aiCampaignsAdvanced`; if Custom Workflows later owns this engine, it's a
+// one-line key swap (both are Business-tier, so access is identical either way).
+const autoMessageGuard = [requireRole(['shop']), requireTierRollout('aiCampaignsAdvanced')];
 
 // Multer config for message attachments
 const attachmentUpload = multer({
@@ -37,6 +47,16 @@ router.use(authMiddleware);
  * @access Admin only
  */
 router.get('/admin/messaging-costs', requireRole(['admin']), messagingAdminController.getMessagingCostSummary);
+
+/**
+ * @route GET|POST /api/messages/consent
+ * @description Customer's explicit SMS/WhatsApp opt-in consent (Twilio toll-free compliance). GET
+ *   returns the current state; POST { channel, granted } records an opt-in/opt-out. Phone is
+ *   resolved server-side from the authenticated customer's profile.
+ * @access Customer
+ */
+router.get('/consent', requireRole(['customer']), getMyConsent);
+router.post('/consent', requireRole(['customer']), setMyConsent);
 
 /**
  * @route POST /api/messages/send
@@ -245,7 +265,14 @@ router.post('/quick-replies/:id/use', messageController.useQuickReply);
  * @description Get all auto-message rules for the authenticated shop
  * @access Authenticated shop users
  */
-router.get('/auto-messages', autoMessageController.getAutoMessages);
+/**
+ * @route POST /api/messages/auto-messages/generate
+ * @description AI-draft the message body for a rule from its trigger/audience/goal (AI Campaigns Advanced)
+ * @access Business-tier shop users (aiCampaignsAdvanced) — same gate as the rest of the engine
+ */
+router.post('/auto-messages/generate', autoMessageGuard, autoMessageController.generateAutoMessageContent);
+
+router.get('/auto-messages', autoMessageGuard, autoMessageController.getAutoMessages);
 
 /**
  * @route POST /api/messages/auto-messages
@@ -263,7 +290,7 @@ router.get('/auto-messages', autoMessageController.getAutoMessages);
  * @body maxSendsPerCustomer? - Max sends per customer (default: 1)
  * @access Authenticated shop users
  */
-router.post('/auto-messages', autoMessageController.createAutoMessage);
+router.post('/auto-messages', autoMessageGuard, autoMessageController.createAutoMessage);
 
 /**
  * @route PUT /api/messages/auto-messages/:id
@@ -271,7 +298,7 @@ router.post('/auto-messages', autoMessageController.createAutoMessage);
  * @param id - Auto-message rule ID
  * @access Authenticated shop users
  */
-router.put('/auto-messages/:id', autoMessageController.updateAutoMessage);
+router.put('/auto-messages/:id', autoMessageGuard, autoMessageController.updateAutoMessage);
 
 /**
  * @route DELETE /api/messages/auto-messages/:id
@@ -279,7 +306,7 @@ router.put('/auto-messages/:id', autoMessageController.updateAutoMessage);
  * @param id - Auto-message rule ID
  * @access Authenticated shop users
  */
-router.delete('/auto-messages/:id', autoMessageController.deleteAutoMessage);
+router.delete('/auto-messages/:id', autoMessageGuard, autoMessageController.deleteAutoMessage);
 
 /**
  * @route PATCH /api/messages/auto-messages/:id/toggle
@@ -287,7 +314,7 @@ router.delete('/auto-messages/:id', autoMessageController.deleteAutoMessage);
  * @param id - Auto-message rule ID
  * @access Authenticated shop users
  */
-router.patch('/auto-messages/:id/toggle', autoMessageController.toggleAutoMessage);
+router.patch('/auto-messages/:id/toggle', autoMessageGuard, autoMessageController.toggleAutoMessage);
 
 /**
  * @route GET /api/messages/auto-messages/:id/history
@@ -297,6 +324,13 @@ router.patch('/auto-messages/:id/toggle', autoMessageController.toggleAutoMessag
  * @query limit - Items per page (default: 20)
  * @access Authenticated shop users
  */
-router.get('/auto-messages/:id/history', autoMessageController.getAutoMessageHistory);
+router.get('/auto-messages/:id/history', autoMessageGuard, autoMessageController.getAutoMessageHistory);
+
+/**
+ * @route GET /api/messages/auto-messages/:id/ab-results
+ * @description A/B test results (per-variant sends + conversions) for a rule (AI Campaigns Advanced)
+ * @access Business-tier shop users
+ */
+router.get('/auto-messages/:id/ab-results', autoMessageGuard, autoMessageController.getAbResults);
 
 export default router;

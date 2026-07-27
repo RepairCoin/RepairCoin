@@ -139,7 +139,13 @@ export function makeBrandKitController(deps: BrandKitControllerDeps = {}) {
 
       try {
         const r = await vision.extractBrandColors(logoUrl);
-        await spendCap.recordSpend(shopId, r.costUsd);
+        // Brand-kit vision has no cost table of its own, so pass a `ledger` entry — that is what
+        // makes this spend visible to ai_usage_events, which the spend cap now derives from.
+        await spendCap.recordSpend(shopId, r.costUsd, {
+          feature: "brand_kit",
+          vendor: "anthropic",
+          metadata: { operation: "extract_brand_colors" },
+        });
         res.json({
           success: true,
           data: {
@@ -196,7 +202,11 @@ export function makeBrandKitController(deps: BrandKitControllerDeps = {}) {
 
       try {
         const r = await vision.analyzeBrand(logoUrl);
-        await spendCap.recordSpend(shopId, r.costUsd);
+        await spendCap.recordSpend(shopId, r.costUsd, {
+          feature: "brand_kit",
+          vendor: "anthropic",
+          metadata: { operation: "analyze_brand" },
+        });
         res.json({
           success: true,
           data: {

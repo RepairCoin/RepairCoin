@@ -4,6 +4,7 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";
 import { serviceApi } from "@/feature/services/services/service.services";
 import { useAppToast } from "@/shared/hooks";
+import { useModalStore } from "@/shared/store/common.store";
 import {
   ServiceResponse,
   ServiceDetailResponse,
@@ -136,6 +137,10 @@ export function useCreateServiceMutation() {
     },
     onError: (error: any) => {
       console.error("Error creating service:", error);
+      if (error?.response?.data?.code === "STRIPE_NOT_CONNECTED") {
+        useModalStore.getState().setShowStripeConnectModal(true);
+        return;
+      }
       showError(`Failed to create service: ${error.message}`);
     },
   });
@@ -157,6 +162,10 @@ export function useUpdateServiceMutation() {
     },
     onError: (error: any) => {
       console.error("Error updating service:", error);
+      if (error?.response?.data?.code === "STRIPE_NOT_CONNECTED") {
+        useModalStore.getState().setShowStripeConnectModal(true);
+        return;
+      }
       showError(`Failed to update service: ${error.message}`);
     },
   });
