@@ -4,6 +4,7 @@ import multer from 'multer';
 import { MessageController } from './controllers/MessageController';
 import { AutoMessageController } from './controllers/AutoMessageController';
 import { MessagingAdminController } from './controllers/MessagingAdminController';
+import { getMyConsent, setMyConsent } from './controllers/CustomerConsentController';
 import { authMiddleware, requireRole } from '../../middleware/auth';
 import { requireTierRollout } from '../../middleware/tierGuard';
 
@@ -46,6 +47,16 @@ router.use(authMiddleware);
  * @access Admin only
  */
 router.get('/admin/messaging-costs', requireRole(['admin']), messagingAdminController.getMessagingCostSummary);
+
+/**
+ * @route GET|POST /api/messages/consent
+ * @description Customer's explicit SMS/WhatsApp opt-in consent (Twilio toll-free compliance). GET
+ *   returns the current state; POST { channel, granted } records an opt-in/opt-out. Phone is
+ *   resolved server-side from the authenticated customer's profile.
+ * @access Customer
+ */
+router.get('/consent', requireRole(['customer']), getMyConsent);
+router.post('/consent', requireRole(['customer']), setMyConsent);
 
 /**
  * @route POST /api/messages/send

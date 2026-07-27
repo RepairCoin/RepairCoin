@@ -154,6 +154,11 @@ export function NotificationPreferences() {
   const handleSave = async () => {
     if (!account?.address) return;
 
+    // Did the SMS opt-in change this save? If so we must record explicit consent (or revoke it)
+    // in the messaging consent ledger — not just the notification preference — so it matches what
+    // Twilio's toll-free verification was shown.
+    const smsChanged = formData.smsEnabled !== (preferences?.smsEnabled ?? false);
+
     setSaving(true);
     try {
       const result = await customerApi.updateAppointmentNotificationPreferences(
@@ -175,12 +180,25 @@ export function NotificationPreferences() {
         }
       );
 
-      if (result) {
-        setPreferences(result);
-        toast.success("Notification preferences saved!");
-      } else {
-        throw new Error("Failed to save preferences");
+      if (!result) throw new Error("Failed to save preferences");
+      setPreferences(result);
+
+      if (smsChanged) {
+        try {
+          await customerApi.setSmsConsent(formData.smsEnabled);
+        } catch (e: any) {
+          // Can't opt in without a phone on file — revert the toggle and tell the customer.
+          if (e?.response?.data?.error === "no_phone") {
+            setFormData((prev) => ({ ...prev, smsEnabled: false }));
+            toast.error("Add a phone number to your profile before enabling SMS.");
+          } else {
+            toast.error("Preferences saved, but updating SMS consent failed. Please try again.");
+          }
+          return;
+        }
       }
+
+      toast.success("Notification preferences saved!");
     } catch (error) {
       console.error("Error saving notification preferences:", error);
       toast.error("Failed to save preferences. Please try again.");
@@ -261,13 +279,23 @@ export function NotificationPreferences() {
             />
             <ToggleSwitch
               label="SMS Notifications"
-              description="Receive text message reminders (coming soon)"
+              description="Appointment confirmations, reminders & service updates by text"
               checked={formData.smsEnabled}
               onChange={() => handleToggle("smsEnabled")}
               icon={<Smartphone className="w-5 h-5" />}
-              disabled={true}
             />
           </div>
+
+          {/* SMS consent disclosure — the compliant opt-in language Twilio's toll-free verification
+              points at (reason code 30498). Shown whenever the SMS row is available. */}
+          <p className="mt-3 text-xs text-gray-500 leading-relaxed">
+            By turning on SMS, you agree to receive text messages from FixFlow about your appointments
+            and service (confirmations, reminders, updates). Message frequency varies. Msg &amp; data
+            rates may apply. Reply STOP to unsubscribe, HELP for help. See our{" "}
+            <a href="/sms-policy" className="text-[#FFCC00] hover:underline">SMS Policy</a> and{" "}
+            <a href="/privacy-policy" className="text-[#FFCC00] hover:underline">Privacy Policy</a>.
+            Marketing texts are separate and only sent if you opt in to them.
+          </p>
         </div>
 
         {/* Reminder Timing */}

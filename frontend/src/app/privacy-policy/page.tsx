@@ -96,6 +96,10 @@ export default function PrivacyPolicyPage() {
             We may also disclose information if required by law or to protect the rights, safety, or property of
             FixFlow, our users, or the public.
           </p>
+          <p className="mt-3 text-gray-300">
+            <strong>We do not sell or share your SMS opt-in, consent, or mobile number with any third party for
+            their own marketing or promotional purposes.</strong>
+          </p>
         </Section>
 
         {/* Data Security */}
@@ -189,7 +193,23 @@ export default function PrivacyPolicyPage() {
         </Section>
 
         {/* Changes to This Policy */}
-        <Section title="11. Changes to This Policy">
+        {/* SMS / Text Messaging */}
+        <Section title="11. SMS / Text Messaging">
+          <p>
+            When you opt in to SMS, we use your mobile number only to send the messages you consented to —
+            appointment confirmations, reminders, service updates, payment confirmations, verification codes, and
+            support replies (and marketing messages only if you separately opt in).
+          </p>
+          <p className="mt-3">
+            <strong>We do not sell or share your SMS opt-in, consent, or mobile number with any third party for
+            their own marketing.</strong> Message frequency varies and message and data rates may apply. You can
+            opt out at any time by replying STOP, or reply HELP for help. See our{" "}
+            <a href="/sms-policy" className="text-[#FFCC00] hover:underline">SMS Messaging Policy</a> for details.
+          </p>
+        </Section>
+
+        {/* Changes to This Policy */}
+        <Section title="12. Changes to This Policy">
           <p>
             We may update this Privacy Policy from time to time. We will notify you of any changes by updating the
             &quot;Last updated&quot; date at the top of this page. Continued use of the app after changes constitutes
@@ -198,7 +218,7 @@ export default function PrivacyPolicyPage() {
         </Section>
 
         {/* Contact Us */}
-        <Section title="12. Contact Us">
+        <Section title="13. Contact Us">
           <p className="mb-3">If you have questions about this Privacy Policy, contact us at:</p>
           <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-4">
             <p className="text-gray-300"><strong>FixFlow</strong></p>
