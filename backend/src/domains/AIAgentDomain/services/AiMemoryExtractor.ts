@@ -88,6 +88,8 @@ export interface ExtractedMemory {
   content: string;
   tags: string[];
   confidence: number;
+  /** ids of stored rules this one replaces — set when the owner reverses an earlier instruction. */
+  supersedes?: string[];
 }
 
 const SYSTEM = `You extract the shop owner's STANDING INTENT from one turn of a conversation with their AI assistant, so the assistant can honor it in FUTURE conversations.
@@ -122,11 +124,13 @@ is ALREADY COVERED by a stored rule, return [] for it, even when the wording dif
 ("Never use emojis in customer-facing messages" already covers "Stop using emojis in customer messages").
 Exception: if the owner is CHANGING or REVERSING a stored rule ("actually, do use emojis now",
 "make it 200 words instead of 100"), that IS new intent — return it as a "correction" so the change is
-not lost.
+not lost, AND list the id(s) of the rule(s) it replaces in "supersedes". Setting "supersedes" is what
+retires the old rule; without it the old and new rule both stay active and contradict each other in
+every future answer. The ids are internal — never repeat them back to the owner.
 
 Return a JSON array and NOTHING else. Each element:
-{"kind":"preference"|"instruction"|"decision"|"correction","content":"<the standing instruction, one concise sentence in the owner's voice>","tags":["<short topic tags>"],"confidence":<0-1 how sure this is durable standing intent>}
-If the turn contains no standing intent, return [].`;
+{"kind":"preference"|"instruction"|"decision"|"correction","content":"<the standing instruction, one concise sentence in the owner's voice>","tags":["<short topic tags>"],"confidence":<0-1 how sure this is durable standing intent>,"supersedes":["<id of a stored rule this replaces>"]}
+"supersedes" is optional — include it ONLY when this replaces a stored rule. If the turn contains no standing intent, return [].`;
 
 /** Cap the already-remembered block so a shop with many rules can't bloat the extraction prompt. */
 const MAX_EXISTING_IN_PROMPT = 40;
@@ -136,8 +140,9 @@ export class AiMemoryExtractor {
     private readonly anthropic: AnthropicClient = new AnthropicClient(),
     private readonly spendCap: SpendCapEnforcer = new SpendCapEnforcer(),
     /** Injectable for tests; defaults to the live service so call sites need no change. */
-    private readonly listMemories: (shopId: string) => Promise<Array<{ content: string }>> = (shopId) =>
-      getAiMemoryService().list(shopId)
+    private readonly listMemories: (shopId: string) => Promise<Array<{ id: string; content: string }>> = (
+      shopId
+    ) => getAiMemoryService().list(shopId)
   ) {}
 
   /**
@@ -162,8 +167,12 @@ export class AiMemoryExtractor {
         const existing = await this.listMemories(shopId);
         if (existing.length) {
           existingBlock =
-            `\n\nAlready remembered for this shop — do NOT re-save these, only genuine changes to them:\n` +
-            existing.slice(0, MAX_EXISTING_IN_PROMPT).map((m) => `- ${m.content}`).join('\n');
+            `\n\nAlready remembered for this shop — do NOT re-save these, only genuine changes to them ` +
+            `(if this turn REPLACES one, put its id in "supersedes"):\n` +
+            existing
+              .slice(0, MAX_EXISTING_IN_PROMPT)
+              .map((m) => `- (id: ${m.id}) ${m.content}`)
+              .join('\n');
         }
       } catch (e) {
         logger.warn('AiMemoryExtractor could not load existing memories; extracting without de-dup', {
@@ -221,10 +230,13 @@ export class AiMemoryExtractor {
       const confidence = typeof r.confidence === 'number' ? r.confidence : 0;
       const kind = isKind(r.kind) ? r.kind : 'instruction';
       const tags = Array.isArray(r.tags) ? r.tags.filter((t): t is string => typeof t === 'string') : [];
+      const supersedes = Array.isArray(r.supersedes)
+        ? r.supersedes.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+        : [];
       if (!content) continue;
       if (confidence < threshold) continue; // D-AX3 confidence gate
       if (isFactLike(content)) continue; // D-AX2 belt-and-suspenders: never store a DB fact
-      out.push({ kind, content, tags, confidence });
+      out.push({ kind, content, tags, confidence, ...(supersedes.length ? { supersedes } : {}) });
     }
     return out;
   }

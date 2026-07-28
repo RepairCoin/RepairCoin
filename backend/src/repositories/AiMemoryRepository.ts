@@ -69,11 +69,34 @@ export class AiMemoryRepository extends BaseRepository {
   async listActive(shopId: string): Promise<AiMemory[]> {
     const res = await this.pool.query(
       `SELECT * FROM ai_memories
-        WHERE shop_id = $1 AND deleted_at IS NULL
+        WHERE shop_id = $1 AND deleted_at IS NULL AND superseded_at IS NULL
         ORDER BY pinned DESC, COALESCE(last_referenced_at, created_at) DESC`,
       [shopId]
     );
     return res.rows.map((r) => this.mapRow(r));
+  }
+
+  /**
+   * Retire rules the owner has replaced (migration 246).
+   *
+   * Unpins rather than deletes: the row stops being recalled immediately — so two contradictory rules
+   * can't both shape an answer — loses its pinned aging exemption, and is swept by purgeStale once
+   * stale. Shop-scoped so one shop can never retire another's memory, and never touches the memory
+   * doing the superseding.
+   */
+  async markSuperseded(shopId: string, ids: string[], bySupersedingId: string): Promise<number> {
+    const targets = ids.filter((id) => id && id !== bySupersedingId);
+    if (targets.length === 0) return 0;
+    const res = await this.pool.query(
+      `UPDATE ai_memories
+          SET superseded_at = NOW(), superseded_by = $3, pinned = false
+        WHERE shop_id = $1
+          AND id = ANY($2::uuid[])
+          AND deleted_at IS NULL
+          AND superseded_at IS NULL`,
+      [shopId, targets, bySupersedingId]
+    );
+    return res.rowCount ?? 0;
   }
 
   /** Bump last_referenced_at for recalled memories (recency + aging signal). */
@@ -115,15 +138,19 @@ export class AiMemoryRepository extends BaseRepository {
     return (res.rowCount ?? 0) > 0;
   }
 
-  /** Soft-delete AUTO + unpinned memories never referenced within the window
-   *  (Q2 / Phase 6). Explicit/pinned owner intent is exempt. */
+  /**
+   * Soft-delete AUTO + unpinned memories never referenced within the window (Q2 / Phase 6). Explicit,
+   * owner-typed intent is exempt — EXCEPT once superseded: a rule the owner has replaced is no longer
+   * intent they hold, so it ages out regardless of source. Without that second clause an unpinned
+   * explicit memory would linger forever, since the original sweep only ever looked at source='auto'.
+   */
   async purgeStale(staleDays: number): Promise<number> {
     const res = await this.pool.query(
       `UPDATE ai_memories SET deleted_at = NOW()
         WHERE deleted_at IS NULL
-          AND source = 'auto'
           AND pinned = false
-          AND COALESCE(last_referenced_at, created_at) < NOW() - make_interval(days => $1)`,
+          AND (source = 'auto' OR superseded_at IS NOT NULL)
+          AND COALESCE(superseded_at, last_referenced_at, created_at) < NOW() - make_interval(days => $1)`,
       [staleDays]
     );
     return res.rowCount ?? 0;

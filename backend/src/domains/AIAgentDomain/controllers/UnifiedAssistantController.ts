@@ -397,6 +397,8 @@ export async function captureStandingIntent(args: {
           source: "auto",
           conversationId,
           confidence: c.confidence,
+          // Retires the rule this one reverses, so the old and new don't both stay live.
+          supersedes: c.supersedes,
         })
       )
     );
