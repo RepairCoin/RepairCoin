@@ -198,6 +198,28 @@ describe("AiMemoryExtractor.extract — de-dup against what's already remembered
     expect(anthropic.complete).toHaveBeenCalledTimes(1);
   });
 
+  it("gives the model each rule's id so it can name what a reversal replaces", async () => {
+    const anthropic = { complete: jest.fn().mockResolvedValue(okResponse) };
+    const ex = new AiMemoryExtractor(anthropic as any, { recordSpend: jest.fn() } as any, async () => [
+      { id: "mem-abc", content: "Never use emojis in customer-facing messages" },
+    ]);
+    await ex.extract("shop_1", { ownerMessage: "Actually, from now on do use emojis." });
+    expect(anthropic.complete.mock.calls[0][0].messages[0].content).toContain("(id: mem-abc)");
+  });
+
+  it("parses supersedes off a candidate so the replaced rule gets retired", () => {
+    const ex = new AiMemoryExtractor({} as any, {} as any, noMemories);
+    process.env.AI_MEMORY_AUTOEXTRACT_MIN_CONFIDENCE = "0.7";
+    const out = ex.parse(
+      JSON.stringify([
+        { kind: "correction", content: "Do use emojis now", confidence: 0.95, supersedes: ["mem-abc", ""] },
+        { kind: "instruction", content: "Sign off as Peanut", confidence: 0.9 },
+      ])
+    );
+    expect(out[0].supersedes).toEqual(["mem-abc"]); // blanks dropped
+    expect(out[1].supersedes).toBeUndefined(); // absent, not an empty array
+  });
+
   it("caps the block so a shop with many rules can't bloat the prompt", async () => {
     const anthropic = { complete: jest.fn().mockResolvedValue(okResponse) };
     const many = Array.from({ length: 60 }, (_, i) => ({ content: `Rule number ${i}` }));
