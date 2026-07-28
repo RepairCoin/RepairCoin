@@ -40,18 +40,22 @@ async function generate(limit: number): Promise<void> {
   // returns candidates — so nothing is persisted.
   const extractor = new AiMemoryExtractor(new AnthropicClient(), { recordSpend: async () => {} } as any);
 
+  // response_payload->>'text' is the assistant's reply. Production passes it to the extractor
+  // (UnifiedAssistantController), so the eval must too — without it the extractor cannot tell a fix to
+  // the artifact it just produced from a standing rule, and the eval measures a harsher extractor than
+  // the one that actually runs.
   const rows = (await pool.query(
-    `SELECT shop_id, request_payload FROM ai_orchestrate_messages
+    `SELECT shop_id, request_payload, response_payload->>'text' AS reply FROM ai_orchestrate_messages
       WHERE request_payload IS NOT NULL ORDER BY created_at DESC LIMIT 800`
   )).rows;
 
   const seen = new Set<string>();
-  const turns: { shopId: string; owner: string }[] = [];
+  const turns: { shopId: string; owner: string; reply: string }[] = [];
   for (const r of rows) {
     const owner = lastUserMessage(r.request_payload).trim();
     if (!owner || seen.has(owner) || !hasDirectiveSignal(owner)) continue;
     seen.add(owner);
-    turns.push({ shopId: r.shop_id, owner });
+    turns.push({ shopId: r.shop_id, owner, reply: (r.reply || '').trim() });
     if (turns.length >= limit) break;
   }
   console.log(`scanned ${rows.length} orchestrate turns → ${turns.length} directive-signal turns to evaluate`);
@@ -59,12 +63,13 @@ async function generate(limit: number): Promise<void> {
   const blocks: string[] = [];
   let n = 0;
   for (const t of turns) {
-    const cands = await extractor.extract(t.shopId, { ownerMessage: t.owner });
+    const cands = await extractor.extract(t.shopId, { ownerMessage: t.owner, assistantReply: t.reply || undefined });
     for (const c of cands) {
       n++;
       blocks.push(
         `### ${n}. [${c.kind}] confidence ${c.confidence}\n` +
         `- Owner said: ${JSON.stringify(t.owner)}\n` +
+        (t.reply ? `- Assistant had replied: ${JSON.stringify(t.reply.slice(0, 300))}\n` : '') +
         `- Extracted: ${JSON.stringify(c.content)}\n` +
         `- LABEL: \n`
       );
@@ -86,6 +91,10 @@ async function generate(limit: number): Promise<void> {
   await pool.end();
 }
 
+// A precision ratio over a handful of candidates is noise, not evidence — the 2026-07-28 run scored
+// 100% on FOUR candidates, two of which were our own QA strings. Sample size is part of the gate.
+const MIN_SAMPLE = 30;
+
 function score(file: string): void {
   const txt = fs.readFileSync(file, 'utf8');
   const labels = [...txt.matchAll(/LABEL:\s*([cfow])\b/gi)].map((m) => m[1].toLowerCase());
@@ -95,14 +104,28 @@ function score(file: string): void {
   const precision = total ? c / total : 0;
   console.log(`labeled: ${total}   correct(c): ${c}   FACT-LEAK(f): ${f}   one-off(o): ${o}   wrong(w): ${w}`);
   console.log(`precision (c/total): ${(precision * 100).toFixed(1)}%`);
-  const pass = total > 0 && precision >= 0.85 && f === 0;
-  console.log(
-    pass
-      ? `GATE: PASS ✅ — precision ≥ 85% and zero fact-leak. Safe to turn AI_MEMORY_AUTOEXTRACT on.`
-      : `GATE: FAIL ❌ — ${f > 0 ? `${f} DB-fact leak(s); ` : ''}precision ${(precision * 100).toFixed(1)}%. Tune the prompt / threshold / pre-filter and re-run; keep the flag OFF.`
-  );
+
+  const qualityOk = total > 0 && precision >= 0.85 && f === 0;
+  const sampleOk = total >= MIN_SAMPLE;
+
+  if (qualityOk && sampleOk) {
+    console.log(`GATE: PASS ✅ — precision ≥ 85%, zero fact-leak, n=${total} ≥ ${MIN_SAMPLE}. Safe to turn AI_MEMORY_AUTOEXTRACT on.`);
+  } else if (qualityOk) {
+    console.log(
+      `GATE: INCONCLUSIVE ⚠ — quality bar met (precision ${(precision * 100).toFixed(1)}%, zero fact-leak) but the sample is too small: ` +
+      `n=${total}, need ≥ ${MIN_SAMPLE}. Keep the flag OFF and re-run when the corpus has grown. ` +
+      `See docs/tasks/strategy/ai-memory/ai-memory-autoextract-eval.md.`
+    );
+  } else {
+    console.log(
+      `GATE: FAIL ❌ — ${f > 0 ? `${f} DB-fact leak(s); ` : ''}precision ${(precision * 100).toFixed(1)}%. ` +
+      `Tune the prompt / threshold / pre-filter and re-run; keep the flag OFF.`
+    );
+  }
 }
 
+// Importing the extractor pulls in the shared database pool + every repository health check, which
+// keeps the event loop alive forever — exit explicitly rather than hanging after the work is done.
 (async () => {
   const args = process.argv.slice(2);
   const si = args.indexOf('--score');
@@ -115,4 +138,6 @@ function score(file: string): void {
   const li = args.indexOf('--limit');
   const limit = li >= 0 ? Math.max(1, parseInt(args[li + 1] || '40', 10)) : 40;
   await generate(limit);
-})().catch((e) => { console.error(e.message); process.exit(1); });
+})()
+  .then(() => process.exit(0))
+  .catch((e) => { console.error(e.message); process.exit(1); });

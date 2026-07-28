@@ -2,16 +2,24 @@
 
 **Date:** 2026-07-27
 **Scope:** `ai-memory-scope.md` (D0–D7) · **Base plan:** `ai-memory-implementation-plan.md` (Phase 3).
-**Status (2026-07-27): AX-1 – AX-4 BUILT behind `AI_MEMORY_AUTOEXTRACT` (default OFF). AX-5 eval
-remaining before turn-on.** Backend build clean; 23/23 memory tests (9 new extractor cases).
+**Status (2026-07-28): AX-1 – AX-5 all BUILT. `AI_MEMORY_AUTOEXTRACT` stays OFF — AX-5 is DEFERRED,
+not failed: staging holds only 6 directive-signal turns (2 of them our own June QA strings), so the
+0.85 precision bar cannot be measured on real data. See `ai-memory-autoextract-eval.md` for the corpus
+numbers and the re-run trigger (~40+ directive turns across ≥5 shops).** The eval did earn its keep —
+it caught the extractor promoting a one-off image correction ("make sure you take off the logo") into a
+permanent rule that contradicted an earlier saved preference. Fixed two ways: the harness now passes
+`assistantReply` (production always did; the eval didn't), and the extractor prompt now distinguishes a
+fix to the artifact in front of it from standing intent. Post-fix that turn yields zero candidates.
+Backend build clean; 18/18 memory + extractor tests.
 - `AiMemoryExtractor.ts` — pre-filter + Haiku intent-only pass + confidence/fact guards + cost
   metered to `ai_misc_usage` (feature `memory_autoextract`).
 - `AiMemoryService.remember` now threads `confidence` (repo column already existed).
 - `UnifiedAssistantController` — fire-and-forget hook after the reply, gated by
   `memoryEnabled && isAutoExtractEnabled()` (i.e. flag + Business tier).
 - Settings UI badges auto-captured memories; admin AI-usage dashboard labels the new cost line.
-- **Left:** AX-5 precision eval (below) — the gate before flipping `AI_MEMORY_AUTOEXTRACT` on in any
-  environment.
+- `scripts/eval-memory-autoextract.ts` — AX-5 harness (generate / `--score`), passes `assistantReply`.
+- **Left:** nothing buildable. The flag turns on only after AX-5 is re-run against a real corpus —
+  see `ai-memory-autoextract-eval.md`.
 **Flag:** build behind `AI_MEMORY_AUTOEXTRACT` (default OFF), *under* the existing `ENABLE_AI_MEMORY`
 and the Business-tier gate → zero behaviour change until deliberately turned on.
 
