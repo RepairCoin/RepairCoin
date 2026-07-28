@@ -65,6 +65,23 @@ export interface ListPaymentsFilters {
   status?: PaymentStatus;
   method?: PaymentMethod;
   customerAddress?: string;
+  /** Inclusive lower bound on created_at (ISO date or timestamp). */
+  startDate?: string;
+  /** Inclusive upper bound on created_at (ISO date or timestamp). */
+  endDate?: string;
+}
+
+/**
+ * A payment plus the context that makes it readable on the Transactions screen. The ledger
+ * itself stores only money + Stripe ids; the service name and customer name are joined in
+ * from the linked order. All context fields are null for payments whose `order_id` never
+ * linked (see the Slice 1.1 note on pre-fix checkout charges).
+ */
+export interface PaymentWithContext extends Payment {
+  serviceName: string | null;
+  customerName: string | null;
+  orderStatus: string | null;
+  completedByMemberId: string | null;
 }
 
 /**
@@ -169,48 +186,117 @@ export class PaymentRepository extends BaseRepository {
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
-  /** Paginated list for a shop (the Transactions screen; filters expand in Phase 1). */
+  private mapContextRow(row: any): PaymentWithContext {
+    return {
+      ...this.mapRow(row),
+      serviceName: row.service_name ?? null,
+      customerName: row.customer_name ?? null,
+      orderStatus: row.order_status ?? null,
+      completedByMemberId: row.completed_by_member_id ?? null,
+    };
+  }
+
+  /** Shared FROM + joins so list, detail, and export all read identically. */
+  private readonly contextFrom = `
+    FROM payments p
+    LEFT JOIN service_orders o ON o.order_id = p.order_id
+    LEFT JOIN shop_services  s ON s.service_id = o.service_id
+    LEFT JOIN customers      c ON c.address = p.customer_address`;
+
+  private readonly contextSelect = `
+      p.*,
+      s.service_name        AS service_name,
+      c.name                AS customer_name,
+      o.status              AS order_status,
+      o.completed_by_member_id AS completed_by_member_id`;
+
+  /** Build the WHERE clause shared by list/count/export. Always shop-scoped. */
+  private buildFilters(shopId: string, filters: ListPaymentsFilters) {
+    const where: string[] = ['p.shop_id = $1'];
+    const params: unknown[] = [shopId];
+
+    if (filters.status) {
+      params.push(filters.status);
+      where.push(`p.status = $${params.length}`);
+    }
+    if (filters.method) {
+      params.push(filters.method);
+      where.push(`p.method = $${params.length}`);
+    }
+    if (filters.customerAddress) {
+      params.push(filters.customerAddress.toLowerCase());
+      where.push(`p.customer_address = $${params.length}`);
+    }
+    if (filters.startDate) {
+      params.push(filters.startDate);
+      where.push(`p.created_at >= $${params.length}`);
+    }
+    if (filters.endDate) {
+      params.push(filters.endDate);
+      where.push(`p.created_at <= $${params.length}`);
+    }
+
+    return { whereSql: where.join(' AND '), params };
+  }
+
+  /** Paginated list for a shop — the Transactions screen. */
   async listByShop(
     shopId: string,
     filters: ListPaymentsFilters = {},
     page = 1,
     limit = 25
-  ): Promise<PaginatedResult<Payment>> {
-    const where: string[] = ['shop_id = $1'];
-    const params: unknown[] = [shopId];
+  ): Promise<PaginatedResult<PaymentWithContext>> {
+    const { whereSql, params } = this.buildFilters(shopId, filters);
 
-    if (filters.status) {
-      params.push(filters.status);
-      where.push(`status = $${params.length}`);
-    }
-    if (filters.method) {
-      params.push(filters.method);
-      where.push(`method = $${params.length}`);
-    }
-    if (filters.customerAddress) {
-      params.push(filters.customerAddress.toLowerCase());
-      where.push(`customer_address = $${params.length}`);
-    }
-
-    const whereSql = where.join(' AND ');
     const countResult = await this.pool.query(
-      `SELECT COUNT(*)::int AS n FROM payments WHERE ${whereSql}`,
+      `SELECT COUNT(*)::int AS n FROM payments p WHERE ${whereSql}`,
       params
     );
     const totalItems = countResult.rows[0].n as number;
 
     const offset = this.getPaginationOffset(page, limit);
     const rowsResult = await this.pool.query(
-      `SELECT * FROM payments WHERE ${whereSql}
-        ORDER BY created_at DESC
+      `SELECT ${this.contextSelect} ${this.contextFrom}
+        WHERE ${whereSql}
+        ORDER BY p.created_at DESC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]
     );
 
     const totalPages = Math.max(1, Math.ceil(totalItems / limit));
     return {
-      items: rowsResult.rows.map((r) => this.mapRow(r)),
+      items: rowsResult.rows.map((r) => this.mapContextRow(r)),
       pagination: { page, limit, totalItems, totalPages, hasMore: page < totalPages },
     };
+  }
+
+  /**
+   * Every matching row, unpaginated, for CSV export. Capped so a shop with a huge history
+   * can't exhaust memory or hold a connection open indefinitely.
+   */
+  async listAllForExport(
+    shopId: string,
+    filters: ListPaymentsFilters = {},
+    cap = 10000
+  ): Promise<PaymentWithContext[]> {
+    const { whereSql, params } = this.buildFilters(shopId, filters);
+    const result = await this.pool.query(
+      `SELECT ${this.contextSelect} ${this.contextFrom}
+        WHERE ${whereSql}
+        ORDER BY p.created_at DESC
+        LIMIT $${params.length + 1}`,
+      [...params, cap]
+    );
+    return result.rows.map((r) => this.mapContextRow(r));
+  }
+
+  /** Single payment with context, scoped to the shop so one shop can't read another's. */
+  async getByIdForShop(shopId: string, id: string): Promise<PaymentWithContext | null> {
+    const result = await this.pool.query(
+      `SELECT ${this.contextSelect} ${this.contextFrom}
+        WHERE p.id = $1 AND p.shop_id = $2`,
+      [id, shopId]
+    );
+    return result.rows[0] ? this.mapContextRow(result.rows[0]) : null;
   }
 }

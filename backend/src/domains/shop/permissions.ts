@@ -19,6 +19,7 @@ export const SHOP_PERMISSIONS = [
   'team:manage',       // Invite/edit/remove team members
   'shop:manage',       // Shop profile, location, settings, integrations
   'marketing:manage',  // Marketing campaigns and ads
+  'payments:manage',   // Payments Center: transactions, refunds, exports
 ] as const;
 
 export type ShopPermission = (typeof SHOP_PERMISSIONS)[number];

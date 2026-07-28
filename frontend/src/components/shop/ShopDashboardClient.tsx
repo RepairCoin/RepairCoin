@@ -44,6 +44,7 @@ import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { TeamTab } from "@/components/shop/tabs/TeamTab";
 import { CommissionsTab } from "@/components/shop/tabs/CommissionsTab";
+import { TransactionsTab } from "@/components/shop/tabs/TransactionsTab";
 import { MyCommissionsTab } from "@/components/shop/tabs/MyCommissionsTab";
 import { LocationsTab } from "@/components/shop/tabs/LocationsTab";
 import { LocationSwitcher } from "@/components/shop/LocationSwitcher";
@@ -1773,6 +1774,15 @@ export default function ShopDashboardClient() {
               <TierGate feature="teamManagement">
                 <TeamTab shopId={shopData.shopId} />
               </TierGate>
+            </SubscriptionGuard>
+          )}
+
+          {/* Payments Center (Slice 1.2) — Transactions. Refunds land in the detail drawer
+              in 1.3; invoices/links/payouts are Phase 2. No TierGate: seeing the money you
+              already took is not a paid feature. */}
+          {activeTab === "payments" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <TransactionsTab />
             </SubscriptionGuard>
           )}
 
