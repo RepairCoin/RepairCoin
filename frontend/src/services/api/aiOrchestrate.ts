@@ -53,7 +53,20 @@ export type OrchestratePurchaseOrderDisplay = {
 export type OrchestrateToolDisplay =
   | ToolDisplay
   | MarketingToolDisplay
-  | OrchestratePurchaseOrderDisplay;
+  | OrchestratePurchaseOrderDisplay
+  | MemorySavedDisplay;
+
+/**
+ * The `remember_this` tool confirming it stored a standing instruction. Rendered as the same
+ * "Remembered … [Undo]" receipt as an auto-capture — NOT as a generic tool card, which would print
+ * the tool name with meaningless Pin/Expand chrome over a one-line confirmation.
+ */
+export interface MemorySavedDisplay {
+  kind: 'memory_saved';
+  content: string;
+  memoryKind: 'preference' | 'instruction' | 'decision' | 'correction';
+  memoryId?: string;
+}
 
 /**
  * One tool the orchestrator invoked this turn (across domains). `display` is

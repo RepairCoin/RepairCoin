@@ -717,7 +717,16 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
         // ~1.7% of real turns: the other 98.3% skip the await entirely and are byte-for-byte
         // unchanged. Bounded by MEMORY_CAPTURE_TIMEOUT_MS; on timeout the work detaches and finishes
         // exactly as the old fire-and-forget did, so the memory still saves and only the chip is lost.
-        if (memoryEnabled && isAutoExtractEnabled()) {
+        //
+        // Skip entirely when the model already called remember_this this turn. Both paths fire on an
+        // unambiguous directive ("Stop using emojis in customer messages"), and the duplicate guard in
+        // remember() compares exact content — so two phrasings of the same rule ("Never use emojis in
+        // customer-facing messages" vs "Do not use emojis in any customer-facing messages") both
+        // persist, one pinned and one not, and both get injected into every later prompt. Observed on
+        // staging 2026-07-28. The explicit path wins: it is pinned, model-confirmed, and already shows
+        // the owner a card.
+        const alreadyRemembered = toolCalls.some((t) => t.tool === "remember_this");
+        if (memoryEnabled && isAutoExtractEnabled() && !alreadyRemembered) {
           const ownerMessage = lastUserText(messages);
           if (hasDirectiveSignal(ownerMessage)) {
             const captured = await captureStandingIntent({

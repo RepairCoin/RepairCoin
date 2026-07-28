@@ -17,6 +17,24 @@ extractor prompt. Verified against the exact sentence that over-split during the
 now **1** memory, was 2. Genuinely unrelated rules still split correctly — a 4-rule sentence produced 4,
 and "Never text customers after 8pm, and make sure weekend jobs go to Joe" produced 2.
 
+**RC-5 — DOUBLE CAPTURE, found by the first browser test (2026-07-28).** "Stop using emojis in customer
+messages" made the model call `remember_this` **and** tripped auto-extract. Both saved, in different
+words — `"Never use emojis in customer-facing messages (campaign drafts, emails, texts, etc.)"` (explicit,
+PINNED) and `"Do not use emojis in any customer-facing messages, including campaigns and emails."`
+(auto). `remember()`'s duplicate guard compares exact lowercase content, so a paraphrase walks straight
+past it; the shop ends up with the same rule twice, one exempt from aging, both injected into every
+later prompt and both diluting top-K.
+
+The plan never considered that the two capture paths overlap — that is the gap, and only a real turn
+exposed it. Fixed three ways:
+1. **Controller skips auto-extract when `remember_this` already fired this turn.** The explicit path
+   wins: pinned, model-confirmed, already visible to the owner.
+2. **`remember_this` now returns `memoryId`** in its display, so the explicit path can offer Undo too.
+3. **`memory_saved` renders as the receipt chip, not a tool card.** The frontend had *no* `memory_saved`
+   renderer, so it fell through to the generic card — printing the tool name as a header with Pin and
+   Expand affordances over a one-line confirmation. Both capture paths now produce one identical,
+   equally reversible receipt.
+
 **Deviation from the plan, worth noting:** the pre-filter check was hoisted into the controller
 (`hasDirectiveSignal(ownerMessage)` before the await) rather than left inside `extract()`. Without that,
 every turn would have awaited a function that immediately returns `[]` — cheap, but it puts the 98.3%

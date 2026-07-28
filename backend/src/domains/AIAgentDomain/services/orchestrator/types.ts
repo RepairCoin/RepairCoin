@@ -46,6 +46,8 @@ export type OrchestratorToolDisplay =
       kind: "memory_saved";
       content: string;
       memoryKind: "preference" | "instruction" | "decision" | "correction";
+      /** Present so the panel can offer Undo, matching the auto-capture receipt. */
+      memoryId?: string;
     };
 
 export interface OrchestratorToolResult {

@@ -78,8 +78,10 @@ export const rememberThis: OrchestratorTool = {
 
     return {
       data: { saved: result.saved, reason: result.reason ?? null, kind, content },
-      ...(result.saved
-        ? { display: { kind: 'memory_saved' as const, content, memoryKind: kind } }
+      // memoryId lets the panel render the same "Remembered … [Undo]" receipt the auto-extract path
+      // shows, so both ways of capturing a rule look identical and are equally reversible.
+      ...(result.saved && result.memory
+        ? { display: { kind: 'memory_saved' as const, content, memoryKind: kind, memoryId: result.memory.id } }
         : {}),
     };
   },
