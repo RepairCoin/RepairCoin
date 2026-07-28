@@ -29,6 +29,14 @@ export interface AutoMessage {
   stopOnBooking: boolean;
   /** A/B test variant B (Phase 4). null = single variant. Mutually exclusive with steps. */
   variantB: string | null;
+  /**
+   * What this rule DOES when it fires (migration 247, Custom Workflows W1). Dispatched to a handler in
+   * services/autoMessageActions/registry.ts. 'send_message' is the historical — and currently only —
+   * behaviour; the column exists so adding an action doesn't mean editing the scheduler.
+   */
+  actionType: string;
+  /** Action-specific config. Unused by send_message, which reads messageTemplate/steps/variantB. */
+  actionPayload: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -533,6 +541,10 @@ export class AutoMessageRepository extends BaseRepository {
       steps: Array.isArray(row.steps) ? row.steps : null,
       stopOnBooking: row.stop_on_booking === true,
       variantB: row.variant_b ?? null,
+      // Rows written before migration 247 have no action_type — treat them as send_message, which is
+      // what they were.
+      actionType: row.action_type || 'send_message',
+      actionPayload: row.action_payload ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       totalSends: row.total_sends ? parseInt(row.total_sends, 10) : undefined,
