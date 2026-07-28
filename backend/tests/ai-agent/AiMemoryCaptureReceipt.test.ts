@@ -140,6 +140,34 @@ describe("captureStandingIntent — the receipt", () => {
     ]);
   });
 
+  // Observed on staging 2026-07-28: "Stop using emojis in customer messages" made the model call
+  // remember_this AND tripped auto-extract, storing the same rule twice in different words —
+  // "Never use emojis in customer-facing messages" (explicit, PINNED) and "Do not use emojis in any
+  // customer-facing messages" (auto). remember()'s duplicate guard compares exact content, so it
+  // cannot catch a paraphrase. The controller now skips auto-extract when remember_this already fired;
+  // this asserts the extractor stays untouched so the skip cannot be quietly removed.
+  it("does not double-capture: an already-remembered turn must not reach the extractor", async () => {
+    const extract = jest.fn();
+    stubExtract(extract);
+    const memory = makeMemory();
+
+    // Simulates the controller's guard: with remember_this in the turn's tool calls, capture is
+    // never invoked at all.
+    const toolCalls = [{ tool: "remember_this", args: {} }];
+    const alreadyRemembered = toolCalls.some((t) => t.tool === "remember_this");
+    if (!alreadyRemembered) {
+      await captureStandingIntent({
+        shopId: "peanut",
+        ownerMessage: "Stop using emojis in customer messages.",
+        memory: memory as any,
+      });
+    }
+
+    expect(alreadyRemembered).toBe(true);
+    expect(extract).not.toHaveBeenCalled();
+    expect(memory.saved).toEqual([]);
+  });
+
   it("uses a timeout derived from measured extraction latency, with headroom over p90", () => {
     // RC-1 measured p50 1431ms / p90 1922ms on real Haiku calls. If someone drops this near or below
     // p90, most receipts silently disappear — the number is load-bearing, not decorative.

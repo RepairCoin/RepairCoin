@@ -1145,6 +1145,25 @@ const TurnBubble: React.FC<{
   // cards still render (same hollow-bubble guard as the other panels).
   const hasProse = /[a-zA-Z0-9]/.test(turn.content);
 
+  // A memory save is a receipt, not a result — render it as the "Remembered … [Undo]" chip rather
+  // than a generic tool card, which would show the tool name plus Pin/Expand affordances that mean
+  // nothing for a one-line confirmation. Both capture paths (the remember_this tool and auto-extract)
+  // therefore look identical and are equally reversible.
+  const cardToolCalls = turn.toolCalls.filter((tc) => tc.display?.kind !== "memory_saved");
+  const remembered: CapturedMemory[] = [
+    ...turn.toolCalls.flatMap((tc) =>
+      tc.display?.kind === "memory_saved" && tc.display.memoryId
+        ? [{
+            id: tc.display.memoryId,
+            kind: tc.display.memoryKind,
+            content: tc.display.content,
+            confidence: null,
+          }]
+        : []
+    ),
+    ...(turn.memoriesCaptured ?? []),
+  ];
+
   return (
     <div className="flex justify-start flex-col items-start gap-2">
       {hasProse && (
@@ -1154,9 +1173,9 @@ const TurnBubble: React.FC<{
           </ReactMarkdown>
         </div>
       )}
-      {turn.toolCalls.length > 0 && (
+      {cardToolCalls.length > 0 && (
         <div className="w-full max-w-[85%] space-y-2">
-          {orderedToolCalls(turn.toolCalls).map((tc, i) => (
+          {orderedToolCalls(cardToolCalls).map((tc, i) => (
             <OrchestrateToolCallCard
               key={i}
               toolCall={tc}
@@ -1167,9 +1186,9 @@ const TurnBubble: React.FC<{
           ))}
         </div>
       )}
-      {turn.memoriesCaptured && turn.memoriesCaptured.length > 0 && (
+      {remembered.length > 0 && (
         <div className="w-full max-w-[85%] space-y-1.5">
-          {turn.memoriesCaptured.map((m) => (
+          {remembered.map((m) => (
             <MemoryCapturedChip key={m.id} memory={m} />
           ))}
         </div>
