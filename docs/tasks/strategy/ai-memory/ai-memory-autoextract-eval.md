@@ -100,6 +100,43 @@ One real observation from the organic sample: a single owner sentence produced *
 it points at memory bloat from over-splitting one utterance. Worth watching once volume exists; not
 worth tuning against n=1.
 
+## The pre-filter was the bigger problem (fixed 2026-07-28)
+
+The eval measured what the extractor did with turns it *saw*. It never measured what the pre-filter
+threw away first — and that turned out to be most of the feature.
+
+`hasDirectiveSignal` matched a list of directive words (`always|never|from now on|make sure|…`). Run
+against 20 ordinary ways a shop owner states a standing rule, it caught **7**. It missed
+"Don't mention discounts in my emails", "Please keep campaign emails short", "Stop using emojis",
+"Keep it under 100 words", "Sign off as Peanut, not RepairCoin". Note the shape of that failure: the
+filter recognised the stiff register of someone *deliberately dictating a rule* and missed ordinary
+speech — backwards for a feature whose promise is learning from normal conversation. And a miss is
+**silent**: nothing stored, nothing said, owner assumes it was noted.
+
+Rebuilt to match instruction SHAPE rather than vocabulary. Two rules, both learned by measuring
+against real staging traffic (which is largely voice-transcribed and rambling):
+
+1. **A negation only counts when it opens a clause.** "Don't mention discounts" is an instruction;
+   "I don't know if I'm in their target" is narration. Bare `/don't/` matches both.
+2. **A preference must name a category, not the artifact on screen.** "I hate long emails" is a rule;
+   "I love it" is applause for the draft just produced — hence the pronoun lookahead.
+
+Both rules came from real data: an intermediate candidate that matched bare `don't` and `i like`
+swallowed *"i like it lets send it"*, *"I love it. Let's go ahead and send it."*, *"No! You will escape
+me again!"* — every one a paid Haiku call and a chance to store a bogus rule.
+
+Result: **18/20 caught, 0 false fires against 16 real noise samples, fire-rate on 479 real owner
+messages moves only 1.5% → 1.7%.** Recall up ~2.5x for essentially no extra spend — the old filter
+wasn't buying the cost saving it appeared to.
+
+Known gap: evaluative phrasings with no imperative — "Casual tone is better for my shop", "My customers
+prefer text over email" — are still missed. The patterns that would catch them also match
+"whatever you suggest is better to do", which is real staging traffic. Left uncaught deliberately.
+
+This raises the value of every future AX-5 run: the corpus now accumulates from ordinary speech, not
+just formal directives, so the ~40-turn bar should be reached far sooner — and the eval will finally be
+measuring the extractor rather than the keyword list in front of it.
+
 ## What un-defers this
 
 Re-run the harness — unchanged — once staging or prod has **~40+ unique directive-signal turns across
