@@ -35,6 +35,29 @@ exposed it. Fixed three ways:
    Expand affordances over a one-line confirmation. Both capture paths now produce one identical,
    equally reversible receipt.
 
+**RC-6 — ACROSS-TURN duplication, found by the SECOND browser test (2026-07-28).** RC-5 fixed the
+same-turn collision. It did not fix the more common case: the owner **re-states a rule they already
+have**, on a later turn. Sending "Stop using emojis in customer messages" a second time produced
+`"Do not use emojis in any customer-facing messages, including campaigns, emails, and texts."` — a fresh
+near-duplicate of the stored `"Never use emojis in customer-facing messages (campaign drafts, emails,
+texts, etc.)"`. The assistant even *said* "I already have that as a standing rule" (recall working
+correctly) and auto-extract stored it anyway, because **the extractor is never shown what the shop
+already remembers** — it receives only the owner message and the reply.
+
+Root cause is the same one throughout: `remember()`'s duplicate guard compares exact lowercase content,
+so a paraphrase always slips through. String matching cannot solve this; judging "is this already
+covered?" is what the model is for.
+
+Fix: pass the shop's stored rules into the extraction prompt (capped at `MAX_EXISTING_IN_PROMPT = 40`)
+with an instruction to return `[]` when the intent is already covered — **plus an explicit exception so
+a rule the owner is CHANGING or REVERSING is still captured**, as a `correction`. Without that
+exception, de-duplication would have made it impossible to ever change your mind. Fail-open: if the
+lookup fails, extraction still runs, just without de-dup.
+
+Verified against peanut's real stored memories, **5/5**: the exact message that duplicated now drops,
+a near-identical restatement drops, the booking-rule restatement drops, "Actually, do use emojis now"
+is captured as a `correction` (0.99), and a genuinely new rule is captured.
+
 **Deviation from the plan, worth noting:** the pre-filter check was hoisted into the controller
 (`hasDirectiveSignal(ownerMessage)` before the await) rather than left inside `extract()`. Without that,
 every turn would have awaited a function that immediately returns `[]` — cheap, but it puts the 98.3%

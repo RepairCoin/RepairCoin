@@ -117,11 +117,14 @@ describe("AiMemoryExtractor.parse — confidence + fact guards", () => {
   });
 });
 
+/** No stored memories, and no DB call — the default lister would hit the real pool. */
+const noMemories = async () => [];
+
 describe("AiMemoryExtractor.extract — pre-filter short-circuit", () => {
   it("makes NO Haiku call when the owner message has no directive signal", async () => {
     const anthropic = { complete: jest.fn() };
     const spendCap = { recordSpend: jest.fn() };
-    const ex = new AiMemoryExtractor(anthropic as any, spendCap as any);
+    const ex = new AiMemoryExtractor(anthropic as any, spendCap as any, noMemories);
     const out = await ex.extract("shop_1", { ownerMessage: "what's my revenue?" });
     expect(out).toEqual([]);
     expect(anthropic.complete).not.toHaveBeenCalled();
@@ -137,7 +140,7 @@ describe("AiMemoryExtractor.extract — pre-filter short-circuit", () => {
       }),
     };
     const spendCap = { recordSpend: jest.fn().mockResolvedValue(undefined) };
-    const ex = new AiMemoryExtractor(anthropic as any, spendCap as any);
+    const ex = new AiMemoryExtractor(anthropic as any, spendCap as any, noMemories);
     process.env.AI_MEMORY_AUTOEXTRACT_MIN_CONFIDENCE = "0.7";
     const out = await ex.extract("shop_1", { ownerMessage: "From now on always upsell the wash" });
     expect(anthropic.complete).toHaveBeenCalledTimes(1);
@@ -152,7 +155,56 @@ describe("AiMemoryExtractor.extract — pre-filter short-circuit", () => {
   it("never throws — returns [] when the Haiku call fails", async () => {
     const anthropic = { complete: jest.fn().mockRejectedValue(new Error("api down")) };
     const spendCap = { recordSpend: jest.fn() };
-    const ex = new AiMemoryExtractor(anthropic as any, spendCap as any);
+    const ex = new AiMemoryExtractor(anthropic as any, spendCap as any, noMemories);
     await expect(ex.extract("shop_1", { ownerMessage: "always confirm by text" })).resolves.toEqual([]);
+  });
+});
+
+// Owners repeat themselves. remember()'s duplicate guard compares EXACT content, so a re-statement in
+// different words used to create a second copy — observed on staging 2026-07-28, where "Stop using
+// emojis in customer messages" duplicated an existing "Never use emojis in customer-facing messages".
+// The model can only avoid that if it is TOLD what the shop already remembers.
+describe("AiMemoryExtractor.extract — de-dup against what's already remembered", () => {
+  const okResponse = { text: "[]", costUsd: 0.0003, model: "claude-haiku" };
+
+  it("shows the model the shop's existing rules so it can recognise a re-statement", async () => {
+    const anthropic = { complete: jest.fn().mockResolvedValue(okResponse) };
+    const ex = new AiMemoryExtractor(anthropic as any, { recordSpend: jest.fn() } as any, async () => [
+      { content: "Never use emojis in customer-facing messages" },
+      { content: "Always confirm bookings by text." },
+    ]);
+
+    await ex.extract("shop_1", { ownerMessage: "Stop using emojis in customer messages." });
+
+    const sent = anthropic.complete.mock.calls[0][0].messages[0].content as string;
+    expect(sent).toContain("Already remembered for this shop");
+    expect(sent).toContain("Never use emojis in customer-facing messages");
+    expect(sent).toContain("Always confirm bookings by text.");
+  });
+
+  it("omits the block entirely when the shop has no memories yet", async () => {
+    const anthropic = { complete: jest.fn().mockResolvedValue(okResponse) };
+    const ex = new AiMemoryExtractor(anthropic as any, { recordSpend: jest.fn() } as any, noMemories);
+    await ex.extract("shop_1", { ownerMessage: "Never use emojis." });
+    expect(anthropic.complete.mock.calls[0][0].messages[0].content).not.toContain("Already remembered");
+  });
+
+  it("fails OPEN — a memory-lookup failure still extracts, just without de-dup", async () => {
+    const anthropic = { complete: jest.fn().mockResolvedValue(okResponse) };
+    const ex = new AiMemoryExtractor(anthropic as any, { recordSpend: jest.fn() } as any, async () => {
+      throw new Error("db down");
+    });
+    await expect(ex.extract("shop_1", { ownerMessage: "Never use emojis." })).resolves.toEqual([]);
+    expect(anthropic.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("caps the block so a shop with many rules can't bloat the prompt", async () => {
+    const anthropic = { complete: jest.fn().mockResolvedValue(okResponse) };
+    const many = Array.from({ length: 60 }, (_, i) => ({ content: `Rule number ${i}` }));
+    const ex = new AiMemoryExtractor(anthropic as any, { recordSpend: jest.fn() } as any, async () => many);
+    await ex.extract("shop_1", { ownerMessage: "Never use emojis." });
+    const sent = anthropic.complete.mock.calls[0][0].messages[0].content as string;
+    expect(sent).toContain("Rule number 39");
+    expect(sent).not.toContain("Rule number 40");
   });
 });
