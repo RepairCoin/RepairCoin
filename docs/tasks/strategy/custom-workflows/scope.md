@@ -11,6 +11,22 @@ net-new/not-started). No dedicated scope existed before this doc; no `customWork
 boundary vs. AI Campaigns (Advanced)** — the two overlap on the same automation engine, and that must be
 resolved before building either. See `../ai-campaigns-advanced/implementation-plan.md`.
 
+**REVISED 2026-07-28 after re-reading the code.** AI Campaigns (Advanced) Phases 1–4 shipped in the
+meantime and moved the baseline. Two corrections that change what this feature actually is:
+
+1. **The builder UI already exists.** `frontend/src/components/messaging/AutoMessageRuleModal.tsx` (640
+   lines) + `AutoMessagesManager.tsx` (308) are mounted at **Marketing tab → "AI Campaigns" sub-tab**
+   (`MarketingTab.tsx:732`), wrapped in `<TierGate feature="aiCampaignsAdvanced">`. It already composes
+   trigger → condition → action, including multi-step sequences and A/B variants. §5's "P1 — build the
+   builder UI" is largely done.
+2. **The engine is still messaging-shaped.** There is no `action_type` anywhere; the action is implicit in
+   `message_template` / `steps[].messageTemplate`. P0's *gating* half landed with Campaigns Phase 1; its
+   *generalization* half did not.
+
+**So the phasing below is inverted relative to the real work.** The accurate one-line framing:
+**the automation builder can already do everything except do anything other than send a message.**
+Action is the only axis that isn't generalized. See §7 for the corrected plan.
+
 ---
 
 ## 1. What it is (and is it AI?)
@@ -31,17 +47,40 @@ Growth = "AI acts when you ask"; Business = "AI/automation runs on its own.")
 
 ## 2. Current state (what already exists)
 
-The **automation engine is already built** — it just has no builder UI and isn't a "workflow" concept yet:
-- `backend/src/services/AutoMessageSchedulerService.ts` — supports **recurring** (daily/weekly/monthly),
-  **event-triggered** (`booking_completed`, `first_visit`, `booking_cancelled`), and **inactive-customer /
-  win-back** automation. Routes: `backend/src/domains/messaging/routes.ts` (`/api/messages/auto-messages*`).
-- **⚠️ Currently UNGATED** (open to Starter — only `authMiddleware`). Same leak flagged in the AI Campaigns
-  Advanced plan; Business-gating this engine is shared Phase-1 cleanup for both features.
-- Existing triggers/actions are **messaging-only** (send a message). A true workflow builder generalizes
-  triggers and actions across domains (inventory, bookings, customers, rewards).
+*(Verified against code 2026-07-28. The pre-existing text said the engine had "no builder UI" and was
+"currently UNGATED" — both are now out of date.)*
 
-So T7.2 is largely **"promote the existing event-driven handlers into a real builder + generalize the
-action set,"** not build-an-engine-from-scratch.
+**Engine** — `backend/src/services/AutoMessageSchedulerService.ts` (848 lines): recurring, event-triggered,
+delayed, and **multi-step sequences** (`steps[]` with per-step `delayHours`) plus A/B variants
+(`variant_b`). Routes `/api/messages/auto-messages*`.
+
+**Gating — DONE, but shipped dark.** `messaging/routes.ts:22`:
+`const autoMessageGuard = [requireRole(['shop']), requireTierRollout('aiCampaignsAdvanced')]`.
+`requireTierRollout` enforces **only** when `ENFORCE_CAMPAIGN_AUTOMATION_TIER=true`; `.env.example` ships
+it `false`. So the gate is in place and inert. `featureTiers.ts:26` `aiCampaignsAdvanced: 'business'`.
+
+**Builder UI — EXISTS.** Marketing → "AI Campaigns" sub-tab → `AutoMessagesManager` → `AutoMessageRuleModal`.
+What a shop can configure today:
+- **Triggers:** `schedule` (day-of-week / day-of-month / hour) or `event` — `booking_completed`,
+  `booking_cancelled`, `first_visit`, `inactive_30_days`, `low_bookings`, with `delay_hours`.
+- **Conditions:** `target_audience` — one of 5 fixed segments (all / active / inactive 30d / has RCN
+  balance / completed a booking).
+- **Actions:** send a message. **Only that.** With AI-drafted content, multi-step sequences, and A/B.
+
+**What is therefore actually missing** (the real T7.2 scope):
+1. **Actions as data** — an `action_type` + payload instead of a hardcoded message. Everything else hangs
+   off this.
+2. **Non-messaging actions** — issue reward/coupon, notify staff, flag for reorder, create task, run a
+   campaign, AI step.
+3. **Operations triggers** — all 5 event types today are marketing/customer events. Low stock, payment
+   failed, no-show, review received do not exist.
+4. **Conditions beyond a 5-value customer-segment enum.**
+5. **Surfacing / IA** — it lives inside the *Marketing* tab, labelled *"AI Campaigns"*. An owner looking
+   for "when inventory drops → notify Joe" will never find it there. This is why the existing builder is
+   invisible as a workflow feature even to people who built it.
+
+So T7.2 is **"generalize the action side, add operations triggers, and surface it outside Marketing"** —
+not build-an-engine, and not build-a-builder.
 
 ---
 
@@ -84,34 +123,85 @@ draft a reorder (inventory) · escalate to a human. AI action steps reuse the ma
 
 ---
 
-## 5. Suggested phasing
+## 5. Suggested phasing — SUPERSEDED, see §7
 
-1. **P0 — shared engine + tier cleanup.** Generalize the auto-message engine into a trigger/condition/action
-   core; **gate it to Business** (`aiCampaignsAdvanced` or a new `customWorkflows` key — decide in D2). This is
-   the SAME Phase-1 cleanup the Campaigns Advanced plan calls for — do it once, for both. *(Breaking change:
-   the engine is currently free to all tiers — needs a grandfather-or-notify rollout, same caution as Campaigns.)*
-2. **P1 — Custom Workflows builder UI** over the core: pick trigger → conditions → actions, with the existing
-   messaging/win-back automations as the first templates.
-3. **P2 — generalize actions** beyond messaging (rewards, inventory, staff notify, "run a campaign", AI steps).
-4. **P3 — AI-assisted authoring** ("describe the automation and the AI builds the workflow").
+*(Kept for history. Written 2026-07-21 when the engine was ungated and the builder didn't exist. Both
+assumptions are now false — P1 is largely built and P0's gating half is done. Do not plan off this list.)*
 
-P0+P1 ship a real Business feature mostly from existing parts. P2–P3 deepen it.
+1. ~~**P0 — shared engine + tier cleanup.**~~ Gating done (dark). Generalization NOT done.
+2. ~~**P1 — Custom Workflows builder UI** over the core.~~ Largely built as the AI Campaigns sub-tab.
+3. **P2 — generalize actions** beyond messaging. ← *this is the actual feature, not phase three*
+4. **P3 — AI-assisted authoring.**
 
 ---
 
 ## 6. Open decisions
+
 - **D1 — one engine, two surfaces?** Confirm the shared-core architecture (§3) so Campaigns Advanced and
   Custom Workflows don't build the trigger engine twice. **This is the decision that gates both features.**
-- **D2 — feature gate.** Add a `customWorkflows: 'business'` key, or fold under `aiCampaignsAdvanced`? (Lean:
-  separate `customWorkflows` key for clean pricing, shared engine underneath.)
-- **D3 — rollout for gating the existing engine** (currently ungated/free-to-all) — grandfather vs notify.
+  *(2026-07-28: effectively already true — Campaigns Advanced built the engine and the builder. The
+  question is now the narrower one in D6: extend it in place, or fork it.)*
+- **D2 — feature gate.** Add a `customWorkflows: 'business'` key, or fold under `aiCampaignsAdvanced`?
+  **Recommendation (2026-07-28): separate `customWorkflows: 'business'` key.** It changes nothing
+  functionally today — both are Business-only — but they are separate bullets on the pricing sheet, so one
+  key silently entitles a Campaigns buyer to Workflows and vice versa. That is fine only while both sit on
+  the same tier; it breaks the moment either is trialled, moved, or sold as an add-on. Also, gating a
+  workflow builder behind a flag literally named `ENFORCE_CAMPAIGN_AUTOMATION_TIER` will mislead whoever
+  reads it next. Cost: one line now, versus touching every guard and the feature-access map later.
+- **D3 — rollout for gating the existing engine — RESOLVED, it's a non-decision.** Measured on staging
+  2026-07-28: only **2 shops have any automations at all, and both are already Business tier**
+  (`dc_shopu` 3 rules, `7777` 1 rule). **0 of 2 lose anything when `ENFORCE_CAMPAIGN_AUTOMATION_TIER`
+  flips.** No grandfathering, no migration, no customer comms. Flip it whenever convenient — and prefer
+  sooner: every below-Business shop that adopts automations before the flip converts a zero-cost change
+  into a support conversation. *(Prod not measured — same query should be run there before flipping.)*
 - **D4 — launch scope** — which triggers/actions ship first (recommend: the messaging/win-back set that
   already exists, wrapped in the builder).
 - **D5 — descope option** — if Business won't ship near-term, remove "Custom Workflows" from the pricing sheet
   rather than advertise an undefined upsell (same as the Campaigns gap note).
+- **D6 — NEW (2026-07-28): extend `shop_auto_messages` in place, or build a parallel workflow model?**
+  In-place means adding `action_type` (+ payload) and making the message columns nullable — less
+  duplication, one engine, but it is schema surgery on a live revenue-facing marketing feature that two
+  Business shops use daily. Parallel is safer but re-creates the trigger/scheduler machinery, i.e. exactly
+  the two-engines outcome D1 exists to prevent. **Lean: in-place, staged** — add `action_type` defaulting
+  to `send_message` so every existing rule keeps working untouched, then add new action types behind it.
+  *This is the decision to make before any code.*
 
-**Key files:** `backend/src/services/AutoMessageSchedulerService.ts` (the engine), `backend/src/domains/
-messaging/routes.ts` (`/auto-messages*`, ungated), `backend/src/config/featureTiers.ts` (+ frontend, gate).
+---
+
+## 7. Corrected plan (2026-07-28)
+
+**W0 — flip enforcement.** Set `ENFORCE_CAMPAIGN_AUTOMATION_TIER=true` once prod exposure is confirmed
+zero (D3). Independent of everything else; do it first because the cost only rises with adoption. ~XS
+
+**W1 — actions as data.** Migration: `action_type` on `shop_auto_messages` defaulting to `send_message`,
+message columns nullable, action payload as JSONB. Engine dispatches on `action_type` with `send_message`
+as the first (and initially only) handler — a pure refactor that must leave existing rules byte-identical
+in behaviour. This is the keystone; everything else is additive after it. ~M
+
+**W2 — non-messaging actions.** Issue reward/coupon, notify staff, create task/flag, draft a reorder,
+run a campaign, AI step. Each is a handler registered against the dispatcher from W1. ~M, incremental.
+
+**W3 — operations triggers.** Low stock, payment failed, no-show, review received. Requires event sources
+outside the messaging domain to emit onto the EventBus. ~M
+
+**W4 — surface it.** Its own home outside the Marketing tab, with the `customWorkflows` gate (D2). The
+existing modal is reusable as the editor; the sub-tab under "AI Campaigns" is not the right IA for
+operations automation. ~S/M
+
+**W5 — AI-assisted authoring.** "Describe the automation and the AI builds it." ~M
+
+W1 is the whole unlock: until actions are data, every new action type means editing the scheduler.
+W0+W1+W2+W4 is a shippable Business feature; W3/W5 deepen it.
+
+---
+
+**Key files:** `backend/src/services/AutoMessageSchedulerService.ts` (the engine, 848 lines) ·
+`backend/src/domains/messaging/routes.ts:22` (`autoMessageGuard` — gated, dark) ·
+`backend/src/config/featureTiers.ts:26,56` (`aiCampaignsAdvanced` + its rollout flag) ·
+`frontend/src/components/messaging/AutoMessageRuleModal.tsx` (the builder, 640 lines) ·
+`frontend/src/components/messaging/AutoMessagesManager.tsx` ·
+`frontend/src/components/shop/tabs/MarketingTab.tsx:732` (where it's mounted) ·
+`backend/src/middleware/tierGuard.ts` (`requireTierRollout`).
 Related: [[project-ai-campaigns-advanced-state]], [[project-pricing-rollout-state]],
 [[project-auto-replies-channel-expansion-state]], [[project-ai-memory-state]] (the other half of the sheet's
 "AI Memory & Automation" line).

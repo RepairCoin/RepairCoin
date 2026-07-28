@@ -5,7 +5,7 @@ import { MessageRepository } from '../repositories/MessageRepository';
 import { CustomerRepository } from '../repositories/CustomerRepository';
 import { ShopRepository } from '../repositories/ShopRepository';
 import { getSharedPool } from '../utils/database-pool';
-import { v4 as uuidv4 } from 'uuid';
+import { getAutoMessageActionRegistry } from './autoMessageActions/registry';
 
 // Max auto-messages per shop per scheduler run (prevent spam)
 const MAX_SENDS_PER_SHOP_PER_RUN = 50;
@@ -211,15 +211,6 @@ export class AutoMessageSchedulerService {
         }
       }
 
-      // Get or create conversation
-      const conversation = await this.messageRepo.getOrCreateConversation(customer.walletAddress, rule.shopId);
-
-      // Skip blocked conversations
-      if (conversation.isBlocked) {
-        logger.debug('Skipping blocked conversation', { ruleId: rule.id, customer: customer.walletAddress });
-        return { success: false };
-      }
-
       // A/B: pick a variant (if any) so the send can be attributed.
       const { message: variantMessage, variant } = this.pickVariant(rule);
 
@@ -232,41 +223,31 @@ export class AutoMessageSchedulerService {
         lastVisitDate: customer.lastVisitDate,
       });
 
-      // Create the message
-      const messageId = `msg_${uuidv4()}`;
-      const { message } = await this.messageRepo.createMessage({
-        messageId,
-        conversationId: conversation.conversationId,
-        senderAddress: rule.shopId,
-        senderType: 'shop',
+      // Run the rule's ACTION (W1). For send_message this is the conversation + message + unread
+      // block that used to live inline here; other action types do their own thing. A blocked
+      // conversation still resolves to a silent skip, exactly as before.
+      const outcome = await getAutoMessageActionRegistry(this.messageRepo as any).run({
+        rule,
+        shopId: rule.shopId,
+        customerAddress: customer.walletAddress,
+        customerName: customer.name,
+        shopName,
         messageText,
-        messageType: 'text',
-        metadata: {
-          autoMessageId: rule.id,
-          autoMessageName: rule.name,
-          isAutoMessage: true,
-        },
       });
-
-      // Update unread count
-      await this.messageRepo.incrementUnreadCount(
-        conversation.conversationId,
-        'customer',
-        messageText
-      );
+      if (!outcome.ok) return { success: false };
 
       // Record the send
       await this.autoMessageRepo.recordSend({
         autoMessageId: rule.id,
         shopId: rule.shopId,
         customerAddress: customer.walletAddress,
-        conversationId: conversation.conversationId,
-        messageId: message.messageId,
+        conversationId: outcome.conversationId,
+        messageId: outcome.messageId,
         status: 'sent',
         variant,
       });
 
-      return { success: true, messageId: message.messageId, conversationId: conversation.conversationId };
+      return { success: true, messageId: outcome.messageId, conversationId: outcome.conversationId };
     } catch (error) {
       logger.error('Error sending auto-message to customer', {
         ruleId: rule.id,
@@ -713,12 +694,6 @@ export class AutoMessageSchedulerService {
                 }
               }
 
-              const conversation = await this.messageRepo.getOrCreateConversation(send.customerAddress, send.shopId);
-              if (conversation.isBlocked) {
-                await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
-                continue;
-              }
-
               // A/B on delayed single-message sends: pick a variant at send time (sequence steps skip A/B).
               const abPick = isSequenceStep ? null : this.pickVariant(rule);
               const messageText = resolveTemplate(
@@ -726,23 +701,25 @@ export class AutoMessageSchedulerService {
                 { customerName: customer?.name || undefined, shopName }
               );
 
-              const messageId = `msg_${uuidv4()}`;
-              const { message } = await this.messageRepo.createMessage({
-                messageId,
-                conversationId: conversation.conversationId,
-                senderAddress: rule.shopId,
-                senderType: 'shop',
+              // Run the rule's ACTION (W1) — same dispatch as the immediate path. A blocked
+              // conversation still marks the send failed, exactly as the inline version did.
+              const outcome = await getAutoMessageActionRegistry(this.messageRepo as any).run({
+                rule,
+                shopId: send.shopId,
+                customerAddress: send.customerAddress,
+                customerName: customer?.name || undefined,
+                shopName,
                 messageText,
-                messageType: 'text',
-                metadata: {
-                  autoMessageId: rule.id,
-                  autoMessageName: rule.name,
-                  isAutoMessage: true,
-                },
               });
+              if (!outcome.ok) {
+                // Parity with the pre-W1 inline version: a blocked conversation marked the send
+                // failed but was deliberately NOT counted in messagesFailed (only thrown errors
+                // were). Keep that, so this refactor doesn't quietly move a reported metric.
+                await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
+                continue;
+              }
 
-              await this.messageRepo.incrementUnreadCount(conversation.conversationId, 'customer', messageText);
-              await this.autoMessageRepo.updateSendStatus(send.id, 'sent', message.messageId, conversation.conversationId, abPick?.variant ?? null);
+              await this.autoMessageRepo.updateSendStatus(send.id, 'sent', outcome.messageId, outcome.conversationId, abPick?.variant ?? null);
               result.messagesSent++;
 
               // Sequence: enqueue the next step (if any) after this one fired.
