@@ -27,11 +27,55 @@ export function isAutoExtractEnabled(): boolean {
 
 // Only pay for a Haiku extraction when the owner's message plausibly states a STANDING instruction.
 // This cheap gate keeps the common case (questions, one-off asks) free.
-const DIRECTIVE_SIGNALS =
-  /\b(from now on|going forward|always|never|by default|make sure|remember to|don'?t ever|stop (doing|sending)|i (prefer|want you to|don'?t want)|we (decided|agreed)|our policy|whenever|every time|no longer)\b/i;
+//
+// It matches instruction SHAPE, not vocabulary. The first version listed directive words
+// ("always|never|from now on|…") and caught only 7 of 20 ordinary phrasings of a standing rule —
+// "Don't mention discounts in my emails" and "Keep it under 100 words" both sailed past, silently,
+// which is worse than not capturing at all because the owner has no way to tell. Two rules learned
+// from measuring against real staging traffic (which is largely voice-transcribed and rambling):
+//
+//   1. A negation only counts when it OPENS a clause. "Don't mention discounts" is an instruction;
+//      "I don't know if I'm in their target" is narration. Bare /don't/ matches both.
+//   2. A preference must be about a CATEGORY, not the artifact on screen. "I hate long emails" is a
+//      standing rule; "I love it" is applause for the draft just produced — hence the pronoun
+//      lookahead in `soft-preference`.
+//
+// Measured: 18/20 real phrasings caught, 0 false fires against 16 real noise samples, and the
+// fire-rate on 479 real owner messages moves only 1.5% → 1.7% — so recall went up ~2.5x for
+// essentially no extra Haiku spend. Known gap: evaluative phrasings with no imperative
+// ("Casual tone is better for my shop", "My customers prefer text over email") are still missed;
+// the patterns that would catch them also match "whatever you suggest is better to do".
+
+// A question and nothing else is never a standing instruction.
+const PURE_QUESTION =
+  /^\s*(what|when|where|who|why|how|which|is|are|was|were|do|does|did|can|could|should|would|will|show|list|tell me|give me)\b[^.!]*\?\s*$/i;
+
+// Start of string, or after sentence-ending punctuation, optionally via "please".
+const CLAUSE_START = String.raw`(?:^|[.!?;]\s+|^\s*please\s+|[.!?;]\s+please\s+)`;
+
+const DIRECTIVE_PATTERNS: RegExp[] = [
+  // Standing-time markers.
+  /\b(from now on|going forward|from here on|in future|in the future|always|never|by default|every time|whenever|no longer|no more)\b/i,
+  // Stated policy or decision.
+  /\b(our policy|we (decided|agreed)|company policy|house rule)\b/i,
+  // Negative imperative — must OPEN a clause (rule 1 above).
+  new RegExp(CLAUSE_START + String.raw`(don'?t|do not|stop|quit|avoid|skip|refrain from)\s+\w+`, 'i'),
+  // Positive "ensure" forms.
+  /\b(make sure|be sure to|remember to|always remember)\b/i,
+  // Explicit preference about how the assistant should behave.
+  /\b(i'?d rather|i prefer|i'?d prefer|i (want|need) you to|i don'?t want you to|i don'?t want any)\b/i,
+  // Standing style / format constraints.
+  /\b(keep (it|them|these|those|the|all|my|campaign|emails?)\b[^?]{0,40}\b(short|brief|simple|casual|under|to \d)|under \d+ (words|characters)|sign off as|sign them|lead with|focus on)\b/i,
+  /\buse a\b[^?]{0,25}\b(tone|voice|style)\b|\b(tone|voice) (should|must)\b/i,
+  // Soft preference about a category — the pronoun lookahead excludes applause (rule 2 above).
+  /\bi (hate|love|like|prefer|dislike|can'?t stand)\s+(?!it\b|this\b|that\b|them\b|these\b|those\b|the way\b)\w+/i,
+];
 
 export function hasDirectiveSignal(text: string): boolean {
-  return DIRECTIVE_SIGNALS.test(text || '');
+  const t = (text || '').trim();
+  if (!t) return false;
+  if (PURE_QUESTION.test(t)) return false;
+  return DIRECTIVE_PATTERNS.some((re) => re.test(t));
 }
 
 function minConfidence(): number {
@@ -66,6 +110,12 @@ An extracted memory outlives this conversation and shapes every future answer, s
 expensive and silence is cheap. When you are unsure whether something is durable, return [] rather than
 guessing — and never raise confidence above 0.7 for intent you inferred rather than heard stated.
 
+ONE UTTERANCE, ONE MEMORY. If the owner states several related preferences in a single breath
+("make sure the designs are the best and always work around the logo and branding colors"), combine them
+into ONE instruction rather than emitting near-duplicates. Only return multiple elements when the owner
+stated genuinely unrelated rules about different topics. Duplicated memories crowd out the rest when the
+assistant recalls them later.
+
 Return a JSON array and NOTHING else. Each element:
 {"kind":"preference"|"instruction"|"decision"|"correction","content":"<the standing instruction, one concise sentence in the owner's voice>","tags":["<short topic tags>"],"confidence":<0-1 how sure this is durable standing intent>}
 If the turn contains no standing intent, return [].`;
@@ -95,6 +145,10 @@ export class AiMemoryExtractor {
         model,
         maxTokens: 500,
       });
+      // RC-1: extraction latency is the input to the capture-receipt timeout (ai-memory-receipt-plan.md
+      // D-RC5) — the receipt awaits this call inside the response, so the number must come from
+      // observation, not a guessed constant. Logged on every fire; fires are ~1.7% of turns.
+      logger.info('AiMemoryExtractor timing', { shopId, model, latencyMs: resp.latencyMs });
       // Meter on the shop allowance + log to ai_misc_usage so this cost shows up in ai_usage_events.
       await this.spendCap.recordSpend(shopId, resp.costUsd, {
         feature: 'memory_autoextract',

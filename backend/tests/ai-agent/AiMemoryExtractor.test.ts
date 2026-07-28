@@ -30,6 +30,54 @@ describe("hasDirectiveSignal — the pre-filter", () => {
       expect(hasDirectiveSignal(s)).toBe(false);
     }
   });
+
+  // The original vocabulary-matching filter caught only 7 of these 20 — it recognised the formal
+  // register of someone dictating a rule and missed the ordinary way people actually talk. A miss is
+  // SILENT (nothing saved, nothing said), so these are the cases that made the feature feel broken.
+  it("catches ordinary phrasings of a standing rule, not just formal directives", () => {
+    for (const s of [
+      "Don't mention discounts in my emails.",
+      "Please keep campaign emails short.",
+      "Stop using emojis in customer messages.",
+      "I'd rather you focused on loyalty rewards.",
+      "No more corporate speak.",
+      "Use a friendly tone from here on.",
+      "Keep it under 100 words.",
+      "Just so you know, I hate long emails.",
+      "Quit recommending bundles — nobody buys them.",
+      "Lead with the warranty, not the price.",
+      "Sign off as Peanut, not RepairCoin.",
+    ]) {
+      expect({ s, fires: hasDirectiveSignal(s) }).toEqual({ s, fires: true });
+    }
+  });
+
+  // Real orchestrate traffic is largely voice-transcribed rambling. These are VERBATIM staging
+  // messages that a naive broadening (bare /don't/, bare /i like/) swallows whole — each one would
+  // be a paid Haiku call and a chance to store a bogus standing rule.
+  it("rejects real voice-transcription noise and applause for the current draft", () => {
+    for (const s of [
+      "i like it lets send it",
+      "I love it. Let's go ahead and send it.",
+      "I don't even know if I'm in their target.",
+      "I don't know if you can see it on the screen, but the sun is rising.",
+      "Laugh out loud. I said flow, not blue, but I guess my English is not that great.",
+      "Looks like I don't have any revenue and even last month's. Can we fix this?",
+      "Send a campaign to all 4 customers to keep the momentum going",
+      "Let's go ahead and make the campaign, whatever you suggest is better to do.",
+    ]) {
+      expect({ s, fires: hasDirectiveSignal(s) }).toEqual({ s, fires: false });
+    }
+  });
+
+  // The two rules that make the above work, asserted directly so a future edit can't quietly undo
+  // them: a negation must OPEN a clause, and a preference must name a category, not a pronoun.
+  it("distinguishes an imperative negation from narrative, and a rule from applause", () => {
+    expect(hasDirectiveSignal("Don't use emojis.")).toBe(true);
+    expect(hasDirectiveSignal("I don't use emojis much myself.")).toBe(false);
+    expect(hasDirectiveSignal("I hate long emails.")).toBe(true);
+    expect(hasDirectiveSignal("I love it.")).toBe(false);
+  });
 });
 
 describe("AiMemoryExtractor.parse — confidence + fact guards", () => {

@@ -27,7 +27,9 @@ import {
   OrchestrateMessage,
   OrchestrateToolCall,
   ORCHESTRATE_LIMITS,
+  CapturedMemory,
 } from "@/services/api/aiOrchestrate";
+import { deleteMemory } from "@/services/api/aiMemory";
 import {
   listPinnedQueries,
   pinQuery,
@@ -82,7 +84,13 @@ const HELP_PROMPTS: readonly string[] = [
 
 type Turn =
   | { role: "user"; content: string; imageUrl?: string }
-  | { role: "assistant"; content: string; toolCalls: OrchestrateToolCall[] };
+  | {
+      role: "assistant";
+      content: string;
+      toolCalls: OrchestrateToolCall[];
+      /** Standing instructions auto-captured from this turn — shown as a "Remembered" chip. */
+      memoriesCaptured?: CapturedMemory[];
+    };
 
 export const UnifiedAssistantPanel: React.FC<{
   /** The shop's chosen assistant name, for the spoken greeting. */
@@ -313,6 +321,7 @@ export const UnifiedAssistantPanel: React.FC<{
           role: "assistant",
           content: res.reply,
           toolCalls: res.toolCalls ?? [],
+          memoriesCaptured: res.memoriesCaptured,
         },
       ]);
       setAiLimit(
@@ -1158,6 +1167,64 @@ const TurnBubble: React.FC<{
           ))}
         </div>
       )}
+      {turn.memoriesCaptured && turn.memoriesCaptured.length > 0 && (
+        <div className="w-full max-w-[85%] space-y-1.5">
+          {turn.memoriesCaptured.map((m) => (
+            <MemoryCapturedChip key={m.id} memory={m} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * "Remembered" receipt for a standing instruction the assistant captured on its own.
+ *
+ * Auto-capture is otherwise invisible — the owner cannot tell "remembered" from "ignored", which is
+ * most of why Advanced AI Memory didn't feel advanced. Undo matters as much as the acknowledgement:
+ * it puts the correction point at the moment of capture, while the owner still has the context,
+ * instead of a Settings list read weeks later.
+ */
+const MemoryCapturedChip: React.FC<{ memory: CapturedMemory }> = ({ memory }) => {
+  const [undone, setUndone] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const undo = async () => {
+    setBusy(true);
+    try {
+      await deleteMemory(memory.id);
+      setUndone(true);
+    } catch {
+      // Leave the chip actionable — a failed undo must not look like it worked.
+      setBusy(false);
+    }
+  };
+
+  if (undone) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-gray-500 px-1">
+        <span aria-hidden>↩</span>
+        <span>Forgotten — I won&apos;t apply that.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-purple-900/60 bg-purple-950/25 px-3 py-2">
+      <span aria-hidden className="text-base leading-5">🧠</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-purple-200/80">Remembered for next time</p>
+        <p className="text-base text-gray-200 break-words">{memory.content}</p>
+      </div>
+      <button
+        type="button"
+        onClick={undo}
+        disabled={busy}
+        className="shrink-0 text-sm text-purple-300 hover:text-purple-100 underline underline-offset-2 disabled:opacity-50"
+      >
+        {busy ? "Undoing…" : "Undo"}
+      </button>
     </div>
   );
 };
