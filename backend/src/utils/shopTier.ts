@@ -59,7 +59,10 @@ export async function getShopAiBudget(shopId: string): Promise<number> {
 
 // WS2 entitlement (cumulative): does the shop's CURRENT tier include this feature? The authoritative
 // guard behind every gated feature — a stale per-shop "enabled" flag cannot bypass it. Fail-closed:
-// on any tier-resolution error getShopTier returns 'starter', so below-tier features stay locked.
+// on any tier-resolution error getShopTier returns 'free', the most restrictive tier, so gated
+// features stay locked. Note that makes 'free' ambiguous to callers — it is both the deliberate
+// resting state (never converted from trial, or cancelled) and the "couldn't resolve" state, so a
+// transient DB failure reads as a genuine below-tier answer.
 export async function shopHasFeature(shopId: string, feature: string): Promise<boolean> {
   return tierAllowsFeature(await getShopTier(shopId), feature);
 }
