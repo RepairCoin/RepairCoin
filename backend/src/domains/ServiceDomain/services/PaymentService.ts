@@ -2,6 +2,7 @@
 import { OrderRepository, ServiceOrder } from '../../../repositories/OrderRepository';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { StripeService } from '../../../services/StripeService';
+import { idemKey, bookingIdemRef } from '../../../services/stripeIdempotency';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { NotificationGateway, getNotificationGateway } from '../../notification/services/NotificationGateway';
 import { EmailService } from '../../../services/EmailService';
@@ -368,6 +369,15 @@ export class PaymentService {
         currency: 'usd',
         connectedAccountId: shop?.stripeConnectAccountId,
         applicationFeeAmount: commissionCents,
+        // Keyed on the booking itself, NOT on orderId — orderId is a fresh uuid per request,
+        // so a double-clicked Book would otherwise create a second PaymentIntent.
+        idempotencyKey: idemKey('booking-pi', bookingIdemRef({
+          customerAddress: request.customerAddress,
+          serviceId: service.serviceId,
+          bookingDate: bookingDateStr,
+          bookingTime: request.bookingTime,
+          amountCents: amountInCents,
+        })),
         metadata: {
           orderId,
           serviceId: service.serviceId,
@@ -647,7 +657,18 @@ export class PaymentService {
           locationId: request.locationId || '',
           type: 'service_booking'
         }
-      }, connectedAccountId ? { stripeAccount: connectedAccountId } : undefined);
+      }, {
+        ...(connectedAccountId ? { stripeAccount: connectedAccountId } : {}),
+        // Same reasoning as the PaymentIntent path: key on the booking, not the per-request
+        // orderId, so a retried request reuses this session instead of opening a second one.
+        idempotencyKey: idemKey('booking-checkout', bookingIdemRef({
+          customerAddress: request.customerAddress,
+          serviceId: service.serviceId,
+          bookingDate: bookingDateStr,
+          bookingTime: request.bookingTime,
+          amountCents: amountInCents,
+        })),
+      });
 
       logger.info('Stripe checkout session created (order will be created on payment success)', {
         orderId,
