@@ -12,7 +12,7 @@
 
 import { AnthropicClient } from './AnthropicClient';
 import { SpendCapEnforcer } from './SpendCapEnforcer';
-import { isFactLike } from './AiMemoryService';
+import { isFactLike, getAiMemoryService } from './AiMemoryService';
 import { cheapModel } from '../../../config/aiModels';
 import { logger } from '../../../utils/logger';
 import type { AiMemoryKind } from '../../../repositories/AiMemoryRepository';
@@ -116,14 +116,28 @@ into ONE instruction rather than emitting near-duplicates. Only return multiple 
 stated genuinely unrelated rules about different topics. Duplicated memories crowd out the rest when the
 assistant recalls them later.
 
+DON'T RE-SAVE WHAT IS ALREADY REMEMBERED. You will be shown the rules this shop has already stored.
+Owners repeat themselves, and a re-statement in different words is still the same rule — if the intent
+is ALREADY COVERED by a stored rule, return [] for it, even when the wording differs completely
+("Never use emojis in customer-facing messages" already covers "Stop using emojis in customer messages").
+Exception: if the owner is CHANGING or REVERSING a stored rule ("actually, do use emojis now",
+"make it 200 words instead of 100"), that IS new intent — return it as a "correction" so the change is
+not lost.
+
 Return a JSON array and NOTHING else. Each element:
 {"kind":"preference"|"instruction"|"decision"|"correction","content":"<the standing instruction, one concise sentence in the owner's voice>","tags":["<short topic tags>"],"confidence":<0-1 how sure this is durable standing intent>}
 If the turn contains no standing intent, return [].`;
 
+/** Cap the already-remembered block so a shop with many rules can't bloat the extraction prompt. */
+const MAX_EXISTING_IN_PROMPT = 40;
+
 export class AiMemoryExtractor {
   constructor(
     private readonly anthropic: AnthropicClient = new AnthropicClient(),
-    private readonly spendCap: SpendCapEnforcer = new SpendCapEnforcer()
+    private readonly spendCap: SpendCapEnforcer = new SpendCapEnforcer(),
+    /** Injectable for tests; defaults to the live service so call sites need no change. */
+    private readonly listMemories: (shopId: string) => Promise<Array<{ content: string }>> = (shopId) =>
+      getAiMemoryService().list(shopId)
   ) {}
 
   /**
@@ -136,9 +150,32 @@ export class AiMemoryExtractor {
 
     try {
       const model = cheapModel();
+
+      // What this shop already remembers. Without it the model cannot tell a NEW rule from a
+      // re-statement of an old one, and `remember()`'s duplicate guard only compares exact content —
+      // so "Stop using emojis in customer messages" happily created a second copy of an existing
+      // "Never use emojis in customer-facing messages" (observed on staging 2026-07-28). Owners repeat
+      // themselves; without this every repetition adds another near-duplicate diluting recall.
+      // Fail-open: if the lookup fails we still extract, we just lose de-duplication for this turn.
+      let existingBlock = '';
+      try {
+        const existing = await this.listMemories(shopId);
+        if (existing.length) {
+          existingBlock =
+            `\n\nAlready remembered for this shop — do NOT re-save these, only genuine changes to them:\n` +
+            existing.slice(0, MAX_EXISTING_IN_PROMPT).map((m) => `- ${m.content}`).join('\n');
+        }
+      } catch (e) {
+        logger.warn('AiMemoryExtractor could not load existing memories; extracting without de-dup', {
+          shopId,
+          error: (e as Error)?.message,
+        });
+      }
+
       const userContent =
         `Owner said:\n"""${owner}"""` +
-        (turn.assistantReply ? `\n\nAssistant replied:\n"""${turn.assistantReply.trim()}"""` : '');
+        (turn.assistantReply ? `\n\nAssistant replied:\n"""${turn.assistantReply.trim()}"""` : '') +
+        existingBlock;
       const resp = await this.anthropic.complete({
         systemPrompt: [{ text: SYSTEM, cache: false }],
         messages: [{ role: 'user', content: userContent }],
