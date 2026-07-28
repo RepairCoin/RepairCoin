@@ -140,7 +140,7 @@ converting only at display — matches Stripe and avoids the current dollar-roun
 | Section | Approach | New vs reuse |
 |---|---|---|
 | **Onboarding ("Get Paid")** | FixFlow-owned multi-step checklist (Verify Business, Business Details, Owner KYC, Bank, Tax, Identity, Statement Descriptor) via Account Sessions + embedded components — no OAuth redirect, no "Stripe" branding. Requires Express/Custom accounts | Replaces OAuth redirect; reuse `shops.connect_*` + status sync |
-| **Transactions** | `GET /api/payments/transactions` over `payments` with filters (customer, employee, date, status, method); detail + receipt; CSV via `CSVExportService` | New reads; reuse export util. Needs employee filter (missing in `getOrdersByShop`) |
+| **Transactions** | `GET /api/payments/transactions` over `payments` with filters (customer, date, status, method); detail + receipt; CSV via `CSVExportService` | New reads; reuse export util. Employee filter dropped for launch (Slice 1.1) |
 | **Orders** | Phase 1 links payments/invoices to existing `service_orders` (customer/booking/technician/messages already attached). Repair/product/marketplace orders don't exist → separate track | Reuse `service_orders`; generalized multi-type order model deferred |
 | **Invoices** | CRUD + duplicate; status lifecycle; deposits/partial/tax/discount/tip/due/notes/attachments; send via SMS (gateway) / email (Resend); pay via a **FixFlow-hosted page with embedded Elements** (not Stripe's hosted invoice); server-rendered PDF; AI reminders (Phase 2) | New FixFlow pay page; PaymentIntent per invoice |
 | **Virtual Terminal** | PaymentIntent on connected account (reuse `createPaymentIntent`); select/create customer; charge saved methods (SetupIntents / `stripe_customers`); tips/tax/discount/receipt; link to order/booking/invoice | Elements only — no raw PAN |
@@ -162,7 +162,7 @@ Written and typecheck-clean on `feat/payments-foundation` (uncommitted). **Migra
 have never been applied and no code path has run against a database or a real Stripe event.**
 
 ### Phase 1 — launch scope
-Transactions view + export · Refunds table + UI · Order↔payment linking + employee filter.
+Transactions view + export · Refunds table + UI · Order↔payment linking.
 ("Get Paid" embedded onboarding — Slice 1.0 — **already shipped**, commit `2e374635` / PR #663.)
 
 ### Phase 2
@@ -332,16 +332,35 @@ identity, bank verification, and fraud underneath.
   (irreversible — bricks the account). Dual-path (legacy stays OAuth) or re-onboard fresh —
   §9 Decision 6. Mobile shares the same Account Session endpoint.
 
-#### Slice 1.1 — Order↔payment linking + employee filter
-- Backend-only enabler. Add an `employeeId` (`completed_by_member_id`) filter + a
-  `shop_team_members` join to `OrderRepository.getOrdersByShop` (currently status/date/
-  customer/location only). Expose `completedByMember` on the order DTO.
-- Ensure `payments.order_id` is populated by the reconciler (from PI metadata `orderId`).
-- No UI; unblocks the Transactions "filter by employee" requirement.
+#### Slice 1.1 — Order↔payment linking — ✅ IMPLEMENTED (backend-only, uncommitted)
+Scope reduced 2026-07-28: **linking only, employee filter dropped.** The filter existed to
+serve Slice 1.8's revenue-by-employee breakdown, which moved to Phase 2, and shops can
+already reconcile staff payouts in the shipped CommissionsTab. Nothing in Transactions or
+Refunds needs it, and it can be added later against data that is already being written.
+
+- **Checkout metadata → the charge.** `payments.order_id` is populated by the reconciler
+  from the charge's `orderId` metadata, but `createStripeCheckout` only ever set metadata on
+  the **Checkout Session**, which does *not* propagate to the PaymentIntent or the charge.
+  Every checkout-flow booking therefore landed in the ledger with `order_id = NULL` and no
+  way to join it back to its order. Fixed by setting the same `bookingMetadata` object on
+  both the session and `payment_intent_data.metadata`. (The PaymentIntent path was already
+  correct.) Note `payment_intent_data` is now always present, not only when there is an
+  application fee.
+  **Not retroactive:** Stripe metadata is fixed at charge time, so rows written before this
+  deploy are permanently unlinkable.
+- **`completedByMemberId` on the order DTO.** The column has been written at completion
+  since migration 213 (staff commissions) but `mapOrderRow` silently dropped it, so nothing
+  downstream could read it. One line in the mapper — no join, no added query cost — so the
+  data is available whenever Transactions wants a "completed by" column.
+
+**Dropped:** `employeeId` filter + `shop_team_members` join on
+`OrderRepository.getOrdersByShop` (still status/date/customer/location only).
 
 #### Slice 1.2 — Transactions view + export + FE shell
-- `GET /transactions` → `PaymentRepository.listByShop` with filters (customer, employee,
-  date range, status, method) + pagination (`PaginatedResult`).
+- `GET /transactions` → `PaymentRepository.listByShop` with filters (customer, date range,
+  status, method) + pagination (`PaginatedResult`). **Employee filtering is out** — see the
+  Slice 1.1 scope reduction; `completedByMemberId` is exposed on the order DTO if a
+  read-only "completed by" column is wanted, but there is no filter behind it.
 - `GET /transactions/:id` → detail (gross/fee/net, `application_fee_cents`, refunds,
   linked order/invoice/customer).
 - `GET /transactions/export.csv` → `CSVExportService` (`utils/csvExport.ts`).
