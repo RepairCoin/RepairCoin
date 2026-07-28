@@ -1,5 +1,5 @@
 import { SubscriptionTier, isValidTier, AI_TIER_ALLOWANCE } from '../config/subscriptionPlans';
-import { tierAllowsFeature } from '../config/featureTiers';
+import { tierAllowsFeature, effectiveTierAllows } from '../config/featureTiers';
 import { shopSubscriptionRepository } from '../repositories';
 import { getSharedPool } from './database-pool';
 import { isEntitledByAgency } from './agencyEntitlement';
@@ -65,4 +65,15 @@ export async function getShopAiBudget(shopId: string): Promise<number> {
 // transient DB failure reads as a genuine below-tier answer.
 export async function shopHasFeature(shopId: string, feature: string): Promise<boolean> {
   return tierAllowsFeature(await getShopTier(shopId), feature);
+}
+
+/**
+ * shopHasFeature, but honoring the feature's ROLLOUT flag — a gate that has shipped dark allows every
+ * tier until its flag flips. Use this anywhere access is decided outside a route guard (background
+ * jobs, schedulers), so those agree with `requireTierRollout` and the feature-access map instead of
+ * enforcing ahead of them. Picking plain `shopHasFeature` for a dark-shipped feature would make the
+ * background path stricter than the API it belongs to.
+ */
+export async function shopHasFeatureEffective(shopId: string, feature: string): Promise<boolean> {
+  return effectiveTierAllows(await getShopTier(shopId), feature);
 }

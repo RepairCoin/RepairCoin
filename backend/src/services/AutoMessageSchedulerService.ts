@@ -6,6 +6,10 @@ import { CustomerRepository } from '../repositories/CustomerRepository';
 import { ShopRepository } from '../repositories/ShopRepository';
 import { getSharedPool } from '../utils/database-pool';
 import { getAutoMessageActionRegistry } from './autoMessageActions/registry';
+import { shopHasFeatureEffective } from '../utils/shopTier';
+
+/** How long an entitlement answer is reused. One tick can ask about the same shop once per customer. */
+const ENTITLEMENT_TTL_MS = 5 * 60 * 1000;
 
 // Max auto-messages per shop per scheduler run (prevent spam)
 const MAX_SENDS_PER_SHOP_PER_RUN = 50;
@@ -35,6 +39,13 @@ export class AutoMessageSchedulerService {
   private shopRepo: ShopRepository;
   private scheduledIntervalId: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
+  /** shopId → entitlement, shared across instances so event triggers reuse the scheduler's answers. */
+  private static entitlementCache = new Map<string, { allowed: boolean; at: number }>();
+
+  /** Tests only — drop memoized entitlement so a tier change takes effect immediately. */
+  static resetEntitlementCache(): void {
+    AutoMessageSchedulerService.entitlementCache.clear();
+  }
 
   constructor() {
     this.autoMessageRepo = new AutoMessageRepository();
@@ -190,12 +201,44 @@ export class AutoMessageSchedulerService {
     return { message: rule.messageTemplate, variant: null };
   }
 
+  /**
+   * Is this shop still entitled to run automations?
+   *
+   * The route guard (`autoMessageGuard`) only stops a below-tier shop from MANAGING automations — the
+   * engine never asked, so a shop that downgraded or cancelled kept having its rules executed
+   * indefinitely. Entitlement now holds at the engine too, not just at the door.
+   *
+   * Deliberately the ROLLOUT-AWARE check: while a gate is shipped dark this returns true for every
+   * tier, so the engine enforces exactly when the API does. Plain `shopHasFeature` would enforce ahead
+   * of the routes and cut off shops the UI still says are entitled.
+   *
+   * Memoized briefly because one tick calls this once per customer. Note `getShopTier` resolves to
+   * 'free' on a DB error, so a transient blip skips that shop's automations for this tick; they resume
+   * on the next one, which is preferable to sending on behalf of a shop that isn't entitled.
+   */
+  private async isShopEntitled(shopId: string): Promise<boolean> {
+    const cached = AutoMessageSchedulerService.entitlementCache.get(shopId);
+    if (cached && Date.now() - cached.at < ENTITLEMENT_TTL_MS) return cached.allowed;
+
+    const allowed = await shopHasFeatureEffective(shopId, 'aiCampaignsAdvanced');
+    AutoMessageSchedulerService.entitlementCache.set(shopId, { allowed, at: Date.now() });
+    if (!allowed) {
+      logger.info('Automation skipped — shop is not entitled to aiCampaignsAdvanced', { shopId });
+    }
+    return allowed;
+  }
+
   private async sendToCustomer(
     rule: AutoMessage,
     customer: { walletAddress: string; name?: string; rcnBalance?: number; lastServiceName?: string; lastVisitDate?: string },
     shopName: string
   ): Promise<{ success: boolean; messageId?: string; conversationId?: string }> {
     try {
+      // Entitlement at the engine. Gating HERE covers every send entry point at once — scheduled
+      // rules, immediate event triggers, inactive-customer and low-booking sweeps all funnel through
+      // this method.
+      if (!(await this.isShopEntitled(rule.shopId))) return { success: false };
+
       // Check max sends per customer
       const sendCount = await this.autoMessageRepo.countSendsForCustomer(rule.id, customer.walletAddress);
       if (rule.maxSendsPerCustomer && sendCount >= rule.maxSendsPerCustomer) {
@@ -664,6 +707,15 @@ export class AutoMessageSchedulerService {
               // Get the rule to access template
               const rule = await this.autoMessageRepo.getById(send.autoMessageId);
               if (!rule || !rule.isActive) {
+                await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
+                continue;
+              }
+
+              // Entitlement again — queued sends bypass sendToCustomer entirely, so a shop that
+              // downgraded after enrolling a customer would otherwise keep delivering drip steps.
+              // Marked failed rather than left pending, matching how an inactive rule is handled above:
+              // leaving it pending would retry it every tick forever.
+              if (!(await this.isShopEntitled(send.shopId))) {
                 await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
                 continue;
               }
