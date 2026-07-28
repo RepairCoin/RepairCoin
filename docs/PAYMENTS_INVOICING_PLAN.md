@@ -5,7 +5,15 @@
 > shop owners never open the Stripe Dashboard. The user should feel like they are
 > using **FixFlow Payments**, not switching between FixFlow and Stripe.
 
-Status: **Planning** · Owner: Nico · Last updated: 2026-07-27
+Status: **Phase 0 code-complete (unverified) · Slice 1.0 shipped** · Owner: Nico · Last updated: 2026-07-28
+
+> **Scope decision (2026-07-28) — launch first.** Phase 1 is cut to Transactions,
+> Refunds, and the order↔payment linking that both need. **Invoices, Payment Links,
+> Payouts, and the Revenue Dashboard move to Phase 2.** Rationale: the product is built
+> but unused, and shipping everything first delays launch by an estimated 1–2 months;
+> shops can still take payment through booking checkout on day one. This deliberately
+> departs from §1, which is written invoice-first — the canonical workflow below is the
+> Phase 2 target, not the launch target.
 
 ---
 
@@ -147,19 +155,21 @@ converting only at display — matches Stripe and avoids the current dollar-roun
 
 One branch per phase, one commit per slice.
 
-### Phase 0 — Foundation (no UI) — detail in §7
+### Phase 0 — Foundation (no UI) — detail in §7 — **code-complete, unverified**
 `payments` + `stripe_events` tables · PaymentsDomain skeleton · Stripe idempotency
 keys everywhere · webhook dedup + reconcile into ledger · backfill existing charges.
+Written and typecheck-clean on `feat/payments-foundation` (uncommitted). **Migrations 244/245
+have never been applied and no code path has run against a database or a real Stripe event.**
 
-### Phase 1
-"Get Paid" embedded onboarding (replaces OAuth redirect) · Transactions view + export ·
-Invoices (create/send/embedded-pay/PDF, core statuses) · Payment Links (FixFlow-hosted) ·
-Refunds table + UI · Payouts visibility · Revenue Dashboard · Order↔payment linking +
-employee filter.
+### Phase 1 — launch scope
+Transactions view + export · Refunds table + UI · Order↔payment linking + employee filter.
+("Get Paid" embedded onboarding — Slice 1.0 — **already shipped**, commit `2e374635` / PR #663.)
 
 ### Phase 2
-Virtual Terminal · saved payment methods · deposits/partial payments · recurring
-invoices · AI collection reminders (`invoice_viewed_unpaid` / `invoice_overdue` types + scheduler).
+Invoices (create/send/embedded-pay/PDF, core statuses) · Payment Links (FixFlow-hosted) ·
+Payouts visibility · Revenue Dashboard · Virtual Terminal · saved payment methods ·
+deposits/partial payments · recurring invoices · AI collection reminders
+(`invoice_viewed_unpaid` / `invoice_overdue` types + scheduler).
 
 ### Phase 3
 Bill tracking · vendor management · approvals · (optional) real bill-payment rails.
@@ -241,10 +251,25 @@ in Phase 0) · `events.ts` · `services/PaymentReconciler.ts` · register in `ap
 
 #### Slice 0.3 — Stripe idempotency keys
 `backend/src/services/stripeIdempotency.ts` → `idemKey(scope, id)` returning a **stable**
-key (e.g. `fixflow:booking:<orderDraftId>`). Thread `{ idempotencyKey }` into
-`StripeService.createPaymentIntent` (`StripeService.ts:546`) and the booking flow
-(`ServiceDomain/services/PaymentService.ts` createPaymentIntent L182 / createStripeCheckout
-L427) and refunds. Behavior-preserving (keys only affect retries).
+key. Threaded into `StripeService.createPaymentIntent`, both booking flows
+(`ServiceDomain/services/PaymentService.ts` createPaymentIntent / createStripeCheckout), and
+refunds. Behavior-preserving (keys only affect retries).
+
+**The key basis matters more than the plumbing (resolved 2026-07-28).** The first pass keyed
+bookings on `orderId`, which is useless: both flows mint `ord_<uuid>` fresh per request, so a
+double-clicked "Book" produced two keys and two PaymentIntents — the exact duplicate the key
+exists to prevent. Replaced with `bookingIdemRef({customerAddress, serviceId, bookingDate,
+bookingTime, amountCents})`, a sha1 over what the customer actually chose. A retry of the same
+booking reuses the PaymentIntent; a different slot/service/amount gets its own key. Stripe
+expires idempotency keys after 24h, which is the effective dedup window. (The alternative — a
+client-supplied `bookingDraftId` — was rejected for launch: it changes the API contract and
+needs matching web + mobile work.)
+
+Same trap on refunds: keying a partial refund on `PI + amount` would collapse two legitimate
+same-amount partial refunds into one. `StripeService.partialRefund` now takes an explicit
+`idempotencyRef` from the caller (`deposit:<orderId>` for the deposit refund on completion) and
+sends **no** key when the caller has no stable reference — a missing key is safer than a
+colliding one.
 
 #### Slice 0.4 — Webhook dedup + reconcile
 Modify `backend/src/domains/shop/routes/webhooks.ts`:
@@ -266,13 +291,19 @@ Modify `backend/src/domains/shop/routes/webhooks.ts`:
 `payments` row; re-delivered webhooks are no-ops; retries can't double-charge; history
 backfilled. No UI yet.
 
-### Phase 1 — Transactions, Invoices, Links, Refunds, Payouts
+### Phase 1 — Transactions + Refunds (launch scope)
 
 Branch `feat/payments-phase1`. Assumes Phase 0 merged. Frontend shell (Payments tab +
 subtabs, `payments:manage` permission, `frontend/src/services/api/payments.ts`) ships in
 Slice 1.2 and later slices add their subtab.
 
-#### Slice 1.0 — "Get Paid" embedded onboarding (replaces the OAuth redirect)
+**Launch scope is 1.1 → 1.2 → 1.3 only.** Slice 1.0 is already shipped; slices 1.4–1.8 keep
+their numbering below but are **deferred to Phase 2** per the scope decision at the top of this
+doc. Slice 1.8 was specced as the Payments landing screen — with it deferred, the tab must
+default to **Transactions**.
+
+#### Slice 1.0 — "Get Paid" embedded onboarding (replaces the OAuth redirect) — ✅ SHIPPED
+> Merged to `main` as commit `2e374635` (PR #663). Spec retained below for reference.
 `FixFlow → Payments → Get Paid` — a FixFlow-owned, multi-step checklist the owner completes
 without ever seeing the word "Stripe": **Verify Business · Business Details · Owner
 Verification (KYC) · Bank Account · Tax Information · Identity Verification · Statement
@@ -330,7 +361,7 @@ identity, bank verification, and fraud underneath.
 - Log to `admin_activity_logs` (`AdminRepository.logAdminActivity`). Refund button in the
   transaction detail drawer.
 
-#### Slice 1.4 — Invoices data model + CRUD
+#### Slice 1.4 — Invoices data model + CRUD — ⏭ DEFERRED TO PHASE 2
 - Migrations `invoices` + `invoice_line_items`; add FK `payments.invoice_id → invoices.id`.
 - `InvoiceRepository` (per-shop `invoice_number` sequence, transactional line-item writes
   via `withTransaction`) + `InvoiceService`.
@@ -339,7 +370,7 @@ identity, bank verification, and fraud underneath.
 - **Frontend:** Invoices subtab + invoice builder (line items, tax/discount/tip/due/notes/
   attachments, deposit field). Draft lifecycle only.
 
-#### Slice 1.5 — Invoice send + pay (embedded) + PDF + status lifecycle
+#### Slice 1.5 — Invoice send + pay (embedded) + PDF + status lifecycle — ⏭ DEFERRED TO PHASE 2
 - On send: create a PaymentIntent on the connected account for the invoice balance +
   generate a **FixFlow-hosted pay page** at `/pay/:token` (public route). Deliver the link
   via email (existing Resend service) + SMS (notification gateway). **No Stripe-hosted
@@ -352,7 +383,7 @@ identity, bank verification, and fraud underneath.
   flips past-due → `overdue`.
 - Emits `payments:invoice_paid`. Reconciler links the `payments` row to the invoice.
 
-#### Slice 1.6 — Payment Links (FixFlow-hosted, embedded)
+#### Slice 1.6 — Payment Links (FixFlow-hosted, embedded) — ⏭ DEFERRED TO PHASE 2
 - Migration `payment_links`. `PaymentLinkService` creates a `payment_links` row +
   `/pay/:token` link backed by a PaymentIntent on the connected account (reuse the Slice
   1.5 embedded pay page) — **not** `stripe.paymentLinks` (those redirect to Stripe).
@@ -363,7 +394,7 @@ identity, bank verification, and fraud underneath.
   (`active → paid | expired | canceled`) + auto-update the related invoice/order.
 - **Frontend:** Links subtab (create, track sent/opened/paid/expired/canceled).
 
-#### Slice 1.7 — Payouts visibility
+#### Slice 1.7 — Payouts visibility — ⏭ DEFERRED TO PHASE 2
 - Migration `payouts`. `PayoutService` → `stripe.balance.retrieve` + `stripe.payouts.list`
   per connected account; `payout.*` webhooks upsert `payouts`.
 - `GET /payouts`, `GET /balance` (current / pending / available). Bank + onboarding status
@@ -371,7 +402,7 @@ identity, bank verification, and fraud underneath.
 - **Frontend:** Payouts subtab (balances, upcoming/completed payouts, processing fees,
   bank/payout-setup status; reuse `PayoutSetupBanner` state).
 
-#### Slice 1.8 — Revenue Dashboard
+#### Slice 1.8 — Revenue Dashboard — ⏭ DEFERRED TO PHASE 2
 - `GET /revenue/summary?range=` aggregating the `payments` ledger + `payouts`: gross/net
   revenue over time, by method / service / employee (`completed_by_member_id`), average
   ticket, refund rate, outstanding-invoice total, deposits held. Reuse the token-analytics
@@ -379,13 +410,20 @@ identity, bank verification, and fraud underneath.
 - **Frontend:** the Payments landing screen — headline KPIs + trend charts (reuse the
   existing dashboard chart components); links into Transactions/Invoices/Payouts.
 
-**Phase 1 exit criteria:** a new shop completes the in-app "Get Paid" onboarding (embedded,
-no redirect); can view/search/export all transactions, refund from FixFlow,
-create→send→get-paid on an invoice (PDF + **embedded** pay page), generate/track payment
-links, see balances + payout history, and read a revenue dashboard — all without ever
-opening Stripe.
+**Phase 1 exit criteria (launch scope):** a shop can view/search/filter/export every
+transaction it has taken — with gross, Stripe fee, platform commission, and net — see the
+detail behind any one of them, and issue a full or partial refund from inside FixFlow with a
+reason and an audit trail, without opening the Stripe Dashboard. Onboarding (Slice 1.0) is
+already live.
 
-### Phase 2 — Virtual Terminal, saved methods, deposits, recurring, AI reminders
+*Original (pre-cut) exit criteria, now the Phase 2 target: also create→send→get-paid on an
+invoice (PDF + embedded pay page), generate/track payment links, see balances + payout
+history, and read a revenue dashboard.*
+
+### Phase 2 — Invoices, Links, Payouts, Dashboard, Virtual Terminal, saved methods, deposits, recurring, AI reminders
+
+Slices 1.4–1.8 (above, numbering retained) land here first — invoices before deposits (2.3)
+and recurring (2.4), which depend on the invoice model.
 
 Branch `feat/payments-phase2`.
 
@@ -451,10 +489,18 @@ this starts as tracking and only later adds real vendor-payment rails.
 
 ---
 
-## 9. Open decisions (block Phase 1, not Phase 0)
+## 9. Open decisions (now block Phase 2, not the Phase 1 launch scope)
 
 Phase 0 is robust to all of these — the ledger records `application_fee_cents`
 regardless, and cents is settled for new tables.
+
+**Updated 2026-07-28:** the launch cut clears every one of these off the critical path.
+Decision 1 (the platform-fee legal gate) only bites on *arbitrary invoices*, which moved to
+Phase 2 — bookings already take a tier-based application fee today and that behavior is
+unchanged. Decision 3 is moot for launch since terminal/links/invoices are deferred, and
+Decisions 5–6 were settled and shipped in Slice 1.0. Decision 2 is settled by default for
+launch: Slice 1.1 links payments to **service bookings only**. So **no open decision blocks
+Transactions + Refunds** — they gate Phase 2 instead.
 
 1. **⚠️ Platform fee on invoices — legal gate.** Taking a fee cut on *arbitrary
    invoices* (not just bookings) can trigger money-transmitter / marketplace-facilitator

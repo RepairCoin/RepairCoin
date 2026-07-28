@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { logger } from '../utils/logger';
+import { idemKey } from './stripeIdempotency';
 
 export interface StripeConfig {
   secretKey: string;
@@ -556,6 +557,8 @@ export class StripeService {
     // automatically. The shop is the merchant of record.
     applicationFeeAmount?: number;
     connectedAccountId?: string;
+    // Stable key so a retried request never creates a second PaymentIntent (see stripeIdempotency).
+    idempotencyKey?: string;
   }): Promise<Stripe.PaymentIntent> {
     try {
       const paymentIntentData: Stripe.PaymentIntentCreateParams = {
@@ -587,11 +590,15 @@ export class StripeService {
 
       // When connectedAccountId is set, the whole request runs "on behalf of" the shop's
       // account (direct charge) — the PI, its client secret, and later its refund all live there.
-      const requestOptions: Stripe.RequestOptions | undefined = data.connectedAccountId
-        ? { stripeAccount: data.connectedAccountId }
-        : undefined;
+      // idempotencyKey guards against a retry creating a duplicate PaymentIntent.
+      const requestOptions: Stripe.RequestOptions = {};
+      if (data.connectedAccountId) requestOptions.stripeAccount = data.connectedAccountId;
+      if (data.idempotencyKey) requestOptions.idempotencyKey = data.idempotencyKey;
 
-      const paymentIntent = await this.stripe.paymentIntents.create(paymentIntentData, requestOptions);
+      const paymentIntent = await this.stripe.paymentIntents.create(
+        paymentIntentData,
+        Object.keys(requestOptions).length ? requestOptions : undefined
+      );
 
       logger.info('Payment intent created', {
         paymentIntentId: paymentIntent.id,
@@ -630,10 +637,10 @@ export class StripeService {
       if (connectedAccountId) {
         params.refund_application_fee = true;
       }
-      const refund = await this.stripe.refunds.create(
-        params,
-        connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
-      );
+      // A full refund is once-per-PI, so key on the PI — a retry won't double-refund.
+      const options: Stripe.RequestOptions = { idempotencyKey: idemKey('refund', paymentIntentId) };
+      if (connectedAccountId) options.stripeAccount = connectedAccountId;
+      const refund = await this.stripe.refunds.create(params, options);
 
       logger.info('Payment refunded', {
         refundId: refund.id,
@@ -655,7 +662,17 @@ export class StripeService {
   /**
    * Partial refund a payment intent (e.g. deposit refund)
    */
-  async partialRefund(paymentIntentId: string, amountCents: number, reason?: string, connectedAccountId?: string): Promise<Stripe.Refund> {
+  async partialRefund(
+    paymentIntentId: string,
+    amountCents: number,
+    reason?: string,
+    connectedAccountId?: string,
+    // Stable id for THIS refund operation (e.g. the order id for a deposit refund). Keying on
+    // PI+amount would be wrong: two legitimate partial refunds of the same amount on the same
+    // charge would collapse into one. Omitted = no idempotency key, so a retry can double-refund
+    // — pass one wherever the caller has a stable reference.
+    idempotencyRef?: string
+  ): Promise<Stripe.Refund> {
     try {
       const params: Stripe.RefundCreateParams = {
         payment_intent: paymentIntentId,
@@ -670,10 +687,10 @@ export class StripeService {
         // Direct charge: refund proportionally on the shop's account and return the fee.
         params.refund_application_fee = true;
       }
-      const refund = await this.stripe.refunds.create(
-        params,
-        connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
-      );
+      const options: Stripe.RequestOptions = {};
+      if (idempotencyRef) options.idempotencyKey = idemKey('refund-partial', idempotencyRef);
+      if (connectedAccountId) options.stripeAccount = connectedAccountId;
+      const refund = await this.stripe.refunds.create(params, options);
 
       logger.info('Partial refund processed', {
         refundId: refund.id,
