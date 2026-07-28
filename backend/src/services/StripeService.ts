@@ -5,6 +5,13 @@ import { idemKey } from './stripeIdempotency';
 export interface StripeConfig {
   secretKey: string;
   webhookSecret: string;
+  /**
+   * Signing secret for the CONNECT webhook endpoint (events on connected accounts). Separate
+   * from webhookSecret because a Stripe endpoint is either platform- or Connect-scoped, so
+   * covering both means two endpoints and two secrets. Optional: unset in local development,
+   * where `stripe listen` forwards both kinds under a single secret.
+   */
+  connectWebhookSecret?: string;
   priceId: string; // Monthly subscription price ID
   isTestMode: boolean;
 }
@@ -778,28 +785,51 @@ export class StripeService {
   }
 
   /**
-   * Handle webhook event
+   * Handle webhook event.
+   *
+   * Verifies against EVERY configured signing secret, because a Stripe endpoint is either
+   * platform-scoped or Connect-scoped — never both — and we need both:
+   *   - the platform endpoint carries subscriptions/invoices (events on our own account)
+   *   - the Connect endpoint carries charge.* for booking payments, which are direct charges
+   *     living on the shop's connected account
+   * Two endpoints means two signing secrets, and only one of them can validate any given
+   * delivery. Trying each in turn is what Stripe recommends for this setup.
    */
   async handleWebhook(payload: string | Buffer, signature: string): Promise<Stripe.Event> {
-    try {
-      const event = this.stripe.webhooks.constructEvent(
-        payload,
-        signature,
-        this.config.webhookSecret
-      );
+    const secrets = [this.config.webhookSecret, this.config.connectWebhookSecret].filter(
+      (s): s is string => !!s
+    );
 
-      logger.info('Stripe webhook received', {
-        eventType: event.type,
-        eventId: event.id
-      });
-
-      return event;
-    } catch (error) {
-      logger.error('Failed to verify webhook signature', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw new Error(`Webhook signature verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    if (secrets.length === 0) {
+      throw new Error('Webhook signature verification failed: no signing secret configured');
     }
+
+    let lastError: unknown;
+    for (const secret of secrets) {
+      try {
+        const event = this.stripe.webhooks.constructEvent(payload, signature, secret);
+
+        logger.info('Stripe webhook received', {
+          eventType: event.type,
+          eventId: event.id,
+          // event.account is set on Connect deliveries — useful when only one of the two
+          // endpoints is misconfigured.
+          connectedAccount: event.account ?? null,
+        });
+
+        return event;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    logger.error('Failed to verify webhook signature', {
+      secretsTried: secrets.length,
+      error: lastError instanceof Error ? lastError.message : 'Unknown error',
+    });
+    throw new Error(
+      `Webhook signature verification failed: ${lastError instanceof Error ? lastError.message : 'Unknown error'}`
+    );
   }
 
   /**
@@ -972,6 +1002,9 @@ export function getStripeService(): StripeService {
     const config: StripeConfig = {
       secretKey: process.env.STRIPE_SECRET_KEY || '',
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+      // Optional second endpoint for connected-account events (booking charges). Unset
+      // locally, where `stripe listen` forwards both kinds under one secret.
+      connectWebhookSecret: process.env.STRIPE_CONNECT_WEBHOOK_SECRET || undefined,
       priceId: process.env.STRIPE_MONTHLY_PRICE_ID || '',
       isTestMode: process.env.NODE_ENV !== 'production' || process.env.STRIPE_SECRET_KEY?.includes('test') || false
     };
