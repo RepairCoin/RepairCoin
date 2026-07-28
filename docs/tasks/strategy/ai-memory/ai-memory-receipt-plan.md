@@ -2,8 +2,25 @@
 
 **Date:** 2026-07-28
 **Scope:** `ai-memory-scope.md` (D0–D7) · **Builds on:** `ai-memory-autoextract-plan.md` (Phase 3)
-**Status:** SCOPED, not built. No code written.
+**Status (2026-07-28): RC-1 – RC-4 BUILT.** Backend tsc 0 · 948/948 ai-agent tests (7 new receipt cases)
+· frontend tsc clean in touched files. Not yet browser-verified on staging.
 **Flag:** none of its own — inherits `AI_MEMORY_AUTOEXTRACT`, so it is dormant wherever auto-extract is.
+
+**Measured, not guessed (RC-1):** extraction latency over 8 real Haiku calls against real message
+shapes — **p50 1431ms, p90 1922ms, max 1922ms** → `MEMORY_CAPTURE_TIMEOUT_MS = 3000`. A unit test
+asserts the constant stays above the measured p90, because dropping it near p90 would make most
+receipts silently vanish. The `AiMemoryExtractor timing` log line is permanent, so it can be re-derived.
+
+**RC-4 resolved by fixing the cause, not hiding it.** Added a "ONE UTTERANCE, ONE MEMORY" rule to the
+extractor prompt. Verified against the exact sentence that over-split during the AX-5 eval
+("just make sure your designs are the best and always work around the logo and branding colors"):
+now **1** memory, was 2. Genuinely unrelated rules still split correctly — a 4-rule sentence produced 4,
+and "Never text customers after 8pm, and make sure weekend jobs go to Joe" produced 2.
+
+**Deviation from the plan, worth noting:** the pre-filter check was hoisted into the controller
+(`hasDirectiveSignal(ownerMessage)` before the await) rather than left inside `extract()`. Without that,
+every turn would have awaited a function that immediately returns `[]` — cheap, but it puts the 98.3%
+of non-directive turns on the awaited path for no reason. Now they skip it entirely.
 
 ## Why
 

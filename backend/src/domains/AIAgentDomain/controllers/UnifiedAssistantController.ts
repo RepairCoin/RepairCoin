@@ -55,9 +55,9 @@ import {
   getOrchestratorOwnToolByName,
 } from "../services/orchestrator/registry";
 import { AiMemoryService, isAiMemoryEnabled, getAiMemoryService, formatMemoryBlock } from "../services/AiMemoryService";
-import { getAiMemoryExtractor, isAutoExtractEnabled } from "../services/AiMemoryExtractor";
+import { getAiMemoryExtractor, isAutoExtractEnabled, hasDirectiveSignal } from "../services/AiMemoryExtractor";
 import { shopHasFeature } from "../../../utils/shopTier";
-import type { AiMemory } from "../../../repositories/AiMemoryRepository";
+import type { AiMemory, AiMemoryKind } from "../../../repositories/AiMemoryRepository";
 import { getDefaultHelpCorpusLoader } from "../services/HelpCorpusLoader";
 import { SUPPORT_FALLBACK_COPY } from "../services/HelpPromptBuilder";
 import {
@@ -345,6 +345,87 @@ export interface UnifiedResponseData {
   budgetUsd: number;
   spentUsd: number;
   overageCapReached?: boolean;
+  // Capture receipt (ai-memory-receipt-plan.md). Standing instructions auto-captured from THIS turn,
+  // so the panel can show "🧠 Remembered: …" with an Undo. Omitted entirely unless auto-extract is on
+  // and something was actually saved — absent is the normal case.
+  memoriesCaptured?: CapturedMemory[];
+}
+
+export interface CapturedMemory {
+  id: string;
+  kind: AiMemoryKind;
+  content: string;
+  confidence: number | null;
+}
+
+/**
+ * How long the reply will wait on auto-extract before giving up on the receipt.
+ *
+ * RC-1 measurement (2026-07-28, real Haiku calls against real message shapes): p50 1431ms,
+ * p90 1922ms, max 1922ms over 8 cases. 3s is deliberate headroom over p90 — NOT a guessed constant
+ * (D-RC5). Re-derive from the `AiMemoryExtractor timing` logs before changing it.
+ */
+export const MEMORY_CAPTURE_TIMEOUT_MS = 3000;
+
+/**
+ * Extract + persist any standing intent in this turn, bounded so it can run INSIDE the response and
+ * the owner can be told what was remembered.
+ *
+ * On timeout it returns undefined and lets the work finish detached — the memory still saves, exactly
+ * as it did when this was fire-and-forget; only the receipt is missed. Never throws, never rejects:
+ * a failure here must leave the reply identical to what it would have been (D-RC3).
+ */
+export async function captureStandingIntent(args: {
+  shopId: string;
+  ownerMessage: string;
+  assistantReply?: string;
+  conversationId?: string;
+  memory: Pick<AiMemoryService, "remember">;
+  timeoutMs?: number;
+}): Promise<CapturedMemory[] | undefined> {
+  const { shopId, ownerMessage, assistantReply, conversationId, memory } = args;
+  const timeoutMs = args.timeoutMs ?? MEMORY_CAPTURE_TIMEOUT_MS;
+
+  const work = (async (): Promise<CapturedMemory[]> => {
+    const cands = await getAiMemoryExtractor().extract(shopId, { ownerMessage, assistantReply });
+    const saved = await Promise.all(
+      cands.map((c) =>
+        memory.remember(shopId, {
+          kind: c.kind,
+          content: c.content,
+          tags: c.tags,
+          source: "auto",
+          conversationId,
+          confidence: c.confidence,
+        })
+      )
+    );
+    // Dropped candidates (duplicate / empty / flag off) simply produce no chip.
+    return saved.flatMap((r) =>
+      r.saved && r.memory
+        ? [{ id: r.memory.id, kind: r.memory.kind, content: r.memory.content, confidence: r.memory.confidence ?? null }]
+        : []
+    );
+  })();
+
+  // Attach a handler up front: if this rejects AFTER we've stopped waiting, it must not surface as an
+  // unhandled rejection and take the process down.
+  work.catch((e) =>
+    logger.error("AI memory auto-extract (post-turn) failed", { shopId, error: (e as Error)?.message })
+  );
+
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    const timeout = new Promise<undefined>((resolve) => {
+      timer = setTimeout(() => resolve(undefined), timeoutMs);
+    });
+    const result = await Promise.race([work, timeout]);
+    return result && result.length > 0 ? result : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) {
@@ -628,37 +709,29 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           spentUsd: spendCheck.currentSpendUsd,
           overageCapReached: spendCheck.overageCapReached ?? false,
         };
-        res.json({ success: true, data });
-
-        // AI Memory auto-extract (Phase 3, "Advanced AI Memory") — AFTER the reply is sent, and only
-        // for Business shops with the flag on. Fire-and-forget: a cheap Haiku pass captures any
-        // standing owner intent stated this turn (source='auto', unpinned, aged out if never used).
-        // Never blocks or breaks the response; the extractor pre-filters so most turns cost nothing.
+        // AI Memory auto-extract (Phase 3, "Advanced AI Memory") + capture receipt.
+        //
+        // This runs BEFORE the response is sent so the owner can be TOLD what was remembered — the
+        // silent version left them unable to tell "remembered" from "ignored", which is most of why
+        // the feature didn't feel advanced. It is affordable only because the pre-filter fires on
+        // ~1.7% of real turns: the other 98.3% skip the await entirely and are byte-for-byte
+        // unchanged. Bounded by MEMORY_CAPTURE_TIMEOUT_MS; on timeout the work detaches and finishes
+        // exactly as the old fire-and-forget did, so the memory still saves and only the chip is lost.
         if (memoryEnabled && isAutoExtractEnabled()) {
           const ownerMessage = lastUserText(messages);
-          const assistantReply = data.reply;
-          setImmediate(() => {
-            getAiMemoryExtractor()
-              .extract(shopId, { ownerMessage, assistantReply })
-              .then((cands) =>
-                Promise.all(
-                  cands.map((c) =>
-                    memory.remember(shopId, {
-                      kind: c.kind,
-                      content: c.content,
-                      tags: c.tags,
-                      source: "auto",
-                      conversationId: sessionId,
-                      confidence: c.confidence,
-                    })
-                  )
-                )
-              )
-              .catch((e) =>
-                logger.error("AI memory auto-extract (post-turn) failed", { shopId, error: (e as Error)?.message })
-              );
-          });
+          if (hasDirectiveSignal(ownerMessage)) {
+            const captured = await captureStandingIntent({
+              shopId,
+              ownerMessage,
+              assistantReply: data.reply,
+              conversationId: sessionId,
+              memory,
+            });
+            if (captured) data.memoriesCaptured = captured;
+          }
         }
+
+        res.json({ success: true, data });
       } catch (err) {
         logger.error("UnifiedAssistantController error", err);
         res

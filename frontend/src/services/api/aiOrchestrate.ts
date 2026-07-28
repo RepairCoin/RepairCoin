@@ -77,6 +77,20 @@ export interface OrchestrateResponse {
   overageCapReached?: boolean;
   budgetUsd?: number;
   spentUsd?: number;
+  /**
+   * Standing instructions the assistant auto-captured from THIS turn ("Advanced AI Memory").
+   * Present only when auto-extract is on AND something was actually saved — absent is the norm.
+   * Rendered as a "Remembered" chip with Undo so the owner can reject a wrong capture while they
+   * still have the context, rather than finding it in Settings weeks later.
+   */
+  memoriesCaptured?: CapturedMemory[];
+}
+
+export interface CapturedMemory {
+  id: string;
+  kind: 'preference' | 'instruction' | 'decision' | 'correction';
+  content: string;
+  confidence: number | null;
 }
 
 /**

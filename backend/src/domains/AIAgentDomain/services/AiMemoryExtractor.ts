@@ -110,6 +110,12 @@ An extracted memory outlives this conversation and shapes every future answer, s
 expensive and silence is cheap. When you are unsure whether something is durable, return [] rather than
 guessing — and never raise confidence above 0.7 for intent you inferred rather than heard stated.
 
+ONE UTTERANCE, ONE MEMORY. If the owner states several related preferences in a single breath
+("make sure the designs are the best and always work around the logo and branding colors"), combine them
+into ONE instruction rather than emitting near-duplicates. Only return multiple elements when the owner
+stated genuinely unrelated rules about different topics. Duplicated memories crowd out the rest when the
+assistant recalls them later.
+
 Return a JSON array and NOTHING else. Each element:
 {"kind":"preference"|"instruction"|"decision"|"correction","content":"<the standing instruction, one concise sentence in the owner's voice>","tags":["<short topic tags>"],"confidence":<0-1 how sure this is durable standing intent>}
 If the turn contains no standing intent, return [].`;
@@ -139,6 +145,10 @@ export class AiMemoryExtractor {
         model,
         maxTokens: 500,
       });
+      // RC-1: extraction latency is the input to the capture-receipt timeout (ai-memory-receipt-plan.md
+      // D-RC5) — the receipt awaits this call inside the response, so the number must come from
+      // observation, not a guessed constant. Logged on every fire; fires are ~1.7% of turns.
+      logger.info('AiMemoryExtractor timing', { shopId, model, latencyMs: resp.latencyMs });
       // Meter on the shop allowance + log to ai_misc_usage so this cost shows up in ai_usage_events.
       await this.spendCap.recordSpend(shopId, resp.costUsd, {
         feature: 'memory_autoextract',
