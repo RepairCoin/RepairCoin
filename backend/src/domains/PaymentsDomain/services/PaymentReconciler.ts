@@ -48,9 +48,18 @@ export class PaymentReconciler {
       return;
     }
 
+    const applicationFeeCents =
+      typeof charge.application_fee_amount === 'number' ? charge.application_fee_amount : 0;
+
     // Fees/net come from the balance transaction, which lives on the CONNECTED account for
     // direct charges — retrieve it in that account's context. Best-effort: a failure here
     // just leaves fee/net at 0 rather than dropping the row.
+    //
+    // IMPORTANT: on a direct charge, bt.fee is the TOTAL deducted — Stripe's processing fee
+    // AND our application fee. Storing it raw in fee_cents would double-count the platform
+    // commission (it is also stored in application_fee_cents) and break the ledger invariant
+    // gross - fee - application_fee = net. So take the Stripe-only portion from fee_details,
+    // which itemises each deduction by type.
     let feeCents = 0;
     let netCents = 0;
     const btId = this.idOf(charge.balance_transaction);
@@ -60,8 +69,30 @@ export class PaymentReconciler {
           btId,
           accountId ? { stripeAccount: accountId } : undefined
         );
-        feeCents = bt.fee;
         netCents = bt.net;
+
+        const details = bt.fee_details ?? [];
+        feeCents = details.length
+          ? details
+              .filter((d) => d.type !== 'application_fee')
+              .reduce((sum, d) => sum + (d.amount || 0), 0)
+          // No itemisation (shouldn't happen, but don't guess high): subtract the application
+          // fee we already know about, never below zero.
+          : Math.max(0, bt.fee - applicationFeeCents);
+
+        // The invariant should hold exactly. If it ever doesn't, the fee model has changed
+        // and the Transactions screen will be quietly wrong — say so loudly rather than
+        // silently shipping numbers that don't add up.
+        if (charge.amount - feeCents - applicationFeeCents !== netCents) {
+          logger.warn('PaymentReconciler: fee breakdown does not reconcile', {
+            chargeId: charge.id,
+            gross: charge.amount,
+            stripeFee: feeCents,
+            applicationFee: applicationFeeCents,
+            net: netCents,
+            btFee: bt.fee,
+          });
+        }
       } catch (error) {
         logger.warn('PaymentReconciler: balance transaction fetch failed', {
           chargeId: charge.id,
@@ -77,7 +108,7 @@ export class PaymentReconciler {
       source: this.sourceFromMetadata(charge.metadata),
       grossCents: charge.amount,
       feeCents,
-      applicationFeeCents: typeof charge.application_fee_amount === 'number' ? charge.application_fee_amount : 0,
+      applicationFeeCents,
       netCents,
       currency: charge.currency,
       status: 'succeeded',
