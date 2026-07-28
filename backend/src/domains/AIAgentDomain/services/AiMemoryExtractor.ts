@@ -54,6 +54,17 @@ Do NOT extract:
 - Facts answerable from data (revenue, stock levels, bookings, prices, customer counts) — those come from the database, never from memory.
 - One-off requests for THIS conversation ("draft an email now", "what's my revenue?").
 - Chit-chat, questions, or the assistant's own words.
+- **Fixes to the specific thing the assistant just produced.** If the owner is correcting the image,
+  draft, campaign, or answer in front of them, that is a revision request for THAT artifact — not a
+  durable rule — even when it is phrased with "make sure" or "always". "You're not taking off the logo,
+  make sure you take off the logo" is a fix for the current image; it becomes standing intent only if
+  the owner generalizes it ("on every image", "from now on", "that's our policy"). Use the assistant's
+  reply, when provided, to tell which one it is: if the reply is a concrete artifact the owner is
+  reacting to, prefer [].
+
+An extracted memory outlives this conversation and shapes every future answer, so a wrong one is
+expensive and silence is cheap. When you are unsure whether something is durable, return [] rather than
+guessing — and never raise confidence above 0.7 for intent you inferred rather than heard stated.
 
 Return a JSON array and NOTHING else. Each element:
 {"kind":"preference"|"instruction"|"decision"|"correction","content":"<the standing instruction, one concise sentence in the owner's voice>","tags":["<short topic tags>"],"confidence":<0-1 how sure this is durable standing intent>}
