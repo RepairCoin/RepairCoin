@@ -19,6 +19,10 @@ const EVENT_TYPES = [
   { value: "first_visit", label: "First Visit" },
   { value: "inactive_30_days", label: "Inactive 30 Days" },
   { value: "low_bookings", label: "Slow Week (low bookings)" },
+  // Operations triggers (W3) — each backed by a real platform event.
+  { value: "no_show", label: "Customer No-Show" },
+  { value: "review_received", label: "Review Received" },
+  { value: "low_rating", label: "Low Rating (1–2 stars)" },
 ];
 
 const TARGET_AUDIENCES = [

@@ -15,7 +15,13 @@ import {
 
 const VALID_TRIGGER_TYPES = ['schedule', 'event'];
 const VALID_SCHEDULE_TYPES = ['daily', 'weekly', 'monthly'];
-const VALID_EVENT_TYPES = ['booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days', 'low_bookings'];
+const VALID_EVENT_TYPES = [
+  // Marketing / customer-lifecycle moments.
+  'booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days', 'low_bookings',
+  // Operations triggers (W3). Each is backed by a real event the platform already emits — see
+  // MessagingDomain.setupEventSubscriptions.
+  'no_show', 'review_received', 'low_rating',
+];
 const VALID_TARGET_AUDIENCES = ['all', 'active', 'inactive_30d', 'has_balance', 'completed_booking'];
 const MAX_SEQUENCE_STEPS = 10;
 

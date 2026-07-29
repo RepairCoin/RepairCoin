@@ -29,6 +29,9 @@ const EVENT_LABELS: Record<string, string> = {
   first_visit: "First visit",
   inactive_30_days: "Inactive 30 days",
   low_bookings: "Slow week",
+  no_show: "Customer no-show",
+  review_received: "Review received",
+  low_rating: "Low rating",
 };
 
 function triggerLabel(w: AutoMessage): string {

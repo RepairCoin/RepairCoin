@@ -953,6 +953,21 @@ export class OrderController {
       // Relabel the calendar event as a no-show (no-op if not synced)
       await this.googleCalendarService.markEventNoShow(id, shopId);
 
+      // Custom Workflows W3: no-show is an operations event a shop wants to automate on ("follow up
+      // and offer a reschedule"). Published on the bus rather than called directly so the automation
+      // engine stays decoupled from the order flow — and so a failure here can never fail the
+      // no-show itself.
+      try {
+        await eventBus.publish(createDomainEvent(
+          'service.order_no_show',
+          id,
+          { shopId, customerAddress: order.customerAddress, orderId: id, serviceId: order.serviceId },
+          'ServiceDomain'
+        ));
+      } catch (busError) {
+        logger.error('Failed to publish service.order_no_show:', busError);
+      }
+
       // Record in no-show history and update customer tier
       try {
         await noShowPolicyService.recordNoShowHistory({

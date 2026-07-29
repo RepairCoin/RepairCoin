@@ -8,6 +8,13 @@ import { eventBus } from '../../events/EventBus';
 import { autoMessageSchedulerService } from '../../services/AutoMessageSchedulerService';
 import { getSharedPool } from '../../utils/database-pool';
 
+/**
+ * Ratings at or below this fire the `low_rating` trigger as well as `review_received` (W3). 1–2 stars
+ * out of 5 is unambiguously an unhappy customer; 3 is mixed, and firing a "let us make it right" flow
+ * at someone who left a fair review would read as tone-deaf.
+ */
+const LOW_RATING_THRESHOLD = 2;
+
 export class MessagingDomain implements DomainModule {
   name = 'messages';
   routes = messagingRoutes;
@@ -85,7 +92,42 @@ export class MessagingDomain implements DomainModule {
       }
     }, 'MessagingDomain');
 
-    logger.info('Messaging domain event subscriptions registered (order_completed, order_cancelled)');
+    // Custom Workflows W3 — operations triggers. Until now every trigger was a marketing/customer
+    // moment; these are the events a shop reacts to operationally.
+
+    // no_show → "sorry we missed you, want to rebook?"
+    eventBus.subscribe('service.order_no_show', async (event) => {
+      try {
+        const { shopId, customerAddress, orderId } = event.data;
+        if (!shopId || !customerAddress) return;
+        await autoMessageSchedulerService.handleEventTrigger('no_show', { shopId, customerAddress, orderId });
+      } catch (error) {
+        logger.error('Error handling order_no_show for auto-messages:', error);
+      }
+    }, 'MessagingDomain');
+
+    // review:created → 'review_received' always, plus 'low_rating' for 1–2 stars so a shop can run a
+    // different flow for an unhappy customer than for a happy one. Two event types rather than one
+    // because the engine has no condition system to branch on rating.
+    eventBus.subscribe('review:created', async (event) => {
+      try {
+        const { shopId, customerAddress, rating } = event.data;
+        // shopId was added to this event for W3; older publishers only carried shopAddress.
+        if (!shopId || !customerAddress) return;
+
+        await autoMessageSchedulerService.handleEventTrigger('review_received', { shopId, customerAddress });
+
+        if (typeof rating === 'number' && rating <= LOW_RATING_THRESHOLD) {
+          await autoMessageSchedulerService.handleEventTrigger('low_rating', { shopId, customerAddress });
+        }
+      } catch (error) {
+        logger.error('Error handling review:created for auto-messages:', error);
+      }
+    }, 'MessagingDomain');
+
+    logger.info(
+      'Messaging domain event subscriptions registered (order_completed, order_cancelled, order_no_show, review:created)'
+    );
   }
 
   /**

@@ -43,7 +43,7 @@ a win-back offer."
 
 **Is it AI?** At its core, **no** — the engine is a rules/automation orchestrator (like a mini-Zapier),
 not a model. It becomes **AI-powered through its action steps**: "AI drafts the message," "AI decides the
-offer," "AI summarizes." That's why the sheet groups it under Business *AI* — the Business theme is "the AI
+offer," "AI summarizes." That's   why the sheet groups it under Business *AI* — the Business theme is "the AI
 does things for you," and workflows are the container that wires AI (and non-AI) actions to triggers. So:
 **engine = orchestration; the valuable steps inside can be AI.** (Same framing as Growth-vs-Business AI:
 Growth = "AI acts when you ask"; Business = "AI/automation runs on its own.")
@@ -201,8 +201,29 @@ run a campaign, AI step. Each is a handler registered against the dispatcher fro
 > `| null` gives NO compile-time protection. Both engine paths resolve the message template *before*
 > dispatching, and an action with a null template would crash there — guarded by `NON_MESSAGING_ACTIONS`.
 
-**W3 — operations triggers.** Low stock, payment failed, no-show, review received. Requires event sources
-outside the messaging domain to emit onto the EventBus. ~M
+**W3 — operations triggers. BUILT 2026-07-29 (partially — see the low-stock note).** Until now every
+trigger was a marketing/customer moment; these are what a shop reacts to operationally.
+- **`no_show`** — `service.order_no_show` published from `OrderController.markAsNoShow` (the status
+  already existed with real usage; nothing was emitting it). Fires inside its own try/catch so a bus
+  failure can never fail the no-show itself.
+- **`review_received`** and **`low_rating`** — both from the existing `review:created` event, which
+  gained a `shopId` field (additively; every current subscriber still reads `shopAddress`). Two event
+  types rather than one because the engine has no condition system to branch on rating.
+  `LOW_RATING_THRESHOLD = 2`: 1–2 of 5 is unambiguously unhappy, 3 is mixed, and running a "let us make
+  it right" flow at someone who left a fair review reads as tone-deaf.
+
+Three A3 templates became possible: **Recover a no-show**, **Make a bad review right** (low rating →
+message → +2d 20 RCN), **Thank a happy customer**.
+
+**Test pins the wiring in both directions** — every accepted event type must be fired by a real
+subscription (or a scheduled sweep), and every fired type must be accepted. The failure this guards
+against is silent: a trigger offered in the UI that nothing publishes means a shop builds a workflow,
+activates it, and waits forever with no error to show for it.
+
+**Still absent: `low_stock` and `payment_failed`.** Low stock is *shop-scoped* — there is no customer to
+message — so it needs a `notify_staff` action before the trigger means anything. That coupling is why it
+is not here; adding the trigger alone would offer shops an automation whose only possible action is to
+message a customer who has nothing to do with it.
 
 **W4 — surface it.** *Superseded — see §8. The target is a GHL-shaped Automation section, which is much
 more than "give it its own home".*
