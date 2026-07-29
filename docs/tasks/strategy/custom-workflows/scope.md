@@ -27,6 +27,11 @@ meantime and moved the baseline. Two corrections that change what this feature a
 **the automation builder can already do everything except do anything other than send a message.**
 Action is the only axis that isn't generalized. See §7 for the corrected plan.
 
+**TARGET SET 2026-07-29 — see §8.** The product target is a **GHL-shaped Automation section** (top-level
+nav, workflows list with status + enrolled counts, multi-step builder) scoped to repair-shop triggers and
+actions. §7's W4 ("give it its own home") badly understates that. §8 supersedes it and carries the revised
+A1–A4 plan.
+
 ---
 
 ## 1. What it is (and is it AI?)
@@ -199,14 +204,86 @@ run a campaign, AI step. Each is a handler registered against the dispatcher fro
 **W3 — operations triggers.** Low stock, payment failed, no-show, review received. Requires event sources
 outside the messaging domain to emit onto the EventBus. ~M
 
-**W4 — surface it.** Its own home outside the Marketing tab, with the `customWorkflows` gate (D2). The
-existing modal is reusable as the editor; the sub-tab under "AI Campaigns" is not the right IA for
-operations automation. ~S/M
+**W4 — surface it.** *Superseded — see §8. The target is a GHL-shaped Automation section, which is much
+more than "give it its own home".*
 
 **W5 — AI-assisted authoring.** "Describe the automation and the AI builds it." ~M
 
 W1 is the whole unlock: until actions are data, every new action type means editing the scheduler.
-W0+W1+W2+W4 is a shippable Business feature; W3/W5 deepen it.
+
+---
+
+## 8. The actual target (2026-07-29) — GHL-shaped, FixFlow-scoped
+
+Product direction, set by comparing against GoHighLevel's **Automation → Workflows** section: copy the
+SHAPE, narrow the VOCABULARY. GHL is generic because it must be; FixFlow knows what a repair shop does,
+so its triggers and actions can be few and opinionated.
+
+**Copy the shape:**
+- A **top-level `Automation` nav item** — not a sub-tab inside Marketing.
+- A **workflows list**: Status (Draft/Published), Total enrolled, Active enrolled, Last updated, Created
+  on, search; folders later.
+- A **multi-step builder**: one trigger, then several actions with waits between them.
+
+**Narrow the vocabulary** to what the platform already tracks (~10 triggers, ~7 actions):
+
+- **Triggers:** booking created / completed / cancelled / no-show · repair ready for pickup · first visit
+  · customer inactive N days · low stock on a part · review received (esp. < 3★) · new ad lead ·
+  subscription lapsed.
+- **Actions:** send message (in-app/email/SMS) · **issue RCN** *(built, W2)* · notify owner/staff ·
+  create task/flag · draft a reorder · run a campaign · AI step (draft the message, decide the offer).
+
+### The one structural gap
+
+Everything else is surface work. This is not:
+
+```
+SequenceStep = { messageTemplate, delayHours }          // today — message-only
+            →  { actionType, actionPayload, delayHours } // any action, per step
+```
+
+`action_type` currently sits on the RULE, so a rule does exactly one thing. A GHL workflow is an ordered
+list of steps that each do something different.
+
+**We are closer than the comparison suggests.** The drip-sequence machinery is already a workflow engine:
+`steps[]` carries per-step waits, `auto_message_sends.step_index` tracks where each customer is, and the
+scheduler logs *"Enrolled 0x… in sequence 'X' (step 1)"* then enqueues the next step after each fires —
+verified running live 2026-07-28. Enrollment, progression and waits all exist. They are simply hardcoded
+to message steps. Applying **W1's move one level down** yields
+*"booking completed → wait 3 days → send review request → wait 2 days → if no review, issue 10 RCN."*
+
+### Deliberately out of scope for v1
+
+**Full if/else branching.** Most repair-shop flows are linear with an exit condition, and `stop_on_booking`
+already proves that pattern. Linear steps + a few exit conditions cover every template below; branching can
+be added later without rework.
+
+### Revised remaining work
+
+**A1 — action steps.** Generalize `steps[]` from message steps to action steps (mirrors W1, one level
+down). Reuses enrollment, waits and step tracking that already work. **This is the structural unlock.** ~M
+
+**A2 — the Automation surface.** Top-level nav, workflows list with status + enrolled counts, its own
+`customWorkflows` gate (D2). This is also where the message-centric copy gets fixed properly — the modal
+is still titled "New Auto-Message Rule" and the max-sends helper still says "how many times this rule can
+*message* the same customer", both wrong for a reward rule. ~M/L
+
+**A3 — repair-shop templates.** "Post-repair follow-up", "Win back lapsed customers", "Low-stock reorder",
+"Bad review escalation". **The actual differentiator** — a shop owner picks a template, not a blank canvas.
+GHL gives you a canvas; FixFlow should give you the five flows a repair shop actually runs. ~M
+
+**A4 — later.** Branching, folders/smart lists, Build-with-AI.
+
+Reuse the existing builder component rather than writing a second one: it already handles trigger
+selection, audience, scheduling and validation. Two entry points over one component, not two builders that
+drift apart.
+
+### New decision this raises
+
+- **D7 — surface ownership.** If both AI Campaigns and Automation read `shop_auto_messages`, does a
+  workflow appear in the Campaigns list? It cannot be filtered by `action_type` (a workflow may legitimately
+  send a message) or by trigger type. Needs an explicit `surface`/`kind` column set at creation. Without it
+  the two-surface split is cosmetic and each screen shows the other's rules.
 
 ---
 
