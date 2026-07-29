@@ -50,19 +50,51 @@ publicRouter.get('/connect/oauth/callback', async (req: Request, res: Response) 
 
   // Shop cancelled or Stripe denied the authorization.
   if (error || !code || !state) {
-    return res.redirect(`${returnTo}?error=1`);
+    return platform === 'popup'
+      ? res.send(popupCloser(false))
+      : res.redirect(`${returnTo}?error=1`);
   }
 
   try {
     await getStripeConnectService().completeOAuth(String(code), String(state));
-    return res.redirect(`${returnTo}?connected=1`);
+    return platform === 'popup'
+      ? res.send(popupCloser(true))
+      : res.redirect(`${returnTo}?connected=1`);
   } catch (err) {
     logger.error('Stripe Connect OAuth callback failed', {
       error: err instanceof Error ? err.message : 'Unknown error'
     });
-    return res.redirect(`${returnTo}?error=1`);
+    return platform === 'popup'
+      ? res.send(popupCloser(false))
+      : res.redirect(`${returnTo}?error=1`);
   }
 });
+
+/**
+ * Terminal page for the popup flow: tell the opener how it went, then close. The shop never
+ * leaves FixFlow — the app tab stayed mounted the whole time and just refreshes its status.
+ *
+ * targetOrigin is pinned to the frontend rather than '*' so the message can't be read by
+ * whatever else might have opened this window.
+ */
+function popupCloser(connected: boolean): string {
+  const origin = frontendBase();
+  return `<!doctype html><meta charset="utf-8"><title>${
+    connected ? 'Connected' : 'Not connected'
+  }</title>
+<body style="font-family:system-ui;background:#191919;color:#fff;display:grid;place-items:center;height:100vh;margin:0">
+<p>${connected ? 'Stripe account connected. You can close this window.' : 'Connection cancelled.'}</p>
+<script>
+  try {
+    window.opener && window.opener.postMessage(
+      { source: 'fixflow-connect-oauth', connected: ${connected} },
+      ${JSON.stringify(origin)}
+    );
+  } catch (e) {}
+  setTimeout(function () { window.close(); }, 400);
+</script>
+</body>`;
+}
 
 router.use(authMiddleware);
 
@@ -78,7 +110,9 @@ router.post('/connect/onboarding-link', async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: 'Shop authentication required' });
     }
 
-    const platform = req.body?.platform === 'mobile' ? 'mobile' : 'web';
+    const requested = req.body?.platform;
+    const platform =
+      requested === 'mobile' ? 'mobile' : requested === 'popup' ? 'popup' : 'web';
     const url = await getStripeConnectService().createOnboardingLink(shopId, platform);
 
     return res.json({ success: true, data: { url } });
