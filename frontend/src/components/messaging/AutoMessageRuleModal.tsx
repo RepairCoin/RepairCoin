@@ -48,7 +48,11 @@ interface WorkflowStep {
 }
 
 interface AutoMessageRuleModalProps {
-  rule?: AutoMessage | null;
+  /**
+   * An existing rule to edit, OR a template prefill (A3) — a partial with no `id`, which opens the
+   * builder populated but still in "create" mode so the owner reviews the copy before it goes live.
+   */
+  rule?: (Partial<AutoMessage> & { id?: string }) | null;
   onClose: () => void;
   onSave: (data: CreateAutoMessageRequest | UpdateAutoMessageRequest) => Promise<void>;
   /**
@@ -66,7 +70,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   surface = "campaign",
 }) => {
   const isWorkflow = surface === "workflow";
-  const isEditing = !!rule;
+  // A template (A3) is passed in as a `rule` with NO id — it prefills every field but still saves as a
+  // new workflow, so the owner reviews and tweaks the copy before anything goes live.
+  const isEditing = !!rule?.id;
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -100,28 +106,31 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
   useEffect(() => {
     if (rule) {
-      setName(rule.name);
+      // Fallbacks throughout, because `rule` may be a TEMPLATE prefill (A3) that only sets the fields
+      // it cares about — a template shouldn't have to spell out every schedule field it doesn't use,
+      // and an undefined here would leave a controlled input uncontrolled.
+      setName(rule.name ?? "");
       setMessageTemplate(rule.messageTemplate ?? "");
       setActionType(rule.actionType === "issue_reward" ? "issue_reward" : "send_message");
       setRewardAmount(Number(rule.actionPayload?.amountRcn) || 25);
       setRewardReason(typeof rule.actionPayload?.reason === "string" ? rule.actionPayload.reason : "");
-      setTriggerType(rule.triggerType);
+      setTriggerType(rule.triggerType ?? "schedule");
       setScheduleType(rule.scheduleType || "daily");
       setScheduleDayOfWeek(rule.scheduleDayOfWeek ?? 1);
       setScheduleDayOfMonth(rule.scheduleDayOfMonth ?? 1);
-      setScheduleHour(rule.scheduleHour);
+      setScheduleHour(rule.scheduleHour ?? 10);
       setEventType(rule.eventType || "booking_completed");
-      setDelayHours(rule.delayHours);
-      setTargetAudience(rule.targetAudience);
-      setMaxSendsPerCustomer(rule.maxSendsPerCustomer);
+      setDelayHours(rule.delayHours ?? 24);
+      setTargetAudience(rule.targetAudience ?? "all");
+      setMaxSendsPerCustomer(rule.maxSendsPerCustomer ?? 1);
       const hasSteps = !!rule.steps && rule.steps.length > 0;
       setUseSequence(hasSteps);
       setSteps(hasSteps ? rule.steps!.map((s) => ({ ...s })) : []);
       setStopOnBooking(rule.stopOnBooking ?? false);
       setUseAbTest(!!rule.variantB);
       setVariantB(rule.variantB || "");
-      // Load A/B results for an existing A/B rule.
-      if (rule.variantB) {
+      // Load A/B results — only for a SAVED rule. A template prefill has no id and no results yet.
+      if (rule.variantB && rule.id) {
         getAutoMessageAbResults(rule.id).then(setAbResults).catch(() => setAbResults(null));
       }
     }
@@ -793,7 +802,11 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             className="flex-1 px-4 py-2.5 bg-[#FFCC00] rounded-lg text-black text-sm font-medium hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {saving ? "Saving..." : isEditing ? "Update Rule" : "Create Rule"}
+            {saving
+              ? "Saving..."
+              : isWorkflow
+              ? isEditing ? "Update Workflow" : "Create Workflow"
+              : isEditing ? "Update Rule" : "Create Rule"}
           </button>
         </div>
       </div>

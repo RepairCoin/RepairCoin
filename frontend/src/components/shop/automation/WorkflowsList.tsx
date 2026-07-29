@@ -9,7 +9,7 @@
 // derived from auto_message_sends, which has tracked per-customer step progress all along.
 
 import React, { useEffect, useState } from "react";
-import { Plus, Play, Pause, Pencil, Trash2, Workflow as WorkflowIcon, Search } from "lucide-react";
+import { Plus, Play, Pause, Pencil, Trash2, Workflow as WorkflowIcon, Search, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getAutoMessages,
@@ -21,6 +21,7 @@ import {
   UpdateAutoMessageRequest,
 } from "@/services/api/messaging";
 import { AutoMessageRuleModal } from "@/components/messaging/AutoMessageRuleModal";
+import { WORKFLOW_TEMPLATES, WorkflowTemplateDraft } from "./workflowTemplates";
 
 const EVENT_LABELS: Record<string, string> = {
   booking_completed: "Booking completed",
@@ -60,6 +61,9 @@ export const WorkflowsList: React.FC = () => {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<AutoMessage | null>(null);
   const [creating, setCreating] = useState(false);
+  // A3: the builder opened from a template — a prefill with no id, so it saves as a new workflow.
+  const [fromTemplate, setFromTemplate] = useState<WorkflowTemplateDraft | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const load = async () => {
     try {
@@ -87,6 +91,7 @@ export const WorkflowsList: React.FC = () => {
       }
       setEditing(null);
       setCreating(false);
+      setFromTemplate(null);
       await load();
     } catch (e: any) {
       toast.error(e?.response?.data?.error || "Could not save workflow");
@@ -124,13 +129,47 @@ export const WorkflowsList: React.FC = () => {
             When something happens in your shop, do this — automatically.
           </p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FFCC00] hover:bg-[#E6B800] text-black text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" /> Create workflow
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTemplates((v) => !v)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-700 text-gray-200 hover:border-[#FFCC00] hover:text-[#FFCC00] text-sm font-medium"
+          >
+            <Sparkles className="w-4 h-4" /> Start from a template
+          </button>
+          <button
+            onClick={() => setCreating(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FFCC00] hover:bg-[#E6B800] text-black text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" /> Create workflow
+          </button>
+        </div>
       </div>
+
+      {/* A3 — repair-shop templates. Shown on demand, and automatically when there's nothing yet:
+          a blank canvas is the worst first screen for someone who has never built an automation. */}
+      {(showTemplates || (!loading && workflows.length === 0)) && (
+        <div className="rounded-lg border border-gray-800 bg-[#0D0D0D] p-4">
+          <p className="text-sm text-gray-300 mb-3">
+            Start from one of these — you can change the wording and timing before it goes live.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {WORKFLOW_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => {
+                  setFromTemplate(t.draft);
+                  setShowTemplates(false);
+                }}
+                className="text-left rounded-lg border border-gray-700 bg-[#111] p-3 hover:border-[#FFCC00] transition-colors"
+              >
+                <p className="text-base text-white font-medium">{t.name}</p>
+                <p className="text-sm text-gray-400 mt-1">{t.description}</p>
+                <p className="text-xs text-[#FFCC00] mt-2">{t.shape}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -214,13 +253,14 @@ export const WorkflowsList: React.FC = () => {
         </div>
       )}
 
-      {(creating || editing) && (
+      {(creating || editing || fromTemplate) && (
         <AutoMessageRuleModal
-          rule={editing}
+          rule={editing ?? fromTemplate}
           surface="workflow"
           onClose={() => {
             setCreating(false);
             setEditing(null);
+            setFromTemplate(null);
           }}
           onSave={save}
         />
