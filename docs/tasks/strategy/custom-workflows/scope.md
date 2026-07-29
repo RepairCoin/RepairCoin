@@ -283,9 +283,22 @@ down). Reuses enrollment, waits and step tracking that already work. **This is t
 **Left for A3+:** Draft/Published lifecycle (today it's Active/Paused off `is_active`), folders and
 smart lists, and repair-shop templates.
 
-**A3 — repair-shop templates.** "Post-repair follow-up", "Win back lapsed customers", "Low-stock reorder",
-"Bad review escalation". **The actual differentiator** — a shop owner picks a template, not a blank canvas.
-GHL gives you a canvas; FixFlow should give you the five flows a repair shop actually runs. ~M
+**A3 — repair-shop templates. BUILT 2026-07-29.** Five, in
+`frontend/src/components/shop/automation/workflowTemplates.ts`:
+- **Post-repair follow-up** — booking completed → 1d thank-you → +2d review request → +1d 10 RCN
+- **Win back lapsed customers** — inactive 30 days → message → +2d 25 RCN (stops if they book)
+- **Welcome a new customer** — first visit → welcome → +1d 15 RCN
+- **Rescue a cancelled booking** — booking cancelled → +2h reschedule offer
+- **Fill a slow week** — low bookings → message to active customers
+
+Picking one **prefills the builder rather than creating the workflow** — it opens as a draft (a partial
+with no `id`, so the modal stays in create mode) and the owner edits the wording and timing before
+anything goes live. The gallery shows automatically when the shop has no workflows: a blank canvas is
+the worst possible first screen for someone who has never built an automation.
+
+**Constraint honoured:** every template uses only triggers and actions that EXIST today. "Low-stock
+reorder" and "Bad review escalation" from the original list are deliberately absent — their triggers
+are W3 work, and shipping a template that cannot run would be worse than shipping none.
 
 **A4 — later.** Branching, folders/smart lists, Build-with-AI.
 
