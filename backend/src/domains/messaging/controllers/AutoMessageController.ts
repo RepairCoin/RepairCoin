@@ -1,6 +1,6 @@
 // backend/src/domains/messaging/controllers/AutoMessageController.ts
 import { Request, Response } from 'express';
-import { AutoMessageRepository } from '../../../repositories/AutoMessageRepository';
+import { AutoMessageRepository, AutoMessageSurface, SequenceStep } from '../../../repositories/AutoMessageRepository';
 import { autoMessageContentService } from '../services/AutoMessageContentService';
 import { logger } from '../../../utils/logger';
 import {
@@ -19,23 +19,44 @@ const VALID_EVENT_TYPES = ['booking_completed', 'booking_cancelled', 'first_visi
 const VALID_TARGET_AUDIENCES = ['all', 'active', 'inactive_30d', 'has_balance', 'completed_booking'];
 const MAX_SEQUENCE_STEPS = 10;
 
-/** Validate + normalize drip-sequence steps. Returns { steps } on success or { error } for a 400.
- *  null/undefined/[] → single-message rule (steps = undefined, no sequence). */
-function parseSteps(raw: unknown): { steps?: Array<{ messageTemplate: string; delayHours: number }>; error?: string } {
+/**
+ * Validate + normalize sequence steps. Returns { steps } on success or { error } for a 400.
+ * null/undefined/[] → single-action rule (steps = undefined, no sequence).
+ *
+ * A1: a step may declare its OWN action, which is what turns a drip sequence into a workflow. A step
+ * with no actionType is a send_message step and still requires a template, so every sequence written
+ * before A1 validates exactly as it did.
+ */
+function parseSteps(raw: unknown): { steps?: SequenceStep[]; error?: string } {
   if (raw === undefined || raw === null) return { steps: undefined };
   if (!Array.isArray(raw)) return { error: 'steps must be an array' };
   if (raw.length === 0) return { steps: undefined };
   if (raw.length > MAX_SEQUENCE_STEPS) return { error: `A sequence can have at most ${MAX_SEQUENCE_STEPS} steps` };
-  const steps: Array<{ messageTemplate: string; delayHours: number }> = [];
-  for (const s of raw as any[]) {
-    const msg = typeof s?.messageTemplate === 'string' ? s.messageTemplate.trim() : '';
-    if (!msg) return { error: 'each step needs a non-empty messageTemplate' };
-    if (msg.length > 2000) return { error: 'each step message must be 2000 characters or less' };
+
+  const steps: SequenceStep[] = [];
+  for (const [i, s] of (raw as any[]).entries()) {
     const delay = Number(s?.delayHours);
     if (!Number.isFinite(delay) || delay < 0 || delay > 24 * 90) return { error: 'each step delayHours must be 0–2160' };
-    steps.push({ messageTemplate: msg, delayHours: Math.round(delay) });
+
+    const { actionType, actionPayload, error } = parseAction(s?.actionType, s?.actionPayload);
+    if (error) return { error: `step ${i + 1}: ${error}` };
+
+    if (NON_MESSAGING_ACTIONS.has(actionType)) {
+      steps.push({ actionType, actionPayload, delayHours: Math.round(delay) });
+      continue;
+    }
+
+    const msg = typeof s?.messageTemplate === 'string' ? s.messageTemplate.trim() : '';
+    if (!msg) return { error: `step ${i + 1}: a send_message step needs a non-empty messageTemplate` };
+    if (msg.length > 2000) return { error: 'each step message must be 2000 characters or less' };
+    steps.push({ actionType, messageTemplate: msg, delayHours: Math.round(delay) });
   }
   return { steps };
+}
+
+/** Which surface a request is talking about (D7). Anything unrecognised falls back to 'campaign'. */
+function parseSurface(raw: unknown): AutoMessageSurface {
+  return raw === 'workflow' ? 'workflow' : 'campaign';
 }
 
 /**
@@ -122,7 +143,9 @@ export class AutoMessageController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const rules = await this.autoMessageRepo.getByShopId(shopId);
+      // D7: each product surface lists only its own rules. Absent = 'campaign', which is what every
+      // existing client means — the AI Campaigns screen is the only surface that has ever existed.
+      const rules = await this.autoMessageRepo.getByShopId(shopId, parseSurface(req.query.surface));
       res.json({ success: true, data: rules });
     } catch (error: unknown) {
       logger.error('Error in getAutoMessages controller:', error);
@@ -210,6 +233,8 @@ export class AutoMessageController {
         messageTemplate: needsMessage ? messageTemplate : null,
         actionType,
         actionPayload,
+        // Whichever surface is creating it owns it (D7).
+        surface: parseSurface(req.body?.surface ?? req.query.surface),
         triggerType,
         scheduleType,
         scheduleDayOfWeek,

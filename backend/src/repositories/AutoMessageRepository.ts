@@ -2,11 +2,32 @@
 import { BaseRepository } from './BaseRepository';
 import { logger } from '../utils/logger';
 
-/** One step of a drip sequence (Phase 3). Each step is sent `delayHours` after the previous one fires. */
+/**
+ * One step of a sequence. Each step runs `delayHours` after the previous one fires.
+ *
+ * Originally message-only (Phase 3 drip campaigns). Since A1 a step may declare its OWN action, which
+ * is what turns a drip sequence into a workflow: "booking completed → wait 3 days → send review
+ * request → wait 2 days → issue 10 RCN". A step with no `actionType` is a send_message step, so every
+ * sequence written before A1 keeps its exact meaning.
+ */
 export interface SequenceStep {
-  messageTemplate: string;
+  /** Defaults to 'send_message' when absent — pre-A1 steps are all messages. */
+  actionType?: string;
+  /** Config for a non-messaging step, e.g. { amountRcn: 10 }. */
+  actionPayload?: Record<string, unknown> | null;
+  /** Required for send_message steps; absent for steps that send nothing. */
+  messageTemplate?: string;
   delayHours: number;
 }
+
+/**
+ * The two product surfaces over the one automation engine (D7):
+ *  - 'campaign' — AI Campaigns (Advanced): audience-centric marketing sends.
+ *  - 'workflow' — Custom Workflows: operations automation across domains.
+ * Recorded rather than derived: a workflow may legitimately send a message, and campaigns are
+ * event-triggered too, so neither action_type nor trigger_type can tell them apart.
+ */
+export type AutoMessageSurface = 'campaign' | 'workflow';
 
 export interface AutoMessage {
   id: string;
@@ -38,6 +59,12 @@ export interface AutoMessage {
   actionType: string;
   /** Action-specific config. Unused by send_message, which reads messageTemplate/steps/variantB. */
   actionPayload: Record<string, unknown> | null;
+  /**
+   * Which product surface owns this rule (migration 249, decision D7). Filters the UI lists only —
+   * the scheduler runs every rule regardless, so a workflow never stops firing because of which
+   * screen created it.
+   */
+  surface: AutoMessageSurface;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,6 +93,8 @@ export interface CreateAutoMessageParams {
   messageTemplate?: string | null;
   actionType?: string;
   actionPayload?: Record<string, unknown> | null;
+  /** Which surface is creating this rule (D7). Defaults to 'campaign'. */
+  surface?: AutoMessageSurface;
   triggerType: 'schedule' | 'event';
   scheduleType?: string;
   scheduleDayOfWeek?: number;
@@ -100,9 +129,14 @@ export interface UpdateAutoMessageParams {
 export class AutoMessageRepository extends BaseRepository {
 
   /**
-   * Get all auto-message rules for a shop
+   * Rules for a shop, for ONE product surface (D7). Defaults to 'campaign' because that is the only
+   * surface that has ever existed — so today this is a no-op and the AI Campaigns list is unchanged.
+   * Pass 'workflow' from the Automation surface, or null to list every rule (admin/debug).
+   *
+   * This is a UI concern only. The scheduler's getActiveScheduleRules/getActiveEventRules deliberately
+   * do NOT filter: a rule must keep firing regardless of which screen created it.
    */
-  async getByShopId(shopId: string): Promise<AutoMessage[]> {
+  async getByShopId(shopId: string, surface: AutoMessageSurface | null = 'campaign'): Promise<AutoMessage[]> {
     try {
       const query = `
         SELECT am.*,
@@ -110,9 +144,10 @@ export class AutoMessageRepository extends BaseRepository {
           (SELECT MAX(ams.sent_at) FROM auto_message_sends ams WHERE ams.auto_message_id = am.id AND ams.status = 'sent') AS last_sent_at
         FROM shop_auto_messages am
         WHERE am.shop_id = $1
+          AND ($2::text IS NULL OR am.surface = $2)
         ORDER BY am.created_at DESC
       `;
-      const result = await this.pool.query(query, [shopId]);
+      const result = await this.pool.query(query, [shopId, surface]);
       return result.rows.map(row => this.mapRow(row));
     } catch (error) {
       logger.error('Error in AutoMessageRepository.getByShopId:', error);
@@ -150,8 +185,8 @@ export class AutoMessageRepository extends BaseRepository {
           shop_id, name, message_template, trigger_type,
           schedule_type, schedule_day_of_week, schedule_day_of_month, schedule_hour,
           event_type, delay_hours, target_audience, max_sends_per_customer,
-          steps, stop_on_booking, variant_b, action_type, action_payload
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          steps, stop_on_booking, variant_b, action_type, action_payload, surface
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         RETURNING *
       `;
       const result = await this.pool.query(query, [
@@ -172,6 +207,7 @@ export class AutoMessageRepository extends BaseRepository {
         params.variantB ?? null,
         params.actionType ?? 'send_message',
         params.actionPayload ? JSON.stringify(params.actionPayload) : null,
+        params.surface ?? 'campaign',
       ]);
       logger.info('Auto-message rule created', { shopId: params.shopId, name: params.name });
       return this.mapRow(result.rows[0]);
@@ -551,6 +587,8 @@ export class AutoMessageRepository extends BaseRepository {
       // what they were.
       actionType: row.action_type || 'send_message',
       actionPayload: row.action_payload ?? null,
+      // Pre-249 rows have no surface — they were all created in AI Campaigns.
+      surface: (row.surface as AutoMessageSurface) || 'campaign',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       totalSends: row.total_sends ? parseInt(row.total_sends, 10) : undefined,
