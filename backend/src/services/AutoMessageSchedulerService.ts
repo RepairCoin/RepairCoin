@@ -366,7 +366,7 @@ export class AutoMessageSchedulerService {
 
           if (outcome.ok) {
             rulesFired++;
-            // Recorded with a NULL customer (migration 250) so "Last run" works and there's an audit
+            // Recorded with a NULL customer (migration 252) so "Last run" works and there's an audit
             // trail, without inventing a customer who was never involved.
             await this.autoMessageRepo.recordSend({
               autoMessageId: rule.id,

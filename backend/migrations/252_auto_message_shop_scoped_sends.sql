@@ -1,4 +1,4 @@
--- 250: allow a SHOP-SCOPED automation run to be recorded (Custom Workflows — low_stock).
+-- 252: allow a SHOP-SCOPED automation run to be recorded (Custom Workflows — low_stock).
 --
 -- Every trigger until now was customer-scoped: a booking completed, a review landed, a customer went
 -- quiet. `low_stock` is the first that happens to the SHOP, with no customer involved at all — which is

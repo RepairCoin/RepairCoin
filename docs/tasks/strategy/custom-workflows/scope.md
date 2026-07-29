@@ -231,7 +231,7 @@ customer anywhere in it. Three things that made it different from every trigger 
 - **A shop-scoped execution path** (`AutoMessageSchedulerService.handleShopEvent`): no audience to
   resolve, so the action runs exactly once with no customer in context. Still gated by
   `isShopEntitled`.
-- **Migration 250** makes `auto_message_sends.customer_address` nullable — NULL meaning "fired for the
+- **Migration 252** makes `auto_message_sends.customer_address` nullable — NULL meaning "fired for the
   shop, not for anybody". The enrolled counts are `COUNT(DISTINCT customer_address)` and SQL ignores
   NULLs, so a shop-scoped workflow correctly shows 0 enrolled; "Last run" keeps working off `sent_at`.
 
