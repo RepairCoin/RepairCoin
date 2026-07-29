@@ -1,6 +1,6 @@
 // backend/src/domains/messaging/controllers/AutoMessageController.ts
 import { Request, Response } from 'express';
-import { AutoMessageRepository } from '../../../repositories/AutoMessageRepository';
+import { AutoMessageRepository, AutoMessageSurface } from '../../../repositories/AutoMessageRepository';
 import { autoMessageContentService } from '../services/AutoMessageContentService';
 import { logger } from '../../../utils/logger';
 import {
@@ -36,6 +36,11 @@ function parseSteps(raw: unknown): { steps?: Array<{ messageTemplate: string; de
     steps.push({ messageTemplate: msg, delayHours: Math.round(delay) });
   }
   return { steps };
+}
+
+/** Which surface a request is talking about (D7). Anything unrecognised falls back to 'campaign'. */
+function parseSurface(raw: unknown): AutoMessageSurface {
+  return raw === 'workflow' ? 'workflow' : 'campaign';
 }
 
 /**
@@ -122,7 +127,9 @@ export class AutoMessageController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const rules = await this.autoMessageRepo.getByShopId(shopId);
+      // D7: each product surface lists only its own rules. Absent = 'campaign', which is what every
+      // existing client means — the AI Campaigns screen is the only surface that has ever existed.
+      const rules = await this.autoMessageRepo.getByShopId(shopId, parseSurface(req.query.surface));
       res.json({ success: true, data: rules });
     } catch (error: unknown) {
       logger.error('Error in getAutoMessages controller:', error);
@@ -210,6 +217,8 @@ export class AutoMessageController {
         messageTemplate: needsMessage ? messageTemplate : null,
         actionType,
         actionPayload,
+        // Whichever surface is creating it owns it (D7).
+        surface: parseSurface(req.body?.surface ?? req.query.surface),
         triggerType,
         scheduleType,
         scheduleDayOfWeek,

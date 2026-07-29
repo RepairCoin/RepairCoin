@@ -280,10 +280,21 @@ drift apart.
 
 ### New decision this raises
 
-- **D7 — surface ownership.** If both AI Campaigns and Automation read `shop_auto_messages`, does a
-  workflow appear in the Campaigns list? It cannot be filtered by `action_type` (a workflow may legitimately
-  send a message) or by trigger type. Needs an explicit `surface`/`kind` column set at creation. Without it
-  the two-surface split is cosmetic and each screen shows the other's rules.
+- **D7 — surface ownership — DECIDED + BUILT 2026-07-29 (migration 249).**
+  **Record it, don't derive it.** `shop_auto_messages.surface` is `'campaign' | 'workflow'`, set by
+  whichever screen creates the rule, defaulting to `'campaign'` — factually correct, since Marketing →
+  AI Campaigns is the only surface that has ever existed.
+  Derivation was rejected: `action_type` can't distinguish them (a workflow may legitimately send a
+  message — "on no-show → text the customer"), and neither can `trigger_type` (campaigns are
+  event-triggered too).
+  **The load-bearing half is the negative rule: the SCHEDULER never filters by surface.**
+  `getByShopId` filters (UI); `getActiveScheduleRules` / `getActiveEventRules` deliberately do not. A
+  rule that stopped firing because of which screen created it would be absurd, and would fail silently —
+  the rule sits there looking active while nothing happens. A test asserts the engine queries stay
+  surface-blind.
+  API: `GET /api/messages/auto-messages?surface=workflow`; create takes `surface` in the body. Absent =
+  `'campaign'`, so every existing client is unchanged and today the filter is a no-op.
+  **A2 is unblocked.**
 
 ---
 
