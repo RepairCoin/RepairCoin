@@ -327,6 +327,14 @@ export type AutoMessageActionType = 'send_message' | 'issue_reward' | 'notify_st
  */
 export type AutoMessageSurface = 'campaign' | 'workflow';
 
+/**
+ * Lifecycle (A4). Separate from isActive, which is pause/resume for something already published:
+ *   draft                   → never runs
+ *   published + isActive    → running
+ *   published + !isActive   → paused
+ */
+export type AutoMessageStatus = 'draft' | 'published';
+
 export interface AutoMessage {
   id: string;
   shopId: string;
@@ -350,6 +358,8 @@ export interface AutoMessage {
   stopOnBooking: boolean;
   variantB: string | null;
   surface: AutoMessageSurface;
+  /** draft = composed but inert; published = eligible to run (A4). */
+  status: AutoMessageStatus;
   createdAt: string;
   updatedAt: string;
   totalSends?: number;
@@ -381,6 +391,8 @@ export interface CreateAutoMessageRequest {
   actionPayload?: Record<string, any> | null;
   /** Which surface is creating it (D7). Defaults to 'campaign' server-side. */
   surface?: AutoMessageSurface;
+  /** A4. Omit for the campaign default ('published'); the Automation surface sends 'draft'. */
+  status?: AutoMessageStatus;
   triggerType: 'schedule' | 'event';
   scheduleType?: string;
   scheduleDayOfWeek?: number;
@@ -451,6 +463,15 @@ export const deleteAutoMessage = async (id: string): Promise<void> => {
  */
 export const toggleAutoMessage = async (id: string): Promise<AutoMessage> => {
   const response = await apiClient.patch(`/messages/auto-messages/${id}/toggle`);
+  return response.data;
+};
+
+/**
+ * Take a draft workflow live (A4). Drafts never run until this is called — publishing is deliberate
+ * because these send real messages and issue real RCN.
+ */
+export const publishAutoMessage = async (id: string): Promise<AutoMessage> => {
+  const response = await apiClient.patch(`/messages/auto-messages/${id}/publish`);
   return response.data;
 };
 

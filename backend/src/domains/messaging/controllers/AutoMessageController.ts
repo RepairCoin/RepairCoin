@@ -268,6 +268,10 @@ export class AutoMessageController {
         actionPayload,
         // Whichever surface is creating it owns it (D7).
         surface: parseSurface(req.body?.surface ?? req.query.surface),
+        // A4: workflows are composed as drafts and published deliberately — they send real messages
+        // and issue real RCN, so "Save" must not mean "go live". AI Campaigns keeps its existing
+        // behaviour (created live) so nothing changes for that surface.
+        status: req.body?.status === 'draft' ? 'draft' : req.body?.status === 'published' ? 'published' : undefined,
         triggerType,
         scheduleType,
         scheduleDayOfWeek,
@@ -388,6 +392,32 @@ export class AutoMessageController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to delete auto-message'
+      });
+    }
+  };
+
+  /**
+   * Publish a draft workflow (A4) — the deliberate act that takes it live.
+   * PATCH /api/messages/auto-messages/:id/publish
+   */
+  publishAutoMessage = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const rule = await this.autoMessageRepo.publish(req.params.id, shopId);
+      if (!rule) {
+        return res.status(404).json({ success: false, error: 'Auto-message rule not found' });
+      }
+
+      res.json({ success: true, data: rule });
+    } catch (error: unknown) {
+      logger.error('Error in publishAutoMessage controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to publish workflow',
       });
     }
   };

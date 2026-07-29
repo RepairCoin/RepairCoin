@@ -360,7 +360,29 @@ the worst possible first screen for someone who has never built an automation.
 reorder" and "Bad review escalation" from the original list are deliberately absent — their triggers
 are W3 work, and shipping a template that cannot run would be worse than shipping none.
 
-**A4 — later.** Branching, folders/smart lists, Build-with-AI.
+**A4 — Draft/Published BUILT 2026-07-29. Folders, smart lists and Build-with-AI deliberately deferred.**
+
+A4 was bundled as four things, and they are not equal. Draft/Published turned out to be a **safety** fix,
+not a UI nicety: `is_active` defaults to `true` and the engine only checked `is_active`, so a rule went
+live the instant it was saved. Fine when the only action was a message. Not fine once a shop can pick the
+"Post-repair follow-up" template, press Save, and start issuing 25 RCN on every completed booking —
+having never pressed anything called "activate".
+
+- **Migration 253** adds `status` ('draft' | 'published'), defaulting to **published** so every existing
+  rule stays live and AI Campaigns is unchanged. Only the Automation surface creates drafts, explicitly.
+- **The load-bearing half is in the engine, not the schema:** all three queries
+  (`getActiveEventRules`, `getActiveScheduleRules`, `getAllActiveEventRulesByType`) now require
+  `status='published'` alongside `is_active`. A draft that still fired would be worse than no draft
+  state at all — it reads as "not live yet" while quietly sending. A test asserts all three.
+- **Three states, not two.** draft = never ran · published+active = running · published+paused = was
+  live, owner stopped it. Conflating draft with paused would lose that distinction.
+- `PATCH /auto-messages/:id/publish` (shop-scoped), a Publish button on drafts, and a confirm that
+  states what will actually start happening ("It will start running for real: Message → 10 RCN").
+
+**Deferred, with reasons rather than "later":** folders and smart lists are organisation for a scale
+that does not exist — shops have 0–4 workflows; they solve nothing yet and add UI. Build-with-AI overlaps
+the nine templates, which already answer "I don't know where to start", and the message composer already
+has AI generation. Branching remains out per §8.
 
 Reuse the existing builder component rather than writing a second one: it already handles trigger
 selection, audience, scheduling and validation. Two entry points over one component, not two builders that
