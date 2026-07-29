@@ -372,7 +372,8 @@ export class AutoMessageRepository extends BaseRepository {
   async recordSend(params: {
     autoMessageId: string;
     shopId: string;
-    customerAddress: string;
+    /** NULL for shop-scoped triggers (low_stock) — the rule fired for the shop, not a customer. */
+    customerAddress: string | null;
     conversationId?: string;
     messageId?: string;
     triggerReference?: string;
