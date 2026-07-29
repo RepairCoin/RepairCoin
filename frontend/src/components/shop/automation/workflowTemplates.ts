@@ -5,11 +5,11 @@
 // A shop owner should be able to click "Post-repair follow-up" and be running an automation in under a
 // minute, rather than reasoning about triggers and audiences from scratch.
 //
-// CONSTRAINT: every template below uses only triggers and actions that EXIST today —
-// booking_completed / booking_cancelled / first_visit / inactive_30_days / low_bookings, and
-// send_message / issue_reward. Templates for triggers we haven't built (low stock, review received,
-// no-show) belong with W3, not here; shipping a template that cannot run would be worse than shipping
-// none.
+// CONSTRAINT: every template below uses only triggers and actions that EXIST today. W3 added the
+// operations triggers (no_show, review_received, low_rating), which is what let "Recover a no-show",
+// "Make a bad review right" and "Thank a happy customer" join the list. Low-stock reorder is still
+// absent: it is shop-scoped with no customer to message, so it needs a notify_staff action first.
+// Shipping a template that cannot run would be worse than shipping none.
 
 import type { AutoMessage } from "@/services/api/messaging";
 
@@ -135,6 +135,73 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       actionType: "send_message",
       messageTemplate:
         "Hi {{customerName}}, sorry that appointment didn't work out. Want us to find you another slot? Just reply with a day that suits and we'll sort it.",
+      stopOnBooking: false,
+      steps: null,
+    },
+  },
+  {
+    id: "no-show-recovery",
+    name: "Recover a no-show",
+    description: "Reach out after a missed appointment and make it easy to rebook.",
+    shape: "No-show → +3h: message",
+    draft: {
+      name: "Recover a no-show",
+      triggerType: "event",
+      eventType: "no_show",
+      delayHours: 3,
+      targetAudience: "all",
+      maxSendsPerCustomer: 2,
+      actionType: "send_message",
+      messageTemplate:
+        "Hi {{customerName}}, we missed you today at {{shopName}} — no problem at all. Want us to find you another slot? Just reply with a day that works.",
+      stopOnBooking: false,
+      steps: null,
+    },
+  },
+  {
+    id: "bad-review-recovery",
+    name: "Make a bad review right",
+    description: "When someone leaves 1–2 stars, reach out personally before it hardens.",
+    shape: "Low rating → +1h: message → +2d: 20 RCN",
+    draft: {
+      name: "Make a bad review right",
+      triggerType: "event",
+      eventType: "low_rating",
+      delayHours: 1,
+      targetAudience: "all",
+      maxSendsPerCustomer: 1,
+      actionType: "send_message",
+      stopOnBooking: false,
+      steps: [
+        {
+          actionType: "send_message",
+          messageTemplate:
+            "Hi {{customerName}}, I saw your review and I'm sorry we fell short. Tell me what went wrong and I'll put it right — you're talking to the shop directly here.",
+          delayHours: 0,
+        },
+        {
+          actionType: "issue_reward",
+          actionPayload: { amountRcn: 20, reason: "Service recovery" },
+          delayHours: 48,
+        },
+      ],
+    },
+  },
+  {
+    id: "thank-good-review",
+    name: "Thank a happy customer",
+    description: "Acknowledge every review that comes in, so customers know it was read.",
+    shape: "Review received → +2h: thank you",
+    draft: {
+      name: "Thank a happy customer",
+      triggerType: "event",
+      eventType: "review_received",
+      delayHours: 2,
+      targetAudience: "all",
+      maxSendsPerCustomer: 1,
+      actionType: "send_message",
+      messageTemplate:
+        "Thanks for the review, {{customerName}} — it genuinely helps a small shop like {{shopName}}. See you next time!",
       stopOnBooking: false,
       steps: null,
     },
