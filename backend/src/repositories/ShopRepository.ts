@@ -1411,6 +1411,15 @@ export class ShopRepository extends BaseRepository {
       promoBonus: number;
       promoCode: string | null;
       newTier: string;
+      /**
+       * BUG-013. Where this issuance came from — 'marketing_campaign', 'automation', or absent for a
+       * genuine repair reward. Without it every path collapsed into the same record and a campaign or
+       * workflow payout was labelled "Repair reward - $0 repair": a repair that never happened, and no
+       * way to answer "why did this customer receive this RCN?".
+       */
+      source?: string;
+      /** Human description from the caller, e.g. the campaign or workflow name. */
+      reason?: string;
     }
   ): Promise<{
     success: boolean;
@@ -1497,7 +1506,11 @@ export class ShopRepository extends BaseRepository {
         customerAddress.toLowerCase(),
         shopId,
         amount,
-        `Repair reward - $${transactionData.repairAmount} repair`,
+        // BUG-013: the caller's reason wins. Only fall back to the repair wording when this really is
+        // a repair reward — labelling a campaign or automation payout as a "$0 repair" is a claim about
+        // something that never happened, and it destroys provenance across all three issuance paths.
+        transactionData.reason?.trim() ||
+          `Repair reward - $${transactionData.repairAmount} repair`,
         transactionData.transactionHash,
         'confirmed',
         JSON.stringify({
@@ -1505,7 +1518,10 @@ export class ShopRepository extends BaseRepository {
           baseReward: transactionData.baseReward,
           tierBonus: transactionData.tierBonus,
           promoBonus: transactionData.promoBonus,
-          promoCode: transactionData.promoCode
+          promoCode: transactionData.promoCode,
+          // Machine-readable provenance — the reason text is for humans, this is for querying
+          // "which issuances came from automations?" later.
+          ...(transactionData.source ? { source: transactionData.source } : {}),
         })
       ]);
 

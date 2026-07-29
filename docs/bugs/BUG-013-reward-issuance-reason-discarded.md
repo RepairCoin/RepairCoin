@@ -5,9 +5,16 @@
 **Priority:** P2
 **Component:** Backend - RewardIssuanceService (shared by campaign rewards + workflow automations)
 **Labels:** bug, backend, rewards, audit
-**Status:** OPEN
+**Status:** FIXED
 **Date Found:** 2026-07-29
+**Date Fixed:** 2026-07-29
 **Found During:** Custom Workflows W2 verification (first `issue_reward` automation on staging)
+**Fixed In:** `19eea5a2b` — `reason` + `source` threaded through `RewardIssuanceService.issueExact` to
+`ShopRepository.issueRewardAtomic`. The caller's reason wins; repair wording is now only a fallback, so
+the manual repair route is unchanged. `source` lands in `metadata` as machine-readable provenance.
+Verified on staging with a real 1 RCN issuance: `"Automation: BUG-013 verification"` / `source=automation`.
+**Open follow-up:** historical rows keep the wrong label — see Suggested Fix below; backfilling financial
+records is a product decision, not part of this change.
 
 ---
 
