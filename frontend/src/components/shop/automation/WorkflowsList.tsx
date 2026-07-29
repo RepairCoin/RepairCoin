@@ -33,6 +33,8 @@ const EVENT_LABELS: Record<string, string> = {
   no_show: "Customer no-show",
   review_received: "Review received",
   low_rating: "Low rating",
+  payment_failed: "Payment failed",
+  low_stock: "Low stock",
 };
 
 function triggerLabel(w: AutoMessage): string {
