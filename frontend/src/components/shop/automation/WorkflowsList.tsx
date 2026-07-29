@@ -146,6 +146,12 @@ export const WorkflowsList: React.FC = () => {
 
   const shown = workflows.filter((w) => w.name.toLowerCase().includes(query.trim().toLowerCase()));
 
+  // With no workflows yet the gallery opens on its own — a blank canvas is the worst first screen. In
+  // that state the toggle button can only be a no-op, so it is hidden rather than sitting there doing
+  // nothing on the very screen a new shop sees first.
+  const galleryAutoOpen = !loading && workflows.length === 0;
+  const galleryOpen = showTemplates || galleryAutoOpen;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -156,12 +162,17 @@ export const WorkflowsList: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowTemplates((v) => !v)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-700 text-gray-200 hover:border-[#FFCC00] hover:text-[#FFCC00] text-sm font-medium"
-          >
-            <Sparkles className="w-4 h-4" /> Start from a template
-          </button>
+          {!galleryAutoOpen && (
+            <button
+              onClick={() => setShowTemplates((v) => !v)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-700 text-gray-200 hover:border-[#FFCC00] hover:text-[#FFCC00] text-sm font-medium"
+            >
+              <Sparkles className="w-4 h-4" />
+              {/* Label follows what the click will actually do — "Start from a template" while the
+                  gallery is open would be describing the opposite of the outcome. */}
+              {showTemplates ? "Hide templates" : "Start from a template"}
+            </button>
+          )}
           <button
             onClick={() => setCreating(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FFCC00] hover:bg-[#E6B800] text-black text-sm font-medium"
@@ -173,7 +184,7 @@ export const WorkflowsList: React.FC = () => {
 
       {/* A3 — repair-shop templates. Shown on demand, and automatically when there's nothing yet:
           a blank canvas is the worst first screen for someone who has never built an automation. */}
-      {(showTemplates || (!loading && workflows.length === 0)) && (
+      {galleryOpen && (
         <div className="rounded-lg border border-gray-800 bg-[#0D0D0D] p-4">
           <p className="text-sm text-gray-300 mb-3">
             Start from one of these — you can change the wording and timing before it goes live.
