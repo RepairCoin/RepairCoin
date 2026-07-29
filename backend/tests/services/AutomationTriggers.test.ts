@@ -34,7 +34,7 @@ function firedEventTypes(): string[] {
 }
 
 describe('W3 — every offered trigger is actually wired', () => {
-  const OPERATIONS = ['no_show', 'review_received', 'low_rating'];
+  const OPERATIONS = ['no_show', 'review_received', 'low_rating', 'payment_failed'];
 
   it('accepts the operations triggers', () => {
     for (const t of OPERATIONS) expect(acceptedEventTypes()).toContain(t);
@@ -58,6 +58,8 @@ describe('W3 — every offered trigger is actually wired', () => {
   it('subscribes to the underlying platform events', () => {
     expect(domain).toContain("eventBus.subscribe('service.order_no_show'");
     expect(domain).toContain("eventBus.subscribe('review:created'");
+    expect(domain).toContain("eventBus.subscribe('service.payment_failed'");
+    expect(domain).toContain("eventBus.subscribe('inventory:low_stock_alert'");
   });
 
   // 1–2 of 5 is unambiguously unhappy; 3 is mixed, and running a "let us make it right" flow at

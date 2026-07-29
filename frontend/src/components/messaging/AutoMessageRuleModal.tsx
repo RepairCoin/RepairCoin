@@ -23,6 +23,7 @@ const EVENT_TYPES = [
   { value: "no_show", label: "Customer No-Show" },
   { value: "review_received", label: "Review Received" },
   { value: "low_rating", label: "Low Rating (1–2 stars)" },
+  { value: "payment_failed", label: "Payment Failed" },
   { value: "low_stock", label: "Low Stock (shop alert)" },
 ];
 

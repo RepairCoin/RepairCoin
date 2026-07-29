@@ -207,6 +207,36 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     },
   },
   {
+    id: "payment-recovery",
+    name: "Recover a failed payment",
+    description: "A card decline isn't a lost customer — offer to sort it out while they still want the service.",
+    shape: "Payment failed → +1h: message → +1d: notify team",
+    draft: {
+      name: "Recover a failed payment",
+      triggerType: "event",
+      eventType: "payment_failed",
+      delayHours: 1,
+      targetAudience: "all",
+      maxSendsPerCustomer: 2,
+      actionType: "send_message",
+      // Exits if they rebook — no point chasing someone who already sorted it.
+      stopOnBooking: true,
+      steps: [
+        {
+          actionType: "send_message",
+          messageTemplate:
+            "Hi {{customerName}}, your payment didn't go through for that booking at {{shopName}} — happens more than you'd think. Want to try again? Reply here and we'll sort it.",
+          delayHours: 0,
+        },
+        {
+          actionType: "notify_staff",
+          actionPayload: { message: "Payment failed and the customer hasn't rebooked — worth a call." },
+          delayHours: 24,
+        },
+      ],
+    },
+  },
+  {
     id: "low-stock-alert",
     name: "Tell me when stock runs low",
     description: "Get an alert the moment a part drops below its reorder threshold.",

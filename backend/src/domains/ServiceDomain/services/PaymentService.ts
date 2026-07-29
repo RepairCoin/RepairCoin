@@ -1049,6 +1049,31 @@ export class PaymentService {
           logger.error('Failed to send payment failure notification:', notifError);
         }
       }
+
+      // Custom Workflows: a failed booking payment is a recoverable moment — the customer WANTED the
+      // service and the card just didn't go through. Published on the bus so a shop can automate the
+      // follow-up ("your payment didn't complete, want to try again?") without this method knowing
+      // anything about automations. Its own try/catch: a bus failure must never fail the webhook,
+      // which Stripe would then retry.
+      if (metadata.shopId && metadata.customerAddress) {
+        try {
+          await eventBus.publish(createDomainEvent(
+            'service.payment_failed',
+            metadata.orderId || paymentIntentId,
+            {
+              shopId: metadata.shopId,
+              customerAddress: metadata.customerAddress,
+              orderId: metadata.orderId,
+              serviceId: metadata.serviceId,
+              serviceName,
+              reason,
+            },
+            'ServiceDomain'
+          ));
+        } catch (busError) {
+          logger.error('Failed to publish service.payment_failed:', busError);
+        }
+      }
     } catch (error) {
       logger.error('Error handling payment failure:', error);
       throw error;

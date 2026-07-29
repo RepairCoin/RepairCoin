@@ -125,6 +125,18 @@ export class MessagingDomain implements DomainModule {
       }
     }, 'MessagingDomain');
 
+    // payment_failed → a recoverable moment: the customer wanted the service and the card didn't go
+    // through. Customer-scoped, so it uses the normal path.
+    eventBus.subscribe('service.payment_failed', async (event) => {
+      try {
+        const { shopId, customerAddress, orderId } = event.data;
+        if (!shopId || !customerAddress) return;
+        await autoMessageSchedulerService.handleEventTrigger('payment_failed', { shopId, customerAddress, orderId });
+      } catch (error) {
+        logger.error('Error handling payment_failed for auto-messages:', error);
+      }
+    }, 'MessagingDomain');
+
     // low_stock → the first SHOP-scoped trigger: it happens to the shop, with no customer involved.
     // Reuses the event LowStockAlertService already publishes, which also already throttles per item
     // and honours the shop's digest preference — so the automation inherits that de-duplication
@@ -152,7 +164,7 @@ export class MessagingDomain implements DomainModule {
     }, 'MessagingDomain');
 
     logger.info(
-      'Messaging domain event subscriptions registered (order_completed, order_cancelled, order_no_show, review:created, low_stock_alert)'
+      'Messaging domain event subscriptions registered (order_completed, order_cancelled, order_no_show, review:created, payment_failed, low_stock_alert)'
     );
   }
 

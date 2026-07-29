@@ -21,7 +21,7 @@ const VALID_EVENT_TYPES = [
   'booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days', 'low_bookings',
   // Operations triggers (W3). Each is backed by a real event the platform already emits — see
   // MessagingDomain.setupEventSubscriptions.
-  'no_show', 'review_received', 'low_rating',
+  'no_show', 'review_received', 'low_rating', 'payment_failed',
   // Shop-scoped: happens to the SHOP, with no customer involved.
   'low_stock',
 ];
