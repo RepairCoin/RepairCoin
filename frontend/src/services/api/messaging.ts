@@ -319,7 +319,7 @@ export interface SequenceStep {
 }
 
 /** What an automation DOES when it fires (Custom Workflows W2). */
-export type AutoMessageActionType = 'send_message' | 'issue_reward';
+export type AutoMessageActionType = 'send_message' | 'issue_reward' | 'notify_staff';
 
 /**
  * Which product surface owns a rule (D7). One engine, two surfaces: 'campaign' is AI Campaigns
