@@ -34,6 +34,49 @@ export interface ConnectAccountStatus {
   // Without these, "charges disabled" is indistinguishable from "you owe us data".
   pendingVerification: string[];
   disabledReason: string | null;
+  /**
+   * Positive confirmation for the steps Stripe does NOT reliably surface as requirements.
+   *
+   * A tax id and an identity document are frequently absent from `currently_due` and
+   * `eventually_due` — Stripe asks for them only when it needs them — so "not outstanding"
+   * cannot be read as "provided". These fields say what the account actually holds.
+   */
+  taxIdProvided: boolean;
+  /** Stripe's own verification state for the representative: unverified | pending | verified. */
+  identityVerification: 'unverified' | 'pending' | 'verified';
+  /**
+   * How the account is held, which decides who can edit it.
+   *
+   * 'express' — created by us; requirements are editable in-app via the embedded component.
+   * 'standard' — the shop's own account, adopted through OAuth. Stripe issues no Account
+   *   Session for it, so outstanding requirements can ONLY be resolved in the shop's own
+   *   Stripe Dashboard. The UI must link out rather than offering an editor that can't work.
+   */
+  accountType: 'express' | 'standard' | null;
+}
+
+/**
+ * Which surface started the OAuth flow, so the callback knows how to hand the shop back.
+ * 'popup' is the web default: the app opens Stripe in a child window and stays mounted, so
+ * the callback closes the window and messages the opener instead of redirecting anything.
+ */
+export type ConnectOAuthPlatform = 'web' | 'mobile' | 'popup';
+
+/**
+ * Is this an account the shop manages itself, or one we manage for them?
+ *
+ * `controller.stripe_dashboard.type` is the authoritative signal and is populated under both the
+ * legacy type-based model and the controller-based one that replaces it:
+ *   full    → the shop has its own Stripe dashboard (legacy "standard"). No Account Session.
+ *   express → Stripe-hosted Express dashboard, platform-controlled. Embeddable.
+ *   none    → no dashboard (legacy "custom"). Platform-controlled, embeddable.
+ * `type` is the fallback for anything that predates the controller field.
+ */
+function accountTypeFrom(account: Stripe.Account): 'express' | 'standard' {
+  const dashboard = account.controller?.stripe_dashboard?.type;
+  if (dashboard === 'full') return 'standard';
+  if (dashboard === 'express' || dashboard === 'none') return 'express';
+  return account.type === 'standard' ? 'standard' : 'express';
 }
 
 export interface ConnectOnboardingSummary {
@@ -61,17 +104,24 @@ export class StripeConnectService {
   }
 
   /**
-   * Build the Stripe Connect OAuth authorize URL. The shop clicks it and, on Stripe's page,
-   * either signs into an existing Stripe account OR creates a new one, then authorizes us.
-   * No account is created by the platform — Stripe returns the shop's own account id via the
-   * callback.
+   * Build the Stripe Connect OAuth authorize URL for a shop that ALREADY HAS a Stripe account.
+   * They sign in on Stripe's page and authorize us; Stripe returns their own account id via the
+   * callback and the platform creates nothing.
+   *
+   * This path exists only to adopt existing accounts. Shops without one go through embedded
+   * Express onboarding (createAccountSession) instead, which keeps them inside FixFlow — so the
+   * URL lands on Stripe's sign-in form (`stripe_landing=login`) rather than its sign-up form,
+   * and carries no sign-up prefill.
    *
    * `state` is a short-lived signed token carrying the shopId, so the (public) callback can
    * trust which shop authorized without relying on a session cookie. `platform` rides along
    * in the same token so the callback knows whether to hand the shop back to the web app or
    * deep-link back into the mobile app — see the callback route for the redirect branch.
    */
-  async createOnboardingLink(shopId: string, platform: 'web' | 'mobile' = 'web'): Promise<string> {
+  async createOnboardingLink(
+    shopId: string,
+    platform: ConnectOAuthPlatform = 'web'
+  ): Promise<string> {
     const clientId = process.env.STRIPE_CONNECT_CLIENT_ID;
     if (!clientId) {
       throw new Error('STRIPE_CONNECT_CLIENT_ID is not configured');
@@ -94,9 +144,13 @@ export class StripeConnectService {
       scope: 'read_write',
       redirect_uri: connectRedirectUri(),
       state,
-      // Prefill only — the shop can change these on Stripe's page.
-      'stripe_user[email]': shop.email || '',
-      'stripe_user[business_name]': shop.name || '',
+      // Land on sign-in, not sign-up: this flow is for connecting an account the shop already
+      // owns. Stripe still exposes a sign-up link on that page — it can't be disabled through
+      // OAuth params — so this is the strongest steer available, not a hard block.
+      stripe_landing: 'login',
+      // Force the account chooser even when the browser is already signed into Stripe, so a
+      // shop with several accounts picks the right one instead of silently linking the last used.
+      always_prompt: 'true',
     });
 
     return `https://connect.stripe.com/oauth/authorize?${params.toString()}`;
@@ -110,12 +164,14 @@ export class StripeConnectService {
    * Defaults to 'web' on any decode failure (expired/malformed/legacy pre-platform tokens),
    * since 'web' is the redirect this app has always used.
    */
-  getOAuthStatePlatform(state: string): 'web' | 'mobile' {
+  getOAuthStatePlatform(state: string): ConnectOAuthPlatform {
     try {
       const payload = jwt.verify(state, process.env.JWT_SECRET as string) as {
         platform?: string;
       };
-      return payload.platform === 'mobile' ? 'mobile' : 'web';
+      if (payload.platform === 'mobile') return 'mobile';
+      if (payload.platform === 'popup') return 'popup';
+      return 'web';
     } catch {
       return 'web';
     }
@@ -150,8 +206,13 @@ export class StripeConnectService {
       throw new Error('Stripe did not return a connected account id');
     }
 
+    // Record the account TYPE, not just the id. OAuth yields a Standard account the shop owns;
+    // without this the column keeps whatever it was — NULL, or a stale 'express' from an earlier
+    // embedded attempt, which would send getOrCreateExpressAccount and accountSessions.create
+    // down paths that only work for Express accounts.
     await shopRepository.updateShop(shopId, {
       stripeConnectAccountId: connectedAccountId,
+      connectAccountType: 'standard',
     });
 
     // Sync charges/payouts immediately — an existing active account is already enabled, so the
@@ -196,10 +257,22 @@ export class StripeConnectService {
         eventuallyDue: [],
         pendingVerification: [],
         disabledReason: null,
+        taxIdProvided: false,
+        identityVerification: 'unverified',
+        accountType: null,
       };
     }
 
     const account = await this.stripe.accounts.retrieve(shop.stripeConnectAccountId);
+
+    // Either shape can carry the tax identifier depending on how the shop registered:
+    // a company files under an EIN/tax id, a sole trader under a personal id number.
+    const taxIdProvided =
+      account.company?.tax_id_provided === true ||
+      account.individual?.id_number_provided === true;
+
+    const verificationStatus = account.individual?.verification?.status;
+
     const status: ConnectAccountStatus = {
       accountId: account.id,
       chargesEnabled: account.charges_enabled === true,
@@ -209,6 +282,23 @@ export class StripeConnectService {
       eventuallyDue: account.requirements?.eventually_due ?? [],
       pendingVerification: account.requirements?.pending_verification ?? [],
       disabledReason: account.requirements?.disabled_reason ?? null,
+      taxIdProvided,
+      identityVerification:
+        verificationStatus === 'verified'
+          ? 'verified'
+          : verificationStatus === 'pending'
+          ? 'pending'
+          : 'unverified',
+      // Trust Stripe's own view of the account over our mirror column, which is NULL for
+      // everything linked before the type was recorded.
+      //
+      // Read the dashboard controller first, not `type`. What we actually need to know is who
+      // manages the account: `full` means the shop has its own Stripe dashboard, so we can't
+      // mint an Account Session and the UI must link out. `type` can't answer that on its own —
+      // verified against the API: an account created with controller properties (the model that
+      // replaces express/standard/custom) comes back as type `none` with the controller set, so
+      // keying on `type` alone would classify it as Express and hide the link-out branch.
+      accountType: accountTypeFrom(account),
     };
 
     await this.syncAccountState(shopId, status.chargesEnabled, status.payoutsEnabled);
