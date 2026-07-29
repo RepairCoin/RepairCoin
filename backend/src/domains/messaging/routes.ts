@@ -6,20 +6,25 @@ import { AutoMessageController } from './controllers/AutoMessageController';
 import { MessagingAdminController } from './controllers/MessagingAdminController';
 import { getMyConsent, setMyConsent } from './controllers/CustomerConsentController';
 import { authMiddleware, requireRole } from '../../middleware/auth';
-import { requireTierRollout } from '../../middleware/tierGuard';
+import { requireTierRollout, requireAnyTierRollout } from '../../middleware/tierGuard';
 
 const router = Router();
 const messageController = new MessageController();
 const autoMessageController = new AutoMessageController();
 const messagingAdminController = new MessagingAdminController();
 
-// Auto-Messages = the shop's scheduled/triggered automated-messaging engine (the shared automation core
-// that AI Campaigns (Advanced) — and, later, Custom Workflows — build on). A Business-tier feature.
-// requireTierRollout enforces ONLY when ENFORCE_CAMPAIGN_AUTOMATION_TIER=true, so this ships dark: today
-// it stays open to all tiers (it always was), and enforcement is flipped on deliberately per the pricing
-// rollout. Gate is under `aiCampaignsAdvanced`; if Custom Workflows later owns this engine, it's a
-// one-line key swap (both are Business-tier, so access is identical either way).
-const autoMessageGuard = [requireRole(['shop']), requireTierRollout('aiCampaignsAdvanced')];
+// Auto-Messages = the shop's scheduled/triggered automation engine, shared by BOTH product surfaces:
+// AI Campaigns (Advanced) and Custom Workflows (D1 — one engine, two surfaces). A Business-tier feature.
+// requireTierRollout enforces ONLY when ENFORCE_CAMPAIGN_AUTOMATION_TIER=true.
+//
+// The routes are shared, so the guard admits a shop entitled to EITHER surface and the `surface`
+// parameter (D7) decides which rules they see. Gating on `aiCampaignsAdvanced` alone would lock a
+// Workflows-only shop out of its own workflows; both keys are Business today, so this is
+// forward-provisioning for the moment they diverge.
+const autoMessageGuard = [
+  requireRole(['shop']),
+  requireAnyTierRollout(['aiCampaignsAdvanced', 'customWorkflows']),
+];
 
 // Multer config for message attachments
 const attachmentUpload = multer({

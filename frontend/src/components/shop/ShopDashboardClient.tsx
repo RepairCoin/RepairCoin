@@ -42,6 +42,7 @@ import { LowStockAlertsTab } from "@/components/shop/tabs/LowStockAlertsTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
+import { WorkflowsList } from "@/components/shop/automation/WorkflowsList";
 import { TeamTab } from "@/components/shop/tabs/TeamTab";
 import { CommissionsTab } from "@/components/shop/tabs/CommissionsTab";
 import { TransactionsTab } from "@/components/shop/tabs/TransactionsTab";
@@ -1765,6 +1766,16 @@ export default function ShopDashboardClient() {
             <SubscriptionGuard shopData={shopData}>
               <TierGate feature="campaignBuilder">
                 <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
+              </TierGate>
+            </SubscriptionGuard>
+          )}
+
+          {/* Automation — Custom Workflows (A2). Its own destination, gated on its own key so it
+              never depends on the AI Campaigns entitlement (D2). */}
+          {activeTab === "automation" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <TierGate feature="customWorkflows">
+                <WorkflowsList />
               </TierGate>
             </SubscriptionGuard>
           )}

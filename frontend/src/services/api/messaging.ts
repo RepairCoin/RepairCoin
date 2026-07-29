@@ -306,13 +306,26 @@ export const useQuickReply = async (id: string): Promise<void> => {
 // ============ Auto-Messages ============
 
 /** One step of a drip sequence: a message sent `delayHours` after the previous step fires. */
+/**
+ * One step of a sequence. Since A1 a step may declare its OWN action — that is what turns a drip
+ * sequence into a workflow. A step with no `actionType` is a message step, the pre-A1 shape.
+ */
 export interface SequenceStep {
-  messageTemplate: string;
+  actionType?: string;
+  actionPayload?: Record<string, any> | null;
+  /** Required for send_message steps; absent for steps that send nothing. */
+  messageTemplate?: string;
   delayHours: number;
 }
 
 /** What an automation DOES when it fires (Custom Workflows W2). */
 export type AutoMessageActionType = 'send_message' | 'issue_reward';
+
+/**
+ * Which product surface owns a rule (D7). One engine, two surfaces: 'campaign' is AI Campaigns
+ * (Advanced) under Marketing; 'workflow' is the Automation section.
+ */
+export type AutoMessageSurface = 'campaign' | 'workflow';
 
 export interface AutoMessage {
   id: string;
@@ -336,10 +349,15 @@ export interface AutoMessage {
   steps: SequenceStep[] | null;
   stopOnBooking: boolean;
   variantB: string | null;
+  surface: AutoMessageSurface;
   createdAt: string;
   updatedAt: string;
   totalSends?: number;
   lastSentAt?: string;
+  /** Distinct customers this rule has ever enrolled (A2 list column). */
+  totalEnrolled?: number;
+  /** Distinct customers with a step still pending — mid-workflow right now. */
+  activeEnrolled?: number;
 }
 
 export interface AutoMessageSend {
@@ -361,6 +379,8 @@ export interface CreateAutoMessageRequest {
   messageTemplate: string | null;
   actionType?: AutoMessageActionType;
   actionPayload?: Record<string, any> | null;
+  /** Which surface is creating it (D7). Defaults to 'campaign' server-side. */
+  surface?: AutoMessageSurface;
   triggerType: 'schedule' | 'event';
   scheduleType?: string;
   scheduleDayOfWeek?: number;
@@ -395,8 +415,11 @@ export interface UpdateAutoMessageRequest {
 /**
  * Get all auto-message rules for the authenticated shop
  */
-export const getAutoMessages = async (): Promise<AutoMessage[]> => {
-  const response = await apiClient.get('/messages/auto-messages');
+/** Rules for ONE surface (D7). Omit for 'campaign' — the AI Campaigns list. */
+export const getAutoMessages = async (surface?: AutoMessageSurface): Promise<AutoMessage[]> => {
+  const response = await apiClient.get('/messages/auto-messages', {
+    params: surface ? { surface } : undefined,
+  });
   return response.data;
 };
 

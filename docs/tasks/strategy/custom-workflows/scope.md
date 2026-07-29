@@ -260,28 +260,28 @@ be added later without rework.
 
 ### Revised remaining work
 
-**A1 — action steps. BUILT + LIVE-VERIFIED 2026-07-29.** `SequenceStep` gains optional
-`actionType`/`actionPayload`, and `messageTemplate` becomes optional. Resolution order per step:
-**step action → rule action → `send_message`**, so every sequence written before A1 keeps its exact
-meaning. Handlers now read the RESOLVED `ctx.actionType`/`ctx.actionPayload` instead of reaching into
-`rule.*`, so they never need to know whether the action came from the rule or from a step.
-`parseSteps` validates a non-messaging step's payload at write time and only demands a template for
-`send_message` steps.
+**A1 — action steps.** Generalize `steps[]` from message steps to action steps (mirrors W1, one level
+down). Reuses enrollment, waits and step tracking that already work. **This is the structural unlock.** ~M
 
-> **Verified on the live engine** with a genuine mixed workflow — *booking cancelled → step 1: send a
-> message → step 2: issue 1 RCN*: `Enrolled … (step 1)` → pass 1 created the message → pass 2 logged
-> `issue_reward action issued`; step 0 `sent` with a message, step 1 `sent` with **no** message, shop
-> 1844→1843 RCN and customer 234→235. **Two different actions in one sequence — the thing A1 exists for,
-> running through the scheduler's own enrollment/step machinery.**
+**A2 — the Automation surface. BUILT 2026-07-29.**
+- **Its own nav destination** — `Automation` in the shop sidebar beside Marketing, `/shop?tab=automation`.
+  Not a Marketing sub-tab: an owner looking for "when inventory drops → notify Joe" would never open
+  Marketing.
+- **`WorkflowsList`** — a table, not a card wall: Name (with `trigger → steps` beneath), Status
+  (Active/Paused), **Total enrolled**, **Active enrolled**, Last run, Created, plus search and
+  create/edit/pause/delete. Enrolled counts are derived from `auto_message_sends`, which has tracked
+  per-customer step progress all along — no new bookkeeping.
+- **`customWorkflows: 'business'` added (D2 executed)**, and the surface gates on it. The shared
+  `/auto-messages*` routes now use a new `requireAnyTierRollout([...])` so a shop entitled to EITHER
+  surface gets in — gating on `aiCampaignsAdvanced` alone would have locked a Workflows-only shop out of
+  its own workflows.
+- **One builder, two entry points** (not a second builder that drifts): `AutoMessageRuleModal` takes a
+  `surface` prop. For `workflow` it retitles to "New Workflow", fixes the max-sends copy to "how many
+  times this workflow can run for the same customer", and **gives every sequence step its own action
+  picker** — Send a message / Issue RCN — which is A1 finally reachable from the UI.
 
-**Scope note:** A1 is engine + API + validation. The per-step action picker deliberately lands with
-**A2's builder** rather than being bolted onto the AI Campaigns sequence editor, so that UI isn't built
-twice. Until then, multi-action workflows are creatable via the API only.
-
-**A2 — the Automation surface.** Top-level nav, workflows list with status + enrolled counts, its own
-`customWorkflows` gate (D2). This is also where the message-centric copy gets fixed properly — the modal
-is still titled "New Auto-Message Rule" and the max-sends helper still says "how many times this rule can
-*message* the same customer", both wrong for a reward rule. ~M/L
+**Left for A3+:** Draft/Published lifecycle (today it's Active/Paused off `is_active`), folders and
+smart lists, and repair-shop templates.
 
 **A3 — repair-shop templates.** "Post-repair follow-up", "Win back lapsed customers", "Low-stock reorder",
 "Bad review escalation". **The actual differentiator** — a shop owner picks a template, not a blank canvas.
