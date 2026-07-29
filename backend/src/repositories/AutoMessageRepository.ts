@@ -29,6 +29,17 @@ export interface SequenceStep {
  */
 export type AutoMessageSurface = 'campaign' | 'workflow';
 
+/**
+ * Lifecycle (A4). 'draft' is composed but inert — the engine skips it entirely, so publishing is a
+ * deliberate act rather than a side effect of pressing Save.
+ *
+ * Note this is separate from `is_active`, which is pause/resume for something already published:
+ *   draft                    → never runs
+ *   published + is_active    → running
+ *   published + !is_active   → paused
+ */
+export type AutoMessageStatus = 'draft' | 'published';
+
 export interface AutoMessage {
   id: string;
   shopId: string;
@@ -65,6 +76,11 @@ export interface AutoMessage {
    * screen created it.
    */
   surface: AutoMessageSurface;
+  /**
+   * Lifecycle (migration 253). 'draft' never runs, whatever is_active says — publishing is a
+   * deliberate act, because these send real messages and issue real RCN.
+   */
+  status: AutoMessageStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -95,6 +111,8 @@ export interface CreateAutoMessageParams {
   actionPayload?: Record<string, unknown> | null;
   /** Which surface is creating this rule (D7). Defaults to 'campaign'. */
   surface?: AutoMessageSurface;
+  /** Defaults to 'published' (existing behaviour). The Automation surface creates drafts. */
+  status?: AutoMessageStatus;
   triggerType: 'schedule' | 'event';
   scheduleType?: string;
   scheduleDayOfWeek?: number;
@@ -192,8 +210,8 @@ export class AutoMessageRepository extends BaseRepository {
           shop_id, name, message_template, trigger_type,
           schedule_type, schedule_day_of_week, schedule_day_of_month, schedule_hour,
           event_type, delay_hours, target_audience, max_sends_per_customer,
-          steps, stop_on_booking, variant_b, action_type, action_payload, surface
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+          steps, stop_on_booking, variant_b, action_type, action_payload, surface, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         RETURNING *
       `;
       const result = await this.pool.query(query, [
@@ -215,6 +233,7 @@ export class AutoMessageRepository extends BaseRepository {
         params.actionType ?? 'send_message',
         params.actionPayload ? JSON.stringify(params.actionPayload) : null,
         params.surface ?? 'campaign',
+        params.status ?? 'published',
       ]);
       logger.info('Auto-message rule created', { shopId: params.shopId, name: params.name });
       return this.mapRow(result.rows[0]);
@@ -306,6 +325,28 @@ export class AutoMessageRepository extends BaseRepository {
       return false;
     } catch (error) {
       logger.error('Error in AutoMessageRepository.delete:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Publish a draft (A4) — the deliberate act that makes a workflow live. Shop-scoped so one shop can
+   * never publish another's. Idempotent: publishing an already-published rule is a no-op.
+   */
+  async publish(id: string, shopId: string): Promise<AutoMessage | null> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE shop_auto_messages
+            SET status = 'published', updated_at = NOW()
+          WHERE id = $1 AND shop_id = $2
+          RETURNING *`,
+        [id, shopId]
+      );
+      if (result.rows.length === 0) return null;
+      logger.info('Auto-message rule published', { id, shopId });
+      return this.mapRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error in AutoMessageRepository.publish:', error);
       throw error;
     }
   }
@@ -417,7 +458,7 @@ export class AutoMessageRepository extends BaseRepository {
     try {
       const query = `
         SELECT * FROM shop_auto_messages
-        WHERE is_active = true AND trigger_type = 'event' AND event_type = $1
+        WHERE is_active = true AND status = 'published' AND trigger_type = 'event' AND event_type = $1
         ORDER BY shop_id
       `;
       const result = await this.pool.query(query, [eventType]);
@@ -451,9 +492,11 @@ export class AutoMessageRepository extends BaseRepository {
    */
   async getActiveEventRules(shopId: string, eventType: string): Promise<AutoMessage[]> {
     try {
+      // status='published' is as load-bearing as is_active: a draft that still fired would read as
+      // "not live yet" while quietly sending messages and issuing RCN (A4).
       const query = `
         SELECT * FROM shop_auto_messages
-        WHERE is_active = true AND trigger_type = 'event'
+        WHERE is_active = true AND status = 'published' AND trigger_type = 'event'
           AND shop_id = $1 AND event_type = $2
         ORDER BY created_at ASC
       `;
@@ -472,7 +515,7 @@ export class AutoMessageRepository extends BaseRepository {
     try {
       const query = `
         SELECT * FROM shop_auto_messages
-        WHERE is_active = true AND trigger_type = 'schedule'
+        WHERE is_active = true AND status = 'published' AND trigger_type = 'schedule'
         ORDER BY shop_id
       `;
       const result = await this.pool.query(query);
@@ -602,6 +645,8 @@ export class AutoMessageRepository extends BaseRepository {
       actionPayload: row.action_payload ?? null,
       // Pre-249 rows have no surface — they were all created in AI Campaigns.
       surface: (row.surface as AutoMessageSurface) || 'campaign',
+      // Pre-253 rows have no status — they were all live.
+      status: (row.status as AutoMessageStatus) || 'published',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       totalSends: row.total_sends ? parseInt(row.total_sends, 10) : undefined,

@@ -322,6 +322,13 @@ router.delete('/auto-messages/:id', autoMessageGuard, autoMessageController.dele
 router.patch('/auto-messages/:id/toggle', autoMessageGuard, autoMessageController.toggleAutoMessage);
 
 /**
+ * @route PATCH /api/messages/auto-messages/:id/publish
+ * @description Take a draft workflow live (A4). Drafts never run until this is called.
+ * @access Shop (Business tier)
+ */
+router.patch('/auto-messages/:id/publish', autoMessageGuard, autoMessageController.publishAutoMessage);
+
+/**
  * @route GET /api/messages/auto-messages/:id/history
  * @description Get send history for an auto-message rule
  * @param id - Auto-message rule ID

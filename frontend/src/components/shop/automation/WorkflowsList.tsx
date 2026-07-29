@@ -16,6 +16,7 @@ import {
   createAutoMessage,
   updateAutoMessage,
   deleteAutoMessage,
+  publishAutoMessage,
   AutoMessage,
   CreateAutoMessageRequest,
   UpdateAutoMessageRequest,
@@ -95,8 +96,10 @@ export const WorkflowsList: React.FC = () => {
         toast.success("Workflow updated");
       } else {
         // Stamp the surface so this rule belongs to Automation, not AI Campaigns (D7).
-        await createAutoMessage({ ...(data as CreateAutoMessageRequest), surface: "workflow" });
-        toast.success("Workflow created");
+        // A4: workflows are born as DRAFTS. Save must not mean "go live" when the thing being
+        // saved can message customers and issue RCN.
+        await createAutoMessage({ ...(data as CreateAutoMessageRequest), surface: "workflow", status: "draft" });
+        toast.success("Draft saved — publish it when you're ready");
       }
       setEditing(null);
       setCreating(false);
@@ -104,6 +107,18 @@ export const WorkflowsList: React.FC = () => {
       await load();
     } catch (e: any) {
       toast.error(e?.response?.data?.error || "Could not save workflow");
+    }
+  };
+
+  const publish = async (w: AutoMessage) => {
+    const shape = stepsSummary(w);
+    if (!confirm(`Publish "${w.name}"?\n\nIt will start running for real: ${shape}.`)) return;
+    try {
+      await publishAutoMessage(w.id);
+      toast.success("Workflow published — it's live now");
+      await load();
+    } catch {
+      toast.error("Could not publish workflow");
     }
   };
 
@@ -230,12 +245,18 @@ export const WorkflowsList: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3">
+                    {/* Three states, not two (A4): a draft is composed but inert, which is different
+                        from a published workflow that's been paused. */}
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${
-                        w.isActive ? "bg-green-500/15 text-green-400" : "bg-gray-700/40 text-gray-400"
+                        w.status === "draft"
+                          ? "bg-amber-500/15 text-amber-400"
+                          : w.isActive
+                          ? "bg-green-500/15 text-green-400"
+                          : "bg-gray-700/40 text-gray-400"
                       }`}
                     >
-                      {w.isActive ? "Active" : "Paused"}
+                      {w.status === "draft" ? "Draft" : w.isActive ? "Active" : "Paused"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right text-gray-300">{w.totalEnrolled ?? 0}</td>
@@ -244,9 +265,20 @@ export const WorkflowsList: React.FC = () => {
                   <td className="px-4 py-3 text-gray-400">{fmtDate(w.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => toggle(w)} title={w.isActive ? "Pause" : "Activate"} className="p-2 text-gray-400 hover:text-white">
-                        {w.isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                      </button>
+                      {w.status === "draft" ? (
+                        // Publishing is the deliberate act that takes a workflow live — it will start
+                        // sending real messages and issuing real RCN, so it gets its own button.
+                        <button
+                          onClick={() => publish(w)}
+                          className="px-2.5 py-1 rounded text-xs font-medium bg-[#FFCC00] hover:bg-[#E6B800] text-black"
+                        >
+                          Publish
+                        </button>
+                      ) : (
+                        <button onClick={() => toggle(w)} title={w.isActive ? "Pause" : "Resume"} className="p-2 text-gray-400 hover:text-white">
+                          {w.isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                        </button>
+                      )}
                       <button onClick={() => setEditing(w)} title="Edit" className="p-2 text-gray-400 hover:text-white">
                         <Pencil className="w-4 h-4" />
                       </button>
