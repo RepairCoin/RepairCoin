@@ -247,6 +247,10 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   // A/B works on any single-message rule; can't combine with a sequence.
   const abMode = useAbTest && !sequenceMode && !rewardMode && !shopScoped;
 
+  // Does this rule carry a message on the RULE itself? A sequence keeps its copy in the steps, and
+  // reward / staff-alert / shop-scoped rules send no customer message at all.
+  const needsRuleMessage = !rewardMode && !sequenceMode && !shopScoped && actionType === "send_message";
+
   // Picking a shop-scoped trigger forces the shop-facing action, so the form can't produce a rule the
   // API will reject.
   useEffect(() => {
@@ -294,6 +298,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         return;
       }
     } else if (!messageTemplate.trim()) {
+      // Say why. A silent return is what made the disabled button so confusing in the first place —
+      // the form refused to proceed and never explained itself.
+      toast.error("Add a message to send");
       return;
     }
 
@@ -894,7 +901,13 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={saving || !name.trim() || !messageTemplate.trim()}
+            // Only a SINGLE-MESSAGE rule needs the rule-level template. This condition predates
+            // actions and sequences: it disabled the button for every drip sequence (the copy lives in
+            // the steps), every reward rule, every staff alert and every shop-scoped rule — six of the
+            // ten templates — with no explanation of why. handleSubmit already validates per action
+            // type and explains what's missing, so anything beyond "needs a name" belongs there, not
+            // in a silent disable.
+            disabled={saving || !name.trim() || (needsRuleMessage && !messageTemplate.trim())}
             className="flex-1 px-4 py-2.5 bg-[#FFCC00] rounded-lg text-black text-sm font-medium hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
