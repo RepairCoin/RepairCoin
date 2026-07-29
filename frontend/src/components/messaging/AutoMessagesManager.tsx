@@ -256,10 +256,16 @@ export const AutoMessagesManager: React.FC = () => {
                 </div>
               </div>
 
-              {/* Message Preview */}
-              <p className="text-gray-400 text-xs mb-3 line-clamp-2">
-                {rule.messageTemplate}
-              </p>
+              {/* What the rule does. A reward rule has no message to preview, so show the action
+                  instead of an empty line. */}
+              {rule.actionType === "issue_reward" ? (
+                <p className="text-[#FFCC00] text-xs mb-3">
+                  Issues {rule.actionPayload?.amountRcn ?? "?"} RCN
+                  {rule.actionPayload?.reason ? ` — ${rule.actionPayload.reason}` : ""}
+                </p>
+              ) : (
+                <p className="text-gray-400 text-xs mb-3 line-clamp-2">{rule.messageTemplate}</p>
+              )}
 
               {/* Meta Row */}
               <div className="flex items-center flex-wrap gap-3 text-xs text-gray-500">

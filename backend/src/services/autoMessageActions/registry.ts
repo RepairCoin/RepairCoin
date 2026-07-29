@@ -13,8 +13,16 @@ import type {
   AutoMessageActionResult,
 } from './types';
 import { SendMessageAction, SendMessageDeps } from './sendMessageAction';
+import { IssueRewardAction } from './issueRewardAction';
 
 export const DEFAULT_ACTION_TYPE = 'send_message';
+
+/** Action types a shop can configure. The UI and the create/update validator read this. */
+export const AUTO_MESSAGE_ACTION_TYPES = ['send_message', 'issue_reward'] as const;
+export type AutoMessageActionType = (typeof AUTO_MESSAGE_ACTION_TYPES)[number];
+
+/** Actions that send no message — message_template is not required for these. */
+export const NON_MESSAGING_ACTIONS: ReadonlySet<string> = new Set(['issue_reward']);
 
 export class AutoMessageActionRegistry {
   private readonly handlers = new Map<string, AutoMessageActionHandler>();
@@ -54,7 +62,10 @@ let _registry: AutoMessageActionRegistry | null = null;
 
 /** Process-wide registry, built from the message repository the scheduler already owns. */
 export function getAutoMessageActionRegistry(messages: SendMessageDeps): AutoMessageActionRegistry {
-  return (_registry ??= new AutoMessageActionRegistry([new SendMessageAction(messages)]));
+  return (_registry ??= new AutoMessageActionRegistry([
+    new SendMessageAction(messages),
+    new IssueRewardAction(),
+  ]));
 }
 
 /** Tests only — drop the memoized registry so a fresh one is built. */

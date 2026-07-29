@@ -3,6 +3,15 @@ import { Request, Response } from 'express';
 import { AutoMessageRepository } from '../../../repositories/AutoMessageRepository';
 import { autoMessageContentService } from '../services/AutoMessageContentService';
 import { logger } from '../../../utils/logger';
+import {
+  AUTO_MESSAGE_ACTION_TYPES,
+  DEFAULT_ACTION_TYPE,
+  NON_MESSAGING_ACTIONS,
+} from '../../../services/autoMessageActions/registry';
+import {
+  parseIssueRewardPayload,
+  MAX_AUTOMATED_RCN,
+} from '../../../services/autoMessageActions/issueRewardAction';
 
 const VALID_TRIGGER_TYPES = ['schedule', 'event'];
 const VALID_SCHEDULE_TYPES = ['daily', 'weekly', 'monthly'];
@@ -27,6 +36,42 @@ function parseSteps(raw: unknown): { steps?: Array<{ messageTemplate: string; de
     steps.push({ messageTemplate: msg, delayHours: Math.round(delay) });
   }
   return { steps };
+}
+
+/**
+ * Validate what the rule DOES (W2 — Custom Workflows). Absent actionType = 'send_message', so every
+ * client written before actions existed keeps working unchanged.
+ *
+ * The reward payload is validated HERE, at write time, rather than only in the handler: a rule with a
+ * bad amount would otherwise be stored happily and then fail silently on every tick, which is a much
+ * worse thing to debug than a 400.
+ */
+function parseAction(
+  rawType: unknown,
+  rawPayload: unknown
+): { actionType: string; actionPayload: Record<string, unknown> | null; error?: string } {
+  const actionType = typeof rawType === 'string' && rawType.trim() ? rawType.trim() : DEFAULT_ACTION_TYPE;
+  if (!(AUTO_MESSAGE_ACTION_TYPES as readonly string[]).includes(actionType)) {
+    return {
+      actionType: DEFAULT_ACTION_TYPE,
+      actionPayload: null,
+      error: `actionType must be one of: ${AUTO_MESSAGE_ACTION_TYPES.join(', ')}`,
+    };
+  }
+
+  if (actionType === 'issue_reward') {
+    const payload = parseIssueRewardPayload(rawPayload);
+    if (!payload) {
+      return {
+        actionType,
+        actionPayload: null,
+        error: `issue_reward needs actionPayload.amountRcn — a number between 1 and ${MAX_AUTOMATED_RCN}`,
+      };
+    }
+    return { actionType, actionPayload: payload as unknown as Record<string, unknown> };
+  }
+
+  return { actionType, actionPayload: null };
 }
 
 export class AutoMessageController {
@@ -99,11 +144,20 @@ export class AutoMessageController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
-      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking, variantB } = req.body;
+      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking, variantB, actionType: rawActionType, actionPayload: rawActionPayload } = req.body;
+
+      // What the rule DOES (W2). Absent = send_message, so every existing client keeps working.
+      const { actionType, actionPayload, error: actionError } = parseAction(rawActionType, rawActionPayload);
+      if (actionError) return res.status(400).json({ success: false, error: actionError });
+      const needsMessage = !NON_MESSAGING_ACTIONS.has(actionType);
 
       // Validation
-      if (!name || !messageTemplate || !triggerType) {
-        return res.status(400).json({ success: false, error: 'name, messageTemplate, and triggerType are required' });
+      if (!name || !triggerType) {
+        return res.status(400).json({ success: false, error: 'name and triggerType are required' });
+      }
+      // Only a messaging action needs a body — an issue_reward rule sends nothing.
+      if (needsMessage && !messageTemplate) {
+        return res.status(400).json({ success: false, error: 'messageTemplate is required for send_message rules' });
       }
 
       const { steps, error: stepsError } = parseSteps(rawSteps);
@@ -124,7 +178,7 @@ export class AutoMessageController {
         return res.status(400).json({ success: false, error: `triggerType must be one of: ${VALID_TRIGGER_TYPES.join(', ')}` });
       }
 
-      if (messageTemplate.length > 2000) {
+      if (messageTemplate && messageTemplate.length > 2000) {
         return res.status(400).json({ success: false, error: 'Message template must be 2000 characters or less' });
       }
 
@@ -153,7 +207,9 @@ export class AutoMessageController {
       const rule = await this.autoMessageRepo.create({
         shopId,
         name,
-        messageTemplate,
+        messageTemplate: needsMessage ? messageTemplate : null,
+        actionType,
+        actionPayload,
         triggerType,
         scheduleType,
         scheduleDayOfWeek,

@@ -56,6 +56,11 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
   const [name, setName] = useState("");
   const [messageTemplate, setMessageTemplate] = useState("");
+  // What the rule DOES when it fires (Custom Workflows W2). 'send_message' is everything that existed
+  // before actions; 'issue_reward' sends nothing and needs no template.
+  const [actionType, setActionType] = useState<"send_message" | "issue_reward">("send_message");
+  const [rewardAmount, setRewardAmount] = useState(25);
+  const [rewardReason, setRewardReason] = useState("");
   const [triggerType, setTriggerType] = useState<"schedule" | "event">("schedule");
   const [scheduleType, setScheduleType] = useState("daily");
   const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(1);
@@ -79,7 +84,10 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   useEffect(() => {
     if (rule) {
       setName(rule.name);
-      setMessageTemplate(rule.messageTemplate);
+      setMessageTemplate(rule.messageTemplate ?? "");
+      setActionType(rule.actionType === "issue_reward" ? "issue_reward" : "send_message");
+      setRewardAmount(Number(rule.actionPayload?.amountRcn) || 25);
+      setRewardReason(typeof rule.actionPayload?.reason === "string" ? rule.actionPayload.reason : "");
       setTriggerType(rule.triggerType);
       setScheduleType(rule.scheduleType || "daily");
       setScheduleDayOfWeek(rule.scheduleDayOfWeek ?? 1);
@@ -179,17 +187,26 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       .replace(/\{\{lastVisitDate\}\}/g, "Mar 1, 2026");
   };
 
+  // A reward rule sends nothing, so drip sequences and A/B (both message concepts) don't apply to it.
+  const rewardMode = actionType === "issue_reward";
   // Sequences are event-triggered only (enrollment is wired into the event path).
-  const sequenceMode = useSequence && triggerType === "event";
+  const sequenceMode = useSequence && triggerType === "event" && !rewardMode;
   // A/B works on any single-message rule; can't combine with a sequence.
-  const abMode = useAbTest && !sequenceMode;
+  const abMode = useAbTest && !sequenceMode && !rewardMode;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
+    if (rewardMode && (!Number.isFinite(rewardAmount) || rewardAmount <= 0 || rewardAmount > 100)) {
+      toast.error("Reward amount must be between 1 and 100 RCN");
+      return;
+    }
+
     let cleanSteps: { messageTemplate: string; delayHours: number }[] = [];
-    if (sequenceMode) {
+    if (rewardMode) {
+      // no message to validate
+    } else if (sequenceMode) {
       cleanSteps = steps
         .map((s) => ({ messageTemplate: s.messageTemplate.trim(), delayHours: Number(s.delayHours) || 0 }))
         .filter((s) => s.messageTemplate);
@@ -203,10 +220,20 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
     setSaving(true);
     try {
+      const isReward = actionType === "issue_reward";
       const data: CreateAutoMessageRequest = {
         name: name.trim(),
-        // messageTemplate is required by the API; in a sequence it mirrors the first step.
-        messageTemplate: sequenceMode ? cleanSteps[0].messageTemplate : messageTemplate.trim(),
+        // A reward rule sends nothing, so it carries no template. For messaging rules the API still
+        // requires one; in a sequence it mirrors the first step.
+        messageTemplate: isReward
+          ? null
+          : sequenceMode
+          ? cleanSteps[0].messageTemplate
+          : messageTemplate.trim(),
+        actionType,
+        actionPayload: isReward
+          ? { amountRcn: rewardAmount, ...(rewardReason.trim() ? { reason: rewardReason.trim() } : {}) }
+          : null,
         triggerType,
         ...(triggerType === "schedule" && {
           scheduleType,
@@ -262,6 +289,68 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
             />
           </div>
+
+          {/* What the rule DOES (Custom Workflows W2). Everything above/below — triggers, audience,
+              timing — applies identically whichever action is chosen. */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Then do this</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setActionType("send_message")}
+                className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                  actionType === "send_message"
+                    ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                    : "border-gray-700 text-gray-400 hover:border-gray-600"
+                }`}
+              >
+                <div className="font-medium">Send a message</div>
+                <div className="text-xs text-gray-500">Email/in-app message to the customer</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActionType("issue_reward")}
+                className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                  actionType === "issue_reward"
+                    ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                    : "border-gray-700 text-gray-400 hover:border-gray-600"
+                }`}
+              >
+                <div className="font-medium">Issue an RCN reward</div>
+                <div className="text-xs text-gray-500">Sends nothing — credits the customer</div>
+              </button>
+            </div>
+          </div>
+
+          {rewardMode && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Amount (RCN)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={rewardAmount}
+                  onChange={(e) => setRewardAmount(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Debited from your RCN balance each time this fires. Max 100 per automated issue.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Reason (optional)</label>
+                <input
+                  type="text"
+                  value={rewardReason}
+                  onChange={(e) => setRewardReason(e.target.value)}
+                  placeholder="e.g. Loyalty bonus"
+                  maxLength={120}
+                  className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Trigger Type */}
           <div>
@@ -422,8 +511,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             <p className="text-xs text-gray-500 mt-1">How many times this rule can message the same customer</p>
           </div>
 
-          {/* Advanced-mode toggles: a rule is a single message, OR a drip sequence, OR an A/B test. */}
-          <div className="flex flex-col gap-1.5">
+          {/* Advanced-mode toggles: a rule is a single message, OR a drip sequence, OR an A/B test.
+              All three are message concepts, so none of them apply to a reward rule. */}
+          <div className={`flex flex-col gap-1.5 ${rewardMode ? "hidden" : ""}`}>
             {/* Multi-step sequence toggle (event triggers only — enrollment is event-driven) */}
             {triggerType === "event" && (
               <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
@@ -459,7 +549,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             )}
           </div>
 
-          {sequenceMode ? (
+          {/* A reward rule has no message at all — skip the whole composer. */}
+          {rewardMode ? null : sequenceMode ? (
             /* Sequence steps editor */
             <div className="space-y-3">
               <div className="flex items-center justify-between">

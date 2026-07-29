@@ -5,7 +5,7 @@ import { MessageRepository } from '../repositories/MessageRepository';
 import { CustomerRepository } from '../repositories/CustomerRepository';
 import { ShopRepository } from '../repositories/ShopRepository';
 import { getSharedPool } from '../utils/database-pool';
-import { getAutoMessageActionRegistry } from './autoMessageActions/registry';
+import { getAutoMessageActionRegistry, NON_MESSAGING_ACTIONS } from './autoMessageActions/registry';
 import { shopHasFeatureEffective } from '../utils/shopTier';
 
 /** How long an entitlement answer is reused. One tick can ask about the same shop once per customer. */
@@ -254,17 +254,24 @@ export class AutoMessageSchedulerService {
         }
       }
 
-      // A/B: pick a variant (if any) so the send can be attributed.
-      const { message: variantMessage, variant } = this.pickVariant(rule);
+      // Only messaging actions have a template. A non-messaging rule (issue_reward) carries
+      // message_template = NULL since migration 248, and resolveTemplate would throw on it — note
+      // tsconfig has strict:false, so `messageTemplate: string | null` does NOT catch this at compile
+      // time. The guard is load-bearing, not defensive decoration.
+      const isMessaging = !NON_MESSAGING_ACTIONS.has(rule.actionType || 'send_message');
+      const { message: variantMessage, variant } = isMessaging
+        ? this.pickVariant(rule)
+        : { message: '', variant: null };
 
-      // Resolve template variables
-      const messageText = resolveTemplate(variantMessage, {
-        customerName: customer.name,
-        rcnBalance: customer.rcnBalance,
-        shopName,
-        lastServiceName: customer.lastServiceName,
-        lastVisitDate: customer.lastVisitDate,
-      });
+      const messageText = isMessaging
+        ? resolveTemplate(variantMessage, {
+            customerName: customer.name,
+            rcnBalance: customer.rcnBalance,
+            shopName,
+            lastServiceName: customer.lastServiceName,
+            lastVisitDate: customer.lastVisitDate,
+          })
+        : undefined;
 
       // Run the rule's ACTION (W1). For send_message this is the conversation + message + unread
       // block that used to live inline here; other action types do their own thing. A blocked
@@ -746,12 +753,16 @@ export class AutoMessageSchedulerService {
                 }
               }
 
+              // Same guard as the immediate path: a non-messaging action has no template to resolve.
+              const isMessaging = !NON_MESSAGING_ACTIONS.has(rule.actionType || 'send_message');
               // A/B on delayed single-message sends: pick a variant at send time (sequence steps skip A/B).
-              const abPick = isSequenceStep ? null : this.pickVariant(rule);
-              const messageText = resolveTemplate(
-                step ? step.messageTemplate : (abPick ? abPick.message : rule.messageTemplate),
-                { customerName: customer?.name || undefined, shopName }
-              );
+              const abPick = isSequenceStep || !isMessaging ? null : this.pickVariant(rule);
+              const messageText = isMessaging
+                ? resolveTemplate(
+                    step ? step.messageTemplate : (abPick ? abPick.message : rule.messageTemplate),
+                    { customerName: customer?.name || undefined, shopName }
+                  )
+                : undefined;
 
               // Run the rule's ACTION (W1) — same dispatch as the immediate path. A blocked
               // conversation still marks the send failed, exactly as the inline version did.
