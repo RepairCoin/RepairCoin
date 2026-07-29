@@ -69,6 +69,21 @@ export interface ListPaymentsFilters {
   startDate?: string;
   /** Inclusive upper bound on created_at (ISO date or timestamp). */
   endDate?: string;
+  /**
+   * Admin reads only. The shop-facing path scopes by the JWT's shopId, which is passed
+   * separately and always wins — a shop can never widen its own scope through a filter.
+   */
+  shopId?: string;
+}
+
+/** Platform-wide roll-up over the same filter set. Admin oversight (Slice A1). */
+export interface PaymentTotals {
+  count: number;
+  grossCents: number;
+  feeCents: number;
+  applicationFeeCents: number;
+  netCents: number;
+  refundedCents: number;
 }
 
 /**
@@ -82,6 +97,8 @@ export interface PaymentWithContext extends Payment {
   customerName: string | null;
   orderStatus: string | null;
   completedByMemberId: string | null;
+  /** Only meaningful on admin reads; a shop already knows whose rows these are. */
+  shopName: string | null;
 }
 
 /**
@@ -193,6 +210,7 @@ export class PaymentRepository extends BaseRepository {
       customerName: row.customer_name ?? null,
       orderStatus: row.order_status ?? null,
       completedByMemberId: row.completed_by_member_id ?? null,
+      shopName: row.shop_name ?? null,
     };
   }
 
@@ -201,19 +219,36 @@ export class PaymentRepository extends BaseRepository {
     FROM payments p
     LEFT JOIN service_orders o ON o.order_id = p.order_id
     LEFT JOIN shop_services  s ON s.service_id = o.service_id
-    LEFT JOIN customers      c ON c.address = p.customer_address`;
+    LEFT JOIN customers      c ON c.address = p.customer_address
+    LEFT JOIN shops          sh ON sh.shop_id = p.shop_id`;
 
   private readonly contextSelect = `
       p.*,
       s.service_name        AS service_name,
       c.name                AS customer_name,
       o.status              AS order_status,
-      o.completed_by_member_id AS completed_by_member_id`;
+      o.completed_by_member_id AS completed_by_member_id,
+      sh.name               AS shop_name`;
 
-  /** Build the WHERE clause shared by list/count/export. Always shop-scoped. */
-  private buildFilters(shopId: string, filters: ListPaymentsFilters) {
-    const where: string[] = ['p.shop_id = $1'];
-    const params: unknown[] = [shopId];
+  /**
+   * Build the WHERE clause shared by list/count/export.
+   *
+   * `shopScope` is the authoritative scope: the shop-facing controllers pass the JWT's shopId
+   * and it is applied unconditionally. Only admin reads pass null, and only then can
+   * `filters.shopId` narrow the query — so a shop-scoped caller can never widen its own scope
+   * by smuggling a shopId through the query string.
+   */
+  private buildFilters(shopScope: string | null, filters: ListPaymentsFilters) {
+    const where: string[] = [];
+    const params: unknown[] = [];
+
+    if (shopScope) {
+      params.push(shopScope);
+      where.push(`p.shop_id = $${params.length}`);
+    } else if (filters.shopId) {
+      params.push(filters.shopId);
+      where.push(`p.shop_id = $${params.length}`);
+    }
 
     if (filters.status) {
       params.push(filters.status);
@@ -236,7 +271,9 @@ export class PaymentRepository extends BaseRepository {
       where.push(`p.created_at <= $${params.length}`);
     }
 
-    return { whereSql: where.join(' AND '), params };
+    // An unfiltered admin read has no predicates at all; TRUE keeps the callers' `WHERE ${...}`
+    // interpolation valid without special-casing it in four places.
+    return { whereSql: where.length ? where.join(' AND ') : 'TRUE', params };
   }
 
   /** Paginated list for a shop — the Transactions screen. */
@@ -246,7 +283,28 @@ export class PaymentRepository extends BaseRepository {
     page = 1,
     limit = 25
   ): Promise<PaginatedResult<PaymentWithContext>> {
-    const { whereSql, params } = this.buildFilters(shopId, filters);
+    return this.list(shopId, filters, page, limit);
+  }
+
+  /**
+   * Platform-wide paginated list — admin oversight (Slice A1). Same query as the shop path
+   * with the scope predicate dropped; `filters.shopId` narrows it to one shop.
+   */
+  async listAll(
+    filters: ListPaymentsFilters = {},
+    page = 1,
+    limit = 25
+  ): Promise<PaginatedResult<PaymentWithContext>> {
+    return this.list(null, filters, page, limit);
+  }
+
+  private async list(
+    shopScope: string | null,
+    filters: ListPaymentsFilters,
+    page: number,
+    limit: number
+  ): Promise<PaginatedResult<PaymentWithContext>> {
+    const { whereSql, params } = this.buildFilters(shopScope, filters);
 
     const countResult = await this.pool.query(
       `SELECT COUNT(*)::int AS n FROM payments p WHERE ${whereSql}`,
@@ -275,7 +333,7 @@ export class PaymentRepository extends BaseRepository {
    * can't exhaust memory or hold a connection open indefinitely.
    */
   async listAllForExport(
-    shopId: string,
+    shopId: string | null,
     filters: ListPaymentsFilters = {},
     cap = 10000
   ): Promise<PaymentWithContext[]> {
@@ -298,5 +356,47 @@ export class PaymentRepository extends BaseRepository {
       [id, shopId]
     );
     return result.rows[0] ? this.mapContextRow(result.rows[0]) : null;
+  }
+
+  /** Unscoped single read — admin only, never reachable from a shop-authenticated route. */
+  async getByIdAdmin(id: string): Promise<PaymentWithContext | null> {
+    const result = await this.pool.query(
+      `SELECT ${this.contextSelect} ${this.contextFrom} WHERE p.id = $1`,
+      [id]
+    );
+    return result.rows[0] ? this.mapContextRow(result.rows[0]) : null;
+  }
+
+  /**
+   * Roll-up over the same filters as the list. `application_fee_cents` is the platform's own
+   * revenue from payments, which nothing else surfaces.
+   *
+   * Note the totals are gross of refunds — `refundedCents` is reported alongside rather than
+   * subtracted, because the ledger's `gross_cents` is what was charged and netting the two
+   * would quietly produce a third number that reconciles against neither Stripe nor the rows
+   * on screen.
+   */
+  async getTotals(filters: ListPaymentsFilters = {}): Promise<PaymentTotals> {
+    const { whereSql, params } = this.buildFilters(null, filters);
+    const result = await this.pool.query(
+      `SELECT COUNT(*)::int                          AS count,
+              COALESCE(SUM(p.gross_cents), 0)::bigint           AS gross_cents,
+              COALESCE(SUM(p.fee_cents), 0)::bigint             AS fee_cents,
+              COALESCE(SUM(p.application_fee_cents), 0)::bigint AS application_fee_cents,
+              COALESCE(SUM(p.net_cents), 0)::bigint             AS net_cents,
+              COALESCE(SUM(p.refunded_cents), 0)::bigint        AS refunded_cents
+         FROM payments p
+        WHERE ${whereSql}`,
+      params
+    );
+    const row = result.rows[0];
+    return {
+      count: Number(row.count),
+      grossCents: Number(row.gross_cents),
+      feeCents: Number(row.fee_cents),
+      applicationFeeCents: Number(row.application_fee_cents),
+      netCents: Number(row.net_cents),
+      refundedCents: Number(row.refunded_cents),
+    };
   }
 }

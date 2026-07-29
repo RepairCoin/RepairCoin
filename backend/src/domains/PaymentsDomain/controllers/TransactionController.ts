@@ -19,10 +19,22 @@ const STATUSES: PaymentStatus[] = [
 ];
 const METHODS: PaymentMethod[] = ['card', 'cash', 'ach', 'deposit', 'terminal', 'link'];
 
-/** Parse + validate query filters. Unknown values are rejected rather than silently ignored. */
-function parseFilters(req: Request): { filters: ListPaymentsFilters } | { error: string } {
-  const { status, method, customerAddress, startDate, endDate } = req.query;
+/**
+ * Parse + validate query filters. Unknown values are rejected rather than silently ignored.
+ *
+ * Shared with the admin read path, which passes `allowShopId` — on the shop path a `shopId`
+ * query param is ignored entirely, so it can never widen the JWT's scope.
+ */
+export function parseFilters(
+  req: Request,
+  { allowShopId = false }: { allowShopId?: boolean } = {}
+): { filters: ListPaymentsFilters } | { error: string } {
+  const { status, method, customerAddress, startDate, endDate, shopId } = req.query;
   const filters: ListPaymentsFilters = {};
+
+  if (allowShopId && typeof shopId === 'string' && shopId) {
+    filters.shopId = shopId;
+  }
 
   if (status) {
     if (!STATUSES.includes(status as PaymentStatus)) {

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck, ScrollText, DollarSign, Webhook, Gem, Share2, MessageSquare, Building2 } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone, ShieldAlert, ShieldCheck, ScrollText, DollarSign, Webhook, Gem, Share2, MessageSquare, Building2, Receipt } from "lucide-react";
 import { SettingsIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
@@ -132,6 +132,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       { title: "Waitlist", href: "/admin?tab=waitlist", icon: <ClipboardList className="w-5 h-5" />, tabId: "waitlist" },
 
       section("Finance & Tokens"),
+      { title: "Payments", href: "/admin?tab=payments", icon: <Receipt className="w-5 h-5" />, tabId: "payments" },
       { title: "Treasury", href: "/admin?tab=treasury", icon: <Coins className="w-5 h-5" />, tabId: "treasury" },
       { title: "Revenue", href: "/admin?tab=revenue", icon: <DollarSign className="w-5 h-5" />, tabId: "revenue" },
       // RCG governance is blockchain-only; hide the nav link in database-only mode.
