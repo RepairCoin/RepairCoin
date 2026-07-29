@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { paymentRepository, shopRepository } from '../../../repositories';
+import { paymentRepository, refundRepository, shopRepository } from '../../../repositories';
 import type { PaymentSource, PaymentStatus } from '../../../repositories/PaymentRepository';
 import { getStripeService } from '../../../services/StripeService';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
@@ -125,7 +125,7 @@ export class PaymentReconciler {
     );
   }
 
-  private async reconcileChargeRefunded(charge: Stripe.Charge, _accountId?: string): Promise<void> {
+  private async reconcileChargeRefunded(charge: Stripe.Charge, accountId?: string): Promise<void> {
     const paymentIntentId = this.idOf(charge.payment_intent);
     if (!paymentIntentId) return;
 
@@ -139,10 +139,50 @@ export class PaymentReconciler {
     const status: PaymentStatus = refundedCents >= charge.amount ? 'refunded' : 'partially_refunded';
     const payment = await paymentRepository.markRefunded(existing.id, refundedCents, status);
 
+    await this.linkRefundEntities(charge, existing.id, accountId);
+
     if (payment) {
       await eventBus.publish(
         createDomainEvent(PaymentsEvents.PAYMENT_REFUNDED, payment.id, { refundedCents, status }, 'PaymentsDomain')
       );
+    }
+  }
+
+  /**
+   * Settle the `refunds` rows this side created (Slice 1.3). The ledger above is authoritative
+   * for how much was refunded; this only closes the loop on the refund ENTITY, so a row whose
+   * Stripe response was lost stops sitting `pending` and blocking the refundable balance.
+   *
+   * Best-effort by design — the ledger write must stand even if this listing fails.
+   */
+  private async linkRefundEntities(charge: Stripe.Charge, paymentId: string, accountId?: string): Promise<void> {
+    try {
+      const refunds = await this.stripe.refunds.list(
+        { charge: charge.id, limit: 100 },
+        accountId ? { stripeAccount: accountId } : undefined
+      );
+
+      for (const refund of refunds.data) {
+        if (refund.status !== 'succeeded') continue;
+        const row = await refundRepository.reconcileStripeRefund({
+          paymentId,
+          stripeRefundId: refund.id,
+          amountCents: refund.amount,
+          fixflowRefundId: refund.metadata?.fixflowRefundId ?? null,
+        });
+        if (row) {
+          logger.info('PaymentReconciler: linked refund row to Stripe refund', {
+            paymentId,
+            refundId: row.id,
+            stripeRefundId: refund.id,
+          });
+        }
+      }
+    } catch (error) {
+      logger.warn('PaymentReconciler: could not link refund entities (ledger still updated)', {
+        chargeId: charge.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
