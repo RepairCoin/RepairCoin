@@ -20,16 +20,17 @@ const domain = fs.readFileSync(
 
 /** The event types the API will accept on a rule. */
 function acceptedEventTypes(): string[] {
-  const block = controller.slice(
-    controller.indexOf('const VALID_EVENT_TYPES'),
-    controller.indexOf('const VALID_TARGET_AUDIENCES')
-  );
+  const start = controller.indexOf('const VALID_EVENT_TYPES');
+  const block = controller.slice(start, controller.indexOf('];', start));
   return [...block.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
 }
 
-/** The event types MessagingDomain actually hands to the scheduler. */
+/**
+ * The event types MessagingDomain actually hands to the scheduler — via EITHER path.
+ * handleEventTrigger is the customer-scoped one; handleShopEvent is the shop-scoped one (low_stock).
+ */
 function firedEventTypes(): string[] {
-  return [...domain.matchAll(/handleEventTrigger\(\s*'([a-z_]+)'/g)].map((m) => m[1]);
+  return [...domain.matchAll(/handle(?:EventTrigger|ShopEvent)\(\s*'([a-z_]+)'/g)].map((m) => m[1]);
 }
 
 describe('W3 — every offered trigger is actually wired', () => {

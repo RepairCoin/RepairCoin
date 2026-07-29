@@ -23,7 +23,15 @@ const EVENT_TYPES = [
   { value: "no_show", label: "Customer No-Show" },
   { value: "review_received", label: "Review Received" },
   { value: "low_rating", label: "Low Rating (1–2 stars)" },
+  { value: "low_stock", label: "Low Stock (shop alert)" },
 ];
+
+/**
+ * Triggers that happen to the SHOP rather than to a customer. There is nobody to message, so these
+ * force a shop-facing action — the API rejects the alternative, and a form that let you pick it would
+ * just be a 400 waiting to happen.
+ */
+const SHOP_SCOPED_EVENTS = new Set(["low_stock"]);
 
 const TARGET_AUDIENCES = [
   { value: "all", label: "All Customers" },
@@ -84,7 +92,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [messageTemplate, setMessageTemplate] = useState("");
   // What the rule DOES when it fires (Custom Workflows W2). 'send_message' is everything that existed
   // before actions; 'issue_reward' sends nothing and needs no template.
-  const [actionType, setActionType] = useState<"send_message" | "issue_reward">("send_message");
+  const [actionType, setActionType] = useState<"send_message" | "issue_reward" | "notify_staff">("send_message");
   const [rewardAmount, setRewardAmount] = useState(25);
   const [rewardReason, setRewardReason] = useState("");
   const [triggerType, setTriggerType] = useState<"schedule" | "event">("schedule");
@@ -115,9 +123,20 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       // and an undefined here would leave a controlled input uncontrolled.
       setName(rule.name ?? "");
       setMessageTemplate(rule.messageTemplate ?? "");
-      setActionType(rule.actionType === "issue_reward" ? "issue_reward" : "send_message");
+      setActionType(
+        rule.actionType === "issue_reward" || rule.actionType === "notify_staff"
+          ? rule.actionType
+          : "send_message"
+      );
       setRewardAmount(Number(rule.actionPayload?.amountRcn) || 25);
-      setRewardReason(typeof rule.actionPayload?.reason === "string" ? rule.actionPayload.reason : "");
+      // One field backs two actions: `reason` for a reward, `message` for a staff alert.
+      setRewardReason(
+        typeof rule.actionPayload?.reason === "string"
+          ? rule.actionPayload.reason
+          : typeof rule.actionPayload?.message === "string"
+          ? rule.actionPayload.message
+          : ""
+      );
       setTriggerType(rule.triggerType ?? "schedule");
       setScheduleType(rule.scheduleType || "daily");
       setScheduleDayOfWeek(rule.scheduleDayOfWeek ?? 1);
@@ -218,11 +237,20 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   };
 
   // A reward rule sends nothing, so drip sequences and A/B (both message concepts) don't apply to it.
-  const rewardMode = actionType === "issue_reward";
+  // A shop-scoped trigger (low stock) has no customer, so messaging, rewards, sequences and A/B all
+  // become meaningless — there is nobody on the other end.
+  const shopScoped = triggerType === "event" && SHOP_SCOPED_EVENTS.has(eventType);
+  const rewardMode = actionType === "issue_reward" && !shopScoped;
   // Sequences are event-triggered only (enrollment is wired into the event path).
-  const sequenceMode = useSequence && triggerType === "event" && !rewardMode;
+  const sequenceMode = useSequence && triggerType === "event" && !rewardMode && !shopScoped;
   // A/B works on any single-message rule; can't combine with a sequence.
-  const abMode = useAbTest && !sequenceMode && !rewardMode;
+  const abMode = useAbTest && !sequenceMode && !rewardMode && !shopScoped;
+
+  // Picking a shop-scoped trigger forces the shop-facing action, so the form can't produce a rule the
+  // API will reject.
+  useEffect(() => {
+    if (shopScoped && actionType !== "notify_staff") setActionType("notify_staff" as any);
+  }, [shopScoped, actionType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,8 +262,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     }
 
     let cleanSteps: WorkflowStep[] = [];
-    if (rewardMode) {
-      // no message to validate
+    if (rewardMode || actionType === "notify_staff") {
+      // Neither sends a customer message, so there is no body to validate.
     } else if (sequenceMode) {
       // Keep a step if it's a non-messaging step (nothing to compose) OR a message step with a body.
       cleanSteps = steps
@@ -271,20 +299,23 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     setSaving(true);
     try {
       const isReward = actionType === "issue_reward";
+      const isNotify = actionType === "notify_staff";
+      const sendsNoMessage = isReward || isNotify;
       const data: CreateAutoMessageRequest = {
         name: name.trim(),
-        // A reward rule sends nothing, so it carries no template. For messaging rules the API still
-        // requires one; in a sequence it mirrors the first step.
-        // In a sequence the rule-level template mirrors the first MESSAGE step; a workflow whose
-        // steps are all rewards has none, which migration 248 now allows.
-        messageTemplate: isReward
+        // An action that sends nothing carries no template. In a sequence the rule-level template
+        // mirrors the first MESSAGE step; a workflow made only of rewards/alerts has none, which
+        // migration 248 allows.
+        messageTemplate: sendsNoMessage
           ? null
           : sequenceMode
-          ? cleanSteps.find((s) => s.actionType !== "issue_reward")?.messageTemplate ?? null
+          ? cleanSteps.find((s) => s.actionType === "send_message")?.messageTemplate ?? null
           : messageTemplate.trim(),
         actionType,
         actionPayload: isReward
           ? { amountRcn: rewardAmount, ...(rewardReason.trim() ? { reason: rewardReason.trim() } : {}) }
+          : isNotify
+          ? (rewardReason.trim() ? { message: rewardReason.trim() } : {})
           : null,
         triggerType,
         ...(triggerType === "schedule" && {
@@ -348,33 +379,72 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               timing — applies identically whichever action is chosen. */}
           <div>
             <label className="block text-sm text-gray-400 mb-2">Then do this</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setActionType("send_message")}
-                className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                  actionType === "send_message"
-                    ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                    : "border-gray-700 text-gray-400 hover:border-gray-600"
-                }`}
-              >
-                <div className="font-medium">Send a message</div>
-                <div className="text-xs text-gray-500">Email/in-app message to the customer</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActionType("issue_reward")}
-                className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                  actionType === "issue_reward"
-                    ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                    : "border-gray-700 text-gray-400 hover:border-gray-600"
-                }`}
-              >
-                <div className="font-medium">Issue an RCN reward</div>
-                <div className="text-xs text-gray-500">Sends nothing — credits the customer</div>
-              </button>
-            </div>
+            {shopScoped ? (
+              // Nobody to message — the trigger happened to the shop, so the action is fixed.
+              <div className="rounded-lg border border-[#FFCC00] bg-[#FFCC00]/10 px-3 py-2">
+                <div className="text-sm font-medium text-white">Notify my team</div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  This one happens to your shop, not to a customer — there&apos;s nobody to message.
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActionType("send_message")}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                    actionType === "send_message"
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="font-medium">Send a message</div>
+                  <div className="text-xs text-gray-500">To the customer</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActionType("issue_reward")}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                    actionType === "issue_reward"
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="font-medium">Issue an RCN reward</div>
+                  <div className="text-xs text-gray-500">Credits the customer</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActionType("notify_staff")}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                    actionType === "notify_staff"
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="font-medium">Notify my team</div>
+                  <div className="text-xs text-gray-500">Alerts you, not the customer</div>
+                </button>
+              </div>
+            )}
           </div>
+
+          {actionType === "notify_staff" && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Alert text (optional)</label>
+              <input
+                type="text"
+                value={rewardReason}
+                onChange={(e) => setRewardReason(e.target.value)}
+                placeholder="e.g. Reorder before the weekend"
+                maxLength={500}
+                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Goes to you and your team. Leave blank to use the workflow name.
+              </p>
+            </div>
+          )}
 
           {rewardMode && (
             <div className="grid grid-cols-2 gap-3">
@@ -571,7 +641,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
           {/* Advanced-mode toggles: a rule is a single message, OR a drip sequence, OR an A/B test.
               All three are message concepts, so none of them apply to a reward rule. */}
-          <div className={`flex flex-col gap-1.5 ${rewardMode ? "hidden" : ""}`}>
+          <div className={`flex flex-col gap-1.5 ${rewardMode || actionType === "notify_staff" ? "hidden" : ""}`}>
             {/* Multi-step sequence toggle (event triggers only — enrollment is event-driven) */}
             {triggerType === "event" && (
               <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
@@ -608,7 +678,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           </div>
 
           {/* A reward rule has no message at all — skip the whole composer. */}
-          {rewardMode ? null : sequenceMode ? (
+          {rewardMode || actionType === "notify_staff" ? null : sequenceMode ? (
             /* Sequence steps editor */
             <div className="space-y-3">
               <div className="flex items-center justify-between">

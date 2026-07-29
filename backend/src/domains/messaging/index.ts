@@ -125,8 +125,34 @@ export class MessagingDomain implements DomainModule {
       }
     }, 'MessagingDomain');
 
+    // low_stock → the first SHOP-scoped trigger: it happens to the shop, with no customer involved.
+    // Reuses the event LowStockAlertService already publishes, which also already throttles per item
+    // and honours the shop's digest preference — so the automation inherits that de-duplication
+    // instead of building a second, competing one.
+    eventBus.subscribe('inventory:low_stock_alert', async (event) => {
+      try {
+        const { shopId, items, itemsCount } = event.data;
+        if (!shopId) return;
+
+        const names = Array.isArray(items) ? items.slice(0, 3).map((i: any) => i.name).filter(Boolean) : [];
+        const more = (itemsCount || names.length) - names.length;
+        const summary =
+          names.length > 0
+            ? `Low stock: ${names.join(', ')}${more > 0 ? ` and ${more} more` : ''}.`
+            : `${itemsCount || 'Some'} item(s) are low on stock.`;
+
+        await autoMessageSchedulerService.handleShopEvent('low_stock', {
+          shopId,
+          reference: Array.isArray(items) && items[0]?.id ? String(items[0].id) : undefined,
+          summary,
+        });
+      } catch (error) {
+        logger.error('Error handling low_stock_alert for automations:', error);
+      }
+    }, 'MessagingDomain');
+
     logger.info(
-      'Messaging domain event subscriptions registered (order_completed, order_cancelled, order_no_show, review:created)'
+      'Messaging domain event subscriptions registered (order_completed, order_cancelled, order_no_show, review:created, low_stock_alert)'
     );
   }
 

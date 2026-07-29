@@ -325,6 +325,81 @@ export class AutoMessageSchedulerService {
   }
 
   /**
+   * Handle a SHOP-SCOPED event — one that happens to the shop with no customer involved (low_stock).
+   *
+   * Every other trigger targets a customer: the engine resolves an audience and runs the action once
+   * per person. Here there is nobody to resolve, so the action runs exactly once, immediately, with no
+   * customer in context. Only actions that don't need a recipient can be used (notify_staff); the API
+   * rejects a shop-scoped rule configured to send a customer message, since there would be no one to
+   * send it to.
+   *
+   * De-duplication is deliberately NOT done here. The upstream emitter (LowStockAlertService) already
+   * throttles per item and honours the shop's digest preference — re-implementing that would mean two
+   * competing notions of "have we already said this", and the shop would eventually get either
+   * duplicates or silence depending on which won.
+   */
+  async handleShopEvent(
+    eventType: string,
+    data: { shopId: string; reference?: string; summary?: string }
+  ): Promise<{ rulesFired: number }> {
+    let rulesFired = 0;
+    try {
+      const rules = await this.autoMessageRepo.getActiveEventRules(data.shopId, eventType);
+      if (rules.length === 0) return { rulesFired: 0 };
+
+      if (!(await this.isShopEntitled(data.shopId))) return { rulesFired: 0 };
+
+      const shop = await this.shopRepo.getShop(data.shopId);
+      const shopName = shop?.name || 'Our Shop';
+
+      for (const rule of rules) {
+        try {
+          const outcome = await getAutoMessageActionRegistry(this.messageRepo as any).run({
+            rule,
+            shopId: data.shopId,
+            customerAddress: '', // no customer — this happened to the shop
+            shopName,
+            actionType: rule.actionType || 'notify_staff',
+            actionPayload: rule.actionPayload ?? null,
+            messageText: data.summary,
+          });
+
+          if (outcome.ok) {
+            rulesFired++;
+            // Recorded with a NULL customer (migration 252) so "Last run" works and there's an audit
+            // trail, without inventing a customer who was never involved.
+            await this.autoMessageRepo.recordSend({
+              autoMessageId: rule.id,
+              shopId: data.shopId,
+              customerAddress: null,
+              triggerReference: data.reference,
+              status: 'sent',
+            });
+          }
+        } catch (err) {
+          logger.error('Shop-scoped automation rule failed', {
+            ruleId: rule.id,
+            shopId: data.shopId,
+            eventType,
+            error: (err as Error)?.message,
+          });
+        }
+      }
+
+      if (rulesFired) {
+        logger.info(`Shop-scoped automation fired ${rulesFired} rule(s) for ${eventType}`, { shopId: data.shopId });
+      }
+    } catch (error) {
+      logger.error('Error handling shop-scoped automation event', {
+        eventType,
+        shopId: data.shopId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+    return { rulesFired };
+  }
+
+  /**
    * Handle an event-based trigger (e.g., booking completed/cancelled).
    * Creates pending sends in the DB with a scheduled_send_at based on delay_hours.
    * The hourly scheduler picks them up when due.

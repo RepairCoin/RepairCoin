@@ -220,10 +220,29 @@ subscription (or a scheduled sweep), and every fired type must be accepted. The 
 against is silent: a trigger offered in the UI that nothing publishes means a shop builds a workflow,
 activates it, and waits forever with no error to show for it.
 
-**Still absent: `low_stock` and `payment_failed`.** Low stock is *shop-scoped* — there is no customer to
-message — so it needed a `notify_staff` action before the trigger could mean anything. **That action now
-exists (below), so `low_stock` is unblocked** and needs only an emit path from the inventory domain.
-`payment_failed` still has no confirmed emit path.
+**`low_stock` — BUILT 2026-07-29.** The first **shop-scoped** trigger: it happens to the shop, with no
+customer anywhere in it. Three things that made it different from every trigger before it:
+
+- **No emit path was needed.** `LowStockAlertService` already publishes `inventory:low_stock_alert`,
+  *and already throttles per item and honours the shop's digest preference*. The automation subscribes to
+  that and inherits the de-duplication. Building a second notion of "have we already said this" would
+  eventually produce duplicates or silence depending on which won — so `handleShopEvent` deliberately
+  contains no dedup at all, and a test asserts it.
+- **A shop-scoped execution path** (`AutoMessageSchedulerService.handleShopEvent`): no audience to
+  resolve, so the action runs exactly once with no customer in context. Still gated by
+  `isShopEntitled`.
+- **Migration 252** makes `auto_message_sends.customer_address` nullable — NULL meaning "fired for the
+  shop, not for anybody". The enrolled counts are `COUNT(DISTINCT customer_address)` and SQL ignores
+  NULLs, so a shop-scoped workflow correctly shows 0 enrolled; "Last run" keeps working off `sent_at`.
+
+The API **rejects a shop-scoped rule wired to a customer action** (`SHOP_SCOPED_EVENTS`) — a low_stock
+rule set to "send a message" has nobody to send to, and would otherwise sit in the list looking active
+while silently doing nothing. The builder mirrors this: picking the trigger fixes the action to "Notify
+my team" and hides the message/sequence/A-B controls.
+
+Ninth template: **"Tell me when stock runs low"**.
+
+**Still absent: `payment_failed`** — no confirmed emit path.
 
 ### `notify_staff` — BUILT 2026-07-29
 

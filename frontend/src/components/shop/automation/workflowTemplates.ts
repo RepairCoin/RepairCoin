@@ -207,6 +207,26 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     },
   },
   {
+    id: "low-stock-alert",
+    name: "Tell me when stock runs low",
+    description: "Get an alert the moment a part drops below its reorder threshold.",
+    shape: "Low stock → notify my team",
+    draft: {
+      name: "Low stock alert",
+      triggerType: "event",
+      eventType: "low_stock",
+      delayHours: 0,
+      targetAudience: "all",
+      maxSendsPerCustomer: 1,
+      // Shop-scoped: this happens to the shop, so there's no customer and no message.
+      actionType: "notify_staff",
+      actionPayload: { message: "Stock is running low — worth reordering before it runs out." },
+      messageTemplate: null,
+      stopOnBooking: false,
+      steps: null,
+    },
+  },
+  {
     id: "slow-week-promo",
     name: "Fill a slow week",
     description: "When bookings dip, nudge active customers with an offer.",

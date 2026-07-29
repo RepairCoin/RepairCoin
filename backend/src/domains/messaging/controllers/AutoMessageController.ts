@@ -22,7 +22,16 @@ const VALID_EVENT_TYPES = [
   // Operations triggers (W3). Each is backed by a real event the platform already emits — see
   // MessagingDomain.setupEventSubscriptions.
   'no_show', 'review_received', 'low_rating',
+  // Shop-scoped: happens to the SHOP, with no customer involved.
+  'low_stock',
 ];
+
+/**
+ * Triggers that fire for the shop rather than for a customer. A rule on one of these can only use an
+ * action that needs no recipient — configuring "send a message" would leave the engine with nobody to
+ * send to, and the rule would sit there looking active while quietly doing nothing.
+ */
+const SHOP_SCOPED_EVENTS = new Set(['low_stock']);
 const VALID_TARGET_AUDIENCES = ['all', 'active', 'inactive_30d', 'has_balance', 'completed_booking'];
 const MAX_SEQUENCE_STEPS = 10;
 
@@ -236,6 +245,14 @@ export class AutoMessageController {
       if (triggerType === 'event') {
         if (!eventType || !VALID_EVENT_TYPES.includes(eventType)) {
           return res.status(400).json({ success: false, error: `eventType must be one of: ${VALID_EVENT_TYPES.join(', ')}` });
+        }
+        // A shop-scoped trigger has no customer, so an action that needs a recipient can never run.
+        // Rejected at write time rather than failing silently every time the rule fires.
+        if (SHOP_SCOPED_EVENTS.has(eventType) && !NON_MESSAGING_ACTIONS.has(actionType)) {
+          return res.status(400).json({
+            success: false,
+            error: `"${eventType}" happens to your shop, not to a customer — use an action like "notify my team" instead of sending a message`,
+          });
         }
       }
 
