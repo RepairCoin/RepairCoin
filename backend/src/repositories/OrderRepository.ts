@@ -48,6 +48,8 @@ export interface ServiceOrder {
   // the customer booked via an AI booking card; undefined for marketplace
   // bookings. Drives the AI booking-confirmation message.
   conversationId?: string;
+  // Team member who performed the work, set at completion (migration 213, staff commissions).
+  completedByMemberId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -811,6 +813,7 @@ export class OrderRepository extends BaseRepository {
       cancellationReason: row.cancellation_reason || undefined,
       cancellationNotes: row.cancellation_notes || undefined,
       conversationId: row.conversation_id || undefined,
+      completedByMemberId: row.completed_by_member_id || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

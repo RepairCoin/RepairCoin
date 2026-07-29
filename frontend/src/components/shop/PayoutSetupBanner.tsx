@@ -56,7 +56,7 @@ export function PayoutSetupBanner() {
             shop.
           </p>
         </div>
-        <Link href="/register/shop/payouts">
+        <Link href="/shop/get-paid">
           <button className="whitespace-nowrap rounded-lg bg-[#FFCC00] px-4 py-2 text-sm font-bold text-black transition-colors hover:bg-[#FFD700]">
             Set Up Payouts
           </button>

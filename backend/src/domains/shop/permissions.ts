@@ -19,6 +19,8 @@ export const SHOP_PERMISSIONS = [
   'team:manage',       // Invite/edit/remove team members
   'shop:manage',       // Shop profile, location, settings, integrations
   'marketing:manage',  // Marketing campaigns and ads
+  'payments:manage',   // Payments Center: view transactions, export
+  'payments:refund',   // Issue refunds (money out — owner-only by default)
 ] as const;
 
 export type ShopPermission = (typeof SHOP_PERMISSIONS)[number];
@@ -32,8 +34,11 @@ export const ALL_PERMISSIONS = '*';
  */
 export const ROLE_TEMPLATES: Record<string, string[]> = {
   owner: [ALL_PERMISSIONS],
+  // Refunds are excluded deliberately: the template grants everything not listed here, so a
+  // new money-moving permission would otherwise be handed to every manager silently. An owner
+  // can still grant payments:refund to a specific manager per-member.
   manager: SHOP_PERMISSIONS.filter(
-    (p) => p !== 'billing:manage' && p !== 'team:manage'
+    (p) => p !== 'billing:manage' && p !== 'team:manage' && p !== 'payments:refund'
   ),
   staff: [
     'inventory:view',

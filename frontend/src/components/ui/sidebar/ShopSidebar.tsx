@@ -28,6 +28,7 @@ import {
   Workflow,
   CreditCard,
   Percent,
+  Receipt,
 } from "lucide-react";
 import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionMenuItem } from "./BaseSidebar";
@@ -239,6 +240,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
         },
         // Team (staff management) moved to the header profile menu — it's an
         // account-level action, not a day-to-day nav destination.
+        {
+          title: "Payments",
+          href: "/shop?tab=payments",
+          icon: <Receipt className="w-5 h-5" />,
+          tabId: "payments",
+        },
         ...(commissionsEnabled
           ? [
               {

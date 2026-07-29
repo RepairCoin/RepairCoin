@@ -490,7 +490,10 @@ export class OrderController {
                   updatedOrder.stripePaymentIntentId,
                   depositCents,
                   'requested_by_customer',
-                  connectedAccountId
+                  connectedAccountId,
+                  // One deposit refund per order — keying on the order makes a retried
+                  // completion safe without collapsing distinct refunds.
+                  `deposit:${updatedOrder.orderId}`
                 );
                 logger.info('Deposit refunded on order completion', {
                   orderId: updatedOrder.orderId,

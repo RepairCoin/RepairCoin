@@ -372,7 +372,7 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
               Settings
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={() => router.push("/register/shop/payouts")}
+              onSelect={() => router.push("/shop/get-paid")}
               className="cursor-pointer focus:bg-[#262626] focus:text-white"
             >
               <Wallet className="h-4 w-4" />
