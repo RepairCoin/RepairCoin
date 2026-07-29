@@ -5,7 +5,14 @@
 > shop owners never open the Stripe Dashboard. The user should feel like they are
 > using **FixFlow Payments**, not switching between FixFlow and Stripe.
 
-Status: **Phase 0 code-complete (unverified) · Slice 1.0 shipped** · Owner: Nico · Last updated: 2026-07-28
+Status: **Phase 0 code-complete (unverified) · Slices 1.0–1.3 shipped (launch scope complete)**
+· Owner: Nico · Last updated: 2026-07-29
+
+> **Launch scope is merged** (Slice 1.3 via PR #679). Verified on staging: migration 250
+> applied, and a full refund on a Connect direct charge reconciled correctly (`refunds` row
+> `succeeded`, `payments.refunded_cents` + status updated by `charge.refunded`). Still
+> unverified: partial refunds, the `payments:refund` permission split, and the Stripe failure
+> path.
 
 > **Scope decision (2026-07-28) — launch first.** Phase 1 is cut to Transactions,
 > Refunds, and the order↔payment linking that both need. **Invoices, Payment Links,
@@ -369,9 +376,10 @@ Refunds needs it, and it can be added later against data that is already being w
   in `permissions.ts` + `shopTabPermissions.ts` mirror, `api/payments.ts`. Transactions
   table + detail drawer.
 
-#### Slice 1.3 — Refunds
+#### Slice 1.3 — Refunds — ✅ SHIPPED (PR #679)
 - Migration `refunds` (`payment_id`, `amount_cents`, reason, status, `stripe_refund_id`,
-  `created_by`). `RefundRepository`.
+  `created_by`). `RefundRepository`. **Shipped as migration 250**, not 248 — 248/249 were taken
+  by the automation work; the guard is `version = 250`.
 - `POST /transactions/:id/refund` (full/partial) → `StripeService.refundPayment` /
   `partialRefund` (with `refund_application_fee` for Connect) → insert `refunds` row.
 - Reconcile stays authoritative: `charge.refunded` (Phase 0) updates `payments.refunded_cents`
@@ -379,6 +387,16 @@ Refunds needs it, and it can be added later against data that is already being w
   `stripe_refund_id`.
 - Log to `admin_activity_logs` (`AdminRepository.logAdminActivity`). Refund button in the
   transaction detail drawer.
+- **The audit log did not work and had to be fixed separately (2026-07-29).**
+  `logAdminActivity` inserted into `action_type` / `action_description` / `entity_type` /
+  `entity_id` / `metadata`; the table is `(admin_address, action, details jsonb)` per
+  `000_base_schema.sql:1397` and never had those columns. Every write threw and was swallowed
+  by the method's own catch, so all 11 call sites (mints, suspensions, contract ops, refunds)
+  had been logging nothing — the table held one row, written directly by a 2025 migration
+  script. Fixed by mapping onto the real columns rather than migrating to the imagined ones:
+  `action` ← actionType, the rest folded into `details`, reads mapped back out, `entityType`
+  filter → `details->>'entityType'`. No call site changed. **Nothing before the fix is
+  recoverable — there is no backfill source.**
 
 #### Slice 1.4 — Invoices data model + CRUD — ⏭ DEFERRED TO PHASE 2
 - Migrations `invoices` + `invoice_line_items`; add FK `payments.invoice_id → invoices.id`.
@@ -438,6 +456,69 @@ already live.
 *Original (pre-cut) exit criteria, now the Phase 2 target: also create→send→get-paid on an
 invoice (PDF + embedded pay page), generate/track payment links, see balances + payout
 history, and read a revenue dashboard.*
+
+### Admin oversight — Slices A1–A2 (specced 2026-07-29, not scheduled)
+
+Everything in Phase 1 is shop-facing: every route in `PaymentsDomain/routes.ts` is
+`requireRole(['shop'])` with `shopId` taken from the JWT, so an **admin cannot read the fiat
+ledger at all** — not per-shop, not platform-wide. The admin dashboard's existing
+`admin/tabs/TransactionsTab.tsx` is the RCN *token* ledger (mint/redemption/purchase,
+`txHash`), unrelated to `payments`. Consequence worth naming: `SUM(application_fee_cents)` is
+the platform's revenue from payments and it is currently visible in **no** UI.
+
+Lettered rather than numbered so Phase 2's 1.4–1.8 keep their meaning. A1 is read-only and
+cheap; A2 moves a merchant's money and is a product decision before it is a code change.
+
+#### Slice A1 — Admin payments visibility (read-only)
+- **Generalize the shop scoping, don't fork it.** `PaymentRepository.buildFilters(shopId,
+  filters)` hardcodes `p.shop_id = $1` as its first predicate. Change the parameter to
+  `string | null` (null = skip it) and accept `shopId` as an optional *filter* instead. Every
+  current caller passes a real id and is unaffected. Then add `listAll(filters, page, limit)`,
+  a nullable-`shopId` `listAllForExport`, `getByIdAdmin(id)`, and
+  `getPlatformTotals(filters)` → `{count, grossCents, feeCents, applicationFeeCents,
+  netCents, refundedCents}`.
+- **`shopName` into `contextSelect`** via `LEFT JOIN shops sh ON sh.shop_id = p.shop_id` — a
+  platform list of bare shop ids is unusable. Costs the shop-side queries one join; worth it
+  to keep a single read path.
+- **`controllers/AdminTransactionController.ts`** in PaymentsDomain (the ledger stays in its
+  own domain), reusing an exported `parseFilters` extended with `shopId`.
+- **Routes**, declared BEFORE the shop `/transactions/:id` routes or Express matches `admin`
+  as an id — the same trap as `/export.csv`:
+  `GET /admin/transactions`, `/admin/transactions/:id`, `/admin/transactions/:id/refunds`,
+  `/admin/transactions/summary`, `/admin/transactions/export.csv`, all behind
+  `[authMiddleware, requireAdmin]`. CSV gains a leading Shop column.
+- **Migration: one index.** Every index on `payments` leads with `shop_id`, so a platform-wide
+  `ORDER BY created_at DESC` can use none of them:
+  `CREATE INDEX idx_payments_created ON payments (created_at DESC)`.
+- **Frontend:** `services/api/adminPayments.ts`; `admin/tabs/PaymentsTab.tsx` — **named
+  Payments, not Transactions**, because `admin/tabs/TransactionsTab.tsx` already exists and is
+  a different ledger. Reuse the shop TransactionsTab layout + drawer, add a Shop column, a shop
+  filter, and summary cards (Gross · Stripe fees · **Platform fees** · Net · Refunded). Drawer
+  is read-only — refund history listed, no refund button. Wire in three places:
+  `ui/sidebar/AdminSidebar.tsx`, `admin/AdminDashboardClient.tsx` (`LazyTabWrapper`),
+  `admin/SmartCommandBar.tsx`.
+- **QA focus:** the nullable-`shopId` refactor touches the shop read path shipped in 1.2. A
+  null-scoping bug there is a cross-tenant leak — verify a shop still sees only its own rows in
+  list, detail, and CSV. That matters more than anything in the admin feature itself.
+- ~1 day; most of it repurposed.
+
+#### Slice A2 — Admin-initiated refunds
+Mechanically small — `RefundController` already resolves the connected account from
+`payment.stripeAccountId` — which is the trap. These are **direct charges**: the money sits in
+the shop's Stripe account, so an admin refund debits the merchant (and `refund_application_fee`
+claws back our commission), overdrawing them if the balance is short. The platform reaching
+into a merchant's account is a policy question, not an implementation one; scope it to disputes
+and fraud, not routine customer service.
+- **Attribution:** `refunds.created_by` can't distinguish an admin from an owner. Add
+  `created_by_role VARCHAR(16)` (`shop` | `admin`). The shop must see in its own drawer that
+  *the platform* issued it — a silent debit is how support tickets are made.
+- Mandatory `note`; shop notification via `getNotificationGateway().dispatch(...)` + a registry
+  entry (never hand-wired — see CLAUDE.md); `logAdminActivity` with the admin wallet.
+- Confirmation stricter than the shop's: type the amount, show the shop name. The failure mode
+  is the right amount on the wrong shop's charge.
+- **Recommendation: ship A1 alone first.** It answers what admins ask today (what's flowing,
+  what have we earned, did that refund land) at a fraction of the risk. A2 waits for a concrete
+  dispute workflow to hang it on.
 
 ### Phase 2 — Invoices, Links, Payouts, Dashboard, Virtual Terminal, saved methods, deposits, recurring, AI reminders
 
