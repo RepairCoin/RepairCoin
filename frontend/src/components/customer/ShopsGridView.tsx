@@ -11,9 +11,11 @@ import { toast } from "react-hot-toast";
 interface ShopsGridViewProps {
   searchTerm?: string;
   selectedCategory?: string;
+  /** "grid" = cards, "list" = compact rows. */
+  layout?: "grid" | "list";
 }
 
-export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", selectedCategory = "" }) => {
+export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", selectedCategory = "", layout = "grid" }) => {
   const router = useRouter();
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,6 +156,58 @@ export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", s
               ? "Try adjusting your filters"
               : "Check back later for new shops"}
           </p>
+        </div>
+      ) : layout === "list" ? (
+        <div className="space-y-3">
+          {filteredShops.map((shop: any) => (
+            <div
+              key={shop.shopId}
+              onClick={() => handleShopClick(shop.shopId)}
+              className="flex items-center gap-4 bg-[#1A1A1A] border border-gray-800 rounded-xl p-4 hover:border-[#FFCC00] transition-all duration-200 cursor-pointer group"
+            >
+              {/* Logo / avatar */}
+              {shop.logoUrl ? (
+                <div className="w-14 h-14 flex-shrink-0 bg-white rounded-full overflow-hidden">
+                  <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-contain p-1" />
+                </div>
+              ) : (
+                <div className={`w-14 h-14 flex-shrink-0 bg-gradient-to-br ${getShopColor(shop.name)} rounded-full flex items-center justify-center`}>
+                  <span className="text-white text-xl font-bold">{shop.name.charAt(0).toUpperCase()}</span>
+                </div>
+              )}
+
+              {/* Name, category, location */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-white truncate group-hover:text-[#FFCC00] transition-colors">
+                    {shop.name}
+                  </h3>
+                  {shop.verified && (
+                    <span className="inline-flex items-center gap-1 text-green-400 text-[11px] font-semibold">
+                      <Verified className="w-3 h-3 fill-current" /> Verified
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
+                  {shop.category && <span className="text-[#FFCC00]">{shop.category}</span>}
+                  {shop.address && (
+                    <span className="flex items-center gap-1 truncate">
+                      <MapPin className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate">{shop.address}{shop.city ? `, ${shop.city}` : ''}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="flex-shrink-0 flex items-center gap-1 text-sm text-gray-400">
+                <ShoppingBag className="w-4 h-4" />
+                <span className="text-white font-semibold">
+                  {shop.totalTokensIssued ? `${shop.totalTokensIssued.toFixed(0)} RCN` : "New"}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
