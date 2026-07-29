@@ -311,11 +311,18 @@ export interface SequenceStep {
   delayHours: number;
 }
 
+/** What an automation DOES when it fires (Custom Workflows W2). */
+export type AutoMessageActionType = 'send_message' | 'issue_reward';
+
 export interface AutoMessage {
   id: string;
   shopId: string;
   name: string;
-  messageTemplate: string;
+  /** Null for non-messaging actions (issue_reward) — they send nothing. */
+  messageTemplate: string | null;
+  actionType: AutoMessageActionType;
+  /** Action config. issue_reward: { amountRcn, reason? }. Null for send_message. */
+  actionPayload: Record<string, any> | null;
   triggerType: 'schedule' | 'event';
   scheduleType: string | null;
   scheduleDayOfWeek: number | null;
@@ -350,7 +357,10 @@ export interface AutoMessageSend {
 
 export interface CreateAutoMessageRequest {
   name: string;
-  messageTemplate: string;
+  /** Required for send_message; null for actions that send nothing. */
+  messageTemplate: string | null;
+  actionType?: AutoMessageActionType;
+  actionPayload?: Record<string, any> | null;
   triggerType: 'schedule' | 'event';
   scheduleType?: string;
   scheduleDayOfWeek?: number;

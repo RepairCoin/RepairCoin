@@ -181,6 +181,21 @@ in behaviour. This is the keystone; everything else is additive after it. ~M
 **W2 — non-messaging actions.** Issue reward/coupon, notify staff, create task/flag, draft a reorder,
 run a campaign, AI step. Each is a handler registered against the dispatcher from W1. ~M, incremental.
 
+> **`issue_reward` BUILT 2026-07-29** — and it proved W1's claim: a whole new action type needed one
+> handler file, one line in the registry, and no edit to the scheduler's trigger/audience/timing logic.
+> Migration 248 drops `NOT NULL` on `message_template` (the last place the schema assumed every
+> automation is a message); issuance goes through the existing guarded `RewardIssuanceService`; the
+> payload is validated at write time so a bad amount 400s instead of failing silently every tick; capped
+> at `MAX_AUTOMATED_RCN = 100` so a runaway rule can't drain a shop.
+> **Verified on staging with a real 1 RCN transfer** — shop −1, customer +1, `message_id = null`.
+> Two caveats: NULL-template storage is unverified until 248 deploys (staging still had the constraint,
+> so the test used a placeholder), and the issuance reason is discarded downstream — see
+> `docs/bugs/BUG-013-reward-issuance-reason-discarded.md`, deliberately NOT fixed here because
+> `RewardIssuanceService` is shared with campaign rewards.
+> **Trap for the next action:** `backend/tsconfig.json` has `strict: false`, so widening a type to
+> `| null` gives NO compile-time protection. Both engine paths resolve the message template *before*
+> dispatching, and an action with a null template would crash there — guarded by `NON_MESSAGING_ACTIONS`.
+
 **W3 — operations triggers.** Low stock, payment failed, no-show, review received. Requires event sources
 outside the messaging domain to emit onto the EventBus. ~M
 

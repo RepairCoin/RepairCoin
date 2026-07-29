@@ -12,7 +12,8 @@ export interface AutoMessage {
   id: string;
   shopId: string;
   name: string;
-  messageTemplate: string;
+  /** Message body for action_type='send_message'. NULL for non-messaging actions (migration 248). */
+  messageTemplate: string | null;
   triggerType: 'schedule' | 'event';
   scheduleType: string | null;
   scheduleDayOfWeek: number | null;
@@ -61,7 +62,10 @@ export interface AutoMessageSend {
 export interface CreateAutoMessageParams {
   shopId: string;
   name: string;
-  messageTemplate: string;
+  /** Required for send_message; omit for non-messaging actions (issue_reward et al). */
+  messageTemplate?: string | null;
+  actionType?: string;
+  actionPayload?: Record<string, unknown> | null;
   triggerType: 'schedule' | 'event';
   scheduleType?: string;
   scheduleDayOfWeek?: number;
@@ -146,14 +150,14 @@ export class AutoMessageRepository extends BaseRepository {
           shop_id, name, message_template, trigger_type,
           schedule_type, schedule_day_of_week, schedule_day_of_month, schedule_hour,
           event_type, delay_hours, target_audience, max_sends_per_customer,
-          steps, stop_on_booking, variant_b
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          steps, stop_on_booking, variant_b, action_type, action_payload
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING *
       `;
       const result = await this.pool.query(query, [
         params.shopId,
         params.name,
-        params.messageTemplate,
+        params.messageTemplate ?? null,
         params.triggerType,
         params.scheduleType || null,
         params.scheduleDayOfWeek ?? null,
@@ -166,6 +170,8 @@ export class AutoMessageRepository extends BaseRepository {
         params.steps && params.steps.length ? JSON.stringify(params.steps) : null,
         params.stopOnBooking ?? false,
         params.variantB ?? null,
+        params.actionType ?? 'send_message',
+        params.actionPayload ? JSON.stringify(params.actionPayload) : null,
       ]);
       logger.info('Auto-message rule created', { shopId: params.shopId, name: params.name });
       return this.mapRow(result.rows[0]);
