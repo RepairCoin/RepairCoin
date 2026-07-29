@@ -14,15 +14,16 @@ import type {
 } from './types';
 import { SendMessageAction, SendMessageDeps } from './sendMessageAction';
 import { IssueRewardAction } from './issueRewardAction';
+import { NotifyStaffAction } from './notifyStaffAction';
 
 export const DEFAULT_ACTION_TYPE = 'send_message';
 
 /** Action types a shop can configure. The UI and the create/update validator read this. */
-export const AUTO_MESSAGE_ACTION_TYPES = ['send_message', 'issue_reward'] as const;
+export const AUTO_MESSAGE_ACTION_TYPES = ['send_message', 'issue_reward', 'notify_staff'] as const;
 export type AutoMessageActionType = (typeof AUTO_MESSAGE_ACTION_TYPES)[number];
 
-/** Actions that send no message — message_template is not required for these. */
-export const NON_MESSAGING_ACTIONS: ReadonlySet<string> = new Set(['issue_reward']);
+/** Actions that send no customer message — message_template is not required for these. */
+export const NON_MESSAGING_ACTIONS: ReadonlySet<string> = new Set(['issue_reward', 'notify_staff']);
 
 export class AutoMessageActionRegistry {
   private readonly handlers = new Map<string, AutoMessageActionHandler>();
@@ -66,6 +67,7 @@ export function getAutoMessageActionRegistry(messages: SendMessageDeps): AutoMes
   return (_registry ??= new AutoMessageActionRegistry([
     new SendMessageAction(messages),
     new IssueRewardAction(),
+    new NotifyStaffAction(),
   ]));
 }
 

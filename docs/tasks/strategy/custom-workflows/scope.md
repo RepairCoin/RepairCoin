@@ -221,9 +221,29 @@ against is silent: a trigger offered in the UI that nothing publishes means a sh
 activates it, and waits forever with no error to show for it.
 
 **Still absent: `low_stock` and `payment_failed`.** Low stock is *shop-scoped* — there is no customer to
-message — so it needs a `notify_staff` action before the trigger means anything. That coupling is why it
-is not here; adding the trigger alone would offer shops an automation whose only possible action is to
-message a customer who has nothing to do with it.
+message — so it needed a `notify_staff` action before the trigger could mean anything. **That action now
+exists (below), so `low_stock` is unblocked** and needs only an emit path from the inventory domain.
+`payment_failed` still has no confirmed emit path.
+
+### `notify_staff` — BUILT 2026-07-29
+
+The first action that talks to the **shop** rather than the customer: "a no-show just happened", "this
+customer left 1 star", "stock is low". Its significance is structural, not cosmetic — every trigger so
+far had to be customer-scoped because messaging and rewards both need a recipient. This is what makes a
+shop-scoped trigger useful at all.
+
+- Delivery goes through the **notification gateway**, never hand-wired: a `workflow_staff_alert` row in
+  `notificationRegistry.ts` + one `dispatch()` call. Per CLAUDE.md, hand-wiring
+  `createNotification` + `wsManager` + `pushDispatcher` at each site is exactly how channels get
+  silently dropped.
+- **Addressed by `shopId`, never a wallet** — a shop login is frequently a social wallet that doesn't
+  match `shops.wallet_address`, so wallet-addressed shop notifications quietly fail to reach anyone.
+  A test pins this.
+- Not `transactional`: the shop opted in by building the workflow, so it can also mute the type via
+  preferences without deleting the automation.
+- Payload is `{ message? }`, capped at 500 chars, and everything is optional — an alert with no text
+  falls back to the workflow name, so "just tell me when this happens" needs no composing.
+- Available as a rule action and as a **step** action ("Notify my team" in the per-step picker).
 
 **W4 — surface it.** *Superseded — see §8. The target is a GHL-shaped Automation section, which is much
 more than "give it its own home".*

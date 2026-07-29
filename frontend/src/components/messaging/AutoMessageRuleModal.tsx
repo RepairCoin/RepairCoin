@@ -237,16 +237,21 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     if (rewardMode) {
       // no message to validate
     } else if (sequenceMode) {
-      // A1: keep a step if it's a reward step (no message needed) OR a message step with a body.
+      // Keep a step if it's a non-messaging step (nothing to compose) OR a message step with a body.
       cleanSteps = steps
         .map((s) => {
           const action = s.actionType || "send_message";
           const delayHours = Number(s.delayHours) || 0;
-          return action === "issue_reward"
-            ? { actionType: action, actionPayload: { amountRcn: Number(s.actionPayload?.amountRcn) || 0 }, delayHours }
-            : { actionType: action, messageTemplate: (s.messageTemplate || "").trim(), delayHours };
+          if (action === "issue_reward") {
+            return { actionType: action, actionPayload: { amountRcn: Number(s.actionPayload?.amountRcn) || 0 }, delayHours };
+          }
+          if (action === "notify_staff") {
+            const msg = String(s.actionPayload?.message ?? "").trim();
+            return { actionType: action, actionPayload: msg ? { message: msg } : {}, delayHours };
+          }
+          return { actionType: action, messageTemplate: (s.messageTemplate || "").trim(), delayHours };
         })
-        .filter((s) => s.actionType === "issue_reward" || s.messageTemplate);
+        .filter((s) => s.actionType !== "send_message" || s.messageTemplate);
 
       if (cleanSteps.length === 0) {
         toast.error("Add at least one step");
@@ -625,6 +630,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                         >
                           <option value="send_message">Send a message</option>
                           <option value="issue_reward">Issue RCN</option>
+                          <option value="notify_staff">Notify my team</option>
                         </select>
                       )}
                       {(s.actionType || "send_message") === "send_message" && (
@@ -659,6 +665,21 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                         className="w-32 px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
                       />
                       <p className="text-xs text-gray-500 mt-1">Debited from your RCN balance when this step runs.</p>
+                    </div>
+                  ) : s.actionType === "notify_staff" ? (
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Alert your team (optional)</label>
+                      <input
+                        type="text"
+                        value={String(s.actionPayload?.message ?? "")}
+                        onChange={(e) => updateStep(i, { actionPayload: { message: e.target.value } })}
+                        placeholder="e.g. Follow up with this customer today"
+                        maxLength={500}
+                        className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Goes to you, not the customer. Leave blank to use the workflow name.
+                      </p>
                     </div>
                   ) : (
                   <textarea

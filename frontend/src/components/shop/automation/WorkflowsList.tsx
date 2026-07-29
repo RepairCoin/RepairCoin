@@ -51,7 +51,13 @@ function stepsSummary(w: AutoMessage): string {
       : "Send a message";
   }
   return w.steps
-    .map((s: any) => (s.actionType === "issue_reward" ? `${s.actionPayload?.amountRcn ?? "?"} RCN` : "Message"))
+    .map((s: any) =>
+      s.actionType === "issue_reward"
+        ? `${s.actionPayload?.amountRcn ?? "?"} RCN`
+        : s.actionType === "notify_staff"
+        ? "Notify team"
+        : "Message"
+    )
     .join(" → ");
 }
 

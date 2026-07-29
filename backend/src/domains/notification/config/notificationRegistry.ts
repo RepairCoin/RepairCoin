@@ -116,6 +116,25 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
       body: (m) => m.message || 'You passed your monthly AI allowance — overage is now billing at Usage ×3.',
     },
   },
+  // ── Custom Workflows: the notify_staff action ────────────────────────────
+  // Raised BY the shop's own automation, TO the shop — "a no-show just happened", "stock is low".
+  // Not transactional: the shop opted into this by building the workflow, so it should also be able
+  // to mute it via preferences without deleting the automation.
+  workflow_staff_alert: {
+    channels: ['persist', 'ws', 'push'],
+    display: {
+      title: (m) => m.workflowName || 'Workflow alert',
+      icon: 'campaign',
+      color: '#FFCC00',
+    },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'default',
+      title: (m) => m.workflowName || 'Workflow alert',
+      body: (m) => m.message || 'One of your automations needs attention.',
+    },
+  },
+
   ai_overage_payment_failed: {
     channels: ['persist', 'ws', 'push'],
     transactional: true,

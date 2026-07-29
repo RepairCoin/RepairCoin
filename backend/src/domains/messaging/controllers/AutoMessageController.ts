@@ -12,6 +12,7 @@ import {
   parseIssueRewardPayload,
   MAX_AUTOMATED_RCN,
 } from '../../../services/autoMessageActions/issueRewardAction';
+import { parseNotifyStaffPayload } from '../../../services/autoMessageActions/notifyStaffAction';
 
 const VALID_TRIGGER_TYPES = ['schedule', 'event'];
 const VALID_SCHEDULE_TYPES = ['daily', 'weekly', 'monthly'];
@@ -96,6 +97,15 @@ function parseAction(
       };
     }
     return { actionType, actionPayload: payload as unknown as Record<string, unknown> };
+  }
+
+  if (actionType === 'notify_staff') {
+    // Everything is optional — an alert with no custom text falls back to the rule name, so a shop
+    // can add "tell me when this happens" without composing anything.
+    return {
+      actionType,
+      actionPayload: parseNotifyStaffPayload(rawPayload) as unknown as Record<string, unknown>,
+    };
   }
 
   return { actionType, actionPayload: null };
