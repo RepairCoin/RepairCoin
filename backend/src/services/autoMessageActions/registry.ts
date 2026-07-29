@@ -40,11 +40,12 @@ export class AutoMessageActionRegistry {
   }
 
   /**
-   * Run the rule's action. Falls back to `send_message` when action_type is missing, so rows written
-   * before migration 247 (and any code path that forgets to set it) behave exactly as they always have.
+   * Run the RESOLVED action for this execution (see AutoMessageActionContext.actionType — a step's
+   * action wins over the rule's). Falls back to `send_message` when absent, so rows written before
+   * migration 247 (and any caller that forgets to set it) behave exactly as they always have.
    */
   async run(ctx: AutoMessageActionContext): Promise<AutoMessageActionResult> {
-    const type = ctx.rule.actionType || DEFAULT_ACTION_TYPE;
+    const type = ctx.actionType || ctx.rule.actionType || DEFAULT_ACTION_TYPE;
     const handler = this.handlers.get(type);
     if (!handler) {
       logger.error('Unknown auto-message action type — rule skipped', {

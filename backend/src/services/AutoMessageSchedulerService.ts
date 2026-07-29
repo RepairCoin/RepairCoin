@@ -283,6 +283,9 @@ export class AutoMessageSchedulerService {
         customerName: customer.name,
         shopName,
         messageText,
+        // The immediate path has no step, so the rule's own action applies.
+        actionType: rule.actionType || 'send_message',
+        actionPayload: rule.actionPayload ?? null,
       });
       if (!outcome.ok) return { success: false };
 
@@ -753,13 +756,21 @@ export class AutoMessageSchedulerService {
                 }
               }
 
+              // A1: a sequence STEP may declare its own action, which is what makes a sequence a
+              // workflow rather than a drip. Step action wins; otherwise the rule's; otherwise
+              // send_message — so every pre-A1 sequence keeps its exact meaning.
+              const stepActionType = step?.actionType || rule.actionType || 'send_message';
+              const stepActionPayload = step
+                ? step.actionPayload ?? null
+                : rule.actionPayload ?? null;
+
               // Same guard as the immediate path: a non-messaging action has no template to resolve.
-              const isMessaging = !NON_MESSAGING_ACTIONS.has(rule.actionType || 'send_message');
+              const isMessaging = !NON_MESSAGING_ACTIONS.has(stepActionType);
               // A/B on delayed single-message sends: pick a variant at send time (sequence steps skip A/B).
               const abPick = isSequenceStep || !isMessaging ? null : this.pickVariant(rule);
               const messageText = isMessaging
                 ? resolveTemplate(
-                    step ? step.messageTemplate : (abPick ? abPick.message : rule.messageTemplate),
+                    step ? step.messageTemplate || '' : (abPick ? abPick.message : rule.messageTemplate),
                     { customerName: customer?.name || undefined, shopName }
                   )
                 : undefined;
@@ -773,6 +784,8 @@ export class AutoMessageSchedulerService {
                 customerName: customer?.name || undefined,
                 shopName,
                 messageText,
+                actionType: stepActionType,
+                actionPayload: stepActionPayload,
               });
               if (!outcome.ok) {
                 // Parity with the pre-W1 inline version: a blocked conversation marked the send

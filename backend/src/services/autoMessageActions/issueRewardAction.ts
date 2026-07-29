@@ -46,13 +46,15 @@ export class IssueRewardAction implements AutoMessageActionHandler {
   constructor(private readonly issuer: { issueExact: typeof rewardIssuanceService.issueExact } = rewardIssuanceService) {}
 
   async execute(ctx: AutoMessageActionContext): Promise<AutoMessageActionResult> {
-    const payload = parseIssueRewardPayload(ctx.rule.actionPayload);
+    // The RESOLVED payload — from the sequence step when one declares this action (A1), otherwise
+    // from the rule. The handler doesn't care which.
+    const payload = parseIssueRewardPayload(ctx.actionPayload ?? ctx.rule.actionPayload);
     if (!payload) {
       // A misconfigured rule must not retry forever — report it and let the caller mark the send done.
       logger.error('issue_reward action skipped — invalid action_payload', {
         ruleId: ctx.rule.id,
         shopId: ctx.shopId,
-        payload: ctx.rule.actionPayload,
+        payload: ctx.actionPayload ?? ctx.rule.actionPayload,
         maxAllowed: MAX_AUTOMATED_RCN,
       });
       return { ok: false, skipped: 'empty' };

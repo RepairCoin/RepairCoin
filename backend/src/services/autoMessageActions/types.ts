@@ -21,6 +21,17 @@ export interface AutoMessageActionContext {
   customerName?: string;
   shopName: string;
   /**
+   * The RESOLVED action for this execution — from the drip step if it declares one (A1), otherwise
+   * from the rule (W1), otherwise 'send_message'. Handlers read this rather than `rule.actionType` so
+   * they never need to know whether the action came from the rule or from a step in a sequence.
+   *
+   * Optional: a caller that omits it falls back to the rule's action, which is what every call site
+   * meant before A1 existed.
+   */
+  actionType?: string;
+  /** Config for the resolved action, from the same place `actionType` came from. */
+  actionPayload?: Record<string, unknown> | null;
+  /**
    * For `send_message` only: the final message body, with the drip step / A-B variant already chosen
    * and template variables resolved. Which text to send depends on WHERE in the engine we are (an
    * immediate send vs. a queued sequence step), so the caller resolves it and the handler just

@@ -2,9 +2,21 @@
 import { BaseRepository } from './BaseRepository';
 import { logger } from '../utils/logger';
 
-/** One step of a drip sequence (Phase 3). Each step is sent `delayHours` after the previous one fires. */
+/**
+ * One step of a sequence. Each step runs `delayHours` after the previous one fires.
+ *
+ * Originally message-only (Phase 3 drip campaigns). Since A1 a step may declare its OWN action, which
+ * is what turns a drip sequence into a workflow: "booking completed → wait 3 days → send review
+ * request → wait 2 days → issue 10 RCN". A step with no `actionType` is a send_message step, so every
+ * sequence written before A1 keeps its exact meaning.
+ */
 export interface SequenceStep {
-  messageTemplate: string;
+  /** Defaults to 'send_message' when absent — pre-A1 steps are all messages. */
+  actionType?: string;
+  /** Config for a non-messaging step, e.g. { amountRcn: 10 }. */
+  actionPayload?: Record<string, unknown> | null;
+  /** Required for send_message steps; absent for steps that send nothing. */
+  messageTemplate?: string;
   delayHours: number;
 }
 

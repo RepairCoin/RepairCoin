@@ -260,8 +260,23 @@ be added later without rework.
 
 ### Revised remaining work
 
-**A1 — action steps.** Generalize `steps[]` from message steps to action steps (mirrors W1, one level
-down). Reuses enrollment, waits and step tracking that already work. **This is the structural unlock.** ~M
+**A1 — action steps. BUILT + LIVE-VERIFIED 2026-07-29.** `SequenceStep` gains optional
+`actionType`/`actionPayload`, and `messageTemplate` becomes optional. Resolution order per step:
+**step action → rule action → `send_message`**, so every sequence written before A1 keeps its exact
+meaning. Handlers now read the RESOLVED `ctx.actionType`/`ctx.actionPayload` instead of reaching into
+`rule.*`, so they never need to know whether the action came from the rule or from a step.
+`parseSteps` validates a non-messaging step's payload at write time and only demands a template for
+`send_message` steps.
+
+> **Verified on the live engine** with a genuine mixed workflow — *booking cancelled → step 1: send a
+> message → step 2: issue 1 RCN*: `Enrolled … (step 1)` → pass 1 created the message → pass 2 logged
+> `issue_reward action issued`; step 0 `sent` with a message, step 1 `sent` with **no** message, shop
+> 1844→1843 RCN and customer 234→235. **Two different actions in one sequence — the thing A1 exists for,
+> running through the scheduler's own enrollment/step machinery.**
+
+**Scope note:** A1 is engine + API + validation. The per-step action picker deliberately lands with
+**A2's builder** rather than being bolted onto the AI Campaigns sequence editor, so that UI isn't built
+twice. Until then, multi-action workflows are creatable via the API only.
 
 **A2 — the Automation surface.** Top-level nav, workflows list with status + enrolled counts, its own
 `customWorkflows` gate (D2). This is also where the message-centric copy gets fixed properly — the modal
