@@ -54,6 +54,22 @@ export class RewardIssuanceService {
   private tierManager = new TierManager();
 
   /**
+   * A readable description when the caller didn't supply one, so the transaction still says where the
+   * RCN came from rather than inheriting the repair wording (BUG-013).
+   */
+  private defaultReason(source: string, shopName?: string): string {
+    const from = shopName ? ` from ${shopName}` : '';
+    switch (source) {
+      case 'marketing_campaign':
+        return `Campaign reward${from}`;
+      case 'automation':
+        return `Automated reward${from}`;
+      default:
+        return `Reward${from}`;
+    }
+  }
+
+  /**
    * Issue exactly `rcnAmount` RCN from `shopId` to `customerAddress`.
    * Returns `{ ok:false, errorCode }` for every expected failure (insufficient
    * balance, unregistered/suspended customer, inactive shop, etc.) — never throws.
@@ -118,6 +134,11 @@ export class RewardIssuanceService {
         promoBonus: 0,
         promoCode: null,
         newTier,
+        // BUG-013: `reason` used to feed only the on-chain note, so with minting off it was discarded
+        // and every issuance — manual, campaign, automation — was recorded as a "$0 repair". Threaded
+        // to the atomic write so the transaction says what actually happened.
+        source,
+        reason: reason || this.defaultReason(source, shop.name),
       });
       logger.info('RewardIssuanceService: issued', {
         shopId, customerAddress, rcnAmount, source, onChain,
