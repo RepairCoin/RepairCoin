@@ -138,10 +138,17 @@ export class AutoMessageRepository extends BaseRepository {
    */
   async getByShopId(shopId: string, surface: AutoMessageSurface | null = 'campaign'): Promise<AutoMessage[]> {
     try {
+      // enrolled counts (A2): a customer is "enrolled" once the rule has produced any send row for
+      // them; "active" while they still have a pending step waiting to fire. Both are derived from
+      // auto_message_sends, which already tracks per-customer progress — no new bookkeeping.
       const query = `
         SELECT am.*,
           (SELECT COUNT(*) FROM auto_message_sends ams WHERE ams.auto_message_id = am.id AND ams.status = 'sent') AS total_sends,
-          (SELECT MAX(ams.sent_at) FROM auto_message_sends ams WHERE ams.auto_message_id = am.id AND ams.status = 'sent') AS last_sent_at
+          (SELECT MAX(ams.sent_at) FROM auto_message_sends ams WHERE ams.auto_message_id = am.id AND ams.status = 'sent') AS last_sent_at,
+          (SELECT COUNT(DISTINCT ams.customer_address) FROM auto_message_sends ams
+            WHERE ams.auto_message_id = am.id) AS total_enrolled,
+          (SELECT COUNT(DISTINCT ams.customer_address) FROM auto_message_sends ams
+            WHERE ams.auto_message_id = am.id AND ams.status = 'pending') AS active_enrolled
         FROM shop_auto_messages am
         WHERE am.shop_id = $1
           AND ($2::text IS NULL OR am.surface = $2)
@@ -563,7 +570,12 @@ export class AutoMessageRepository extends BaseRepository {
     }
   }
 
-  private mapRow(row: any): AutoMessage & { totalSends?: number; lastSentAt?: string } {
+  private mapRow(row: any): AutoMessage & {
+    totalSends?: number;
+    lastSentAt?: string;
+    totalEnrolled?: number;
+    activeEnrolled?: number;
+  } {
     return {
       id: row.id,
       shopId: row.shop_id,
@@ -593,6 +605,8 @@ export class AutoMessageRepository extends BaseRepository {
       updatedAt: row.updated_at,
       totalSends: row.total_sends ? parseInt(row.total_sends, 10) : undefined,
       lastSentAt: row.last_sent_at || undefined,
+      totalEnrolled: row.total_enrolled !== undefined ? parseInt(row.total_enrolled, 10) : undefined,
+      activeEnrolled: row.active_enrolled !== undefined ? parseInt(row.active_enrolled, 10) : undefined,
     };
   }
 

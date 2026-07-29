@@ -39,17 +39,33 @@ const TEMPLATE_VARIABLES = [
   { key: "{{lastVisitDate}}", label: "Last Visit Date" },
 ];
 
+/** One step of a workflow. `actionType` absent = a message step, the pre-A1 shape. */
+interface WorkflowStep {
+  actionType?: string;
+  actionPayload?: Record<string, any> | null;
+  messageTemplate?: string;
+  delayHours: number;
+}
+
 interface AutoMessageRuleModalProps {
   rule?: AutoMessage | null;
   onClose: () => void;
   onSave: (data: CreateAutoMessageRequest | UpdateAutoMessageRequest) => Promise<void>;
+  /**
+   * Which surface is using the builder (D7). One component, two entry points — rather than a second
+   * builder that drifts. 'workflow' relabels the message-centric copy and lets each sequence step
+   * choose its own action; 'campaign' keeps the AI Campaigns wording exactly as it was.
+   */
+  surface?: "campaign" | "workflow";
 }
 
 export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   rule,
   onClose,
   onSave,
+  surface = "campaign",
 }) => {
+  const isWorkflow = surface === "workflow";
   const isEditing = !!rule;
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -72,7 +88,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [maxSendsPerCustomer, setMaxSendsPerCustomer] = useState(1);
   // Drip sequence (multi-step) state. Sequences are event-triggered only.
   const [useSequence, setUseSequence] = useState(false);
-  const [steps, setSteps] = useState<{ messageTemplate: string; delayHours: number }[]>([]);
+  // A1: steps are workflow-shaped (each may carry its own action), not message-shaped.
+  const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [stopOnBooking, setStopOnBooking] = useState(false);
   const [generatingStep, setGeneratingStep] = useState<number | null>(null);
   // A/B test state (Phase 4). Mutually exclusive with sequences.
@@ -132,7 +149,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const addStep = () =>
     setSteps((p) => [...p, { messageTemplate: "", delayHours: p.length === 0 ? 0 : 24 }]);
   const removeStep = (i: number) => setSteps((p) => p.filter((_, idx) => idx !== i));
-  const updateStep = (i: number, patch: Partial<{ messageTemplate: string; delayHours: number }>) =>
+  const updateStep = (i: number, patch: Partial<WorkflowStep>) =>
     setSteps((p) => p.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
 
   const generateStep = async (i: number) => {
@@ -203,15 +220,30 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       return;
     }
 
-    let cleanSteps: { messageTemplate: string; delayHours: number }[] = [];
+    let cleanSteps: WorkflowStep[] = [];
     if (rewardMode) {
       // no message to validate
     } else if (sequenceMode) {
+      // A1: keep a step if it's a reward step (no message needed) OR a message step with a body.
       cleanSteps = steps
-        .map((s) => ({ messageTemplate: s.messageTemplate.trim(), delayHours: Number(s.delayHours) || 0 }))
-        .filter((s) => s.messageTemplate);
+        .map((s) => {
+          const action = s.actionType || "send_message";
+          const delayHours = Number(s.delayHours) || 0;
+          return action === "issue_reward"
+            ? { actionType: action, actionPayload: { amountRcn: Number(s.actionPayload?.amountRcn) || 0 }, delayHours }
+            : { actionType: action, messageTemplate: (s.messageTemplate || "").trim(), delayHours };
+        })
+        .filter((s) => s.actionType === "issue_reward" || s.messageTemplate);
+
       if (cleanSteps.length === 0) {
-        toast.error("Add at least one step with a message");
+        toast.error("Add at least one step");
+        return;
+      }
+      const badReward = cleanSteps.find(
+        (s) => s.actionType === "issue_reward" && (!s.actionPayload?.amountRcn || Number(s.actionPayload.amountRcn) > 100)
+      );
+      if (badReward) {
+        toast.error("Each reward step needs an amount between 1 and 100 RCN");
         return;
       }
     } else if (!messageTemplate.trim()) {
@@ -225,10 +257,12 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         name: name.trim(),
         // A reward rule sends nothing, so it carries no template. For messaging rules the API still
         // requires one; in a sequence it mirrors the first step.
+        // In a sequence the rule-level template mirrors the first MESSAGE step; a workflow whose
+        // steps are all rewards has none, which migration 248 now allows.
         messageTemplate: isReward
           ? null
           : sequenceMode
-          ? cleanSteps[0].messageTemplate
+          ? cleanSteps.find((s) => s.actionType !== "issue_reward")?.messageTemplate ?? null
           : messageTemplate.trim(),
         actionType,
         actionPayload: isReward
@@ -265,7 +299,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
           <h2 className="text-xl font-semibold text-white">
-            {isEditing ? "Edit Auto-Message Rule" : "New Auto-Message Rule"}
+            {isWorkflow
+              ? isEditing ? "Edit Workflow" : "New Workflow"
+              : isEditing ? "Edit Auto-Message Rule" : "New Auto-Message Rule"}
           </h2>
           <button
             onClick={onClose}
@@ -508,7 +544,11 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               max={100}
               className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
             />
-            <p className="text-xs text-gray-500 mt-1">How many times this rule can message the same customer</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {isWorkflow
+                ? "How many times this workflow can run for the same customer"
+                : "How many times this rule can message the same customer"}
+            </p>
           </div>
 
           {/* Advanced-mode toggles: a rule is a single message, OR a drip sequence, OR an A/B test.
@@ -562,15 +602,29 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-[#FFCC00]">Step {i + 1}</span>
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => generateStep(i)}
-                        disabled={generatingStep === i}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-[#FFCC00] text-black hover:bg-[#e6b800] disabled:opacity-50"
-                      >
-                        {generatingStep === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                        AI
-                      </button>
+                      {/* A1: each step chooses its own action — this is what makes a sequence a
+                          workflow rather than a drip. Campaigns stay message-only. */}
+                      {isWorkflow && (
+                        <select
+                          value={s.actionType || "send_message"}
+                          onChange={(e) => updateStep(i, { actionType: e.target.value })}
+                          className="px-2 py-1 text-xs bg-[#1A1A1A] border border-gray-700 rounded text-gray-200 focus:border-[#FFCC00] focus:outline-none"
+                        >
+                          <option value="send_message">Send a message</option>
+                          <option value="issue_reward">Issue RCN</option>
+                        </select>
+                      )}
+                      {(s.actionType || "send_message") === "send_message" && (
+                        <button
+                          type="button"
+                          onClick={() => generateStep(i)}
+                          disabled={generatingStep === i}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-[#FFCC00] text-black hover:bg-[#e6b800] disabled:opacity-50"
+                        >
+                          {generatingStep === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                          AI
+                        </button>
+                      )}
                       {steps.length > 1 && (
                         <button type="button" onClick={() => removeStep(i)} className="text-gray-500 hover:text-red-400" aria-label="Remove step">
                           <Trash2 className="w-4 h-4" />
@@ -578,14 +632,31 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                       )}
                     </div>
                   </div>
+                  {s.actionType === "issue_reward" ? (
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Amount (RCN)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={Number(s.actionPayload?.amountRcn) || 25}
+                        onChange={(e) =>
+                          updateStep(i, { actionPayload: { amountRcn: Number(e.target.value) } })
+                        }
+                        className="w-32 px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Debited from your RCN balance when this step runs.</p>
+                    </div>
+                  ) : (
                   <textarea
-                    value={s.messageTemplate}
+                    value={s.messageTemplate || ""}
                     onChange={(e) => updateStep(i, { messageTemplate: e.target.value })}
                     placeholder="Hi {{customerName}}! ..."
                     rows={3}
                     maxLength={2000}
                     className="w-full px-3 py-2 bg-[#111] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none resize-none"
                   />
+                  )}
                   <div className="flex items-center gap-2 text-xs text-gray-400">
                     <span>Wait</span>
                     <input
