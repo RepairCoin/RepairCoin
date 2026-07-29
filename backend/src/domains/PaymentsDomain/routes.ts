@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../../middleware/auth';
 import { requireShopPermission } from '../../middleware/permissions';
 import { listTransactions, getTransaction, exportTransactions } from './controllers/TransactionController';
+import { refundTransaction, listRefunds } from './controllers/RefundController';
 
 /**
  * Payments & Invoicing Center routes, mounted at /api/payments.
@@ -17,8 +18,14 @@ export function initializeRoutes(): Router {
 
   const shopGuard = [authMiddleware, requireRole(['shop']), requireShopPermission('payments:manage')];
 
+  // Issuing a refund moves money out, so it needs its own permission — payments:manage only
+  // grants read. Owners hold it by default; managers do not unless explicitly granted.
+  const refundGuard = [authMiddleware, requireRole(['shop']), requireShopPermission('payments:refund')];
+
   // /export.csv MUST be declared before /:id — otherwise Express matches it as an id.
   router.get('/transactions/export.csv', ...shopGuard, exportTransactions);
+  router.get('/transactions/:id/refunds', ...shopGuard, listRefunds);
+  router.post('/transactions/:id/refund', ...refundGuard, refundTransaction);
   router.get('/transactions/:id', ...shopGuard, getTransaction);
   router.get('/transactions', ...shopGuard, listTransactions);
 

@@ -678,7 +678,10 @@ export class StripeService {
     // PI+amount would be wrong: two legitimate partial refunds of the same amount on the same
     // charge would collapse into one. Omitted = no idempotency key, so a retry can double-refund
     // — pass one wherever the caller has a stable reference.
-    idempotencyRef?: string
+    idempotencyRef?: string,
+    // Merged over the defaults. The Payments Center puts its own refund row id here so the
+    // charge.refunded webhook can match a Stripe refund back to the row that requested it.
+    metadata?: Record<string, string>
   ): Promise<Stripe.Refund> {
     try {
       const params: Stripe.RefundCreateParams = {
@@ -687,7 +690,8 @@ export class StripeService {
         reason: (reason as Stripe.RefundCreateParams.Reason) || 'requested_by_customer',
         metadata: {
           environment: this.config.isTestMode ? 'test' : 'production',
-          type: 'deposit_refund'
+          type: 'deposit_refund',
+          ...(metadata ?? {})
         }
       };
       if (connectedAccountId) {

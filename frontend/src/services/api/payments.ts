@@ -101,6 +101,49 @@ export const getTransaction = async (id: string): Promise<Transaction> => {
   return res.data;
 };
 
+export type RefundReason = 'requested_by_customer' | 'duplicate' | 'fraudulent';
+export type RefundStatus = 'pending' | 'succeeded' | 'failed';
+
+export interface Refund {
+  id: string;
+  paymentId: string;
+  shopId: string;
+  amountCents: number;
+  currency: string;
+  reason: RefundReason;
+  note: string | null;
+  status: RefundStatus;
+  stripeRefundId: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getRefunds = async (transactionId: string): Promise<Refund[]> => {
+  const res = await apiClient.get<{ success: boolean; data: Refund[] }>(
+    `/payments/transactions/${transactionId}/refunds`
+  );
+  return res.data;
+};
+
+/**
+ * Issue a refund. Omit amountCents to refund the full remaining balance.
+ *
+ * The response reflects the refund ENTITY only — `payments.refunded_cents` and the payment's
+ * status are updated by the charge.refunded webhook moments later, so the transaction row
+ * should be refetched rather than patched optimistically.
+ */
+export const refundTransaction = async (
+  transactionId: string,
+  input: { amountCents?: number; reason?: RefundReason; note?: string } = {}
+): Promise<Refund> => {
+  const res = await apiClient.post<{ success: boolean; data: Refund }>(
+    `/payments/transactions/${transactionId}/refund`,
+    input
+  );
+  return res.data;
+};
+
 /**
  * Download the filtered transactions as CSV. Auth rides the httpOnly cookie, so this must go
  * through apiClient rather than a bare window.open — the interceptor returns the Blob itself.

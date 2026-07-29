@@ -6,11 +6,16 @@ import { Receipt, Loader2, Download, X } from "lucide-react";
 import {
   getTransactions,
   exportTransactionsCsv,
+  getRefunds,
+  refundTransaction,
   type Transaction,
   type TransactionPage,
   type PaymentStatus,
   type PaymentMethod,
+  type Refund,
+  type RefundReason,
 } from "@/services/api/payments";
+import { useAuthStore } from "@/stores/authStore";
 
 const startOfMonth = () => {
   const d = new Date();
@@ -262,7 +267,18 @@ export function TransactionsTab() {
         </div>
       )}
 
-      {selected && <TransactionDetail transaction={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <TransactionDetail
+          transaction={selected}
+          onClose={() => setSelected(null)}
+          // A refund changes refunded_cents and status via the webhook, so refetch the list
+          // rather than patching the row from the refund response.
+          onRefunded={() => {
+            setSelected(null);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -279,10 +295,61 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 function TransactionDetail({
   transaction: t,
   onClose,
+  onRefunded,
 }: {
   transaction: Transaction;
   onClose: () => void;
+  onRefunded: () => void;
 }) {
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canRefund = hasPermission("payments:refund");
+
+  const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState<RefundReason>("requested_by_customer");
+  const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    getRefunds(t.id)
+      .then(setRefunds)
+      .catch(() => setRefunds([]));
+  }, [t.id]);
+
+  // What Stripe reports refunded is authoritative; anything pending on our side is also
+  // spoken for, so take the larger of the two.
+  const requestedHere = refunds
+    .filter((r) => r.status !== "failed")
+    .reduce((sum, r) => sum + r.amountCents, 0);
+  const refundable = t.grossCents - Math.max(t.refundedCents, requestedHere);
+  const refundableAllowed =
+    canRefund && refundable > 0 && (t.status === "succeeded" || t.status === "partially_refunded");
+
+  const handleRefund = async () => {
+    // Empty amount = refund everything left.
+    const cents = amount.trim() === "" ? undefined : Math.round(parseFloat(amount) * 100);
+    if (cents !== undefined && (!Number.isFinite(cents) || cents <= 0)) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    if (cents !== undefined && cents > refundable) {
+      toast.error(`Amount exceeds the refundable balance of ${money(refundable)}`);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await refundTransaction(t.id, { amountCents: cents, reason, note: note || undefined });
+      toast.success("Refund issued");
+      onRefunded();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || e?.error || "Refund failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60" onClick={onClose}>
       <div
@@ -323,6 +390,95 @@ function TransactionDetail({
             Fee and net are unavailable for this payment — historical records imported into the
             ledger don&apos;t carry Stripe&apos;s fee breakdown.
           </p>
+        )}
+
+        {refunds.length > 0 && (
+          <div className="mt-6">
+            <h4 className="text-sm font-medium text-white mb-2">Refunds</h4>
+            <div className="space-y-2">
+              {refunds.map((r) => (
+                <div key={r.id} className="flex justify-between text-xs text-gray-400">
+                  <span>
+                    {new Date(r.createdAt).toLocaleDateString()} · {r.reason.replace(/_/g, " ")}
+                    {r.status !== "succeeded" && ` · ${r.status}`}
+                  </span>
+                  <span className="text-white">{money(r.amountCents)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {refundableAllowed && (
+          <div className="mt-6 pt-6 border-t border-gray-800">
+            {!showForm ? (
+              <button
+                onClick={() => setShowForm(true)}
+                className="w-full px-4 py-2 rounded-md border border-[#303236] text-white hover:bg-[#222]"
+              >
+                Refund ({money(refundable)} available)
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Amount (leave blank to refund {money(refundable)})
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder={(refundable / 100).toFixed(2)}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Reason</label>
+                  <select
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value as RefundReason)}
+                    className={inputClass}
+                  >
+                    <option value="requested_by_customer">Requested by customer</option>
+                    <option value="duplicate">Duplicate</option>
+                    <option value="fraudulent">Fraudulent</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Note (optional)</label>
+                  <input
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  This returns the money to the customer&apos;s card and can&apos;t be undone.
+                  Stripe&apos;s processing fee is not returned to you.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleRefund}
+                    disabled={submitting}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-[#FFCC00] text-black font-medium hover:bg-[#FFD700] disabled:opacity-50"
+                  >
+                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Confirm refund
+                  </button>
+                  <button
+                    onClick={() => setShowForm(false)}
+                    disabled={submitting}
+                    className="px-4 py-2 rounded-md border border-[#303236] text-gray-300 hover:bg-[#222]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
