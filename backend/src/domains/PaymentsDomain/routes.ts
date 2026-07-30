@@ -10,6 +10,7 @@ import {
   getTransactionTotals,
   exportAllTransactions,
 } from './controllers/AdminTransactionController';
+import { refundTransactionAdmin } from './controllers/AdminRefundController';
 
 /**
  * Payments & Invoicing Center routes, mounted at /api/payments.
@@ -29,14 +30,17 @@ export function initializeRoutes(): Router {
   // grants read. Owners hold it by default; managers do not unless explicitly granted.
   const refundGuard = [authMiddleware, requireRole(['shop']), requireShopPermission('payments:refund')];
 
-  // Platform-wide oversight (Slice A1) — read-only, admin role, no shop scope. These MUST come
-  // before the shop `/transactions/:id` route or Express matches "admin" as an id, the same
-  // trap as /export.csv below.
+  // Platform-wide oversight (Slice A1) — admin role, no shop scope. These MUST come before the
+  // shop `/transactions/:id` route or Express matches "admin" as an id, the same trap as
+  // /export.csv below.
   const adminGuard = [authMiddleware, requireAdmin];
 
   router.get('/admin/transactions/export.csv', ...adminGuard, exportAllTransactions);
   router.get('/admin/transactions/summary', ...adminGuard, getTransactionTotals);
   router.get('/admin/transactions/:id/refunds', ...adminGuard, listRefundsAdmin);
+  // Slice A2 — the one admin write. Direct charges, so this debits the SHOP's Stripe balance,
+  // not the platform's; the controller mandates a note and notifies the shop.
+  router.post('/admin/transactions/:id/refund', ...adminGuard, refundTransactionAdmin);
   router.get('/admin/transactions/:id', ...adminGuard, getTransactionAdmin);
   router.get('/admin/transactions', ...adminGuard, listAllTransactions);
 

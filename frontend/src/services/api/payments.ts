@@ -103,6 +103,8 @@ export const getTransaction = async (id: string): Promise<Transaction> => {
 
 export type RefundReason = 'requested_by_customer' | 'duplicate' | 'fraudulent';
 export type RefundStatus = 'pending' | 'succeeded' | 'failed';
+/** Who issued it. `createdBy` is a wallet address and can't tell the shop apart from FixFlow. */
+export type RefundActor = 'shop' | 'admin';
 
 export interface Refund {
   id: string;
@@ -115,6 +117,7 @@ export interface Refund {
   status: RefundStatus;
   stripeRefundId: string | null;
   createdBy: string | null;
+  createdByRole: RefundActor;
   createdAt: string;
   updatedAt: string;
 }

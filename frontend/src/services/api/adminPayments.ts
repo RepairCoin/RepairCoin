@@ -1,10 +1,10 @@
 // frontend/src/services/api/adminPayments.ts
 //
-// Platform-wide client for the Payments Center (Slice A1) — the admin counterpart to
+// Platform-wide client for the Payments Center (Slices A1 + A2) — the admin counterpart to
 // api/payments.ts. Same ledger, no shop scope: `shopId` here is a filter, not a boundary.
 //
-// Read-only. There is no admin refund endpoint; issuing one from the platform side would debit
-// a merchant's own Connect balance and is deliberately out of scope (Slice A2).
+// Read-only except for one call: refundAdminTransaction. That one debits the MERCHANT's own
+// Connect balance, not the platform's — see the note on the function itself.
 //
 // Money is INTEGER CENTS end to end. The axios interceptor pre-unwraps response.data.
 
@@ -13,6 +13,7 @@ import type {
   PaymentMethod,
   PaymentStatus,
   Refund,
+  RefundReason,
   Transaction,
 } from './payments';
 
@@ -93,6 +94,28 @@ export const getAdminTransactionTotals = async (
 ): Promise<PaymentTotals> => {
   const res = await apiClient.get<{ success: boolean; data: PaymentTotals }>(
     `/payments/admin/transactions/summary${buildQuery({ ...query })}`
+  );
+  return res.data;
+};
+
+/**
+ * Issue a refund on any shop's payment (Slice A2). Omit amountCents to refund the full
+ * remaining balance.
+ *
+ * This is NOT the platform refunding its own money: these are Connect direct charges, so the
+ * money comes out of the shop's Stripe balance and our commission is clawed back with it. The
+ * note is mandatory — the shop is notified and reads it. Scope to disputes and fraud.
+ *
+ * As on the shop side, the response is the refund ENTITY only; `refundedCents` and the payment
+ * status arrive via the charge.refunded webhook, so refetch rather than patching optimistically.
+ */
+export const refundAdminTransaction = async (
+  transactionId: string,
+  input: { amountCents?: number; reason?: RefundReason; note: string }
+): Promise<Refund> => {
+  const res = await apiClient.post<{ success: boolean; data: Refund }>(
+    `/payments/admin/transactions/${transactionId}/refund`,
+    input
   );
   return res.data;
 };
