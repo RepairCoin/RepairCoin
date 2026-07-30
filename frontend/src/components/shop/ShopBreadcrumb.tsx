@@ -229,11 +229,20 @@ const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 interface ShopBreadcrumbProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  /**
+   * Actions row only — no title, no description, minimal vertical padding.
+   * For the messages tab, whose chat header already carries the page context and
+   * whose viewport-lock layout can't spare the ~90px a full breadcrumb costs. The
+   * actions still need a row of their own: floating them over the page put the
+   * icon cluster on top of the conversation list's controls.
+   */
+  compact?: boolean;
 }
 
 export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
   activeTab,
   onTabChange,
+  compact = false,
 }) => {
   const name = useAuthStore((s) => s.userProfile?.name);
   const memberName = useAuthStore((s) => s.userProfile?.memberName);
@@ -288,27 +297,38 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
   };
 
   return (
-    <div className="px-2 lg:px-0 pb-4 mb-6 flex items-start justify-between gap-4">
+    <div
+      className={`px-2 lg:px-0 gap-4 ${
+        compact
+          ? // Nothing inside compact mode renders below lg (the actions group is
+            // desktop-only), so the row itself must go too — otherwise it costs the
+            // mobile chat viewport ~16px of empty space.
+            "hidden lg:flex pb-2 mb-2 items-center justify-end"
+          : "flex pb-4 mb-6 items-start justify-between"
+      }`}
+    >
       {/* Page title */}
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 mb-2">
-          {!isHome && (
-            <>
-              <button
-                onClick={handleHomeClick}
-                className="p-1 rounded hover:bg-[#303236] transition-colors"
-                title="Go to Overview"
-              >
-                <Home className="w-5 h-5 text-white hover:text-[#FFCC00] transition-colors" />
-              </button>
-              <ChevronRight className="w-4 h-4 text-gray-400" />
-            </>
-          )}
-          <span className="text-[#FFCC00]">{tabConfig.icon}</span>
-          <span className="text-base font-medium text-[#FFCC00]">{tabConfig.title}</span>
+      {!compact && (
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            {!isHome && (
+              <>
+                <button
+                  onClick={handleHomeClick}
+                  className="p-1 rounded hover:bg-[#303236] transition-colors"
+                  title="Go to Overview"
+                >
+                  <Home className="w-5 h-5 text-white hover:text-[#FFCC00] transition-colors" />
+                </button>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </>
+            )}
+            <span className="text-[#FFCC00]">{tabConfig.icon}</span>
+            <span className="text-base font-medium text-[#FFCC00]">{tabConfig.title}</span>
+          </div>
+          <p className="text-sm text-[#ddd]">{tabConfig.description}</p>
         </div>
-        <p className="text-sm text-[#ddd]">{tabConfig.description}</p>
-      </div>
+      )}
 
       {/* Actions + user — desktop only; mobile uses the floating cluster */}
       <div className="hidden lg:flex flex-shrink-0 items-center gap-2.5">

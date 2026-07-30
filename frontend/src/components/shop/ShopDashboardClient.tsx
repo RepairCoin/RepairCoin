@@ -1529,11 +1529,16 @@ export default function ShopDashboardClient() {
 
           {/* Subscription Cancellation Banner - Hidden when status is cancelled */}
 
-          {/* Breadcrumb Navigation — hidden on messages tab (chat header
-              already shows the active conversation context). */}
-          {!isMessagesTab && (
-            <ShopBreadcrumb activeTab={activeTab} onTabChange={handleTabChange} />
-          )}
+          {/* Breadcrumb Navigation. On messages it drops to the actions row only —
+              the chat header already carries the page context, but the header
+              actions still need a row of their own. Rendering nothing here was
+              what forced the icon cluster to float, and it landed on top of the
+              conversation list's own filter controls. */}
+          <ShopBreadcrumb
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            compact={isMessagesTab}
+          />
 
           {/* Sub-tabs for merged nav entries (Bookings / Inventory). Each tab
               still renders its own guarded block below — this only replaces the
