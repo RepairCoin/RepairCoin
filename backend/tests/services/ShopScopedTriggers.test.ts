@@ -29,8 +29,16 @@ describe('low_stock — shop-scoped trigger', () => {
 
   // A low_stock rule set to "send a message" has nobody to send to. Rejected at write time rather
   // than sitting in the list looking active while quietly doing nothing.
+  //
+  // Keyed on SHOP_SCOPED_ACTIONS since 2026-07-30. It used to read NON_MESSAGING_ACTIONS, which
+  // contains issue_reward — an action that sends no message but still needs somebody to pay — so
+  // "low stock → issue 25 RCN" passed validation and could only ever fail.
   it('rejects a shop-scoped rule that would need a recipient', () => {
-    expect(controller).toContain('SHOP_SCOPED_EVENTS.has(eventType) && !NON_MESSAGING_ACTIONS.has(actionType)');
+    expect(controller).toContain('SHOP_SCOPED_EVENTS.has(eventType) && !SHOP_SCOPED_ACTIONS.has(actionType)');
+  });
+
+  it('applies the same coherence rule on update, not just create', () => {
+    expect(controller).toContain('!SHOP_SCOPED_ACTIONS.has(effectiveActionType)');
   });
 
   it('subscribes to the event the inventory service already publishes', () => {

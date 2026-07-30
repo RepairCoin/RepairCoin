@@ -7,6 +7,7 @@ import {
   AUTO_MESSAGE_ACTION_TYPES,
   DEFAULT_ACTION_TYPE,
   NON_MESSAGING_ACTIONS,
+  SHOP_SCOPED_ACTIONS,
 } from '../../../services/autoMessageActions/registry';
 import {
   parseIssueRewardPayload,
@@ -203,13 +204,16 @@ export class AutoMessageController {
       if (!name || !triggerType) {
         return res.status(400).json({ success: false, error: 'name and triggerType are required' });
       }
-      // Only a messaging action needs a body — an issue_reward rule sends nothing.
-      if (needsMessage && !messageTemplate) {
-        return res.status(400).json({ success: false, error: 'messageTemplate is required for send_message rules' });
-      }
-
       const { steps, error: stepsError } = parseSteps(rawSteps);
       if (stepsError) return res.status(400).json({ success: false, error: stepsError });
+
+      // Only a messaging action needs a body — an issue_reward rule sends nothing. A SEQUENCE keeps its
+      // copy in the steps: the rule-level template mirrors the first message step, and a workflow built
+      // only from reward/alert steps has no message step to mirror, so it legitimately has none
+      // (migration 248). Without the steps carve-out that workflow was rejected outright.
+      if (needsMessage && !messageTemplate && !(steps && steps.length)) {
+        return res.status(400).json({ success: false, error: 'messageTemplate is required for send_message rules' });
+      }
 
       // A/B variant B: optional, ≤2000 chars, and mutually exclusive with a drip sequence.
       if (variantB !== undefined && variantB !== null && typeof variantB !== 'string') {
@@ -248,7 +252,12 @@ export class AutoMessageController {
         }
         // A shop-scoped trigger has no customer, so an action that needs a recipient can never run.
         // Rejected at write time rather than failing silently every time the rule fires.
-        if (SHOP_SCOPED_EVENTS.has(eventType) && !NON_MESSAGING_ACTIONS.has(actionType)) {
+        //
+        // Keyed on SHOP_SCOPED_ACTIONS, not NON_MESSAGING_ACTIONS: the latter contains issue_reward,
+        // which sends no message but still needs somebody to PAY — so it let "low stock → issue 25 RCN"
+        // be stored happily, and it could never do anything but fail. That is the exact silent failure
+        // this guard exists to prevent.
+        if (SHOP_SCOPED_EVENTS.has(eventType) && !SHOP_SCOPED_ACTIONS.has(actionType)) {
           return res.status(400).json({
             success: false,
             error: `"${eventType}" happens to your shop, not to a customer — use an action like "notify my team" instead of sending a message`,
@@ -308,10 +317,66 @@ export class AutoMessageController {
       }
 
       const { id } = req.params;
-      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking, variantB } = req.body;
+      const { name, messageTemplate, triggerType, scheduleType, scheduleDayOfWeek, scheduleDayOfMonth, scheduleHour, eventType, delayHours, targetAudience, maxSendsPerCustomer, steps: rawSteps, stopOnBooking, variantB, actionType: rawActionType, actionPayload: rawActionPayload } = req.body;
 
       if (messageTemplate && messageTemplate.length > 2000) {
         return res.status(400).json({ success: false, error: 'Message template must be 2000 characters or less' });
+      }
+
+      // The rule as it stands. Needed because an update is a PATCH in spirit: validating the action
+      // means reasoning about the COMBINATION of what's being sent and what's already stored — you can
+      // change the payload without restating the action, or the action without restating the payload.
+      const existing = await this.autoMessageRepo.getById(id);
+      if (!existing || existing.shopId !== shopId) {
+        return res.status(404).json({ success: false, error: 'Auto-message rule not found' });
+      }
+
+      // Only touch the action when the client actually said something about it. parseAction() defaults a
+      // missing type to 'send_message', so running it unconditionally would silently convert every
+      // notify_staff rule into a messaging one the moment any other field was edited.
+      const actionMentioned = rawActionType !== undefined || rawActionPayload !== undefined;
+      let actionUpdate: { actionType?: string; actionPayload?: Record<string, unknown> | null } = {};
+      let effectiveActionType = existing.actionType || DEFAULT_ACTION_TYPE;
+
+      if (actionMentioned) {
+        const parsed = parseAction(
+          rawActionType !== undefined ? rawActionType : existing.actionType,
+          rawActionPayload !== undefined ? rawActionPayload : existing.actionPayload
+        );
+        if (parsed.error) return res.status(400).json({ success: false, error: parsed.error });
+        actionUpdate = { actionType: parsed.actionType, actionPayload: parsed.actionPayload };
+        effectiveActionType = parsed.actionType;
+      }
+
+      // A messaging rule must end up with something to send. This is the guard that was missing: the
+      // form sends `messageTemplate: null` when switching to a non-messaging action, and if the action
+      // change is rejected or absent, applying that null alone produces a send_message rule with no
+      // body — which throws inside resolveTemplate on every tick, records a failed send, and leaves the
+      // rule looking Active forever. A 400 is vastly easier to diagnose.
+      const effectiveTemplate = messageTemplate !== undefined ? messageTemplate : existing.messageTemplate;
+      const effectiveSteps = rawSteps === undefined ? existing.steps : rawSteps;
+      const carriesMessage = Array.isArray(effectiveSteps) && effectiveSteps.length > 0;
+      if (!NON_MESSAGING_ACTIONS.has(effectiveActionType) && !effectiveTemplate && !carriesMessage) {
+        return res.status(400).json({
+          success: false,
+          error: 'messageTemplate is required for send_message rules',
+        });
+      }
+
+      // Same coherence rule as create: a shop-scoped trigger has no customer, so an action needing a
+      // recipient can never run. Checked against the effective values so it can't be reached by
+      // changing only one side of the pair.
+      const effectiveEventType = eventType !== undefined ? eventType : existing.eventType;
+      const effectiveTriggerType = triggerType !== undefined ? triggerType : existing.triggerType;
+      if (
+        effectiveTriggerType === 'event' &&
+        SHOP_SCOPED_EVENTS.has(effectiveEventType || '') &&
+        !SHOP_SCOPED_ACTIONS.has(effectiveActionType)
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: `"${effectiveEventType}" happens to your shop, not to a customer — use an action like "notify my team" instead of sending a message`,
+        });
       }
 
       // steps: undefined = not provided (leave as-is); null/[] = clear the sequence; array = replace it.
@@ -353,6 +418,7 @@ export class AutoMessageController {
         steps: stepsUpdate,
         stopOnBooking: typeof stopOnBooking === 'boolean' ? stopOnBooking : undefined,
         variantB: variantUpdate,
+        ...actionUpdate,
       });
 
       if (!rule) {

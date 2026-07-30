@@ -142,6 +142,14 @@ export interface UpdateAutoMessageParams {
   steps?: SequenceStep[] | null;
   stopOnBooking?: boolean;
   variantB?: string | null;
+  /**
+   * What the rule DOES. Absent from this interface until 2026-07-30, which meant a rule's action was
+   * immutable after creation while the UI happily offered to change it: the form sent actionType, update
+   * ignored it, and the success toast lied. Worse, `messageTemplate: null` from the same submit WAS
+   * applied — leaving a send_message rule with no body, which throws in resolveTemplate on every tick.
+   */
+  actionType?: string;
+  actionPayload?: Record<string, unknown> | null;
 }
 
 export class AutoMessageRepository extends BaseRepository {
@@ -268,6 +276,16 @@ export class AutoMessageRepository extends BaseRepository {
         ['steps', params.steps === undefined ? undefined : (params.steps && params.steps.length ? JSON.stringify(params.steps) : null)],
         ['stop_on_booking', params.stopOnBooking],
         ['variant_b', params.variantB],
+        ['action_type', params.actionType],
+        // undefined = leave alone; null = clear. Mirrors how create() serialises it.
+        [
+          'action_payload',
+          params.actionPayload === undefined
+            ? undefined
+            : params.actionPayload
+            ? JSON.stringify(params.actionPayload)
+            : null,
+        ],
       ];
 
       for (const [column, value] of fields) {

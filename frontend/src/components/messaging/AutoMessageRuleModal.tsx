@@ -103,7 +103,16 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [actionType, setActionType] = useState<"send_message" | "issue_reward" | "notify_staff">("send_message");
   const [rewardAmount, setRewardAmount] = useState(25);
   const [rewardReason, setRewardReason] = useState("");
+  /** Body of a `notify_staff` alert. Separate from rewardReason — see the prefill note below. */
+  const [alertText, setAlertText] = useState("");
   const [triggerType, setTriggerType] = useState<"schedule" | "event">("schedule");
+  /**
+   * Has the trigger been chosen deliberately (by a click or a template) rather than left at its default?
+   * Picking "Notify my team" flips an untouched default to Event, because "tell me when X happens" is
+   * what an alert almost always means — and the Schedule default silently produced the one shape that
+   * ignores everything happening in the shop.
+   */
+  const [triggerTouched, setTriggerTouched] = useState(false);
   const [scheduleType, setScheduleType] = useState("daily");
   const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(1);
   const [scheduleDayOfMonth, setScheduleDayOfMonth] = useState(1);
@@ -152,15 +161,14 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           : "send_message"
       );
       setRewardAmount(Number(rule.actionPayload?.amountRcn) || 25);
-      // One field backs two actions: `reason` for a reward, `message` for a staff alert.
-      setRewardReason(
-        typeof rule.actionPayload?.reason === "string"
-          ? rule.actionPayload.reason
-          : typeof rule.actionPayload?.message === "string"
-          ? rule.actionPayload.message
-          : ""
-      );
+      // Separate fields per action. They used to share one piece of state, so text typed as a 500-char
+      // staff alert reappeared in a reward "Reason" box labelled 120 — and survived, because maxLength
+      // doesn't trim a value set programmatically.
+      setRewardReason(typeof rule.actionPayload?.reason === "string" ? rule.actionPayload.reason : "");
+      setAlertText(typeof rule.actionPayload?.message === "string" ? rule.actionPayload.message : "");
       setTriggerType(rule.triggerType ?? "schedule");
+      // A prefill that states a trigger has made the choice deliberately — don't second-guess it below.
+      if (rule.triggerType) setTriggerTouched(true);
       setScheduleType(rule.scheduleType || "daily");
       setScheduleDayOfWeek(rule.scheduleDayOfWeek ?? 1);
       setScheduleDayOfMonth(rule.scheduleDayOfMonth ?? 1);
@@ -345,7 +353,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         actionPayload: isReward
           ? { amountRcn: rewardAmount, ...(rewardReason.trim() ? { reason: rewardReason.trim() } : {}) }
           : isNotify
-          ? (rewardReason.trim() ? { message: rewardReason.trim() } : {})
+          ? (alertText.trim() ? { message: alertText.trim() } : {})
           : null,
         triggerType,
         ...(triggerType === "schedule" && {
@@ -448,7 +456,13 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActionType("notify_staff")}
+                  onClick={() => {
+                    setActionType("notify_staff");
+                    // "Alert me when X happens" is the overwhelmingly common intent. Only nudge an
+                    // untouched default — a deliberate Schedule choice ("every Monday, remind the team")
+                    // is legitimate and must survive.
+                    if (!triggerTouched) setTriggerType("event");
+                  }}
                   className={`px-3 py-2 rounded-lg border text-sm text-left ${
                     actionType === "notify_staff"
                       ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
@@ -467,8 +481,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               <label className="block text-sm text-gray-400 mb-2">Alert text (optional)</label>
               <input
                 type="text"
-                value={rewardReason}
-                onChange={(e) => setRewardReason(e.target.value)}
+                value={alertText}
+                onChange={(e) => setAlertText(e.target.value)}
                 placeholder="e.g. Reorder before the weekend"
                 maxLength={500}
                 className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
@@ -515,7 +529,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setTriggerType("schedule")}
+                onClick={() => { setTriggerTouched(true); setTriggerType("schedule"); }}
                 className={`p-3 rounded-lg border text-left transition-colors ${
                   triggerType === "schedule"
                     ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
@@ -524,11 +538,13 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               >
                 <Calendar className="w-5 h-5 mb-1" />
                 <p className="text-sm font-medium">Schedule</p>
-                <p className="text-xs text-gray-500">Daily, weekly, or monthly</p>
+                <p className="text-xs text-gray-500">
+                  {notifiesStaff ? "On a clock — not when something happens" : "Daily, weekly, or monthly"}
+                </p>
               </button>
               <button
                 type="button"
-                onClick={() => setTriggerType("event")}
+                onClick={() => { setTriggerTouched(true); setTriggerType("event"); }}
                 className={`p-3 rounded-lg border text-left transition-colors ${
                   triggerType === "event"
                     ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
@@ -537,7 +553,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               >
                 <Zap className="w-5 h-5 mb-1" />
                 <p className="text-sm font-medium">Event</p>
-                <p className="text-xs text-gray-500">After booking actions</p>
+                {/* Was "After booking actions", which stopped being true once W3 added reviews, low
+                    ratings, failed payments and low stock — and steered people to Schedule. */}
+                <p className="text-xs text-gray-500">When something happens in your shop</p>
               </button>
             </div>
           </div>
@@ -907,8 +925,12 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             </div>
           )}
 
-          {/* Preview (single-message mode only; the sequence editor shows each step inline) */}
-          {!sequenceMode && messageTemplate.trim() && (
+          {/* Preview (single-message mode only; the sequence editor shows each step inline).
+              Gated on needsRuleMessage, not just on there being text: switching a rule to a reward or a
+              staff alert hides the message EDITOR but left this behind, so the form previewed a customer
+              message for an action that sends none — and handleSubmit then discards that text
+              (messageTemplate: null). It read as "this is what will be sent". */}
+          {needsRuleMessage && !sequenceMode && messageTemplate.trim() && (
             <div className="p-3 bg-[#0D0D0D] border border-gray-800 rounded-lg">
               <p className="text-xs text-gray-500 mb-1">Preview (sample data):</p>
               <p className="text-sm text-white">{resolvePreview(messageTemplate)}</p>
