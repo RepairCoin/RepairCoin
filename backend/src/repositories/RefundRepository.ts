@@ -2,6 +2,8 @@ import { BaseRepository } from './BaseRepository';
 
 export type RefundReason = 'requested_by_customer' | 'duplicate' | 'fraudulent';
 export type RefundStatus = 'pending' | 'succeeded' | 'failed';
+/** Who issued it. `created_by` is a wallet address and can't distinguish the two (Slice A2). */
+export type RefundActor = 'shop' | 'admin';
 
 export interface Refund {
   id: string;
@@ -14,6 +16,7 @@ export interface Refund {
   status: RefundStatus;
   stripeRefundId: string | null;
   createdBy: string | null;
+  createdByRole: RefundActor;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,6 +42,7 @@ export class RefundRepository extends BaseRepository {
       status: row.status,
       stripeRefundId: row.stripe_refund_id,
       createdBy: row.created_by,
+      createdByRole: (row.created_by_role ?? 'shop') as RefundActor,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -56,10 +60,11 @@ export class RefundRepository extends BaseRepository {
     reason: RefundReason;
     note?: string | null;
     createdBy?: string | null;
+    createdByRole?: RefundActor;
   }): Promise<Refund> {
     const result = await this.pool.query(
-      `INSERT INTO refunds (payment_id, shop_id, amount_cents, currency, reason, note, status, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,'pending',$7)
+      `INSERT INTO refunds (payment_id, shop_id, amount_cents, currency, reason, note, status, created_by, created_by_role)
+       VALUES ($1,$2,$3,$4,$5,$6,'pending',$7,$8)
        RETURNING *`,
       [
         input.paymentId,
@@ -69,6 +74,7 @@ export class RefundRepository extends BaseRepository {
         input.reason,
         input.note ?? null,
         input.createdBy ?? null,
+        input.createdByRole ?? 'shop',
       ]
     );
     return this.mapRow(result.rows[0]);

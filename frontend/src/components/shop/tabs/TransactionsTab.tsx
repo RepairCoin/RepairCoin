@@ -397,12 +397,21 @@ function TransactionDetail({
             <h4 className="text-sm font-medium text-white mb-2">Refunds</h4>
             <div className="space-y-2">
               {refunds.map((r) => (
-                <div key={r.id} className="flex justify-between text-xs text-gray-400">
-                  <span>
-                    {new Date(r.createdAt).toLocaleDateString()} · {r.reason.replace(/_/g, " ")}
-                    {r.status !== "succeeded" && ` · ${r.status}`}
-                  </span>
-                  <span className="text-white">{money(r.amountCents)}</span>
+                <div key={r.id} className="text-xs text-gray-400">
+                  <div className="flex justify-between">
+                    <span>
+                      {new Date(r.createdAt).toLocaleDateString()} · {r.reason.replace(/_/g, " ")}
+                      {r.status !== "succeeded" && ` · ${r.status}`}
+                    </span>
+                    <span className="text-white">{money(r.amountCents)}</span>
+                  </div>
+                  {/* A refund nobody at this shop issued needs to say so, and say why — the
+                      money left this account on the platform's instruction (Slice A2). */}
+                  {r.createdByRole === "admin" && (
+                    <p className="mt-0.5 text-orange-400">
+                      Issued by FixFlow{r.note ? ` — ${r.note}` : ""}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

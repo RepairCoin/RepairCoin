@@ -562,8 +562,11 @@ export function SessionManagementTab() {
 
             {/* Filters and Refresh */}
             <div className="flex flex-wrap gap-2 sm:gap-3">
+              {/* sm:w-auto is load-bearing: SelectTrigger's base class is w-full, and sm:flex-none
+                  hands sizing back to width — without it each select claims the whole row and
+                  collapses the search input. */}
               <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value)}>
-                <SelectTrigger variant="dark" className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm">
+                <SelectTrigger variant="dark" className="flex-1 sm:flex-none sm:w-auto px-3 sm:px-4 py-2 text-sm">
                   <SelectValue placeholder="All Roles" />
                 </SelectTrigger>
                 <SelectContent variant="dark">
@@ -575,7 +578,7 @@ export function SessionManagementTab() {
               </Select>
 
               <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value)}>
-                <SelectTrigger variant="dark" className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm">
+                <SelectTrigger variant="dark" className="flex-1 sm:flex-none sm:w-auto px-3 sm:px-4 py-2 text-sm">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent variant="dark">

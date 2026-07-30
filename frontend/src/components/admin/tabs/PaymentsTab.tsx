@@ -1,24 +1,27 @@
 "use client";
 
-// Platform-wide fiat payments (Slice A1). Named Payments, not Transactions, because
+// Platform-wide fiat payments (Slices A1 + A2). Named Payments, not Transactions, because
 // admin/tabs/TransactionsTab.tsx is the RCN *token* ledger — a different thing entirely.
 //
-// Read-only: refunds are listed but never issued from here. These are Connect direct charges,
-// so refunding would debit the merchant's own balance (Slice A2, deliberately out of scope).
+// Almost entirely read-only. The one write is the refund panel in the drawer, and it is
+// deliberately harder to use than the shop's: these are Connect direct charges, so the money
+// comes out of the MERCHANT's balance. Hence the mandatory note, the named shop, and the
+// type-the-amount confirmation — the failure mode is the right amount on the wrong shop.
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
-import { Receipt, Loader2, Download, X } from "lucide-react";
+import { Receipt, Loader2, Download, X, AlertTriangle } from "lucide-react";
 import {
   getAdminTransactions,
   getAdminTransactionTotals,
   getAdminTransactionRefunds,
+  refundAdminTransaction,
   exportAdminTransactionsCsv,
   type AdminTransaction,
   type AdminTransactionPage,
   type PaymentTotals,
 } from "@/services/api/adminPayments";
-import type { PaymentMethod, PaymentStatus, Refund } from "@/services/api/payments";
+import type { PaymentMethod, PaymentStatus, Refund, RefundReason } from "@/services/api/payments";
 
 const startOfMonth = () => {
   const d = new Date();
@@ -301,7 +304,18 @@ export function PaymentsTab() {
         </div>
       )}
 
-      {selected && <PaymentDetail transaction={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <PaymentDetail
+          transaction={selected}
+          onClose={() => setSelected(null)}
+          // A refund changes refunded_cents and status via the webhook, so reload the list
+          // rather than patching the row from the refund response.
+          onRefunded={() => {
+            setSelected(null);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -338,17 +352,60 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 function PaymentDetail({
   transaction: t,
   onClose,
+  onRefunded,
 }: {
   transaction: AdminTransaction;
   onClose: () => void;
+  onRefunded: () => void;
 }) {
   const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState<RefundReason>("requested_by_customer");
+  const [note, setNote] = useState("");
+  const [confirmAmount, setConfirmAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     getAdminTransactionRefunds(t.id)
       .then(setRefunds)
       .catch(() => setRefunds([]));
   }, [t.id]);
+
+  // What Stripe reports refunded is authoritative; anything pending on our side is also
+  // spoken for. Mirrors the server's own calculation in RefundIssuer.
+  const requestedHere = refunds
+    .filter((r) => r.status !== "failed")
+    .reduce((sum, r) => sum + r.amountCents, 0);
+  const refundable = t.grossCents - Math.max(t.refundedCents, requestedHere);
+  const canRefund =
+    refundable > 0 && (t.status === "succeeded" || t.status === "partially_refunded");
+
+  // Blank amount = the whole remaining balance, so that's what has to be confirmed.
+  const parsed = amount.trim() ? Math.round(parseFloat(amount) * 100) : refundable;
+  const targetCents = Number.isFinite(parsed) ? parsed : NaN;
+  const confirmed =
+    confirmAmount.trim() !== "" &&
+    Math.round(parseFloat(confirmAmount) * 100) === targetCents;
+  const ready = note.trim().length > 0 && confirmed && targetCents > 0 && targetCents <= refundable;
+
+  const handleRefund = async () => {
+    if (!ready) return;
+    setSubmitting(true);
+    try {
+      await refundAdminTransaction(t.id, {
+        amountCents: amount.trim() ? targetCents : undefined,
+        reason,
+        note: note.trim(),
+      });
+      toast.success(`Refunded ${money(targetCents)} from ${t.shopName || t.shopId}`);
+      onRefunded();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || e?.error || "Refund failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60" onClick={onClose}>
@@ -409,6 +466,9 @@ function PaymentDetail({
                 <div key={r.id} className="flex justify-between text-xs text-gray-400">
                   <span>
                     {new Date(r.createdAt).toLocaleDateString()} · {r.reason.replace(/_/g, " ")}
+                    {r.createdByRole === "admin" && (
+                      <span className="text-orange-400"> · by FixFlow</span>
+                    )}
                     {r.status !== "succeeded" && ` · ${r.status}`}
                   </span>
                   <span className="text-white">{money(r.amountCents)}</span>
@@ -418,9 +478,114 @@ function PaymentDetail({
           </div>
         )}
 
+        {/* Slice A2. Collapsed by default — routine customer service belongs on the shop's own
+            Payments tab; this is for disputes and fraud. */}
+        {canRefund && (
+          <div className="mt-6 border-t border-gray-800 pt-4">
+            {!open ? (
+              <button
+                onClick={() => setOpen(true)}
+                className="w-full px-4 py-2 rounded-md border border-orange-500/40 text-orange-300 text-sm hover:bg-orange-500/10"
+              >
+                Refund on behalf of the shop ({money(refundable)} available)
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex gap-2 rounded-md bg-orange-500/10 border border-orange-500/30 p-3">
+                  <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-orange-200">
+                    This debits <span className="font-semibold">{t.shopName || t.shopId}</span>
+                    &apos;s own Stripe balance, not FixFlow&apos;s, and claws back our commission
+                    with it. If their balance is short, it overdraws them. The shop is notified
+                    and sees your reason.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Amount (leave blank to refund {money(refundable)})
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={amount}
+                    onChange={(e) => {
+                      setAmount(e.target.value);
+                      setConfirmAmount("");
+                    }}
+                    placeholder={(refundable / 100).toFixed(2)}
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Reason</label>
+                  <select
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value as RefundReason)}
+                    className={inputClass}
+                  >
+                    <option value="requested_by_customer">Requested by customer</option>
+                    <option value="duplicate">Duplicate</option>
+                    <option value="fraudulent">Fraudulent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Note to the shop (required)
+                  </label>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={2}
+                    placeholder="Dispute #1234 — chargeback avoided by refunding"
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Type {targetCents > 0 ? (targetCents / 100).toFixed(2) : "the amount"} to
+                    confirm
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={confirmAmount}
+                    onChange={(e) => setConfirmAmount(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleRefund}
+                    disabled={!ready || submitting}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-orange-500 text-black font-medium hover:bg-orange-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Refund {targetCents > 0 ? money(targetCents) : ""}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      setConfirmAmount("");
+                    }}
+                    className="px-4 py-2 rounded-md border border-[#303236] text-gray-300 hover:bg-[#222]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <p className="mt-6 text-xs text-gray-500">
-          Read-only. Refunds are issued by the shop from its own Payments tab — this money sits
-          in the shop&apos;s Stripe account, not the platform&apos;s.
+          This money sits in the shop&apos;s Stripe account, not the platform&apos;s. Shops refund
+          their own charges from their Payments tab — refund from here only when they can&apos;t.
         </p>
       </div>
     </div>

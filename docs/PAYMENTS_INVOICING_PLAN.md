@@ -5,14 +5,23 @@
 > shop owners never open the Stripe Dashboard. The user should feel like they are
 > using **FixFlow Payments**, not switching between FixFlow and Stripe.
 
-Status: **Phase 0 code-complete (unverified) · Slices 1.0–1.3 shipped (launch scope complete)**
-· Owner: Nico · Last updated: 2026-07-29
+Status: **Phase 0 shipped (0.5 backfill outstanding) · Slices 1.0–1.3 shipped (launch scope
+complete) · Slice A1 shipped** · Owner: Nico · Last updated: 2026-07-30
 
-> **Launch scope is merged** (Slice 1.3 via PR #679). Verified on staging: migration 250
-> applied, and a full refund on a Connect direct charge reconciled correctly (`refunds` row
-> `succeeded`, `payments.refunded_cents` + status updated by `charge.refunded`). Still
-> unverified: partial refunds, the `payments:refund` permission split, and the Stripe failure
-> path.
+> **Launch scope is merged** (Slice 1.3 via PR #679), and admins can now see the ledger
+> (Slice A1, commit `7b6481b2`). Verified on staging: migration 250 applied, and a full refund
+> on a Connect direct charge reconciled correctly (`refunds` row `succeeded`,
+> `payments.refunded_cents` + status updated by `charge.refunded`). Still unverified: partial
+> refunds, the `payments:refund` permission split, and the Stripe failure path.
+>
+> **Slice A2 (admin-initiated refunds) is implemented but uncommitted** — migration 254 has not
+> been applied to any database. See §7 A2.
+>
+> **Not built:** Slice 0.5 (backfill — no `backfill-payments.ts` exists, so `payments` holds
+> only charges seen since 0.4 went live) and everything from 1.4 onward. **There is no
+> invoicing code of any kind** —
+> no invoice table, no invoice routes. Shops can take payment and refund; nobody can send an
+> invoice.
 
 > **Scope decision (2026-07-28) — launch first.** Phase 1 is cut to Transactions,
 > Refunds, and the order↔payment linking that both need. **Invoices, Payment Links,
@@ -162,11 +171,12 @@ converting only at display — matches Stripe and avoids the current dollar-roun
 
 One branch per phase, one commit per slice.
 
-### Phase 0 — Foundation (no UI) — detail in §7 — **code-complete, unverified**
+### Phase 0 — Foundation (no UI) — detail in §7 — **shipped, except 0.5**
 `payments` + `stripe_events` tables · PaymentsDomain skeleton · Stripe idempotency
-keys everywhere · webhook dedup + reconcile into ledger · backfill existing charges.
-Written and typecheck-clean on `feat/payments-foundation` (uncommitted). **Migrations 244/245
-have never been applied and no code path has run against a database or a real Stripe event.**
+keys everywhere · webhook dedup + reconcile into ledger. Merged (0.2 `0e721033`, 0.4
+`78922c19`); migrations 244/250/251 applied on staging and the reconciler has run against real
+Stripe events. **Slice 0.5 (backfill) was never written** — pre-0.4 charges are absent from the
+ledger and no `backfill-payments.ts` exists.
 
 ### Phase 1 — launch scope
 Transactions view + export · Refunds table + UI · Order↔payment linking.
@@ -287,7 +297,7 @@ Modify `backend/src/domains/shop/routes/webhooks.ts`:
    calls `paymentRepo.upsertByPaymentIntent(...)`, emits `payments:payment_recorded`.
 3. Existing booking-order + subscription handlers unchanged (reconciler keyed independently on the PI).
 
-#### Slice 0.5 — Backfill
+#### Slice 0.5 — Backfill — ❌ NOT BUILT
 `backend/scripts/backfill-payments.ts` (idempotent via `uq_payments_intent`): read
 `service_orders` (w/ `stripe_payment_intent_id`), `deposit_transactions`
 (`stripe_charge_id`/`stripe_refund_id`), `shop_rcn_purchases` (`total_cost`,
@@ -457,9 +467,10 @@ already live.
 invoice (PDF + embedded pay page), generate/track payment links, see balances + payout
 history, and read a revenue dashboard.*
 
-### Admin oversight — Slices A1–A2 (specced 2026-07-29, not scheduled)
+### Admin oversight — Slices A1–A2 (specced 2026-07-29 · **A1 shipped**, A2 not scheduled)
 
-Everything in Phase 1 is shop-facing: every route in `PaymentsDomain/routes.ts` is
+The problem statement below describes the state *before* A1; it is kept because it explains why
+A1 exists. Everything in Phase 1 is shop-facing: every route in `PaymentsDomain/routes.ts` is
 `requireRole(['shop'])` with `shopId` taken from the JWT, so an **admin cannot read the fiat
 ledger at all** — not per-shop, not platform-wide. The admin dashboard's existing
 `admin/tabs/TransactionsTab.tsx` is the RCN *token* ledger (mint/redemption/purchase,
@@ -469,7 +480,7 @@ the platform's revenue from payments and it is currently visible in **no** UI.
 Lettered rather than numbered so Phase 2's 1.4–1.8 keep their meaning. A1 is read-only and
 cheap; A2 moves a merchant's money and is a product decision before it is a code change.
 
-#### Slice A1 — Admin payments visibility (read-only)
+#### Slice A1 — Admin payments visibility (read-only) — ✅ SHIPPED (commit `7b6481b2`)
 - **Generalize the shop scoping, don't fork it.** `PaymentRepository.buildFilters(shopId,
   filters)` hardcodes `p.shop_id = $1` as its first predicate. Change the parameter to
   `string | null` (null = skip it) and accept `shopId` as an optional *filter* instead. Every
@@ -502,7 +513,10 @@ cheap; A2 moves a merchant's money and is a product decision before it is a code
   list, detail, and CSV. That matters more than anything in the admin feature itself.
 - ~1 day; most of it repurposed.
 
-#### Slice A2 — Admin-initiated refunds
+#### Slice A2 — Admin-initiated refunds — ✅ IMPLEMENTED (uncommitted, migration 254 not applied)
+Built as specced, with one addition: the shop and admin paths were merged into a shared
+`PaymentsDomain/services/RefundIssuer.ts` rather than duplicated, so the refundable-balance rule
+can't drift between them. `requireNote` is the only behavioural difference.
 Mechanically small — `RefundController` already resolves the connected account from
 `payment.stripeAccountId` — which is the trap. These are **direct charges**: the money sits in
 the shop's Stripe account, so an admin refund debits the merchant (and `refund_application_fee`
