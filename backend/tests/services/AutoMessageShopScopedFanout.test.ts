@@ -64,7 +64,7 @@ const AUDIENCE = [
 /**
  * A scheduler wired to fakes. Repos are replaced on the instance (the constructor builds its own and
  * takes no injection), and the private helpers that would otherwise reach the database are stubbed:
- * `shouldRunNow` so the test doesn't depend on the wall clock, and `isShopEntitled` because it calls
+ * `isDue` so the test doesn't depend on the wall clock, and `isShopEntitled` because it calls
  * getShopTier module-internally — a jest.spyOn there never intercepts, which is how an earlier test
  * file silently ran against the live database.
  */
@@ -80,6 +80,8 @@ const scheduler = (opts: {
   svc.autoMessageRepo = {
     getActiveScheduleRules: jest.fn(async () => opts.rules ?? []),
     hasSentTodayShopScoped: jest.fn(async () => opts.alreadySentToday ?? false),
+    // The rule-level daily gate that makes catch-up safe (see isDue / CATCH_UP_HOURS).
+    hasAnySendToday: jest.fn(async () => opts.alreadySentToday ?? false),
     hasSentToday: jest.fn(async () => false),
     countSendsForCustomer: jest.fn(async () => 0),
     recordSend: jest.fn(async (s: any) => { recorded.push(s); return { id: "send-1" }; }),
@@ -89,7 +91,8 @@ const scheduler = (opts: {
     getAllActiveEventRulesByType: jest.fn(async () => opts.sweepRules ?? []),
   };
   svc.shopRepo = { getShop: jest.fn(async () => ({ id: "peanut", name: "Peanut Repairs", active: true })) };
-  svc.shouldRunNow = () => true;
+  // `isDue` (was shouldRunNow) is stubbed so these tests don't depend on the wall clock.
+  svc.isDue = () => true;
   svc.isShopEntitled = async () => opts.entitled ?? true;
   svc.getTargetCustomers = async () => AUDIENCE;
 
@@ -141,8 +144,9 @@ describe("scheduled rules — shop-scoped actions fire once, customer actions fa
     expect(mockRun).toHaveBeenCalledTimes(AUDIENCE.length);
   });
 
-  // hasSentToday() keys on `customer_address = $2` and shop-scoped sends store NULL, so it can never
-  // match — without the dedicated query the team would be paged once an hour, all day.
+  // Catch-up keeps a rule due for a few hours past its slot, so "did it already run" is the only thing
+  // stopping it repeating every tick. hasSentToday() can't answer it: that predicate is
+  // `customer_address = $2` and shop-scoped sends store NULL, so it never matches.
   it("does not repeat the alert when it has already gone out today", async () => {
     const { svc } = scheduler({ rules: [rule()], alreadySentToday: true });
     await svc.processScheduledMessages();

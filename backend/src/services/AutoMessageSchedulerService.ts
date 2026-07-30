@@ -20,6 +20,17 @@ const ENTITLEMENT_TTL_MS = 5 * 60 * 1000;
 const MAX_SENDS_PER_SHOP_PER_RUN = 50;
 
 /**
+ * How long after its scheduled hour a rule may still fire, if nothing observed that hour.
+ *
+ * Not unbounded on purpose. Catch-up exists so an hour of downtime doesn't silently drop a day's runs —
+ * but "8am good morning promo" delivered at 11pm is worse than not delivered at all, and the owner can't
+ * un-send it. Three hours covers a crash loop or a long deploy while keeping a late send recognisably
+ * close to what was intended. Past the window the run is dropped and LOGGED, because the failure mode
+ * being fixed here is silence, not lateness.
+ */
+const CATCH_UP_HOURS = 3;
+
+/**
  * Resolves {{variable}} placeholders in message templates
  */
 function resolveTemplate(template: string, context: {
@@ -60,24 +71,57 @@ export class AutoMessageSchedulerService {
   }
 
   /**
-   * Check if a schedule-based rule should run right now
+   * Is this schedule-based rule DUE — meaning its hour has arrived and hasn't slipped too far past?
+   *
+   * Used to be an exact hour match (`scheduleHour !== currentHour`), which made the whole schedule
+   * dependent on a tick landing inside every single hour. The scheduler is an in-process
+   * `setInterval(1h)`, not a cron, so if the backend is down for an entire UTC hour — a crash loop, or a
+   * deploy that runs long — nothing ever observes that hour and every rule scheduled for it is skipped
+   * for the day. Silently: there is no error, no retry, and no record of a run that didn't happen.
+   *
+   * So a rule now stays due for CATCH_UP_HOURS after its hour, and the caller's once-per-day gate stops
+   * it repeating. Whether it ALREADY ran is a separate question from whether it is due, and conflating
+   * the two is what made the miss silent.
    */
-  private shouldRunNow(rule: AutoMessage): boolean {
-    const now = new Date();
+  private isDue(rule: AutoMessage, now = new Date()): boolean {
     const currentHour = now.getUTCHours();
-    const currentDayOfWeek = now.getUTCDay(); // 0=Sunday
-    const currentDayOfMonth = now.getUTCDate();
+    const scheduled = rule.scheduleHour ?? 0;
 
-    // Must match the configured hour
-    if (rule.scheduleHour !== currentHour) return false;
+    // Not yet, or so far past that firing would be worse than skipping — see CATCH_UP_HOURS.
+    if (currentHour < scheduled) return false;
+    if (currentHour - scheduled > CATCH_UP_HOURS) return false;
+
+    switch (rule.scheduleType) {
+      case 'daily':
+        return true;
+      // Catch-up is same-day only: the day check still has to match, so a weekly rule missed by a
+      // full-day outage stays missed rather than firing on the wrong weekday.
+      case 'weekly':
+        return rule.scheduleDayOfWeek === now.getUTCDay();
+      case 'monthly':
+        return rule.scheduleDayOfMonth === now.getUTCDate();
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Would this rule have been due earlier today, but is now past its catch-up window?
+   *
+   * Only used to LOG. A skipped run that leaves no trace is the actual problem with an interval-based
+   * scheduler — the run is indistinguishable from one that fired and had nothing to do.
+   */
+  private missedItsWindow(rule: AutoMessage, now = new Date()): boolean {
+    const scheduled = rule.scheduleHour ?? 0;
+    if (now.getUTCHours() - scheduled <= CATCH_UP_HOURS) return false;
 
     switch (rule.scheduleType) {
       case 'daily':
         return true;
       case 'weekly':
-        return rule.scheduleDayOfWeek === currentDayOfWeek;
+        return rule.scheduleDayOfWeek === now.getUTCDay();
       case 'monthly':
-        return rule.scheduleDayOfMonth === currentDayOfMonth;
+        return rule.scheduleDayOfMonth === now.getUTCDate();
       default:
         return false;
     }
@@ -778,7 +822,27 @@ export class AutoMessageSchedulerService {
       // Group rules by shop for rate limiting
       const rulesByShop = new Map<string, AutoMessage[]>();
       for (const rule of rules) {
-        if (!this.shouldRunNow(rule)) continue;
+        if (!this.isDue(rule)) {
+          // A run that never happened used to leave no trace at all. Say so, once, when a rule was due
+          // earlier today and is now past its catch-up window — that is the case worth investigating.
+          if (this.missedItsWindow(rule)) {
+            logger.warn('Scheduled rule missed its window and will not run today', {
+              ruleId: rule.id,
+              shopId: rule.shopId,
+              name: rule.name,
+              scheduledHour: rule.scheduleHour,
+              currentHourUtc: new Date().getUTCHours(),
+              catchUpHours: CATCH_UP_HOURS,
+            });
+          }
+          continue;
+        }
+
+        // Due, but did it already run? Separate question, and the one that keeps catch-up from turning a
+        // single daily run into an all-day drip. Checked here rather than inside sendToCustomer because
+        // that gate is per customer, and a rule stopped by the per-run cap leaves later customers with no
+        // send row at all — so each following tick would send to the next 50.
+        if (await this.autoMessageRepo.hasAnySendToday(rule.id)) continue;
 
         const shopRules = rulesByShop.get(rule.shopId) || [];
         shopRules.push(rule);
@@ -813,9 +877,10 @@ export class AutoMessageSchedulerService {
             // "every Monday, remind the team" over an audience of 200 pages them 50 times (the
             // per-run cap), and the Target Audience they picked would silently become a multiplier.
             if (SHOP_SCOPED_ACTIONS.has(rule.actionType || DEFAULT_ACTION_TYPE)) {
-              // Entitlement + daily dedup are normally sendToCustomer's job; this path skips it.
+              // Entitlement is normally sendToCustomer's job; this path skips it. The daily gate is no
+              // longer checked here — hasAnySendToday upstream now covers every schedule rule, customer-
+              // facing or not, and two overlapping daily checks is how one of them ends up wrong.
               if (!(await this.isShopEntitled(rule.shopId))) continue;
-              if (await this.autoMessageRepo.hasSentTodayShopScoped(rule.id)) continue;
 
               if (await this.fireShopScopedRule(rule, shopName)) result.messagesSent++;
               else result.messagesFailed++;
