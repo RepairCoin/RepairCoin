@@ -14,6 +14,8 @@ import {
   MAX_AUTOMATED_RCN,
 } from '../../../services/autoMessageActions/issueRewardAction';
 import { parseNotifyStaffPayload } from '../../../services/autoMessageActions/notifyStaffAction';
+import { workflowRelevanceService } from '../services/WorkflowRelevanceService';
+import { workflowMetricsService, ATTRIBUTION_DAYS } from '../services/WorkflowMetricsService';
 
 const VALID_TRIGGER_TYPES = ['schedule', 'event'];
 const VALID_SCHEDULE_TYPES = ['daily', 'weekly', 'monthly'];
@@ -182,6 +184,52 @@ export class AutoMessageController {
    * Get all auto-message rules for the authenticated shop
    * GET /api/messages/auto-messages
    */
+  /**
+   * Per-shop numbers behind the template gallery's relevance line.
+   * GET /api/messages/auto-messages/template-relevance
+   *
+   * Returns metric counts, not per-template copy — the phrasing lives with the template. A metric absent
+   * from the response means "not computable for this shop", and the card must render no line rather than
+   * a zero: see WorkflowRelevanceService for why that distinction is load-bearing.
+   */
+  getTemplateRelevance = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+      const data = await workflowRelevanceService.forShop(shopId);
+      res.json({ success: true, data });
+    } catch (error: unknown) {
+      // Decision support, not the feature itself — a failure here must not stop the gallery from opening.
+      logger.error('Error in getTemplateRelevance controller:', error);
+      res.json({ success: true, data: {} });
+    }
+  };
+
+  /**
+   * Per-workflow outcome metrics.
+   * GET /api/messages/auto-messages/metrics
+   *
+   * Separate from the list rather than joined into it: the attribution join is heavier than the list
+   * query, and the list must stay fast and must still render if this fails.
+   */
+  getWorkflowMetrics = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+      const metrics = await workflowMetricsService.forShop(shopId);
+      // The window travels WITH the numbers so the UI can state the rule instead of hardcoding a
+      // duplicate of it — two copies of "14 days" is how a label and its data drift apart.
+      res.json({ success: true, data: { attributionDays: ATTRIBUTION_DAYS, metrics } });
+    } catch (error: unknown) {
+      logger.error('Error in getWorkflowMetrics controller:', error);
+      res.json({ success: true, data: { attributionDays: ATTRIBUTION_DAYS, metrics: {} } });
+    }
+  };
+
   getAutoMessages = async (req: Request, res: Response) => {
     try {
       const shopId = req.user?.shopId;

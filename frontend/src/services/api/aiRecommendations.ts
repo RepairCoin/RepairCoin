@@ -26,7 +26,9 @@ export type RecSeverity = "low" | "medium" | "high";
 export type RecAction =
   | { kind: "navigate"; tab: string; sub?: string }
   | { kind: "assistant"; prompt: string }
-  | { kind: "campaign"; audience: string };
+  | { kind: "campaign"; audience: string }
+  /** Open Automation with a workflow template preselected. `templateId` matches WORKFLOW_TEMPLATES. */
+  | { kind: "workflow"; templateId: string };
 
 /** Which dashboard surface renders this — one engine, two surfaces.
  *  'card' = the AI Recommendations list, 'action' = the Priority Actions grid. */

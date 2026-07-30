@@ -37,7 +37,19 @@ export type RecAction =
    *  is judgement ("draft a promo", "why did revenue drop"). */
   | { kind: 'assistant'; prompt: string }
   /** Open AI Campaigns prefilled with an audience. */
-  | { kind: 'campaign'; audience: string };
+  | { kind: 'campaign'; audience: string }
+  /**
+   * Open the Automation surface with a workflow template preselected — "I recommend enabling the Win Back
+   * workflow."
+   *
+   * This is the destination `campaign` always wanted and never had. Its own comment said so: there is no
+   * audience-key entry point into the campaign composer, so it falls back to the assistant. The workflow
+   * gallery DOES prefill, and a workflow is the durable form of the same intent — a campaign is one send,
+   * a workflow keeps running for every customer who meets the condition from now on.
+   *
+   * `templateId` must match an id in the frontend's WORKFLOW_TEMPLATES.
+   */
+  | { kind: 'workflow'; templateId: string };
 
 /**
  * What a detector emits. Pure data — no copy, no ranking, no tier logic.
@@ -58,6 +70,18 @@ export interface RecCandidate {
   assistantPrompt: string;
   title: string;
   description: string;
+  /**
+   * A better destination than `action`, IF the shop can reach it: enable a workflow instead of doing the
+   * thing once by hand. The service promotes this into `action` when the shop has `customWorkflows`, and
+   * ignores it otherwise.
+   *
+   * Why here and not just in `action`: the detector contract forbids tier logic, but the choice genuinely
+   * depends on tier. Repointing `action` outright would strip these cards from Growth shops, who can still
+   * act via the campaign composer; adding parallel workflow detectors would crowd a feed that is a flat
+   * `.slice(0, limit)` with near-duplicates. This keeps ONE card pointed at the best destination available
+   * to that shop. Under-promoting (workflow-capable shop shown the campaign action) is the safe failure.
+   */
+  preferredWorkflow?: { templateId: string };
   /** Defaults to 'card' when omitted. */
   presentation?: RecPresentation;
   /** Button text for a Priority Action tile ("Contact Leads"). Cards omit it. */
