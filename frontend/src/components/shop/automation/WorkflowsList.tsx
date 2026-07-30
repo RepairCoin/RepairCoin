@@ -9,7 +9,7 @@
 // derived from auto_message_sends, which has tracked per-customer step progress all along.
 
 import React, { useEffect, useState } from "react";
-import { Plus, Play, Pause, Pencil, Trash2, Workflow as WorkflowIcon, Search, Sparkles } from "lucide-react";
+import { Plus, Play, Pause, Pencil, Trash2, Workflow as WorkflowIcon, Search, Sparkles, Zap, TrendingUp } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getAutoMessages,
@@ -17,12 +17,15 @@ import {
   updateAutoMessage,
   deleteAutoMessage,
   publishAutoMessage,
+  getTemplateRelevance,
+  getWorkflowMetrics,
+  WorkflowMetrics,
   AutoMessage,
   CreateAutoMessageRequest,
   UpdateAutoMessageRequest,
 } from "@/services/api/messaging";
 import { AutoMessageRuleModal } from "@/components/messaging/AutoMessageRuleModal";
-import { WORKFLOW_TEMPLATES, WorkflowTemplateDraft } from "./workflowTemplates";
+import { WORKFLOW_TEMPLATES, WorkflowTemplateDraft, WorkflowRelevance } from "./workflowTemplates";
 
 const EVENT_LABELS: Record<string, string> = {
   booking_completed: "Booking completed",
@@ -73,6 +76,50 @@ function stepsSummary(w: AutoMessage): string {
 const fmtDate = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
 
+const money = (n: number) =>
+  `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: n < 100 ? 2 : 0 })}`;
+
+/**
+ * The outcome line under a workflow's name.
+ *
+ * Three deliberate choices, all about not overstating what we know:
+ *  - "Read", not "Opened". These are in-app messages with a real read receipt; there is no open pixel to
+ *    estimate from, and calling it Opened would borrow email's vaguer meaning.
+ *  - Booked/revenue are labelled with the window and explained on hover. "Revenue Generated" would assert
+ *    that the workflow CAUSED the money, which is not something an attribution window can show.
+ *  - A shop-scoped rule (notify_staff) has no recipient, so it reports "Ran N times" instead of pretending
+ *    to a 0% read rate on messages it never sent.
+ */
+const resultsLine = (
+  w: AutoMessage,
+  m: WorkflowMetrics | undefined,
+  attributionDays: number
+): React.ReactNode => {
+  if (!m || m.sent === 0) return null;
+
+  if (m.delivered === 0) {
+    return (
+      <div className="text-xs text-gray-400 mt-1">
+        Ran {m.sent} time{m.sent === 1 ? "" : "s"}
+      </div>
+    );
+  }
+
+  const readPct = Math.round((m.read / m.delivered) * 100);
+  return (
+    <div
+      className="text-xs text-gray-400 mt-1"
+      title={
+        `Booked and revenue count orders placed within ${attributionDays} days of a message from this ` +
+        `workflow. Correlation, not proof of cause.`
+      }
+    >
+      Sent {m.delivered} · Read {readPct}% · Booked {m.booked} · {money(m.revenue)}
+      <span className="text-gray-600"> within {attributionDays}d</span>
+    </div>
+  );
+};
+
 export const WorkflowsList: React.FC = () => {
   const [workflows, setWorkflows] = useState<AutoMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +129,15 @@ export const WorkflowsList: React.FC = () => {
   // A3: the builder opened from a template — a prefill with no id, so it saves as a new workflow.
   const [fromTemplate, setFromTemplate] = useState<WorkflowTemplateDraft | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  /**
+   * This shop's own numbers behind each template's relevance line. Starts empty and stays empty on
+   * failure — a card with no number shows no line, which is the whole integrity rule. Decision support
+   * must never be able to stop the gallery from opening.
+   */
+  const [relevance, setRelevance] = useState<WorkflowRelevance>({});
+  /** Outcome metrics per rule id, and the attribution window they were computed with. */
+  const [metrics, setMetrics] = useState<Record<string, WorkflowMetrics>>({});
+  const [attributionDays, setAttributionDays] = useState(14);
 
   const load = async () => {
     try {
@@ -95,6 +151,40 @@ export const WorkflowsList: React.FC = () => {
 
   useEffect(() => {
     void load();
+    // Fetched alongside the list rather than on gallery open: the gallery auto-opens for a shop with no
+    // workflows, and fetching then would show the cards for a beat before their numbers appeared.
+    getTemplateRelevance()
+      .then(setRelevance)
+      .catch(() => setRelevance({}));
+    // Separate from the list: the attribution join is heavier, and the list must render without it.
+    getWorkflowMetrics()
+      .then((r) => {
+        setMetrics(r.metrics ?? {});
+        if (r.attributionDays) setAttributionDays(r.attributionDays);
+      })
+      .catch(() => setMetrics({}));
+  }, []);
+
+  /**
+   * Arriving from an AI recommendation — "I recommend enabling the Win Back workflow" deep-links here with
+   * ?template=<id>, and we open that template's builder prefilled.
+   *
+   * Runs once and strips the param, so a later back-navigation or refresh doesn't reopen the builder over
+   * whatever the owner is doing by then. An unknown id opens the gallery rather than failing silently:
+   * the recommendation still told them something true, it just named a template we no longer ship.
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const wanted = params.get("template");
+    if (!wanted) return;
+
+    const match = WORKFLOW_TEMPLATES.find((t) => t.id === wanted);
+    if (match) setFromTemplate(match.draft);
+    else setShowTemplates(true);
+
+    params.delete("template");
+    const qs = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
   }, []);
 
   const save = async (data: CreateAutoMessageRequest | UpdateAutoMessageRequest) => {
@@ -196,20 +286,47 @@ export const WorkflowsList: React.FC = () => {
             Start from one of these — you can change the wording and timing before it goes live.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {WORKFLOW_TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => {
-                  setFromTemplate(t.draft);
-                  setShowTemplates(false);
-                }}
-                className="text-left rounded-lg border border-gray-700 bg-[#111] p-3 hover:border-[#FFCC00] transition-colors"
-              >
-                <p className="text-base text-white font-medium">{t.name}</p>
-                <p className="text-sm text-gray-400 mt-1">{t.description}</p>
-                <p className="text-xs text-[#FFCC00] mt-2">{t.shape}</p>
-              </button>
-            ))}
+            {WORKFLOW_TEMPLATES.map((t) => {
+              // Null when the number is missing or below the template's own floor — render nothing then.
+              const applies = t.relevance?.(relevance) ?? null;
+              const use = () => {
+                setFromTemplate(t.draft);
+                setShowTemplates(false);
+              };
+              return (
+                <div
+                  key={t.id}
+                  onClick={use}
+                  className="flex flex-col text-left rounded-lg border border-gray-700 bg-[#111] p-3 hover:border-[#FFCC00] transition-colors cursor-pointer"
+                >
+                  <p className="text-base text-white font-medium">{t.name}</p>
+                  <p className="text-sm text-gray-400 mt-1">{t.description}</p>
+                  <p className="text-sm text-gray-300 mt-2">{t.benefit}</p>
+
+                  {/* This shop's own number. Stronger than a platform average, and it's true. */}
+                  {applies && (
+                    <p className="mt-2 flex items-start gap-1.5 text-sm text-[#7ED957]">
+                      <TrendingUp className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{applies}</span>
+                    </p>
+                  )}
+
+                  <p className="text-sm text-[#FFCC00] mt-2">{t.shape}</p>
+
+                  {/* The whole card is clickable, but an explicit CTA is what makes "one click to start"
+                      discoverable. It opens the editor prefilled — deliberately NOT straight to live:
+                      a template can issue real RCN and message real customers, which is why
+                      Draft -> Publish exists (migration 253). One click to START, not to go live. */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); use(); }}
+                    className="mt-3 self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FFCC00] text-black text-sm font-medium hover:bg-[#e6b800] transition-colors"
+                  >
+                    <Zap className="w-4 h-4" /> Use template
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -262,6 +379,10 @@ export const WorkflowsList: React.FC = () => {
                     <div className="text-xs text-gray-500 mt-0.5">
                       {triggerLabel(w)} → {stepsSummary(w)}
                     </div>
+                    {/* Outcomes, so the workflow is measurable and not just configurable. Rendered as a
+                        subtitle rather than four more columns — the table is already seven wide, and
+                        these numbers are read together or not at all. */}
+                    {resultsLine(w, metrics[w.id], attributionDays)}
                   </td>
                   <td className="px-4 py-3">
                     {/* Three states, not two (A4): a draft is composed but inert, which is different

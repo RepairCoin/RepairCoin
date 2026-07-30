@@ -428,6 +428,40 @@ export interface UpdateAutoMessageRequest {
  * Get all auto-message rules for the authenticated shop
  */
 /** Rules for ONE surface (D7). Omit for 'campaign' — the AI Campaigns list. */
+/**
+ * This shop's own counts behind each template's relevance line ("18 customers haven't booked in 90 days").
+ *
+ * Any metric may be absent — that means it wasn't computable for this shop, and the card must render no
+ * line rather than a zero. Returns {} on failure so the gallery still opens.
+ */
+export const getTemplateRelevance = async (): Promise<Record<string, number>> => {
+  const response = await apiClient.get('/messages/auto-messages/template-relevance');
+  return response.data ?? {};
+};
+
+export interface WorkflowMetrics {
+  sent: number;
+  /** Sends addressed to a customer — the denominator for `read`. Shop-scoped runs are excluded. */
+  delivered: number;
+  read: number;
+  booked: number;
+  revenue: number;
+}
+
+/**
+ * Outcome metrics per workflow, plus the attribution window they were computed with.
+ *
+ * The window comes from the server rather than being hardcoded here: the label has to state the same
+ * number the data was built from, and two copies of "14 days" is how a label drifts from its data.
+ */
+export const getWorkflowMetrics = async (): Promise<{
+  attributionDays: number;
+  metrics: Record<string, WorkflowMetrics>;
+}> => {
+  const response = await apiClient.get('/messages/auto-messages/metrics');
+  return response.data ?? { attributionDays: 14, metrics: {} };
+};
+
 export const getAutoMessages = async (surface?: AutoMessageSurface): Promise<AutoMessage[]> => {
   const response = await apiClient.get('/messages/auto-messages', {
     params: surface ? { surface } : undefined,

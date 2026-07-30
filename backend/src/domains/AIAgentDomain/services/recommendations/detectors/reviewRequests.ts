@@ -53,6 +53,9 @@ export const reviewRequestsDetector: RecommendationDetector = {
         category: 'customers',
         severity,
         evidence: { eligibleCustomers: count, windowDays: WINDOW_DAYS },
+        // "Post-repair follow-up" asks for the review automatically after every completed job — which
+        // stops this card from ever being needed again, rather than clearing it once by hand.
+        preferredWorkflow: { templateId: 'post-repair-followup' },
         action: {
           kind: 'assistant',
           prompt: `Draft a message asking the ${count} customers I served in the last ${WINDOW_DAYS} days to leave a review`,

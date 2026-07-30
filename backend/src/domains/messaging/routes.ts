@@ -280,6 +280,22 @@ router.post('/auto-messages/generate', autoMessageGuard, autoMessageController.g
 router.get('/auto-messages', autoMessageGuard, autoMessageController.getAutoMessages);
 
 /**
+ * @route GET /api/messages/auto-messages/template-relevance
+ * @description Per-shop counts behind the template gallery's "this applies to you" line.
+ *
+ * Safe from ':id' capture: every GET ':id' route here is two segments deep ('/:id/history',
+ * '/:id/ab-results'), so a single-segment literal cannot be swallowed by one.
+ */
+router.get('/auto-messages/template-relevance', autoMessageGuard, autoMessageController.getTemplateRelevance);
+
+/**
+ * @route GET /api/messages/auto-messages/metrics
+ * @description Sent / read / attributed bookings + revenue per workflow. Same single-segment safety as
+ * template-relevance above.
+ */
+router.get('/auto-messages/metrics', autoMessageGuard, autoMessageController.getWorkflowMetrics);
+
+/**
  * @route POST /api/messages/auto-messages
  * @description Create a new auto-message rule
  * @body name - Rule name
