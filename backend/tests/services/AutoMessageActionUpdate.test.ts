@@ -21,6 +21,7 @@ import {
 } from "../../src/services/autoMessageActions/registry";
 import { parseIssueRewardPayload } from "../../src/services/autoMessageActions/issueRewardAction";
 import { parseNotifyStaffPayload } from "../../src/services/autoMessageActions/notifyStaffAction";
+import { shopScopedActionError } from "../../src/domains/messaging/controllers/AutoMessageController";
 
 describe("update field mapping — undefined leaves alone, null clears", () => {
   // Mirrors the repository's serialisation for action_payload.
@@ -143,6 +144,25 @@ describe("shop-scoped trigger coherence on update", () => {
 
   it("allows low_stock with a staff alert", () => {
     expect(rejects("event", "low_stock", "notify_staff")).toBe(false);
+  });
+
+  // The message used to say "instead of sending a message" whatever you attempted, so trying a reward
+  // got you corrected about a message you never wrote. Asserted against the REAL exported function, not
+  // a copy of it — a test that reimplements the string can drift from the string users actually see.
+  it("names the action that was actually attempted", () => {
+    expect(shopScopedActionError("low_stock", "issue_reward")).toContain(
+      '"Issue an RCN reward" has nobody to act on'
+    );
+    expect(shopScopedActionError("low_stock", "send_message")).toContain(
+      '"Send a message" has nobody to act on'
+    );
+    // Names the trigger, and points at the fix.
+    expect(shopScopedActionError("low_stock", "issue_reward")).toContain('"low_stock"');
+    expect(shopScopedActionError("low_stock", "issue_reward")).toContain('Use "Notify my team"');
+  });
+
+  it("falls back to the raw action name for an action it has no label for", () => {
+    expect(shopScopedActionError("low_stock", "some_future_action")).toContain('"some_future_action"');
   });
 
   // Reachable only by comparing effective values: the stored event stays low_stock while the submitted
