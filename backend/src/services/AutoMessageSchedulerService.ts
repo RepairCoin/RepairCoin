@@ -5,7 +5,12 @@ import { MessageRepository } from '../repositories/MessageRepository';
 import { CustomerRepository } from '../repositories/CustomerRepository';
 import { ShopRepository } from '../repositories/ShopRepository';
 import { getSharedPool } from '../utils/database-pool';
-import { getAutoMessageActionRegistry, NON_MESSAGING_ACTIONS } from './autoMessageActions/registry';
+import {
+  getAutoMessageActionRegistry,
+  NON_MESSAGING_ACTIONS,
+  SHOP_SCOPED_ACTIONS,
+  DEFAULT_ACTION_TYPE,
+} from './autoMessageActions/registry';
 import { shopHasFeatureEffective } from '../utils/shopTier';
 
 /** How long an entitlement answer is reused. One tick can ask about the same shop once per customer. */
@@ -325,6 +330,48 @@ export class AutoMessageSchedulerService {
   }
 
   /**
+   * Run a rule whose action targets the SHOP, exactly once, with no customer in context.
+   *
+   * Shared by both routes that can reach a shop-scoped action: a shop-scoped EVENT (low_stock) and a
+   * SCHEDULE ("every Monday, remind the team"). The schedule route needs it because the normal path
+   * resolves a target audience and runs the action once per person — correct for a message or a reward,
+   * an alert storm for a staff alert.
+   *
+   * Entitlement is the caller's job: handleShopEvent checks once for the whole batch, and the scheduler
+   * checks per rule where sendToCustomer would have.
+   */
+  private async fireShopScopedRule(
+    rule: AutoMessage,
+    shopName: string,
+    opts: { triggerDetail?: string; reference?: string } = {}
+  ): Promise<boolean> {
+    const outcome = await getAutoMessageActionRegistry(this.messageRepo as any).run({
+      rule,
+      shopId: rule.shopId,
+      customerAddress: '', // no customer — this happened to the shop
+      shopName,
+      actionType: rule.actionType || 'notify_staff',
+      actionPayload: rule.actionPayload ?? null,
+      // The live detail (which items are low), NOT messageText — a staff alert that only echoes the
+      // owner's own wording tells them the one thing they already knew.
+      triggerDetail: opts.triggerDetail,
+    });
+
+    if (!outcome.ok) return false;
+
+    // Recorded with a NULL customer (migration 252) so "Last run" works and there's an audit trail,
+    // without inventing a customer who was never involved.
+    await this.autoMessageRepo.recordSend({
+      autoMessageId: rule.id,
+      shopId: rule.shopId,
+      customerAddress: null,
+      triggerReference: opts.reference,
+      status: 'sent',
+    });
+    return true;
+  }
+
+  /**
    * Handle a SHOP-SCOPED event — one that happens to the shop with no customer involved (low_stock).
    *
    * Every other trigger targets a customer: the engine resolves an audience and runs the action once
@@ -354,30 +401,11 @@ export class AutoMessageSchedulerService {
 
       for (const rule of rules) {
         try {
-          const outcome = await getAutoMessageActionRegistry(this.messageRepo as any).run({
-            rule,
-            shopId: data.shopId,
-            customerAddress: '', // no customer — this happened to the shop
-            shopName,
-            actionType: rule.actionType || 'notify_staff',
-            actionPayload: rule.actionPayload ?? null,
-            // The live detail (which items are low), NOT messageText — a staff alert that only echoes
-            // the owner's own wording tells them the one thing they already knew.
+          const fired = await this.fireShopScopedRule(rule, shopName, {
             triggerDetail: data.summary,
+            reference: data.reference,
           });
-
-          if (outcome.ok) {
-            rulesFired++;
-            // Recorded with a NULL customer (migration 252) so "Last run" works and there's an audit
-            // trail, without inventing a customer who was never involved.
-            await this.autoMessageRepo.recordSend({
-              autoMessageId: rule.id,
-              shopId: data.shopId,
-              customerAddress: null,
-              triggerReference: data.reference,
-              status: 'sent',
-            });
-          }
+          if (fired) rulesFired++;
         } catch (err) {
           logger.error('Shop-scoped automation rule failed', {
             ruleId: rule.id,
@@ -553,6 +581,17 @@ export class AutoMessageSchedulerService {
 
           logger.info(`Rule "${rule.name}" found ${result.rows.length} inactive customers`, { ruleId: rule.id, shopId: rule.shopId });
 
+          // A staff alert reports the sweep ONCE, with the count — not once per quiet customer.
+          if (SHOP_SCOPED_ACTIONS.has(rule.actionType || DEFAULT_ACTION_TYPE)) {
+            if (!(await this.isShopEntitled(rule.shopId))) continue;
+            if (await this.autoMessageRepo.hasSentTodayShopScoped(rule.id)) continue;
+            const n = result.rows.length;
+            await this.fireShopScopedRule(rule, shop.name || 'Our Shop', {
+              triggerDetail: `${n} customer${n === 1 ? '' : 's'} haven't been back in 30+ days.`,
+            });
+            continue;
+          }
+
           for (const row of result.rows) {
             // Check max sends per customer
             const sendCount = await this.autoMessageRepo.countSendsForCustomer(rule.id, row.customer_address);
@@ -661,6 +700,17 @@ export class AutoMessageSchedulerService {
             ruleId: rule.id, shopId: rule.shopId,
           });
 
+          // A staff alert reports the slow week ONCE, with the numbers — not once per customer we
+          // would otherwise have tried to win back.
+          if (SHOP_SCOPED_ACTIONS.has(rule.actionType || DEFAULT_ACTION_TYPE)) {
+            if (!(await this.isShopEntitled(rule.shopId))) continue;
+            if (await this.autoMessageRepo.hasSentTodayShopScoped(rule.id)) continue;
+            await this.fireShopScopedRule(rule, shop.name || 'Our Shop', {
+              triggerDetail: `Bookings are down: ${last7} in the last 7 days vs ~${weeklyAvg.toFixed(1)}/week average.`,
+            });
+            continue;
+          }
+
           const customers = await this.getTargetCustomers(rule);
           for (const cust of customers) {
             const sendCount = await this.autoMessageRepo.countSendsForCustomer(rule.id, cust.walletAddress);
@@ -758,6 +808,20 @@ export class AutoMessageSchedulerService {
           result.rulesFired++;
 
           try {
+            // A shop-scoped action has no recipient to resolve, so it fires ONCE — before we go
+            // anywhere near an audience. Falling through would run the action once per customer:
+            // "every Monday, remind the team" over an audience of 200 pages them 50 times (the
+            // per-run cap), and the Target Audience they picked would silently become a multiplier.
+            if (SHOP_SCOPED_ACTIONS.has(rule.actionType || DEFAULT_ACTION_TYPE)) {
+              // Entitlement + daily dedup are normally sendToCustomer's job; this path skips it.
+              if (!(await this.isShopEntitled(rule.shopId))) continue;
+              if (await this.autoMessageRepo.hasSentTodayShopScoped(rule.id)) continue;
+
+              if (await this.fireShopScopedRule(rule, shopName)) result.messagesSent++;
+              else result.messagesFailed++;
+              continue;
+            }
+
             const customers = await this.getTargetCustomers(rule);
             logger.info(`Rule "${rule.name}" targeting ${customers.length} customers`, { ruleId: rule.id, shopId });
 

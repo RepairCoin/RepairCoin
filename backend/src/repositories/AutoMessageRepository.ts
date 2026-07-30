@@ -614,6 +614,28 @@ export class AutoMessageRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Daily dedup for a rule with no customer (a `notify_staff` alert on a schedule).
+   *
+   * hasSentToday() cannot answer this: its predicate is `customer_address = $2`, and shop-scoped sends
+   * store NULL there (migration 252) — `= NULL` matches nothing, so it would report "not sent yet" on
+   * every tick and the team would be paged once an hour all day.
+   */
+  async hasSentTodayShopScoped(autoMessageId: string): Promise<boolean> {
+    try {
+      const query = `
+        SELECT COUNT(*) FROM auto_message_sends
+        WHERE auto_message_id = $1 AND customer_address IS NULL AND status = 'sent'
+        AND sent_at >= CURRENT_DATE
+      `;
+      const result = await this.pool.query(query, [autoMessageId]);
+      return parseInt(result.rows[0].count, 10) > 0;
+    } catch (error) {
+      logger.error('Error in AutoMessageRepository.hasSentTodayShopScoped:', error);
+      throw error;
+    }
+  }
+
   private mapRow(row: any): AutoMessage & {
     totalSends?: number;
     lastSentAt?: string;

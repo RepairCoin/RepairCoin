@@ -34,6 +34,13 @@ const EVENT_TYPES = [
  */
 const SHOP_SCOPED_EVENTS = new Set(["low_stock"]);
 
+/**
+ * Event triggers that SWEEP instead of reacting: nothing hands them a customer, so the engine resolves
+ * a target audience for them. Kept in step with the two sweeps in AutoMessageSchedulerService — for
+ * every other event the audience is dead config, which is why the field hides itself.
+ */
+const AUDIENCE_AWARE_EVENTS = new Set(["inactive_30_days", "low_bookings"]);
+
 const TARGET_AUDIENCES = [
   { value: "all", label: "All Customers" },
   { value: "active", label: "Active (last 30 days)" },
@@ -116,6 +123,21 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [variantB, setVariantB] = useState("");
   const [generatingB, setGeneratingB] = useState(false);
   const [abResults, setAbResults] = useState<AbResults | null>(null);
+
+  // The alert goes to the shop and its team, so nothing about this rule concerns a customer.
+  const notifiesStaff = actionType === "notify_staff";
+
+  /**
+   * Does Target Audience actually do anything for this configuration?
+   *
+   * It only ever did for rules where the engine has to decide WHO to act on: schedule rules, plus the
+   * two "sweep" events that fire without a customer attached (`processInactiveCustomers`,
+   * `processLowBookings`). Every other event arrives carrying the customer it happened to — the engine
+   * never consults the audience — so showing the field there promised a filter that did not exist.
+   */
+  const audienceApplies =
+    !notifiesStaff &&
+    (triggerType === "schedule" || AUDIENCE_AWARE_EVENTS.has(eventType));
 
   useEffect(() => {
     if (rule) {
@@ -337,7 +359,10 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           delayHours,
         }),
         targetAudience,
-        maxSendsPerCustomer,
+        // Hiding the input is not enough: it defaults to 1, and the engine's per-customer cap applies
+        // to a staff alert on a customer event too — so a repeat no-show by the same customer would be
+        // reported once and then never again. 0 means uncapped (the engine's check is truthy).
+        maxSendsPerCustomer: isNotify ? 0 : maxSendsPerCustomer,
         // Send the sequence (or clear it when not in sequence mode).
         steps: sequenceMode ? cleanSteps : null,
         stopOnBooking: sequenceMode ? stopOnBooking : false,
@@ -614,8 +639,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             </div>
           )}
 
-          {/* Target Audience */}
-          <div>
+          {/* Target Audience — hidden when the engine won't consult it (see audienceApplies). */}
+          <div className={audienceApplies ? "" : "hidden"}>
             <label className="block text-sm text-gray-400 mb-1">Target Audience</label>
             <Select value={targetAudience} onValueChange={(value) => setTargetAudience(value)}>
               <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#0D0D0D] border-gray-700 rounded-lg text-white text-sm">
@@ -629,8 +654,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             </Select>
           </div>
 
-          {/* Max Sends */}
-          <div>
+          {/* Max Sends — a staff alert isn't addressed to a customer, so a per-customer cap is
+              meaningless for it (and the submitted value is forced to "uncapped"). */}
+          <div className={notifiesStaff ? "hidden" : ""}>
             <label className="block text-sm text-gray-400 mb-1">Max sends per customer</label>
             <input
               type="number"
