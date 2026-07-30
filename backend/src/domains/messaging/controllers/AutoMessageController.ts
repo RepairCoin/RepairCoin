@@ -71,6 +71,26 @@ function parseSteps(raw: unknown): { steps?: SequenceStep[]; error?: string } {
   return { steps };
 }
 
+/**
+ * How an action reads in an error message — the same words the action picker uses, so the message points
+ * at something the shop owner can actually see on screen.
+ *
+ * Worth the indirection because the shop-scoped rejection used to say "instead of sending a message"
+ * regardless of what was attempted: pick a low_stock trigger with an RCN reward and it corrected you
+ * about a message you never tried to send.
+ */
+const ACTION_LABELS: Record<string, string> = {
+  send_message: 'Send a message',
+  issue_reward: 'Issue an RCN reward',
+  notify_staff: 'Notify my team',
+};
+
+/** The error explaining why a shop-scoped trigger can't be paired with a customer-facing action. */
+export function shopScopedActionError(eventType: string, actionType: string): string {
+  const label = ACTION_LABELS[actionType] || actionType;
+  return `"${eventType}" happens to your shop, not to a customer — so "${label}" has nobody to act on. Use "Notify my team" instead.`;
+}
+
 /** Which surface a request is talking about (D7). Anything unrecognised falls back to 'campaign'. */
 function parseSurface(raw: unknown): AutoMessageSurface {
   return raw === 'workflow' ? 'workflow' : 'campaign';
@@ -260,7 +280,7 @@ export class AutoMessageController {
         if (SHOP_SCOPED_EVENTS.has(eventType) && !SHOP_SCOPED_ACTIONS.has(actionType)) {
           return res.status(400).json({
             success: false,
-            error: `"${eventType}" happens to your shop, not to a customer — use an action like "notify my team" instead of sending a message`,
+            error: shopScopedActionError(eventType, actionType),
           });
         }
       }
@@ -375,7 +395,7 @@ export class AutoMessageController {
       ) {
         return res.status(400).json({
           success: false,
-          error: `"${effectiveEventType}" happens to your shop, not to a customer — use an action like "notify my team" instead of sending a message`,
+          error: shopScopedActionError(effectiveEventType || '', effectiveActionType),
         });
       }
 
