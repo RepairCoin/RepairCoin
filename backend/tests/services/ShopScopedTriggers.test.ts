@@ -42,18 +42,45 @@ describe('low_stock — shop-scoped trigger', () => {
     expect(scheduler).toContain('async handleShopEvent(');
   });
 
-  // The emitter (LowStockAlertService) already throttles per item and honours the shop's digest
-  // preference. A second notion of "have we already said this" would eventually produce duplicates or
-  // silence depending on which won.
+  /**
+   * The shop-scoped region: the fireShopScopedRule helper plus handleShopEvent, which is everything
+   * between the helper and the next customer-facing entry point.
+   *
+   * Anchored at the helper rather than handleShopEvent because the recordSend moved into it when the
+   * scheduled path started sharing it — a source-shape test's weakness is exactly this, so if it moves
+   * again, widen the anchor rather than dropping the assertion. The behavioural version of this claim
+   * lives in AutoMessageShopScopedFanout.test.ts, which asserts the recorded send directly.
+   */
+  const shopScopedPath = () =>
+    scheduler.slice(
+      scheduler.indexOf('private async fireShopScopedRule('),
+      scheduler.indexOf('async handleEventTrigger(')
+    );
+
   it('records the run with a NULL customer instead of inventing one', () => {
-    const body = scheduler.slice(scheduler.indexOf('async handleShopEvent('), scheduler.indexOf('async handleEventTrigger('));
-    expect(body).toContain('customerAddress: null');
+    expect(shopScopedPath()).toContain('customerAddress: null');
+  });
+
+  // De-duplication is deliberately absent from the EVENT path: the emitter (LowStockAlertService)
+  // already throttles per item and honours the shop's digest preference, and a second notion of "have
+  // we already said this" would eventually produce duplicates or silence depending on which won.
+  //
+  // Note this is specifically about the event path. A shop-scoped action on a SCHEDULE has no emitter
+  // throttling it, so that path does cap itself at one alert per day (hasSentTodayShopScoped) — which
+  // is why this assertion is scoped to the region above rather than the whole file.
+  it('does not re-implement de-duplication on the event path', () => {
+    const body = shopScopedPath();
     expect(body).not.toContain('countSendsForCustomer');
     expect(body).not.toContain('hasSentToday');
   });
 
   it('still respects the Business entitlement gate', () => {
-    const body = scheduler.slice(scheduler.indexOf('async handleShopEvent('), scheduler.indexOf('async handleEventTrigger('));
+    // The check sits in handleShopEvent, before the batch — the helper leaves it to its callers so the
+    // scheduled path can check per rule, where sendToCustomer would have.
+    const body = scheduler.slice(
+      scheduler.indexOf('async handleShopEvent('),
+      scheduler.indexOf('async handleEventTrigger(')
+    );
     expect(body).toContain('isShopEntitled');
   });
 });

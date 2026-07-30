@@ -25,6 +25,16 @@ export type AutoMessageActionType = (typeof AUTO_MESSAGE_ACTION_TYPES)[number];
 /** Actions that send no customer message — message_template is not required for these. */
 export const NON_MESSAGING_ACTIONS: ReadonlySet<string> = new Set(['issue_reward', 'notify_staff']);
 
+/**
+ * Actions whose recipient is the SHOP, so no customer is involved at all.
+ *
+ * Deliberately narrower than NON_MESSAGING_ACTIONS: `issue_reward` sends no message but still needs
+ * somebody to pay, so it belongs there and not here. The distinction is load-bearing — the scheduler
+ * runs an action once per customer in the target audience, which for a staff alert would page the team
+ * once per customer rather than once. Anything listed here fires exactly once per rule per run.
+ */
+export const SHOP_SCOPED_ACTIONS: ReadonlySet<string> = new Set(['notify_staff']);
+
 export class AutoMessageActionRegistry {
   private readonly handlers = new Map<string, AutoMessageActionHandler>();
 
