@@ -53,6 +53,9 @@ import {
   LogOut,
   RefreshCw,
   ChevronDown,
+  Receipt,
+  Workflow,
+  Percent,
 } from "lucide-react";
 
 // Tab configuration with icons, titles, and descriptions
@@ -80,6 +83,21 @@ const TAB_CONFIG: Record<string, {
     title: "Purchase Orders",
     icon: <Package className="w-5 h-5" />,
     description: "Manage your inventory purchase orders",
+  },
+  payments: {
+    title: "Payments",
+    icon: <Receipt className="w-5 h-5" />,
+    description: "Every card payment you've taken, what Stripe kept, and what you netted",
+  },
+  automation: {
+    title: "Automation",
+    icon: <Workflow className="w-5 h-5" />,
+    description: "Build workflows that act on your shop's events without you watching",
+  },
+  commissions: {
+    title: "Commissions",
+    icon: <Percent className="w-5 h-5" />,
+    description: "Track what each team member has earned on the work they completed",
   },
   messages: {
     title: "Messages",
