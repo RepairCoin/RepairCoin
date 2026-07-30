@@ -46,22 +46,28 @@ function triggerLabel(w: AutoMessage): string {
   return `${w.scheduleType || "daily"} at ${at}`;
 }
 
+/**
+ * One action described in a few words. Shared by the rule-level and per-step summaries so they can't
+ * disagree — the rule-level version previously fell through to "Send a message" for ANY non-reward
+ * action, which mislabelled every notify_staff workflow in the list.
+ */
+function actionLabel(actionType: string | undefined, payload: any, short: boolean): string {
+  switch (actionType) {
+    case "issue_reward":
+      return short ? `${payload?.amountRcn ?? "?"} RCN` : `Issue ${payload?.amountRcn ?? "?"} RCN`;
+    case "notify_staff":
+      return "Notify team";
+    default:
+      return short ? "Message" : "Send a message";
+  }
+}
+
 /** A workflow's shape in one line — how many steps and what they do. */
 function stepsSummary(w: AutoMessage): string {
   if (!w.steps || w.steps.length === 0) {
-    return w.actionType === "issue_reward"
-      ? `Issue ${w.actionPayload?.amountRcn ?? "?"} RCN`
-      : "Send a message";
+    return actionLabel(w.actionType, w.actionPayload, false);
   }
-  return w.steps
-    .map((s: any) =>
-      s.actionType === "issue_reward"
-        ? `${s.actionPayload?.amountRcn ?? "?"} RCN`
-        : s.actionType === "notify_staff"
-        ? "Notify team"
-        : "Message"
-    )
-    .join(" → ");
+  return w.steps.map((s: any) => actionLabel(s.actionType, s.actionPayload, true)).join(" → ");
 }
 
 const fmtDate = (v?: string | null) =>
