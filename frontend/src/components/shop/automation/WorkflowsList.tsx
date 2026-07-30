@@ -25,6 +25,7 @@ import {
   UpdateAutoMessageRequest,
 } from "@/services/api/messaging";
 import { AutoMessageRuleModal } from "@/components/messaging/AutoMessageRuleModal";
+import { AutoMessageResults } from "@/components/messaging/autoMessageResults";
 import { WORKFLOW_TEMPLATES, WorkflowTemplateDraft, WorkflowRelevance } from "./workflowTemplates";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -75,50 +76,6 @@ function stepsSummary(w: AutoMessage): string {
 
 const fmtDate = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
-
-const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: n < 100 ? 2 : 0 })}`;
-
-/**
- * The outcome line under a workflow's name.
- *
- * Three deliberate choices, all about not overstating what we know:
- *  - "Read", not "Opened". These are in-app messages with a real read receipt; there is no open pixel to
- *    estimate from, and calling it Opened would borrow email's vaguer meaning.
- *  - Booked/revenue are labelled with the window and explained on hover. "Revenue Generated" would assert
- *    that the workflow CAUSED the money, which is not something an attribution window can show.
- *  - A shop-scoped rule (notify_staff) has no recipient, so it reports "Ran N times" instead of pretending
- *    to a 0% read rate on messages it never sent.
- */
-const resultsLine = (
-  w: AutoMessage,
-  m: WorkflowMetrics | undefined,
-  attributionDays: number
-): React.ReactNode => {
-  if (!m || m.sent === 0) return null;
-
-  if (m.delivered === 0) {
-    return (
-      <div className="text-xs text-gray-400 mt-1">
-        Ran {m.sent} time{m.sent === 1 ? "" : "s"}
-      </div>
-    );
-  }
-
-  const readPct = Math.round((m.read / m.delivered) * 100);
-  return (
-    <div
-      className="text-xs text-gray-400 mt-1"
-      title={
-        `Booked and revenue count orders placed within ${attributionDays} days of a message from this ` +
-        `workflow. Correlation, not proof of cause.`
-      }
-    >
-      Sent {m.delivered} · Read {readPct}% · Booked {m.booked} · {money(m.revenue)}
-      <span className="text-gray-600"> within {attributionDays}d</span>
-    </div>
-  );
-};
 
 export const WorkflowsList: React.FC = () => {
   const [workflows, setWorkflows] = useState<AutoMessage[]>([]);
@@ -382,7 +339,11 @@ export const WorkflowsList: React.FC = () => {
                     {/* Outcomes, so the workflow is measurable and not just configurable. Rendered as a
                         subtitle rather than four more columns — the table is already seven wide, and
                         these numbers are read together or not at all. */}
-                    {resultsLine(w, metrics[w.id], attributionDays)}
+                    <AutoMessageResults
+                      metrics={metrics[w.id]}
+                      attributionDays={attributionDays}
+                      className="mt-1"
+                    />
                   </td>
                   <td className="px-4 py-3">
                     {/* Three states, not two (A4): a draft is composed but inert, which is different
