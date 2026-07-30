@@ -361,7 +361,9 @@ export class AutoMessageSchedulerService {
             shopName,
             actionType: rule.actionType || 'notify_staff',
             actionPayload: rule.actionPayload ?? null,
-            messageText: data.summary,
+            // The live detail (which items are low), NOT messageText — a staff alert that only echoes
+            // the owner's own wording tells them the one thing they already knew.
+            triggerDetail: data.summary,
           });
 
           if (outcome.ok) {

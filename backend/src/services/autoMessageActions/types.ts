@@ -32,6 +32,15 @@ export interface AutoMessageActionContext {
   /** Config for the resolved action, from the same place `actionType` came from. */
   actionPayload?: Record<string, unknown> | null;
   /**
+   * Live detail about what actually tripped the trigger — e.g. WHICH items are low on stock.
+   * Deliberately separate from `messageText`, which means "the customer-facing body" everywhere else;
+   * putting trigger detail there would risk it leaking into a customer's message.
+   *
+   * Without this a staff alert can only repeat what the owner typed when they built the workflow
+   * ("stock is running low"), which is the one thing they already know — the useful part is which part.
+   */
+  triggerDetail?: string;
+  /**
    * For `send_message` only: the final message body, with the drip step / A-B variant already chosen
    * and template variables resolved. Which text to send depends on WHERE in the engine we are (an
    * immediate send vs. a queued sequence step), so the caller resolves it and the handler just
