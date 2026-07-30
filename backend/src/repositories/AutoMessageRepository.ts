@@ -633,6 +633,33 @@ export class AutoMessageRepository extends BaseRepository {
   }
 
   /**
+   * Has this rule run AT ALL today, for anybody?
+   *
+   * The rule-level counterpart to hasSentToday's per-customer question, and it is what makes catch-up
+   * safe. Once a rule stays "due" for a few hours past its slot (so a missed hour isn't dropped), the
+   * only thing stopping it re-running every tick is knowing it already ran — and per-customer dedup can't
+   * answer that: a rule capped at MAX_SENDS_PER_SHOP_PER_RUN leaves later customers with no send row, so
+   * each subsequent tick would happily send to the next 50. That turns one daily run into an all-day
+   * drip.
+   *
+   * Deliberately counts rows with a NULL customer too (shop-scoped runs, migration 252), because "did
+   * this rule already run" is the same question whether or not a customer was involved.
+   */
+  async hasAnySendToday(autoMessageId: string): Promise<boolean> {
+    try {
+      const query = `
+        SELECT COUNT(*) FROM auto_message_sends
+        WHERE auto_message_id = $1 AND status = 'sent' AND sent_at >= CURRENT_DATE
+      `;
+      const result = await this.pool.query(query, [autoMessageId]);
+      return parseInt(result.rows[0].count, 10) > 0;
+    } catch (error) {
+      logger.error('Error in AutoMessageRepository.hasAnySendToday:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Daily dedup for a rule with no customer (a `notify_staff` alert on a schedule).
    *
    * hasSentToday() cannot answer this: its predicate is `customer_address = $2`, and shop-scoped sends
