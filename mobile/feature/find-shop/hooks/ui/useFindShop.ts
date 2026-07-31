@@ -10,7 +10,6 @@ import { serviceApi } from "@/feature/services/services/service.services";
 import {
   getCurrentLocation,
   geocodeAddress,
-  Coordinates,
 } from "@/feature/find-shop/services/geocoding.services";
 import {
   fetchRoute,
@@ -45,9 +44,6 @@ export function useFindShop() {
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedShop, setSelectedShop] = useState<ShopWithLocation | null>(null);
-  const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
-  const [locationLoading, setLocationLoading] = useState(true);
-  const [initialMapRegion, setInitialMapRegion] = useState<Region | null>(null);
   const [geocodedShops, setGeocodedShops] = useState<Record<string, GeocodedCoords>>({});
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [pendingRegion, setPendingRegion] = useState<Region | null>(null);
@@ -59,12 +55,50 @@ export function useFindShop() {
   const [isDirectionsPanelMinimized, setIsDirectionsPanelMinimized] = useState(false);
   const [radiusMiles, setRadiusMiles] = useState(DEFAULT_RADIUS_MILES);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
-  const [shopAvailabilities, setShopAvailabilities] = useState<Record<string, ShopAvailability[]>>({});
+
+  // Cache the user's location in React Query so navigating back to this screen doesn't
+  // re-prompt / re-fetch it every time — the loading spinner then only shows on first load.
+  const { data: userLocation = null, isLoading: locationLoading } = useQuery({
+    queryKey: ["userLocation"],
+    queryFn: async () => (await getCurrentLocation()) ?? null,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: false,
+  });
 
   // Fetch services to map shops to categories
   const { data: servicesData } = useQuery({
     queryKey: ["allServices"],
     queryFn: () => serviceApi.getAll(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Availability for every shop, cached (keyed by the shop id list) so it isn't re-fetched
+  // on each visit. Batched to avoid firing dozens of requests at once.
+  const shopIds = useMemo(
+    () => shops?.shops?.map((s: ShopData) => s.shopId) ?? [],
+    [shops]
+  );
+  const { data: shopAvailabilities = {} } = useQuery({
+    queryKey: ["shopAvailabilities", shopIds],
+    queryFn: async () => {
+      const result: Record<string, ShopAvailability[]> = {};
+      const batchSize = 5;
+      for (let i = 0; i < shopIds.length; i += batchSize) {
+        const batch = shopIds.slice(i, i + batchSize);
+        const settled = await Promise.allSettled(
+          batch.map((shopId: string) => appointmentApi.getShopAvailability(shopId))
+        );
+        settled.forEach((res, idx) => {
+          if (res.status === "fulfilled" && res.value) {
+            result[batch[idx]] = res.value;
+          }
+        });
+      }
+      return result;
+    },
+    enabled: shopIds.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Map shop IDs to their service categories
@@ -82,73 +116,6 @@ export function useFindShop() {
     }
     return map;
   }, [servicesData]);
-
-  // Fetch availability for shops (batch load when shops are available)
-  useEffect(() => {
-    let isCancelled = false;
-
-    const loadAvailabilities = async () => {
-      if (!shops?.shops) return;
-
-      const shopIds = shops.shops.map((s: ShopData) => s.shopId);
-      const newAvailabilities: Record<string, ShopAvailability[]> = {};
-
-      // Load availability for each shop (in parallel with limit)
-      const batchSize = 5;
-      for (let i = 0; i < shopIds.length; i += batchSize) {
-        // Check if component unmounted before each batch
-        if (isCancelled) return;
-
-        const batch = shopIds.slice(i, i + batchSize);
-        const results = await Promise.allSettled(
-          batch.map((shopId: string) => appointmentApi.getShopAvailability(shopId))
-        );
-
-        // Check again after async operation
-        if (isCancelled) return;
-
-        results.forEach((result, index) => {
-          if (result.status === "fulfilled" && result.value) {
-            newAvailabilities[batch[index]] = result.value;
-          }
-        });
-      }
-
-      // Only update state if still mounted
-      if (!isCancelled) {
-        setShopAvailabilities(newAvailabilities);
-      }
-    };
-
-    loadAvailabilities();
-
-    // Cleanup function - cancel pending operations on unmount
-    return () => {
-      isCancelled = true;
-    };
-  }, [shops]);
-
-  // Request location permission and get user's location
-  useEffect(() => {
-    (async () => {
-      try {
-        const location = await getCurrentLocation();
-        if (location) {
-          setUserLocation(location);
-          setInitialMapRegion({
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: DEFAULT_LAT_DELTA,
-            longitudeDelta: DEFAULT_LNG_DELTA,
-          });
-        }
-      } catch (error) {
-        console.log("Error getting location:", error);
-      } finally {
-        setLocationLoading(false);
-      }
-    })();
-  }, []);
 
   // Process shops with location data, distances, availability, and favorites
   const shopsWithLocation = useMemo(() => {
@@ -221,22 +188,32 @@ export function useFindShop() {
     return result;
   }, [shopsWithLocation, searchQuery, selectedCategory, shopCategories]);
 
-  // Center map on first shop with valid location if user location is not available
-  useEffect(() => {
-    if (!locationLoading && !initialMapRegion && shopsWithLocation.length > 0) {
-      const firstShopWithLocation = shopsWithLocation.find(
-        (shop: ShopWithLocation) => shop.hasValidLocation
-      );
-      if (firstShopWithLocation?.lat && firstShopWithLocation?.lng) {
-        setInitialMapRegion({
-          latitude: firstShopWithLocation.lat,
-          longitude: firstShopWithLocation.lng,
-          latitudeDelta: 0.1,
-          longitudeDelta: 0.1,
-        });
-      }
+  // Derived (not state) so a cached user location yields a map region immediately on
+  // remount — no blank flash or "Location Access Required" flicker. Falls back to the
+  // first locatable shop when the user's own location isn't available.
+  const initialMapRegion = useMemo<Region | null>(() => {
+    if (userLocation) {
+      return {
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: DEFAULT_LAT_DELTA,
+        longitudeDelta: DEFAULT_LNG_DELTA,
+      };
     }
-  }, [locationLoading, initialMapRegion, shopsWithLocation]);
+    if (locationLoading) return null;
+    const firstShopWithLocation = shopsWithLocation.find(
+      (shop: ShopWithLocation) => shop.hasValidLocation
+    );
+    if (firstShopWithLocation?.lat && firstShopWithLocation?.lng) {
+      return {
+        latitude: firstShopWithLocation.lat,
+        longitude: firstShopWithLocation.lng,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1,
+      };
+    }
+    return null;
+  }, [userLocation, locationLoading, shopsWithLocation]);
 
   // Animate to pending region when map is ready
   useEffect(() => {
