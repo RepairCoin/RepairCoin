@@ -7,15 +7,12 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ServiceData } from "@/feature/services/services/service.interface";
-import ServiceCard from "@/shared/components/shared/ServiceCard";
+import { ServiceGridCard } from "@/shared/components/shared/ServiceGridCard";
+import { SERVICE_GRID_ITEM_WIDTH } from "@/shared/components/shared/ServiceGridItem";
+import { useToggleFavoriteMutation } from "@/feature/services/services-main/feature-tab/hooks/useFeatureTabQuery";
 import { SkeletonHorizontalCards } from "@/shared/components/ui/Skeleton";
-import { rScale } from "@/shared/utilities/responsive";
 
-// Card sizing scaled from the 375pt baseline so it stays proportional
-// across small phones and tablets.
-const CARD_WIDTH = rScale(200);
-const CARD_HEIGHT = rScale(350);
-const CARD_GAP = rScale(20);
+const CARD_SNAP_INTERVAL = SERVICE_GRID_ITEM_WIDTH + 8;
 
 interface TrendingSectionProps {
   handleViewAllTrendingServices: () => void;
@@ -23,6 +20,8 @@ interface TrendingSectionProps {
   trendingData: ServiceData[] | undefined;
   handleServicePress: (item: ServiceData) => void;
   favoritedIds: Set<string>;
+  title?: string;
+  iconName?: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 }
 
 export default function TrendingSection({
@@ -31,55 +30,43 @@ export default function TrendingSection({
   trendingData,
   handleServicePress,
   favoritedIds,
+  title = "Trending Services",
+  iconName = "fire",
 }: TrendingSectionProps) {
+  // One favorite mutation for the whole carousel — NOT one per card.
+  const { toggleFavorite } = useToggleFavoriteMutation();
+
   return (
     <View className="mt-5">
       <View className="flex-row justify-between items-center mb-4">
         <View className="flex-row items-center">
-          <MaterialCommunityIcons name="fire" size={22} color="#FF6B35" />
-          <Text className="text-white text-xl font-bold ml-1">
-            Trending Services
-          </Text>
+          <MaterialCommunityIcons name={iconName} size={22} color="#FF6B35" />
+          <Text className="text-white text-xl font-bold ml-1">{title}</Text>
         </View>
         <TouchableOpacity onPress={handleViewAllTrendingServices}>
           <Text className="text-[#FFCC00] text-sm font-semibold">See All</Text>
         </TouchableOpacity>
       </View>
       {trendingLoading ? (
-        <SkeletonHorizontalCards count={3} cardWidth={CARD_WIDTH} />
+        <SkeletonHorizontalCards count={3} cardWidth={SERVICE_GRID_ITEM_WIDTH} />
       ) : trendingData && trendingData.length > 0 ? (
         <View style={{ marginHorizontal: -16 }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16 }}
+            contentContainerStyle={{ paddingHorizontal: 12 }}
             decelerationRate="fast"
-            snapToInterval={CARD_WIDTH + CARD_GAP}
+            snapToInterval={CARD_SNAP_INTERVAL}
             snapToAlignment="start"
           >
             {trendingData.map((item: ServiceData) => (
-              <View
+              <ServiceGridCard
                 key={item.serviceId}
-                style={{ width: CARD_WIDTH, height: CARD_HEIGHT, marginRight: CARD_GAP }}
-              >
-                <ServiceCard
-                  transparent
-                  imageUrl={item.imageUrl}
-                  category={item.category}
-                  shopName={item.shopName}
-                  title={item.serviceName}
-                  description={item.description}
-                  price={item.priceUsd}
-                  avgRating={item.avgRating}
-                  reviewCount={item.reviewCount}
-                  bookingCount={item.reviewCount}
-                  duration={item.durationMinutes}
-                  onPress={() => handleServicePress(item)}
-                  showFavoriteButton
-                  serviceId={item.serviceId}
-                  isFavorited={favoritedIds.has(item.serviceId)}
-                />
-              </View>
+                service={item}
+                isFavorited={favoritedIds.has(item.serviceId)}
+                onPress={handleServicePress}
+                onToggleFavorite={toggleFavorite}
+              />
             ))}
           </ScrollView>
         </View>

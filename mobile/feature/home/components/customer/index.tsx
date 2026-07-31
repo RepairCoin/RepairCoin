@@ -277,9 +277,22 @@ export default function CustomerWalletTab() {
         </Modal> */}
         {(trendingLoading || (trendingData && trendingData.length > 0)) && (
           <TrendingSection
+            title="Trending Services"
+            iconName="fire"
             handleViewAllTrendingServices={handleViewAllTrendingServices}
             trendingLoading={trendingLoading}
             trendingData={trendingData}
+            handleServicePress={(item) => handleServicePress(item)}
+            favoritedIds={favoritedIds}
+          />
+        )}
+        {(servicesLoading || displayedServices.length > 0) && (
+          <TrendingSection
+            title="New Services"
+            iconName="new-box"
+            handleViewAllTrendingServices={handleViewAllServices}
+            trendingLoading={servicesLoading}
+            trendingData={displayedServices}
             handleServicePress={(item) => handleServicePress(item)}
             favoritedIds={favoritedIds}
           />
