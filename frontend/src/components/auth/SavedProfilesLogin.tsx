@@ -7,6 +7,7 @@ import { inAppWallet, preAuthenticate } from "thirdweb/wallets";
 import { baseSepolia } from "thirdweb/chains";
 import { toast } from "react-hot-toast";
 import { client } from "@/utils/thirdweb";
+import { useAuthStore } from "@/stores/authStore";
 import {
   getSavedAccounts,
   forgetAccount,
@@ -87,20 +88,38 @@ export const SavedProfilesLogin: React.FC<SavedProfilesLoginProps> = ({
     setVerifying(true);
     setError(null);
     try {
-      // Connect into the GLOBAL wallet manager so useActiveAccount updates and the
-      // app's existing auth flow authenticates + redirects.
+      // Connect into the GLOBAL wallet manager so useActiveAccount updates.
+      let connectedAddress: string | undefined;
       await connect(async () => {
         const wallet = inAppWallet();
-        await wallet.connect({
+        const acct = await wallet.connect({
           client,
           chain: baseSepolia,
           strategy: "email",
           email: selected.email!,
           verificationCode: code.trim(),
         });
+        connectedAddress = acct.address;
         return wallet;
       });
-      // Auth + redirect are handled by the wallet-change listeners once connected.
+
+      if (!connectedAddress) throw new Error("Wallet connection failed");
+
+      // Explicitly establish the backend session here rather than relying on the
+      // Header's wallet-change effect to fire — that handoff is timing-sensitive, and
+      // if it's missed the wallet connects with NO session cookie, so any later
+      // navigation drops the user to the "connect your wallet" gate. login() runs
+      // checkUser → authenticate → sets the httpOnly session cookie + profile.
+      await useAuthStore.getState().login(connectedAddress, selected.email);
+
+      const profile = useAuthStore.getState().userProfile;
+      if (!profile) {
+        // Registered check failed (e.g. account not found) — surface it.
+        throw new Error("Could not sign in to this account. Try 'Use another profile'.");
+      }
+      const dest =
+        profile.type === "admin" ? "/admin" : profile.type === "shop" ? "/shop" : "/customer";
+      window.location.href = dest;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Invalid code";
       setError(msg);

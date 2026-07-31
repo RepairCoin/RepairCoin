@@ -14,6 +14,9 @@ export { RefreshTokenRepository } from './RefreshTokenRepository';
 export { ShopTeamRepository } from './ShopTeamRepository';
 export { ShopLocationRepository } from './ShopLocationRepository';
 export { AgencyRepository } from './AgencyRepository';
+export { PaymentRepository } from './PaymentRepository';
+export { StripeEventRepository } from './StripeEventRepository';
+export { RefundRepository } from './RefundRepository';
 
 // Create singleton instances
 import { CustomerRepository } from './CustomerRepository';
@@ -30,6 +33,9 @@ import { RefreshTokenRepository } from './RefreshTokenRepository';
 import { ShopTeamRepository } from './ShopTeamRepository';
 import { ShopLocationRepository } from './ShopLocationRepository';
 import { AgencyRepository } from './AgencyRepository';
+import { PaymentRepository } from './PaymentRepository';
+import { StripeEventRepository } from './StripeEventRepository';
+import { RefundRepository } from './RefundRepository';
 
 export const customerRepository = new CustomerRepository();
 export const shopRepository = new ShopRepository();
@@ -45,3 +51,6 @@ export const refreshTokenRepository = new RefreshTokenRepository();
 export const shopTeamRepository = new ShopTeamRepository();
 export const shopLocationRepository = new ShopLocationRepository();
 export const agencyRepository = new AgencyRepository();
+export const paymentRepository = new PaymentRepository();
+export const stripeEventRepository = new StripeEventRepository();
+export const refundRepository = new RefundRepository();

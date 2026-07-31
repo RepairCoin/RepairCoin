@@ -56,24 +56,30 @@ export interface Admin {
 
 export class AdminRepository extends BaseRepository {
   // Admin Activity Logging
+  /**
+   * The table is `(admin_address, action, details jsonb)` — see `000_base_schema.sql`. It has
+   * never had the `action_type` / `entity_type` / `metadata` columns this method used to insert
+   * into, so every audit write failed and was swallowed by the catch below. The richer
+   * `AdminActivity` shape is preserved for callers by folding the extra fields into `details`.
+   */
   async logAdminActivity(activity: Omit<AdminActivity, 'id' | 'createdAt'>): Promise<void> {
     try {
       const query = `
-        INSERT INTO admin_activity_logs (
-          admin_address, action_type, action_description,
-          entity_type, entity_id, metadata, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        INSERT INTO admin_activity_logs (admin_address, action, details, created_at)
+        VALUES ($1, $2, $3, NOW())
       `;
-      
+
       await this.pool.query(query, [
         activity.adminAddress.toLowerCase(),
         activity.actionType,
-        activity.actionDescription,
-        activity.entityType,
-        activity.entityId,
-        JSON.stringify(activity.metadata || {})
+        JSON.stringify({
+          description: activity.actionDescription,
+          entityType: activity.entityType,
+          entityId: activity.entityId,
+          metadata: activity.metadata || {}
+        })
       ]);
-      
+
       logger.info('Admin activity logged', {
         admin: activity.adminAddress,
         action: activity.actionType
@@ -108,13 +114,13 @@ export class AdminRepository extends BaseRepository {
 
       if (filters.actionType) {
         paramCount++;
-        whereClause += ` AND action_type = $${paramCount}`;
+        whereClause += ` AND action = $${paramCount}`;
         params.push(filters.actionType);
       }
 
       if (filters.entityType) {
         paramCount++;
-        whereClause += ` AND entity_type = $${paramCount}`;
+        whereClause += ` AND details->>'entityType' = $${paramCount}`;
         params.push(filters.entityType);
       }
 
@@ -151,16 +157,22 @@ export class AdminRepository extends BaseRepository {
 
       const result = await this.pool.query(query, params);
       
-      const activities = result.rows.map(row => ({
-        id: row.id,
-        adminAddress: row.admin_address,
-        actionType: row.action_type,
-        actionDescription: row.action_description,
-        entityType: row.entity_type,
-        entityId: row.entity_id,
-        metadata: row.metadata,
-        createdAt: row.created_at
-      }));
+      // Rows written before this mapping existed (e.g. the base-schema seed) carry an
+      // arbitrary `details` payload with none of these keys — surface it as metadata rather
+      // than dropping it.
+      const activities = result.rows.map(row => {
+        const details = row.details || {};
+        return {
+          id: row.id,
+          adminAddress: row.admin_address,
+          actionType: row.action,
+          actionDescription: details.description ?? '',
+          entityType: details.entityType ?? '',
+          entityId: details.entityId ?? '',
+          metadata: details.metadata ?? details,
+          createdAt: row.created_at
+        };
+      });
 
       const totalPages = Math.ceil(totalItems / filters.limit);
 

@@ -88,18 +88,11 @@ export class AppointmentService {
       // Get availability for this day (per-location hours when set, else shop-level).
       // Lazy init seeds shop-level defaults; per-location rows are opt-in.
       let availability = await this.appointmentRepo.getShopAvailability(shopId, locationId);
-      if (availability.length === 0) {
-        logger.warn('No availability found, auto-creating defaults', { shopId });
-        for (let day = 0; day <= 6; day++) {
-          const isOpen = day >= 1 && day <= 5; // Mon-Fri open
-          await this.appointmentRepo.updateShopAvailability({
-            shopId,
-            dayOfWeek: day,
-            isOpen,
-            openTime: isOpen ? '09:00:00' : null,
-            closeTime: isOpen ? '18:00:00' : null,
-          });
-        }
+      // Seed shop-level defaults for any MISSING day. Robust against a stray/partial row — the
+      // old `length === 0` guard left a half-seeded shop (one leftover day) stuck with no hours.
+      const seeded = await this.appointmentRepo.ensureDefaultShopAvailability(shopId);
+      if (seeded) {
+        logger.warn('Seeded missing default availability', { shopId });
         availability = await this.appointmentRepo.getShopAvailability(shopId, locationId);
       }
 

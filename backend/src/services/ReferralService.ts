@@ -176,16 +176,28 @@ export class ReferralService {
         // Get referral records from referrals table
         const referrals = await this.referralRepository.getCustomerReferrals(customerAddress);
         const successful = referrals.filter(r => r.status === 'completed');
-        
+
         // Use the referral count from customer record as the source of truth
         const successfulCount = customer.referralCount || 0;
-        
+
+        // Referred-friends list (name-enriched) for the dashboard. Each completed
+        // referral earned the referrer 25 RCN; pending ones earn on first repair.
+        const withNames = await this.referralRepository.getCustomerReferralsWithNames(customerAddress);
+        const friends = withNames.map((r) => ({
+          name: r.refereeName || null,
+          address: r.refereeAddress,
+          status: r.status,
+          joinedAt: r.completedAt || r.createdAt,
+          rewardRcn: r.status === 'completed' ? 25 : 0,
+        }));
+
         return {
           totalReferrals: Math.max(referrals.length, successfulCount),
           successfulReferrals: successfulCount,
           pendingReferrals: referrals.filter(r => r.status === 'pending').length,
           totalEarned: successfulCount * 25,
-          referrals: referrals.slice(0, 10) // Last 10 referrals
+          referrals: referrals.slice(0, 10), // Last 10 referrals (raw, legacy)
+          friends, // Name-enriched list for the referred-friends UI
         };
       } else {
         // Get leaderboard

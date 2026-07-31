@@ -5,10 +5,30 @@ import { MessageRepository } from '../repositories/MessageRepository';
 import { CustomerRepository } from '../repositories/CustomerRepository';
 import { ShopRepository } from '../repositories/ShopRepository';
 import { getSharedPool } from '../utils/database-pool';
-import { v4 as uuidv4 } from 'uuid';
+import {
+  getAutoMessageActionRegistry,
+  NON_MESSAGING_ACTIONS,
+  SHOP_SCOPED_ACTIONS,
+  DEFAULT_ACTION_TYPE,
+} from './autoMessageActions/registry';
+import { shopHasFeatureEffective } from '../utils/shopTier';
+
+/** How long an entitlement answer is reused. One tick can ask about the same shop once per customer. */
+const ENTITLEMENT_TTL_MS = 5 * 60 * 1000;
 
 // Max auto-messages per shop per scheduler run (prevent spam)
 const MAX_SENDS_PER_SHOP_PER_RUN = 50;
+
+/**
+ * How long after its scheduled hour a rule may still fire, if nothing observed that hour.
+ *
+ * Not unbounded on purpose. Catch-up exists so an hour of downtime doesn't silently drop a day's runs —
+ * but "8am good morning promo" delivered at 11pm is worse than not delivered at all, and the owner can't
+ * un-send it. Three hours covers a crash loop or a long deploy while keeping a late send recognisably
+ * close to what was intended. Past the window the run is dropped and LOGGED, because the failure mode
+ * being fixed here is silence, not lateness.
+ */
+const CATCH_UP_HOURS = 3;
 
 /**
  * Resolves {{variable}} placeholders in message templates
@@ -35,6 +55,13 @@ export class AutoMessageSchedulerService {
   private shopRepo: ShopRepository;
   private scheduledIntervalId: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
+  /** shopId → entitlement, shared across instances so event triggers reuse the scheduler's answers. */
+  private static entitlementCache = new Map<string, { allowed: boolean; at: number }>();
+
+  /** Tests only — drop memoized entitlement so a tier change takes effect immediately. */
+  static resetEntitlementCache(): void {
+    AutoMessageSchedulerService.entitlementCache.clear();
+  }
 
   constructor() {
     this.autoMessageRepo = new AutoMessageRepository();
@@ -44,24 +71,57 @@ export class AutoMessageSchedulerService {
   }
 
   /**
-   * Check if a schedule-based rule should run right now
+   * Is this schedule-based rule DUE — meaning its hour has arrived and hasn't slipped too far past?
+   *
+   * Used to be an exact hour match (`scheduleHour !== currentHour`), which made the whole schedule
+   * dependent on a tick landing inside every single hour. The scheduler is an in-process
+   * `setInterval(1h)`, not a cron, so if the backend is down for an entire UTC hour — a crash loop, or a
+   * deploy that runs long — nothing ever observes that hour and every rule scheduled for it is skipped
+   * for the day. Silently: there is no error, no retry, and no record of a run that didn't happen.
+   *
+   * So a rule now stays due for CATCH_UP_HOURS after its hour, and the caller's once-per-day gate stops
+   * it repeating. Whether it ALREADY ran is a separate question from whether it is due, and conflating
+   * the two is what made the miss silent.
    */
-  private shouldRunNow(rule: AutoMessage): boolean {
-    const now = new Date();
+  private isDue(rule: AutoMessage, now = new Date()): boolean {
     const currentHour = now.getUTCHours();
-    const currentDayOfWeek = now.getUTCDay(); // 0=Sunday
-    const currentDayOfMonth = now.getUTCDate();
+    const scheduled = rule.scheduleHour ?? 0;
 
-    // Must match the configured hour
-    if (rule.scheduleHour !== currentHour) return false;
+    // Not yet, or so far past that firing would be worse than skipping — see CATCH_UP_HOURS.
+    if (currentHour < scheduled) return false;
+    if (currentHour - scheduled > CATCH_UP_HOURS) return false;
+
+    switch (rule.scheduleType) {
+      case 'daily':
+        return true;
+      // Catch-up is same-day only: the day check still has to match, so a weekly rule missed by a
+      // full-day outage stays missed rather than firing on the wrong weekday.
+      case 'weekly':
+        return rule.scheduleDayOfWeek === now.getUTCDay();
+      case 'monthly':
+        return rule.scheduleDayOfMonth === now.getUTCDate();
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Would this rule have been due earlier today, but is now past its catch-up window?
+   *
+   * Only used to LOG. A skipped run that leaves no trace is the actual problem with an interval-based
+   * scheduler — the run is indistinguishable from one that fired and had nothing to do.
+   */
+  private missedItsWindow(rule: AutoMessage, now = new Date()): boolean {
+    const scheduled = rule.scheduleHour ?? 0;
+    if (now.getUTCHours() - scheduled <= CATCH_UP_HOURS) return false;
 
     switch (rule.scheduleType) {
       case 'daily':
         return true;
       case 'weekly':
-        return rule.scheduleDayOfWeek === currentDayOfWeek;
+        return rule.scheduleDayOfWeek === now.getUTCDay();
       case 'monthly':
-        return rule.scheduleDayOfMonth === currentDayOfMonth;
+        return rule.scheduleDayOfMonth === now.getUTCDate();
       default:
         return false;
     }
@@ -190,12 +250,44 @@ export class AutoMessageSchedulerService {
     return { message: rule.messageTemplate, variant: null };
   }
 
+  /**
+   * Is this shop still entitled to run automations?
+   *
+   * The route guard (`autoMessageGuard`) only stops a below-tier shop from MANAGING automations — the
+   * engine never asked, so a shop that downgraded or cancelled kept having its rules executed
+   * indefinitely. Entitlement now holds at the engine too, not just at the door.
+   *
+   * Deliberately the ROLLOUT-AWARE check: while a gate is shipped dark this returns true for every
+   * tier, so the engine enforces exactly when the API does. Plain `shopHasFeature` would enforce ahead
+   * of the routes and cut off shops the UI still says are entitled.
+   *
+   * Memoized briefly because one tick calls this once per customer. Note `getShopTier` resolves to
+   * 'free' on a DB error, so a transient blip skips that shop's automations for this tick; they resume
+   * on the next one, which is preferable to sending on behalf of a shop that isn't entitled.
+   */
+  private async isShopEntitled(shopId: string): Promise<boolean> {
+    const cached = AutoMessageSchedulerService.entitlementCache.get(shopId);
+    if (cached && Date.now() - cached.at < ENTITLEMENT_TTL_MS) return cached.allowed;
+
+    const allowed = await shopHasFeatureEffective(shopId, 'aiCampaignsAdvanced');
+    AutoMessageSchedulerService.entitlementCache.set(shopId, { allowed, at: Date.now() });
+    if (!allowed) {
+      logger.info('Automation skipped — shop is not entitled to aiCampaignsAdvanced', { shopId });
+    }
+    return allowed;
+  }
+
   private async sendToCustomer(
     rule: AutoMessage,
     customer: { walletAddress: string; name?: string; rcnBalance?: number; lastServiceName?: string; lastVisitDate?: string },
     shopName: string
   ): Promise<{ success: boolean; messageId?: string; conversationId?: string }> {
     try {
+      // Entitlement at the engine. Gating HERE covers every send entry point at once — scheduled
+      // rules, immediate event triggers, inactive-customer and low-booking sweeps all funnel through
+      // this method.
+      if (!(await this.isShopEntitled(rule.shopId))) return { success: false };
+
       // Check max sends per customer
       const sendCount = await this.autoMessageRepo.countSendsForCustomer(rule.id, customer.walletAddress);
       if (rule.maxSendsPerCustomer && sendCount >= rule.maxSendsPerCustomer) {
@@ -211,62 +303,53 @@ export class AutoMessageSchedulerService {
         }
       }
 
-      // Get or create conversation
-      const conversation = await this.messageRepo.getOrCreateConversation(customer.walletAddress, rule.shopId);
+      // Only messaging actions have a template. A non-messaging rule (issue_reward) carries
+      // message_template = NULL since migration 248, and resolveTemplate would throw on it — note
+      // tsconfig has strict:false, so `messageTemplate: string | null` does NOT catch this at compile
+      // time. The guard is load-bearing, not defensive decoration.
+      const isMessaging = !NON_MESSAGING_ACTIONS.has(rule.actionType || 'send_message');
+      const { message: variantMessage, variant } = isMessaging
+        ? this.pickVariant(rule)
+        : { message: '', variant: null };
 
-      // Skip blocked conversations
-      if (conversation.isBlocked) {
-        logger.debug('Skipping blocked conversation', { ruleId: rule.id, customer: customer.walletAddress });
-        return { success: false };
-      }
+      const messageText = isMessaging
+        ? resolveTemplate(variantMessage, {
+            customerName: customer.name,
+            rcnBalance: customer.rcnBalance,
+            shopName,
+            lastServiceName: customer.lastServiceName,
+            lastVisitDate: customer.lastVisitDate,
+          })
+        : undefined;
 
-      // A/B: pick a variant (if any) so the send can be attributed.
-      const { message: variantMessage, variant } = this.pickVariant(rule);
-
-      // Resolve template variables
-      const messageText = resolveTemplate(variantMessage, {
+      // Run the rule's ACTION (W1). For send_message this is the conversation + message + unread
+      // block that used to live inline here; other action types do their own thing. A blocked
+      // conversation still resolves to a silent skip, exactly as before.
+      const outcome = await getAutoMessageActionRegistry(this.messageRepo as any).run({
+        rule,
+        shopId: rule.shopId,
+        customerAddress: customer.walletAddress,
         customerName: customer.name,
-        rcnBalance: customer.rcnBalance,
         shopName,
-        lastServiceName: customer.lastServiceName,
-        lastVisitDate: customer.lastVisitDate,
-      });
-
-      // Create the message
-      const messageId = `msg_${uuidv4()}`;
-      const { message } = await this.messageRepo.createMessage({
-        messageId,
-        conversationId: conversation.conversationId,
-        senderAddress: rule.shopId,
-        senderType: 'shop',
         messageText,
-        messageType: 'text',
-        metadata: {
-          autoMessageId: rule.id,
-          autoMessageName: rule.name,
-          isAutoMessage: true,
-        },
+        // The immediate path has no step, so the rule's own action applies.
+        actionType: rule.actionType || 'send_message',
+        actionPayload: rule.actionPayload ?? null,
       });
-
-      // Update unread count
-      await this.messageRepo.incrementUnreadCount(
-        conversation.conversationId,
-        'customer',
-        messageText
-      );
+      if (!outcome.ok) return { success: false };
 
       // Record the send
       await this.autoMessageRepo.recordSend({
         autoMessageId: rule.id,
         shopId: rule.shopId,
         customerAddress: customer.walletAddress,
-        conversationId: conversation.conversationId,
-        messageId: message.messageId,
+        conversationId: outcome.conversationId,
+        messageId: outcome.messageId,
         status: 'sent',
         variant,
       });
 
-      return { success: true, messageId: message.messageId, conversationId: conversation.conversationId };
+      return { success: true, messageId: outcome.messageId, conversationId: outcome.conversationId };
     } catch (error) {
       logger.error('Error sending auto-message to customer', {
         ruleId: rule.id,
@@ -288,6 +371,106 @@ export class AutoMessageSchedulerService {
 
       return { success: false };
     }
+  }
+
+  /**
+   * Run a rule whose action targets the SHOP, exactly once, with no customer in context.
+   *
+   * Shared by both routes that can reach a shop-scoped action: a shop-scoped EVENT (low_stock) and a
+   * SCHEDULE ("every Monday, remind the team"). The schedule route needs it because the normal path
+   * resolves a target audience and runs the action once per person — correct for a message or a reward,
+   * an alert storm for a staff alert.
+   *
+   * Entitlement is the caller's job: handleShopEvent checks once for the whole batch, and the scheduler
+   * checks per rule where sendToCustomer would have.
+   */
+  private async fireShopScopedRule(
+    rule: AutoMessage,
+    shopName: string,
+    opts: { triggerDetail?: string; reference?: string } = {}
+  ): Promise<boolean> {
+    const outcome = await getAutoMessageActionRegistry(this.messageRepo as any).run({
+      rule,
+      shopId: rule.shopId,
+      customerAddress: '', // no customer — this happened to the shop
+      shopName,
+      actionType: rule.actionType || 'notify_staff',
+      actionPayload: rule.actionPayload ?? null,
+      // The live detail (which items are low), NOT messageText — a staff alert that only echoes the
+      // owner's own wording tells them the one thing they already knew.
+      triggerDetail: opts.triggerDetail,
+    });
+
+    if (!outcome.ok) return false;
+
+    // Recorded with a NULL customer (migration 252) so "Last run" works and there's an audit trail,
+    // without inventing a customer who was never involved.
+    await this.autoMessageRepo.recordSend({
+      autoMessageId: rule.id,
+      shopId: rule.shopId,
+      customerAddress: null,
+      triggerReference: opts.reference,
+      status: 'sent',
+    });
+    return true;
+  }
+
+  /**
+   * Handle a SHOP-SCOPED event — one that happens to the shop with no customer involved (low_stock).
+   *
+   * Every other trigger targets a customer: the engine resolves an audience and runs the action once
+   * per person. Here there is nobody to resolve, so the action runs exactly once, immediately, with no
+   * customer in context. Only actions that don't need a recipient can be used (notify_staff); the API
+   * rejects a shop-scoped rule configured to send a customer message, since there would be no one to
+   * send it to.
+   *
+   * De-duplication is deliberately NOT done here. The upstream emitter (LowStockAlertService) already
+   * throttles per item and honours the shop's digest preference — re-implementing that would mean two
+   * competing notions of "have we already said this", and the shop would eventually get either
+   * duplicates or silence depending on which won.
+   */
+  async handleShopEvent(
+    eventType: string,
+    data: { shopId: string; reference?: string; summary?: string }
+  ): Promise<{ rulesFired: number }> {
+    let rulesFired = 0;
+    try {
+      const rules = await this.autoMessageRepo.getActiveEventRules(data.shopId, eventType);
+      if (rules.length === 0) return { rulesFired: 0 };
+
+      if (!(await this.isShopEntitled(data.shopId))) return { rulesFired: 0 };
+
+      const shop = await this.shopRepo.getShop(data.shopId);
+      const shopName = shop?.name || 'Our Shop';
+
+      for (const rule of rules) {
+        try {
+          const fired = await this.fireShopScopedRule(rule, shopName, {
+            triggerDetail: data.summary,
+            reference: data.reference,
+          });
+          if (fired) rulesFired++;
+        } catch (err) {
+          logger.error('Shop-scoped automation rule failed', {
+            ruleId: rule.id,
+            shopId: data.shopId,
+            eventType,
+            error: (err as Error)?.message,
+          });
+        }
+      }
+
+      if (rulesFired) {
+        logger.info(`Shop-scoped automation fired ${rulesFired} rule(s) for ${eventType}`, { shopId: data.shopId });
+      }
+    } catch (error) {
+      logger.error('Error handling shop-scoped automation event', {
+        eventType,
+        shopId: data.shopId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+    return { rulesFired };
   }
 
   /**
@@ -442,6 +625,17 @@ export class AutoMessageSchedulerService {
 
           logger.info(`Rule "${rule.name}" found ${result.rows.length} inactive customers`, { ruleId: rule.id, shopId: rule.shopId });
 
+          // A staff alert reports the sweep ONCE, with the count — not once per quiet customer.
+          if (SHOP_SCOPED_ACTIONS.has(rule.actionType || DEFAULT_ACTION_TYPE)) {
+            if (!(await this.isShopEntitled(rule.shopId))) continue;
+            if (await this.autoMessageRepo.hasSentTodayShopScoped(rule.id)) continue;
+            const n = result.rows.length;
+            await this.fireShopScopedRule(rule, shop.name || 'Our Shop', {
+              triggerDetail: `${n} customer${n === 1 ? '' : 's'} haven't been back in 30+ days.`,
+            });
+            continue;
+          }
+
           for (const row of result.rows) {
             // Check max sends per customer
             const sendCount = await this.autoMessageRepo.countSendsForCustomer(rule.id, row.customer_address);
@@ -550,6 +744,17 @@ export class AutoMessageSchedulerService {
             ruleId: rule.id, shopId: rule.shopId,
           });
 
+          // A staff alert reports the slow week ONCE, with the numbers — not once per customer we
+          // would otherwise have tried to win back.
+          if (SHOP_SCOPED_ACTIONS.has(rule.actionType || DEFAULT_ACTION_TYPE)) {
+            if (!(await this.isShopEntitled(rule.shopId))) continue;
+            if (await this.autoMessageRepo.hasSentTodayShopScoped(rule.id)) continue;
+            await this.fireShopScopedRule(rule, shop.name || 'Our Shop', {
+              triggerDetail: `Bookings are down: ${last7} in the last 7 days vs ~${weeklyAvg.toFixed(1)}/week average.`,
+            });
+            continue;
+          }
+
           const customers = await this.getTargetCustomers(rule);
           for (const cust of customers) {
             const sendCount = await this.autoMessageRepo.countSendsForCustomer(rule.id, cust.walletAddress);
@@ -617,7 +822,27 @@ export class AutoMessageSchedulerService {
       // Group rules by shop for rate limiting
       const rulesByShop = new Map<string, AutoMessage[]>();
       for (const rule of rules) {
-        if (!this.shouldRunNow(rule)) continue;
+        if (!this.isDue(rule)) {
+          // A run that never happened used to leave no trace at all. Say so, once, when a rule was due
+          // earlier today and is now past its catch-up window — that is the case worth investigating.
+          if (this.missedItsWindow(rule)) {
+            logger.warn('Scheduled rule missed its window and will not run today', {
+              ruleId: rule.id,
+              shopId: rule.shopId,
+              name: rule.name,
+              scheduledHour: rule.scheduleHour,
+              currentHourUtc: new Date().getUTCHours(),
+              catchUpHours: CATCH_UP_HOURS,
+            });
+          }
+          continue;
+        }
+
+        // Due, but did it already run? Separate question, and the one that keeps catch-up from turning a
+        // single daily run into an all-day drip. Checked here rather than inside sendToCustomer because
+        // that gate is per customer, and a rule stopped by the per-run cap leaves later customers with no
+        // send row at all — so each following tick would send to the next 50.
+        if (await this.autoMessageRepo.hasAnySendToday(rule.id)) continue;
 
         const shopRules = rulesByShop.get(rule.shopId) || [];
         shopRules.push(rule);
@@ -647,6 +872,21 @@ export class AutoMessageSchedulerService {
           result.rulesFired++;
 
           try {
+            // A shop-scoped action has no recipient to resolve, so it fires ONCE — before we go
+            // anywhere near an audience. Falling through would run the action once per customer:
+            // "every Monday, remind the team" over an audience of 200 pages them 50 times (the
+            // per-run cap), and the Target Audience they picked would silently become a multiplier.
+            if (SHOP_SCOPED_ACTIONS.has(rule.actionType || DEFAULT_ACTION_TYPE)) {
+              // Entitlement is normally sendToCustomer's job; this path skips it. The daily gate is no
+              // longer checked here — hasAnySendToday upstream now covers every schedule rule, customer-
+              // facing or not, and two overlapping daily checks is how one of them ends up wrong.
+              if (!(await this.isShopEntitled(rule.shopId))) continue;
+
+              if (await this.fireShopScopedRule(rule, shopName)) result.messagesSent++;
+              else result.messagesFailed++;
+              continue;
+            }
+
             const customers = await this.getTargetCustomers(rule);
             logger.info(`Rule "${rule.name}" targeting ${customers.length} customers`, { ruleId: rule.id, shopId });
 
@@ -687,6 +927,15 @@ export class AutoMessageSchedulerService {
                 continue;
               }
 
+              // Entitlement again — queued sends bypass sendToCustomer entirely, so a shop that
+              // downgraded after enrolling a customer would otherwise keep delivering drip steps.
+              // Marked failed rather than left pending, matching how an inactive rule is handled above:
+              // leaving it pending would retry it every tick forever.
+              if (!(await this.isShopEntitled(send.shopId))) {
+                await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
+                continue;
+              }
+
               const shop = await this.shopRepo.getShop(send.shopId);
               const shopName = shop?.name || 'Our Shop';
 
@@ -713,36 +962,46 @@ export class AutoMessageSchedulerService {
                 }
               }
 
-              const conversation = await this.messageRepo.getOrCreateConversation(send.customerAddress, send.shopId);
-              if (conversation.isBlocked) {
+              // A1: a sequence STEP may declare its own action, which is what makes a sequence a
+              // workflow rather than a drip. Step action wins; otherwise the rule's; otherwise
+              // send_message — so every pre-A1 sequence keeps its exact meaning.
+              const stepActionType = step?.actionType || rule.actionType || 'send_message';
+              const stepActionPayload = step
+                ? step.actionPayload ?? null
+                : rule.actionPayload ?? null;
+
+              // Same guard as the immediate path: a non-messaging action has no template to resolve.
+              const isMessaging = !NON_MESSAGING_ACTIONS.has(stepActionType);
+              // A/B on delayed single-message sends: pick a variant at send time (sequence steps skip A/B).
+              const abPick = isSequenceStep || !isMessaging ? null : this.pickVariant(rule);
+              const messageText = isMessaging
+                ? resolveTemplate(
+                    step ? step.messageTemplate || '' : (abPick ? abPick.message : rule.messageTemplate),
+                    { customerName: customer?.name || undefined, shopName }
+                  )
+                : undefined;
+
+              // Run the rule's ACTION (W1) — same dispatch as the immediate path. A blocked
+              // conversation still marks the send failed, exactly as the inline version did.
+              const outcome = await getAutoMessageActionRegistry(this.messageRepo as any).run({
+                rule,
+                shopId: send.shopId,
+                customerAddress: send.customerAddress,
+                customerName: customer?.name || undefined,
+                shopName,
+                messageText,
+                actionType: stepActionType,
+                actionPayload: stepActionPayload,
+              });
+              if (!outcome.ok) {
+                // Parity with the pre-W1 inline version: a blocked conversation marked the send
+                // failed but was deliberately NOT counted in messagesFailed (only thrown errors
+                // were). Keep that, so this refactor doesn't quietly move a reported metric.
                 await this.autoMessageRepo.updateSendStatus(send.id, 'failed');
                 continue;
               }
 
-              // A/B on delayed single-message sends: pick a variant at send time (sequence steps skip A/B).
-              const abPick = isSequenceStep ? null : this.pickVariant(rule);
-              const messageText = resolveTemplate(
-                step ? step.messageTemplate : (abPick ? abPick.message : rule.messageTemplate),
-                { customerName: customer?.name || undefined, shopName }
-              );
-
-              const messageId = `msg_${uuidv4()}`;
-              const { message } = await this.messageRepo.createMessage({
-                messageId,
-                conversationId: conversation.conversationId,
-                senderAddress: rule.shopId,
-                senderType: 'shop',
-                messageText,
-                messageType: 'text',
-                metadata: {
-                  autoMessageId: rule.id,
-                  autoMessageName: rule.name,
-                  isAutoMessage: true,
-                },
-              });
-
-              await this.messageRepo.incrementUnreadCount(conversation.conversationId, 'customer', messageText);
-              await this.autoMessageRepo.updateSendStatus(send.id, 'sent', message.messageId, conversation.conversationId, abPick?.variant ?? null);
+              await this.autoMessageRepo.updateSendStatus(send.id, 'sent', outcome.messageId, outcome.conversationId, abPick?.variant ?? null);
               result.messagesSent++;
 
               // Sequence: enqueue the next step (if any) after this one fired.

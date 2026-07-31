@@ -12,6 +12,7 @@ import { AnthropicClient } from '../../AIAgentDomain/services/AnthropicClient';
 import { SpendCapEnforcer } from '../../AIAgentDomain/services/SpendCapEnforcer';
 import { BrandKitService } from '../../AIAgentDomain/services/BrandKitService';
 import { getAiMemoryService } from '../../AIAgentDomain/services/AiMemoryService';
+import { shopHasFeature } from '../../../utils/shopTier';
 import { shopRepository } from '../../../repositories';
 import { ChatMessage, ClaudeModel } from '../../AIAgentDomain/types';
 import { cheapModel } from '../../../config/aiModels';
@@ -492,8 +493,13 @@ export class LeadAutoAnswerService {
     // Phase 4: on explicit confirmation, create the booking + pay link (write). Not cached.
     const booking = await this.bookingBlock(shopId, lead.id, thread);
     if (booking.text) systemBlocks.push({ text: booking.text, cache: false });
-    const memBlock = await getAiMemoryService().recallBlock(shopId, last?.body);
-    if (memBlock) systemBlocks.push({ text: memBlock, cache: false });
+    // AI Memory is a Business-tier feature — gate the recall on the tier here too, not just the
+    // env flag inside the service. Otherwise a below-Business shop's ads lead auto-answers would
+    // get the owner-intent memory the unified assistant correctly withholds from them.
+    if (await shopHasFeature(shopId, 'aiMemory')) {
+      const memBlock = await getAiMemoryService().recallBlock(shopId, last?.body);
+      if (memBlock) systemBlocks.push({ text: memBlock, cache: false });
+    }
     try {
       const resp = await this.anthropic.complete({
         systemPrompt: systemBlocks,

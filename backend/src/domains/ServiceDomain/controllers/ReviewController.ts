@@ -109,6 +109,9 @@ export class ReviewController {
             reviewId,
             {
               shopAddress: shop.walletAddress,
+              // shopId added for Custom Workflows W3: automations are keyed by shopId, not by the
+              // shop's wallet. Additive — every existing subscriber still reads shopAddress.
+              shopId: order.shopId,
               customerAddress,
               customerName: customerDisplayName,
               serviceId: order.serviceId,

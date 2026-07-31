@@ -6,20 +6,25 @@ import { AutoMessageController } from './controllers/AutoMessageController';
 import { MessagingAdminController } from './controllers/MessagingAdminController';
 import { getMyConsent, setMyConsent } from './controllers/CustomerConsentController';
 import { authMiddleware, requireRole } from '../../middleware/auth';
-import { requireTierRollout } from '../../middleware/tierGuard';
+import { requireTierRollout, requireAnyTierRollout } from '../../middleware/tierGuard';
 
 const router = Router();
 const messageController = new MessageController();
 const autoMessageController = new AutoMessageController();
 const messagingAdminController = new MessagingAdminController();
 
-// Auto-Messages = the shop's scheduled/triggered automated-messaging engine (the shared automation core
-// that AI Campaigns (Advanced) — and, later, Custom Workflows — build on). A Business-tier feature.
-// requireTierRollout enforces ONLY when ENFORCE_CAMPAIGN_AUTOMATION_TIER=true, so this ships dark: today
-// it stays open to all tiers (it always was), and enforcement is flipped on deliberately per the pricing
-// rollout. Gate is under `aiCampaignsAdvanced`; if Custom Workflows later owns this engine, it's a
-// one-line key swap (both are Business-tier, so access is identical either way).
-const autoMessageGuard = [requireRole(['shop']), requireTierRollout('aiCampaignsAdvanced')];
+// Auto-Messages = the shop's scheduled/triggered automation engine, shared by BOTH product surfaces:
+// AI Campaigns (Advanced) and Custom Workflows (D1 — one engine, two surfaces). A Business-tier feature.
+// requireTierRollout enforces ONLY when ENFORCE_CAMPAIGN_AUTOMATION_TIER=true.
+//
+// The routes are shared, so the guard admits a shop entitled to EITHER surface and the `surface`
+// parameter (D7) decides which rules they see. Gating on `aiCampaignsAdvanced` alone would lock a
+// Workflows-only shop out of its own workflows; both keys are Business today, so this is
+// forward-provisioning for the moment they diverge.
+const autoMessageGuard = [
+  requireRole(['shop']),
+  requireAnyTierRollout(['aiCampaignsAdvanced', 'customWorkflows']),
+];
 
 // Multer config for message attachments
 const attachmentUpload = multer({
@@ -275,6 +280,22 @@ router.post('/auto-messages/generate', autoMessageGuard, autoMessageController.g
 router.get('/auto-messages', autoMessageGuard, autoMessageController.getAutoMessages);
 
 /**
+ * @route GET /api/messages/auto-messages/template-relevance
+ * @description Per-shop counts behind the template gallery's "this applies to you" line.
+ *
+ * Safe from ':id' capture: every GET ':id' route here is two segments deep ('/:id/history',
+ * '/:id/ab-results'), so a single-segment literal cannot be swallowed by one.
+ */
+router.get('/auto-messages/template-relevance', autoMessageGuard, autoMessageController.getTemplateRelevance);
+
+/**
+ * @route GET /api/messages/auto-messages/metrics
+ * @description Sent / read / attributed bookings + revenue per workflow. Same single-segment safety as
+ * template-relevance above.
+ */
+router.get('/auto-messages/metrics', autoMessageGuard, autoMessageController.getWorkflowMetrics);
+
+/**
  * @route POST /api/messages/auto-messages
  * @description Create a new auto-message rule
  * @body name - Rule name
@@ -315,6 +336,13 @@ router.delete('/auto-messages/:id', autoMessageGuard, autoMessageController.dele
  * @access Authenticated shop users
  */
 router.patch('/auto-messages/:id/toggle', autoMessageGuard, autoMessageController.toggleAutoMessage);
+
+/**
+ * @route PATCH /api/messages/auto-messages/:id/publish
+ * @description Take a draft workflow live (A4). Drafts never run until this is called.
+ * @access Shop (Business tier)
+ */
+router.patch('/auto-messages/:id/publish', autoMessageGuard, autoMessageController.publishAutoMessage);
 
 /**
  * @route GET /api/messages/auto-messages/:id/history

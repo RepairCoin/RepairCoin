@@ -396,7 +396,7 @@ export default function Home() {
 
           {/* Priority Actions */}
         <View>
-          <SectionHeader title="Priority Actions" onSeeAll={() => {}} />
+          <SectionHeader title="Priority Actions" />
         </View>
         <ScrollView
           horizontal
@@ -430,11 +430,7 @@ export default function Home() {
         </ScrollView>
 
         {/* Agenda for Today */}
-        <SectionHeader
-          title="Agenda for Today"
-          sparkle
-          onSeeAll={() => router.push("/shop/tabs/service?tab=Booking" as never)}
-        />
+        <SectionHeader title="Agenda for Today" sparkle />
         {todaysAgenda.length === 0 ? (
           <EmptyRow text="No bookings scheduled for today" />
         ) : (
@@ -454,12 +450,7 @@ export default function Home() {
 
         {/* Recent Activity */}
         <View className="mt-6">
-          <SectionHeader
-            title="Recent Activity"
-            onSeeAll={() =>
-              router.push("/shop/tabs/service?tab=Booking" as never)
-            }
-          />
+          <SectionHeader title="Recent Activity" />
         </View>
         {activityFeed.length === 0 ? (
           <EmptyRow text="No recent activity" />

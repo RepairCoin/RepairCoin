@@ -84,7 +84,7 @@ export function CommissionSettings({ onSettingsChange }: CommissionSettingsProps
         <div>
           <h3 className="text-base font-semibold text-white">Staff commissions</h3>
           <p className="text-sm text-gray-400 mt-0.5">
-            Track a commission for the team member who completes each order. RepairCoin only
+            Track a commission for the team member who completes each order. FixFlow only
             records what&apos;s owed — you pay it out through your own payroll.
           </p>
         </div>

@@ -82,7 +82,8 @@ async function reconcileOverageRefund(event: any): Promise<void> {
   const n = await new AiOverageChargeRepository().recordRefundByInvoiceId(invoiceId, Number(cn.amount) || 0);
   if (n > 0) logger.info('AI overage refund recorded', { invoiceId, refundedCents: Number(cn.amount) || 0, rows: n });
 }
-import { shopRepository } from '../../../repositories';
+import { shopRepository, stripeEventRepository } from '../../../repositories';
+import { getPaymentReconciler } from '../../PaymentsDomain/services/PaymentReconciler';
 import { getSharedPool } from '../../../utils/database-pool';
 import { getNotificationGateway } from '../../notification/services/NotificationGateway';
 import { aiOverageReceiptService } from '../../AIAgentDomain/services/AiOverageReceiptService';
@@ -471,21 +472,37 @@ async function handleConnectAccountUpdated(event: Stripe.Event) {
 
   try {
     const connectService = getStripeConnectService();
-    const shopId = await connectService.findShopIdByAccount(account);
+    // Several shops under one owner may share a connected account, so this syncs every shop on
+    // it. An account the shop has since moved off resolves to nothing and is ignored — its
+    // state no longer describes any shop.
+    const shopIds = await connectService.findShopIdsByAccount(account);
 
-    if (!shopId) {
-      logger.warn('account.updated for an unknown Connect account', { accountId: account.id });
+    if (shopIds.length === 0) {
+      logger.warn('account.updated for a Connect account no shop is using', {
+        accountId: account.id
+      });
       return;
     }
 
-    await connectService.syncAccountState(
-      shopId,
-      account.charges_enabled === true,
-      account.payouts_enabled === true
-    );
+    // One shop failing must not strand the others on stale flags.
+    for (const shopId of shopIds) {
+      try {
+        await connectService.syncAccountState(
+          shopId,
+          account.charges_enabled === true,
+          account.payouts_enabled === true
+        );
+      } catch (error) {
+        logger.error('Failed to sync Connect state for shop', {
+          shopId,
+          accountId: account.id,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
 
     logger.info('Connect account state synced from webhook', {
-      shopId,
+      shopIds,
       accountId: account.id,
       chargesEnabled: account.charges_enabled,
       payoutsEnabled: account.payouts_enabled,
@@ -568,6 +585,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
     });
   }
 
+  let claimedEventId: string | undefined;
   try {
     const stripeService = getStripeService();
     const subscriptionService = getSubscriptionService();
@@ -576,10 +594,27 @@ router.post('/stripe', async (req: Request, res: Response) => {
 
     // Verify webhook signature and construct event
     const event = await stripeService.handleWebhook(req.body, signature);
-    
+
+    // Idempotency gate: claim this event id. A re-delivered event that's already recorded is a
+    // no-op. On a processing error below we unclaim (see catch) so Stripe's retry still runs.
+    const firstDelivery = await stripeEventRepository.claim(event.id, event.type, event.account ?? null);
+    if (!firstDelivery) {
+      logger.info('Duplicate Stripe webhook ignored', { eventId: event.id, type: event.type });
+      return res.json({ success: true, message: 'duplicate ignored' });
+    }
+    claimedEventId = event.id;
+
     // Log the event for debugging
     await logWebhookEvent(event);
-    
+
+    // Reconcile fiat charges/refunds into the payments ledger (source of truth). Best-effort so
+    // it never blocks the critical subscription/booking handlers; the upsert is keyed by PI.
+    await getPaymentReconciler().handleEvent(event).catch((e) =>
+      logger.error('Payment reconcile failed (non-fatal)', {
+        eventId: event.id, type: event.type, error: e instanceof Error ? e.message : e,
+      })
+    );
+
     // Process the event based on type
     switch (event.type) {
       case 'customer.subscription.created':
@@ -647,12 +682,19 @@ router.post('/stripe', async (req: Request, res: Response) => {
         });
     }
 
+    await stripeEventRepository.markProcessed(event.id);
+
     res.json({
       success: true,
       message: `Webhook event ${event.type} processed successfully`
     });
 
   } catch (error) {
+    // Processing failed after we claimed the event — release the claim so Stripe's retry
+    // reprocesses it instead of being deduped away.
+    if (claimedEventId) {
+      await stripeEventRepository.unclaim(claimedEventId).catch(() => {});
+    }
     logger.error('Failed to process Stripe webhook', {
       error: error instanceof Error ? error.message : 'Unknown error',
       signature: signature?.substring(0, 20) + '...'

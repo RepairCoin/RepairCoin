@@ -116,6 +116,43 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
       body: (m) => m.message || 'You passed your monthly AI allowance — overage is now billing at Usage ×3.',
     },
   },
+  // ── Platform-issued refund (Payments Center, Slice A2) ────────────────────
+  // FixFlow refunded a charge in the shop's own Stripe account. Direct charges, so this is
+  // money leaving the MERCHANT's balance on someone else's instruction — transactional because
+  // a debit the shop didn't make must never be silenced by a notification preference.
+  payment_refunded_by_admin: {
+    channels: ['persist', 'ws', 'push'],
+    transactional: true,
+    display: { title: 'Refund issued by FixFlow', icon: 'billing', color: '#F97316' },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'high',
+      title: () => 'FixFlow issued a refund',
+      body: (m) =>
+        `${m.amountLabel || 'A refund'} was refunded from your account by FixFlow.` +
+        (m.note ? ` Reason: ${m.note}` : ''),
+    },
+  },
+
+  // ── Custom Workflows: the notify_staff action ────────────────────────────
+  // Raised BY the shop's own automation, TO the shop — "a no-show just happened", "stock is low".
+  // Not transactional: the shop opted into this by building the workflow, so it should also be able
+  // to mute it via preferences without deleting the automation.
+  workflow_staff_alert: {
+    channels: ['persist', 'ws', 'push'],
+    display: {
+      title: (m) => m.workflowName || 'Workflow alert',
+      icon: 'campaign',
+      color: '#FFCC00',
+    },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'default',
+      title: (m) => m.workflowName || 'Workflow alert',
+      body: (m) => m.message || 'One of your automations needs attention.',
+    },
+  },
+
   ai_overage_payment_failed: {
     channels: ['persist', 'ws', 'push'],
     transactional: true,

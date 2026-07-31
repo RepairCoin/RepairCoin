@@ -223,16 +223,56 @@ export class ReferralRepository extends BaseRepository {
   async getCustomerReferrals(customerAddress: string): Promise<Referral[]> {
     try {
       const query = `
-        SELECT * FROM referrals 
-        WHERE referrer_address = $1 
+        SELECT * FROM referrals
+        WHERE referrer_address = $1
         ORDER BY created_at DESC
       `;
-      
+
       const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
-      
+
       return result.rows.map(row => this.mapReferralFromDb(row));
     } catch (error) {
       logger.error('Error getting customer referrals:', error);
+      throw new Error('Failed to get customer referrals');
+    }
+  }
+
+  /**
+   * Referrals for a referrer, enriched with the referee's display name (when the
+   * referee has joined). Backs the "referred friends" list in the customer's
+   * referral dashboard. `refereeName` is null while the referral is still pending
+   * (no referee has signed up against the code yet).
+   */
+  async getCustomerReferralsWithNames(referrerAddress: string): Promise<Array<{
+    refereeAddress: string | null;
+    refereeName: string | null;
+    status: 'pending' | 'completed' | 'expired';
+    createdAt: string;
+    completedAt: string | null;
+  }>> {
+    try {
+      const query = `
+        SELECT
+          r.referee_address,
+          r.status,
+          r.created_at,
+          r.completed_at,
+          c.name AS referee_name
+        FROM referrals r
+        LEFT JOIN customers c ON LOWER(c.address) = LOWER(r.referee_address)
+        WHERE r.referrer_address = $1
+        ORDER BY r.created_at DESC
+      `;
+      const result = await this.pool.query(query, [referrerAddress.toLowerCase()]);
+      return result.rows.map((row) => ({
+        refereeAddress: row.referee_address || null,
+        refereeName: row.referee_name || null,
+        status: row.status,
+        createdAt: row.created_at,
+        completedAt: row.completed_at || null,
+      }));
+    } catch (error) {
+      logger.error('Error getting customer referrals with names:', error);
       throw new Error('Failed to get customer referrals');
     }
   }

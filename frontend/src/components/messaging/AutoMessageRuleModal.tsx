@@ -19,7 +19,27 @@ const EVENT_TYPES = [
   { value: "first_visit", label: "First Visit" },
   { value: "inactive_30_days", label: "Inactive 30 Days" },
   { value: "low_bookings", label: "Slow Week (low bookings)" },
+  // Operations triggers (W3) — each backed by a real platform event.
+  { value: "no_show", label: "Customer No-Show" },
+  { value: "review_received", label: "Review Received" },
+  { value: "low_rating", label: "Low Rating (1–2 stars)" },
+  { value: "payment_failed", label: "Payment Failed" },
+  { value: "low_stock", label: "Low Stock (shop alert)" },
 ];
+
+/**
+ * Triggers that happen to the SHOP rather than to a customer. There is nobody to message, so these
+ * force a shop-facing action — the API rejects the alternative, and a form that let you pick it would
+ * just be a 400 waiting to happen.
+ */
+const SHOP_SCOPED_EVENTS = new Set(["low_stock"]);
+
+/**
+ * Event triggers that SWEEP instead of reacting: nothing hands them a customer, so the engine resolves
+ * a target audience for them. Kept in step with the two sweeps in AutoMessageSchedulerService — for
+ * every other event the audience is dead config, which is why the field hides itself.
+ */
+const AUDIENCE_AWARE_EVENTS = new Set(["inactive_30_days", "low_bookings"]);
 
 const TARGET_AUDIENCES = [
   { value: "all", label: "All Customers" },
@@ -39,24 +59,60 @@ const TEMPLATE_VARIABLES = [
   { key: "{{lastVisitDate}}", label: "Last Visit Date" },
 ];
 
+/** One step of a workflow. `actionType` absent = a message step, the pre-A1 shape. */
+interface WorkflowStep {
+  actionType?: string;
+  actionPayload?: Record<string, any> | null;
+  messageTemplate?: string;
+  delayHours: number;
+}
+
 interface AutoMessageRuleModalProps {
-  rule?: AutoMessage | null;
+  /**
+   * An existing rule to edit, OR a template prefill (A3) — a partial with no `id`, which opens the
+   * builder populated but still in "create" mode so the owner reviews the copy before it goes live.
+   */
+  rule?: (Partial<AutoMessage> & { id?: string }) | null;
   onClose: () => void;
   onSave: (data: CreateAutoMessageRequest | UpdateAutoMessageRequest) => Promise<void>;
+  /**
+   * Which surface is using the builder (D7). One component, two entry points — rather than a second
+   * builder that drifts. 'workflow' relabels the message-centric copy and lets each sequence step
+   * choose its own action; 'campaign' keeps the AI Campaigns wording exactly as it was.
+   */
+  surface?: "campaign" | "workflow";
 }
 
 export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   rule,
   onClose,
   onSave,
+  surface = "campaign",
 }) => {
-  const isEditing = !!rule;
+  const isWorkflow = surface === "workflow";
+  // A template (A3) is passed in as a `rule` with NO id — it prefills every field but still saves as a
+  // new workflow, so the owner reviews and tweaks the copy before anything goes live.
+  const isEditing = !!rule?.id;
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const [name, setName] = useState("");
   const [messageTemplate, setMessageTemplate] = useState("");
+  // What the rule DOES when it fires (Custom Workflows W2). 'send_message' is everything that existed
+  // before actions; 'issue_reward' sends nothing and needs no template.
+  const [actionType, setActionType] = useState<"send_message" | "issue_reward" | "notify_staff">("send_message");
+  const [rewardAmount, setRewardAmount] = useState(25);
+  const [rewardReason, setRewardReason] = useState("");
+  /** Body of a `notify_staff` alert. Separate from rewardReason — see the prefill note below. */
+  const [alertText, setAlertText] = useState("");
   const [triggerType, setTriggerType] = useState<"schedule" | "event">("schedule");
+  /**
+   * Has the trigger been chosen deliberately (by a click or a template) rather than left at its default?
+   * Picking "Notify my team" flips an untouched default to Event, because "tell me when X happens" is
+   * what an alert almost always means — and the Schedule default silently produced the one shape that
+   * ignores everything happening in the shop.
+   */
+  const [triggerTouched, setTriggerTouched] = useState(false);
   const [scheduleType, setScheduleType] = useState("daily");
   const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(1);
   const [scheduleDayOfMonth, setScheduleDayOfMonth] = useState(1);
@@ -67,7 +123,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [maxSendsPerCustomer, setMaxSendsPerCustomer] = useState(1);
   // Drip sequence (multi-step) state. Sequences are event-triggered only.
   const [useSequence, setUseSequence] = useState(false);
-  const [steps, setSteps] = useState<{ messageTemplate: string; delayHours: number }[]>([]);
+  // A1: steps are workflow-shaped (each may carry its own action), not message-shaped.
+  const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [stopOnBooking, setStopOnBooking] = useState(false);
   const [generatingStep, setGeneratingStep] = useState<number | null>(null);
   // A/B test state (Phase 4). Mutually exclusive with sequences.
@@ -76,27 +133,58 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [generatingB, setGeneratingB] = useState(false);
   const [abResults, setAbResults] = useState<AbResults | null>(null);
 
+  // The alert goes to the shop and its team, so nothing about this rule concerns a customer.
+  const notifiesStaff = actionType === "notify_staff";
+
+  /**
+   * Does Target Audience actually do anything for this configuration?
+   *
+   * It only ever did for rules where the engine has to decide WHO to act on: schedule rules, plus the
+   * two "sweep" events that fire without a customer attached (`processInactiveCustomers`,
+   * `processLowBookings`). Every other event arrives carrying the customer it happened to — the engine
+   * never consults the audience — so showing the field there promised a filter that did not exist.
+   */
+  const audienceApplies =
+    !notifiesStaff &&
+    (triggerType === "schedule" || AUDIENCE_AWARE_EVENTS.has(eventType));
+
   useEffect(() => {
     if (rule) {
-      setName(rule.name);
-      setMessageTemplate(rule.messageTemplate);
-      setTriggerType(rule.triggerType);
+      // Fallbacks throughout, because `rule` may be a TEMPLATE prefill (A3) that only sets the fields
+      // it cares about — a template shouldn't have to spell out every schedule field it doesn't use,
+      // and an undefined here would leave a controlled input uncontrolled.
+      setName(rule.name ?? "");
+      setMessageTemplate(rule.messageTemplate ?? "");
+      setActionType(
+        rule.actionType === "issue_reward" || rule.actionType === "notify_staff"
+          ? rule.actionType
+          : "send_message"
+      );
+      setRewardAmount(Number(rule.actionPayload?.amountRcn) || 25);
+      // Separate fields per action. They used to share one piece of state, so text typed as a 500-char
+      // staff alert reappeared in a reward "Reason" box labelled 120 — and survived, because maxLength
+      // doesn't trim a value set programmatically.
+      setRewardReason(typeof rule.actionPayload?.reason === "string" ? rule.actionPayload.reason : "");
+      setAlertText(typeof rule.actionPayload?.message === "string" ? rule.actionPayload.message : "");
+      setTriggerType(rule.triggerType ?? "schedule");
+      // A prefill that states a trigger has made the choice deliberately — don't second-guess it below.
+      if (rule.triggerType) setTriggerTouched(true);
       setScheduleType(rule.scheduleType || "daily");
       setScheduleDayOfWeek(rule.scheduleDayOfWeek ?? 1);
       setScheduleDayOfMonth(rule.scheduleDayOfMonth ?? 1);
-      setScheduleHour(rule.scheduleHour);
+      setScheduleHour(rule.scheduleHour ?? 10);
       setEventType(rule.eventType || "booking_completed");
-      setDelayHours(rule.delayHours);
-      setTargetAudience(rule.targetAudience);
-      setMaxSendsPerCustomer(rule.maxSendsPerCustomer);
+      setDelayHours(rule.delayHours ?? 24);
+      setTargetAudience(rule.targetAudience ?? "all");
+      setMaxSendsPerCustomer(rule.maxSendsPerCustomer ?? 1);
       const hasSteps = !!rule.steps && rule.steps.length > 0;
       setUseSequence(hasSteps);
       setSteps(hasSteps ? rule.steps!.map((s) => ({ ...s })) : []);
       setStopOnBooking(rule.stopOnBooking ?? false);
       setUseAbTest(!!rule.variantB);
       setVariantB(rule.variantB || "");
-      // Load A/B results for an existing A/B rule.
-      if (rule.variantB) {
+      // Load A/B results — only for a SAVED rule. A template prefill has no id and no results yet.
+      if (rule.variantB && rule.id) {
         getAutoMessageAbResults(rule.id).then(setAbResults).catch(() => setAbResults(null));
       }
     }
@@ -124,7 +212,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const addStep = () =>
     setSteps((p) => [...p, { messageTemplate: "", delayHours: p.length === 0 ? 0 : 24 }]);
   const removeStep = (i: number) => setSteps((p) => p.filter((_, idx) => idx !== i));
-  const updateStep = (i: number, patch: Partial<{ messageTemplate: string; delayHours: number }>) =>
+  const updateStep = (i: number, patch: Partial<WorkflowStep>) =>
     setSteps((p) => p.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
 
   const generateStep = async (i: number) => {
@@ -179,34 +267,94 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       .replace(/\{\{lastVisitDate\}\}/g, "Mar 1, 2026");
   };
 
+  // A reward rule sends nothing, so drip sequences and A/B (both message concepts) don't apply to it.
+  // A shop-scoped trigger (low stock) has no customer, so messaging, rewards, sequences and A/B all
+  // become meaningless — there is nobody on the other end.
+  const shopScoped = triggerType === "event" && SHOP_SCOPED_EVENTS.has(eventType);
+  const rewardMode = actionType === "issue_reward" && !shopScoped;
   // Sequences are event-triggered only (enrollment is wired into the event path).
-  const sequenceMode = useSequence && triggerType === "event";
+  const sequenceMode = useSequence && triggerType === "event" && !rewardMode && !shopScoped;
   // A/B works on any single-message rule; can't combine with a sequence.
-  const abMode = useAbTest && !sequenceMode;
+  const abMode = useAbTest && !sequenceMode && !rewardMode && !shopScoped;
+
+  // Does this rule carry a message on the RULE itself? A sequence keeps its copy in the steps, and
+  // reward / staff-alert / shop-scoped rules send no customer message at all.
+  const needsRuleMessage = !rewardMode && !sequenceMode && !shopScoped && actionType === "send_message";
+
+  // Picking a shop-scoped trigger forces the shop-facing action, so the form can't produce a rule the
+  // API will reject.
+  useEffect(() => {
+    if (shopScoped && actionType !== "notify_staff") setActionType("notify_staff" as any);
+  }, [shopScoped, actionType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    let cleanSteps: { messageTemplate: string; delayHours: number }[] = [];
-    if (sequenceMode) {
+    if (rewardMode && (!Number.isFinite(rewardAmount) || rewardAmount <= 0 || rewardAmount > 100)) {
+      toast.error("Reward amount must be between 1 and 100 RCN");
+      return;
+    }
+
+    let cleanSteps: WorkflowStep[] = [];
+    if (rewardMode || actionType === "notify_staff") {
+      // Neither sends a customer message, so there is no body to validate.
+    } else if (sequenceMode) {
+      // Keep a step if it's a non-messaging step (nothing to compose) OR a message step with a body.
       cleanSteps = steps
-        .map((s) => ({ messageTemplate: s.messageTemplate.trim(), delayHours: Number(s.delayHours) || 0 }))
-        .filter((s) => s.messageTemplate);
+        .map((s) => {
+          const action = s.actionType || "send_message";
+          const delayHours = Number(s.delayHours) || 0;
+          if (action === "issue_reward") {
+            return { actionType: action, actionPayload: { amountRcn: Number(s.actionPayload?.amountRcn) || 0 }, delayHours };
+          }
+          if (action === "notify_staff") {
+            const msg = String(s.actionPayload?.message ?? "").trim();
+            return { actionType: action, actionPayload: msg ? { message: msg } : {}, delayHours };
+          }
+          return { actionType: action, messageTemplate: (s.messageTemplate || "").trim(), delayHours };
+        })
+        .filter((s) => s.actionType !== "send_message" || s.messageTemplate);
+
       if (cleanSteps.length === 0) {
-        toast.error("Add at least one step with a message");
+        toast.error("Add at least one step");
+        return;
+      }
+      const badReward = cleanSteps.find(
+        (s) => s.actionType === "issue_reward" && (!s.actionPayload?.amountRcn || Number(s.actionPayload.amountRcn) > 100)
+      );
+      if (badReward) {
+        toast.error("Each reward step needs an amount between 1 and 100 RCN");
         return;
       }
     } else if (!messageTemplate.trim()) {
+      // Say why. A silent return is what made the disabled button so confusing in the first place —
+      // the form refused to proceed and never explained itself.
+      toast.error("Add a message to send");
       return;
     }
 
     setSaving(true);
     try {
+      const isReward = actionType === "issue_reward";
+      const isNotify = actionType === "notify_staff";
+      const sendsNoMessage = isReward || isNotify;
       const data: CreateAutoMessageRequest = {
         name: name.trim(),
-        // messageTemplate is required by the API; in a sequence it mirrors the first step.
-        messageTemplate: sequenceMode ? cleanSteps[0].messageTemplate : messageTemplate.trim(),
+        // An action that sends nothing carries no template. In a sequence the rule-level template
+        // mirrors the first MESSAGE step; a workflow made only of rewards/alerts has none, which
+        // migration 248 allows.
+        messageTemplate: sendsNoMessage
+          ? null
+          : sequenceMode
+          ? cleanSteps.find((s) => s.actionType === "send_message")?.messageTemplate ?? null
+          : messageTemplate.trim(),
+        actionType,
+        actionPayload: isReward
+          ? { amountRcn: rewardAmount, ...(rewardReason.trim() ? { reason: rewardReason.trim() } : {}) }
+          : isNotify
+          ? (alertText.trim() ? { message: alertText.trim() } : {})
+          : null,
         triggerType,
         ...(triggerType === "schedule" && {
           scheduleType,
@@ -219,7 +367,10 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           delayHours,
         }),
         targetAudience,
-        maxSendsPerCustomer,
+        // Hiding the input is not enough: it defaults to 1, and the engine's per-customer cap applies
+        // to a staff alert on a customer event too — so a repeat no-show by the same customer would be
+        // reported once and then never again. 0 means uncapped (the engine's check is truthy).
+        maxSendsPerCustomer: isNotify ? 0 : maxSendsPerCustomer,
         // Send the sequence (or clear it when not in sequence mode).
         steps: sequenceMode ? cleanSteps : null,
         stopOnBooking: sequenceMode ? stopOnBooking : false,
@@ -238,7 +389,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
           <h2 className="text-xl font-semibold text-white">
-            {isEditing ? "Edit Auto-Message Rule" : "New Auto-Message Rule"}
+            {isWorkflow
+              ? isEditing ? "Edit Workflow" : "New Workflow"
+              : isEditing ? "Edit Auto-Message Rule" : "New Auto-Message Rule"}
           </h2>
           <button
             onClick={onClose}
@@ -263,13 +416,120 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             />
           </div>
 
+          {/* What the rule DOES (Custom Workflows W2). Everything above/below — triggers, audience,
+              timing — applies identically whichever action is chosen. */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Then do this</label>
+            {shopScoped ? (
+              // Nobody to message — the trigger happened to the shop, so the action is fixed.
+              <div className="rounded-lg border border-[#FFCC00] bg-[#FFCC00]/10 px-3 py-2">
+                <div className="text-sm font-medium text-white">Notify my team</div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  This one happens to your shop, not to a customer — there&apos;s nobody to message.
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActionType("send_message")}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                    actionType === "send_message"
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="font-medium">Send a message</div>
+                  <div className="text-xs text-gray-500">To the customer</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActionType("issue_reward")}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                    actionType === "issue_reward"
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="font-medium">Issue an RCN reward</div>
+                  <div className="text-xs text-gray-500">Credits the customer</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionType("notify_staff");
+                    // "Alert me when X happens" is the overwhelmingly common intent. Only nudge an
+                    // untouched default — a deliberate Schedule choice ("every Monday, remind the team")
+                    // is legitimate and must survive.
+                    if (!triggerTouched) setTriggerType("event");
+                  }}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                    actionType === "notify_staff"
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="font-medium">Notify my team</div>
+                  <div className="text-xs text-gray-500">Alerts you, not the customer</div>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {actionType === "notify_staff" && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Alert text (optional)</label>
+              <input
+                type="text"
+                value={alertText}
+                onChange={(e) => setAlertText(e.target.value)}
+                placeholder="e.g. Reorder before the weekend"
+                maxLength={500}
+                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Goes to you and your team. Leave blank to use the workflow name.
+              </p>
+            </div>
+          )}
+
+          {rewardMode && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Amount (RCN)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={rewardAmount}
+                  onChange={(e) => setRewardAmount(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Debited from your RCN balance each time this fires. Max 100 per automated issue.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Reason (optional)</label>
+                <input
+                  type="text"
+                  value={rewardReason}
+                  onChange={(e) => setRewardReason(e.target.value)}
+                  placeholder="e.g. Loyalty bonus"
+                  maxLength={120}
+                  className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Trigger Type */}
           <div>
             <label className="block text-sm text-gray-400 mb-2">Trigger Type</label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setTriggerType("schedule")}
+                onClick={() => { setTriggerTouched(true); setTriggerType("schedule"); }}
                 className={`p-3 rounded-lg border text-left transition-colors ${
                   triggerType === "schedule"
                     ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
@@ -278,11 +538,13 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               >
                 <Calendar className="w-5 h-5 mb-1" />
                 <p className="text-sm font-medium">Schedule</p>
-                <p className="text-xs text-gray-500">Daily, weekly, or monthly</p>
+                <p className="text-xs text-gray-500">
+                  {notifiesStaff ? "On a clock — not when something happens" : "Daily, weekly, or monthly"}
+                </p>
               </button>
               <button
                 type="button"
-                onClick={() => setTriggerType("event")}
+                onClick={() => { setTriggerTouched(true); setTriggerType("event"); }}
                 className={`p-3 rounded-lg border text-left transition-colors ${
                   triggerType === "event"
                     ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
@@ -291,7 +553,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               >
                 <Zap className="w-5 h-5 mb-1" />
                 <p className="text-sm font-medium">Event</p>
-                <p className="text-xs text-gray-500">After booking actions</p>
+                {/* Was "After booking actions", which stopped being true once W3 added reviews, low
+                    ratings, failed payments and low stock — and steered people to Schedule. */}
+                <p className="text-xs text-gray-500">When something happens in your shop</p>
               </button>
             </div>
           </div>
@@ -393,8 +657,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             </div>
           )}
 
-          {/* Target Audience */}
-          <div>
+          {/* Target Audience — hidden when the engine won't consult it (see audienceApplies). */}
+          <div className={audienceApplies ? "" : "hidden"}>
             <label className="block text-sm text-gray-400 mb-1">Target Audience</label>
             <Select value={targetAudience} onValueChange={(value) => setTargetAudience(value)}>
               <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#0D0D0D] border-gray-700 rounded-lg text-white text-sm">
@@ -408,8 +672,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             </Select>
           </div>
 
-          {/* Max Sends */}
-          <div>
+          {/* Max Sends — a staff alert isn't addressed to a customer, so a per-customer cap is
+              meaningless for it (and the submitted value is forced to "uncapped"). */}
+          <div className={notifiesStaff ? "hidden" : ""}>
             <label className="block text-sm text-gray-400 mb-1">Max sends per customer</label>
             <input
               type="number"
@@ -419,11 +684,16 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               max={100}
               className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
             />
-            <p className="text-xs text-gray-500 mt-1">How many times this rule can message the same customer</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {isWorkflow
+                ? "How many times this workflow can run for the same customer"
+                : "How many times this rule can message the same customer"}
+            </p>
           </div>
 
-          {/* Advanced-mode toggles: a rule is a single message, OR a drip sequence, OR an A/B test. */}
-          <div className="flex flex-col gap-1.5">
+          {/* Advanced-mode toggles: a rule is a single message, OR a drip sequence, OR an A/B test.
+              All three are message concepts, so none of them apply to a reward rule. */}
+          <div className={`flex flex-col gap-1.5 ${rewardMode || actionType === "notify_staff" ? "hidden" : ""}`}>
             {/* Multi-step sequence toggle (event triggers only — enrollment is event-driven) */}
             {triggerType === "event" && (
               <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
@@ -459,7 +729,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             )}
           </div>
 
-          {sequenceMode ? (
+          {/* A reward rule has no message at all — skip the whole composer. */}
+          {rewardMode || actionType === "notify_staff" ? null : sequenceMode ? (
             /* Sequence steps editor */
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -471,15 +742,30 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-[#FFCC00]">Step {i + 1}</span>
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => generateStep(i)}
-                        disabled={generatingStep === i}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-[#FFCC00] text-black hover:bg-[#e6b800] disabled:opacity-50"
-                      >
-                        {generatingStep === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                        AI
-                      </button>
+                      {/* A1: each step chooses its own action — this is what makes a sequence a
+                          workflow rather than a drip. Campaigns stay message-only. */}
+                      {isWorkflow && (
+                        <select
+                          value={s.actionType || "send_message"}
+                          onChange={(e) => updateStep(i, { actionType: e.target.value })}
+                          className="px-2 py-1 text-xs bg-[#1A1A1A] border border-gray-700 rounded text-gray-200 focus:border-[#FFCC00] focus:outline-none"
+                        >
+                          <option value="send_message">Send a message</option>
+                          <option value="issue_reward">Issue RCN</option>
+                          <option value="notify_staff">Notify my team</option>
+                        </select>
+                      )}
+                      {(s.actionType || "send_message") === "send_message" && (
+                        <button
+                          type="button"
+                          onClick={() => generateStep(i)}
+                          disabled={generatingStep === i}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-[#FFCC00] text-black hover:bg-[#e6b800] disabled:opacity-50"
+                        >
+                          {generatingStep === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                          AI
+                        </button>
+                      )}
                       {steps.length > 1 && (
                         <button type="button" onClick={() => removeStep(i)} className="text-gray-500 hover:text-red-400" aria-label="Remove step">
                           <Trash2 className="w-4 h-4" />
@@ -487,14 +773,46 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                       )}
                     </div>
                   </div>
+                  {s.actionType === "issue_reward" ? (
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Amount (RCN)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={Number(s.actionPayload?.amountRcn) || 25}
+                        onChange={(e) =>
+                          updateStep(i, { actionPayload: { amountRcn: Number(e.target.value) } })
+                        }
+                        className="w-32 px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Debited from your RCN balance when this step runs.</p>
+                    </div>
+                  ) : s.actionType === "notify_staff" ? (
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Alert your team (optional)</label>
+                      <input
+                        type="text"
+                        value={String(s.actionPayload?.message ?? "")}
+                        onChange={(e) => updateStep(i, { actionPayload: { message: e.target.value } })}
+                        placeholder="e.g. Follow up with this customer today"
+                        maxLength={500}
+                        className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Goes to you, not the customer. Leave blank to use the workflow name.
+                      </p>
+                    </div>
+                  ) : (
                   <textarea
-                    value={s.messageTemplate}
+                    value={s.messageTemplate || ""}
                     onChange={(e) => updateStep(i, { messageTemplate: e.target.value })}
                     placeholder="Hi {{customerName}}! ..."
                     rows={3}
                     maxLength={2000}
                     className="w-full px-3 py-2 bg-[#111] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none resize-none"
                   />
+                  )}
                   <div className="flex items-center gap-2 text-xs text-gray-400">
                     <span>Wait</span>
                     <input
@@ -607,8 +925,12 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             </div>
           )}
 
-          {/* Preview (single-message mode only; the sequence editor shows each step inline) */}
-          {!sequenceMode && messageTemplate.trim() && (
+          {/* Preview (single-message mode only; the sequence editor shows each step inline).
+              Gated on needsRuleMessage, not just on there being text: switching a rule to a reward or a
+              staff alert hides the message EDITOR but left this behind, so the form previewed a customer
+              message for an action that sends none — and handleSubmit then discards that text
+              (messageTemplate: null). It read as "this is what will be sent". */}
+          {needsRuleMessage && !sequenceMode && messageTemplate.trim() && (
             <div className="p-3 bg-[#0D0D0D] border border-gray-800 rounded-lg">
               <p className="text-xs text-gray-500 mb-1">Preview (sample data):</p>
               <p className="text-sm text-white">{resolvePreview(messageTemplate)}</p>
@@ -627,11 +949,21 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={saving || !name.trim() || !messageTemplate.trim()}
+            // Only a SINGLE-MESSAGE rule needs the rule-level template. This condition predates
+            // actions and sequences: it disabled the button for every drip sequence (the copy lives in
+            // the steps), every reward rule, every staff alert and every shop-scoped rule — six of the
+            // ten templates — with no explanation of why. handleSubmit already validates per action
+            // type and explains what's missing, so anything beyond "needs a name" belongs there, not
+            // in a silent disable.
+            disabled={saving || !name.trim() || (needsRuleMessage && !messageTemplate.trim())}
             className="flex-1 px-4 py-2.5 bg-[#FFCC00] rounded-lg text-black text-sm font-medium hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {saving ? "Saving..." : isEditing ? "Update Rule" : "Create Rule"}
+            {saving
+              ? "Saving..."
+              : isWorkflow
+              ? isEditing ? "Update Workflow" : "Create Workflow"
+              : isEditing ? "Update Rule" : "Create Rule"}
           </button>
         </div>
       </div>

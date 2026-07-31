@@ -31,6 +31,7 @@ import {
   Bug,
   Bot,
   Settings,
+  Receipt,
 } from "lucide-react";
 import { runCommandBar } from "@/services/api/platformCopilot";
 
@@ -48,6 +49,7 @@ const DESTINATIONS: Destination[] = [
   { id: "customers", label: "Customers", description: "Manage customers & tiers", keywords: "users members tier bronze silver gold", href: "/admin?tab=customers&view=grouped", icon: Users },
   { id: "shops", label: "Shops", description: "All shops", keywords: "stores merchants partners", href: "/admin?tab=shops-management&view=all", icon: Store },
   { id: "shops-pending", label: "Pending Shops", description: "Shops awaiting approval", keywords: "approve approval new application review", href: "/admin?tab=shops-management&view=pending", icon: Store },
+  { id: "payments", label: "Payments", description: "Card payments across all shops", keywords: "transactions stripe card refunds fees commission revenue fiat", href: "/admin?tab=payments", icon: Receipt },
   { id: "treasury", label: "Treasury", description: "Token treasury & minting", keywords: "tokens rcn rcg mint supply funds", href: "/admin?tab=treasury", icon: Wallet },
   { id: "fraud", label: "Fraud Detection", description: "AI fraud scanning & findings", keywords: "fraud suspicious abuse risk scan security", href: "/admin?tab=fraud", icon: ShieldAlert },
   { id: "content-moderation", label: "Content Moderation", description: "Scan & moderate listings", keywords: "moderation content review flag inappropriate", href: "/admin?tab=content-moderation", icon: ShieldCheck },

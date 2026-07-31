@@ -1,9 +1,17 @@
 import Stripe from 'stripe';
 import { logger } from '../utils/logger';
+import { idemKey } from './stripeIdempotency';
 
 export interface StripeConfig {
   secretKey: string;
   webhookSecret: string;
+  /**
+   * Signing secret for the CONNECT webhook endpoint (events on connected accounts). Separate
+   * from webhookSecret because a Stripe endpoint is either platform- or Connect-scoped, so
+   * covering both means two endpoints and two secrets. Optional: unset in local development,
+   * where `stripe listen` forwards both kinds under a single secret.
+   */
+  connectWebhookSecret?: string;
   priceId: string; // Monthly subscription price ID
   isTestMode: boolean;
 }
@@ -556,6 +564,8 @@ export class StripeService {
     // automatically. The shop is the merchant of record.
     applicationFeeAmount?: number;
     connectedAccountId?: string;
+    // Stable key so a retried request never creates a second PaymentIntent (see stripeIdempotency).
+    idempotencyKey?: string;
   }): Promise<Stripe.PaymentIntent> {
     try {
       const paymentIntentData: Stripe.PaymentIntentCreateParams = {
@@ -587,11 +597,15 @@ export class StripeService {
 
       // When connectedAccountId is set, the whole request runs "on behalf of" the shop's
       // account (direct charge) — the PI, its client secret, and later its refund all live there.
-      const requestOptions: Stripe.RequestOptions | undefined = data.connectedAccountId
-        ? { stripeAccount: data.connectedAccountId }
-        : undefined;
+      // idempotencyKey guards against a retry creating a duplicate PaymentIntent.
+      const requestOptions: Stripe.RequestOptions = {};
+      if (data.connectedAccountId) requestOptions.stripeAccount = data.connectedAccountId;
+      if (data.idempotencyKey) requestOptions.idempotencyKey = data.idempotencyKey;
 
-      const paymentIntent = await this.stripe.paymentIntents.create(paymentIntentData, requestOptions);
+      const paymentIntent = await this.stripe.paymentIntents.create(
+        paymentIntentData,
+        Object.keys(requestOptions).length ? requestOptions : undefined
+      );
 
       logger.info('Payment intent created', {
         paymentIntentId: paymentIntent.id,
@@ -630,10 +644,10 @@ export class StripeService {
       if (connectedAccountId) {
         params.refund_application_fee = true;
       }
-      const refund = await this.stripe.refunds.create(
-        params,
-        connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
-      );
+      // A full refund is once-per-PI, so key on the PI — a retry won't double-refund.
+      const options: Stripe.RequestOptions = { idempotencyKey: idemKey('refund', paymentIntentId) };
+      if (connectedAccountId) options.stripeAccount = connectedAccountId;
+      const refund = await this.stripe.refunds.create(params, options);
 
       logger.info('Payment refunded', {
         refundId: refund.id,
@@ -655,7 +669,20 @@ export class StripeService {
   /**
    * Partial refund a payment intent (e.g. deposit refund)
    */
-  async partialRefund(paymentIntentId: string, amountCents: number, reason?: string, connectedAccountId?: string): Promise<Stripe.Refund> {
+  async partialRefund(
+    paymentIntentId: string,
+    amountCents: number,
+    reason?: string,
+    connectedAccountId?: string,
+    // Stable id for THIS refund operation (e.g. the order id for a deposit refund). Keying on
+    // PI+amount would be wrong: two legitimate partial refunds of the same amount on the same
+    // charge would collapse into one. Omitted = no idempotency key, so a retry can double-refund
+    // — pass one wherever the caller has a stable reference.
+    idempotencyRef?: string,
+    // Merged over the defaults. The Payments Center puts its own refund row id here so the
+    // charge.refunded webhook can match a Stripe refund back to the row that requested it.
+    metadata?: Record<string, string>
+  ): Promise<Stripe.Refund> {
     try {
       const params: Stripe.RefundCreateParams = {
         payment_intent: paymentIntentId,
@@ -663,17 +690,18 @@ export class StripeService {
         reason: (reason as Stripe.RefundCreateParams.Reason) || 'requested_by_customer',
         metadata: {
           environment: this.config.isTestMode ? 'test' : 'production',
-          type: 'deposit_refund'
+          type: 'deposit_refund',
+          ...(metadata ?? {})
         }
       };
       if (connectedAccountId) {
         // Direct charge: refund proportionally on the shop's account and return the fee.
         params.refund_application_fee = true;
       }
-      const refund = await this.stripe.refunds.create(
-        params,
-        connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
-      );
+      const options: Stripe.RequestOptions = {};
+      if (idempotencyRef) options.idempotencyKey = idemKey('refund-partial', idempotencyRef);
+      if (connectedAccountId) options.stripeAccount = connectedAccountId;
+      const refund = await this.stripe.refunds.create(params, options);
 
       logger.info('Partial refund processed', {
         refundId: refund.id,
@@ -761,28 +789,51 @@ export class StripeService {
   }
 
   /**
-   * Handle webhook event
+   * Handle webhook event.
+   *
+   * Verifies against EVERY configured signing secret, because a Stripe endpoint is either
+   * platform-scoped or Connect-scoped — never both — and we need both:
+   *   - the platform endpoint carries subscriptions/invoices (events on our own account)
+   *   - the Connect endpoint carries charge.* for booking payments, which are direct charges
+   *     living on the shop's connected account
+   * Two endpoints means two signing secrets, and only one of them can validate any given
+   * delivery. Trying each in turn is what Stripe recommends for this setup.
    */
   async handleWebhook(payload: string | Buffer, signature: string): Promise<Stripe.Event> {
-    try {
-      const event = this.stripe.webhooks.constructEvent(
-        payload,
-        signature,
-        this.config.webhookSecret
-      );
+    const secrets = [this.config.webhookSecret, this.config.connectWebhookSecret].filter(
+      (s): s is string => !!s
+    );
 
-      logger.info('Stripe webhook received', {
-        eventType: event.type,
-        eventId: event.id
-      });
-
-      return event;
-    } catch (error) {
-      logger.error('Failed to verify webhook signature', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw new Error(`Webhook signature verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    if (secrets.length === 0) {
+      throw new Error('Webhook signature verification failed: no signing secret configured');
     }
+
+    let lastError: unknown;
+    for (const secret of secrets) {
+      try {
+        const event = this.stripe.webhooks.constructEvent(payload, signature, secret);
+
+        logger.info('Stripe webhook received', {
+          eventType: event.type,
+          eventId: event.id,
+          // event.account is set on Connect deliveries — useful when only one of the two
+          // endpoints is misconfigured.
+          connectedAccount: event.account ?? null,
+        });
+
+        return event;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    logger.error('Failed to verify webhook signature', {
+      secretsTried: secrets.length,
+      error: lastError instanceof Error ? lastError.message : 'Unknown error',
+    });
+    throw new Error(
+      `Webhook signature verification failed: ${lastError instanceof Error ? lastError.message : 'Unknown error'}`
+    );
   }
 
   /**
@@ -955,6 +1006,9 @@ export function getStripeService(): StripeService {
     const config: StripeConfig = {
       secretKey: process.env.STRIPE_SECRET_KEY || '',
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+      // Optional second endpoint for connected-account events (booking charges). Unset
+      // locally, where `stripe listen` forwards both kinds under one secret.
+      connectWebhookSecret: process.env.STRIPE_CONNECT_WEBHOOK_SECRET || undefined,
       priceId: process.env.STRIPE_MONTHLY_PRICE_ID || '',
       isTestMode: process.env.NODE_ENV !== 'production' || process.env.STRIPE_SECRET_KEY?.includes('test') || false
     };

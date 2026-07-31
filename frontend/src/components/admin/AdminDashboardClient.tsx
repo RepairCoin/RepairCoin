@@ -12,6 +12,7 @@ import AdminsTab from "@/components/admin/tabs/AdminsTab";
 import { CustomersTabEnhanced } from "@/components/admin/tabs/CustomersTabEnhanced";
 import { ShopsManagementTab } from "@/components/admin/tabs/ShopsManagementTab";
 import { AdvancedTreasuryTab } from "@/components/admin/tabs/AdvancedTreasuryTab";
+import { PaymentsTab } from "@/components/admin/tabs/PaymentsTab";
 import { AdminFraudTab } from "@/components/admin/tabs/AdminFraudTab";
 import { PlatformCopilotPanel } from "@/components/admin/PlatformCopilotPanel";
 import { AdminContentModerationTab } from "@/components/admin/tabs/AdminContentModerationTab";
@@ -382,6 +383,14 @@ export default function AdminDashboardClient() {
             )}
 
           {/* Other tabs with Lazy Loading */}
+          {/* Platform-wide fiat payments (Slice A1) — read-only; the RCN token ledger is a
+              different tab entirely. */}
+          {activeTab === "payments" && hasAdminAccess && (
+              <LazyTabWrapper isActive={activeTab === "payments"}>
+                <PaymentsTab />
+              </LazyTabWrapper>
+            )}
+
           {activeTab === "treasury" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "treasury"}>
                 <AdvancedTreasuryTab />

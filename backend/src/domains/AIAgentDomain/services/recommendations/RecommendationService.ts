@@ -126,6 +126,22 @@ export class RecommendationService {
         continue;
       }
 
+      // "I recommend enabling the Win Back workflow" — point the card at a workflow when the shop can
+      // build one. A workflow is the durable form of the same intent: a campaign is one send, a workflow
+      // keeps running for everyone who meets the condition from here on.
+      //
+      // Uses the raw tier check to match the filter above. During a dark rollout that can under-promote
+      // (a shop whose surface is open still sees the campaign action) — the safe direction, since the
+      // alternative sends someone to a screen their tier hides.
+      const canBuildWorkflows = tierAllowsFeature(tier, 'customWorkflows');
+      if (canBuildWorkflows) {
+        candidates = candidates.map((c) =>
+          c.preferredWorkflow
+            ? { ...c, action: { kind: 'workflow' as const, templateId: c.preferredWorkflow.templateId } }
+            : c
+        );
+      }
+
       for (const c of candidates) {
         try {
           const result = await this.pool.query(

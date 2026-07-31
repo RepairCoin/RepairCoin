@@ -2,6 +2,7 @@
 import { OrderRepository, ServiceOrder } from '../../../repositories/OrderRepository';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { StripeService } from '../../../services/StripeService';
+import { idemKey, bookingIdemRef } from '../../../services/stripeIdempotency';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { NotificationGateway, getNotificationGateway } from '../../notification/services/NotificationGateway';
 import { EmailService } from '../../../services/EmailService';
@@ -368,6 +369,15 @@ export class PaymentService {
         currency: 'usd',
         connectedAccountId: shop?.stripeConnectAccountId,
         applicationFeeAmount: commissionCents,
+        // Keyed on the booking itself, NOT on orderId — orderId is a fresh uuid per request,
+        // so a double-clicked Book would otherwise create a second PaymentIntent.
+        idempotencyKey: idemKey('booking-pi', bookingIdemRef({
+          customerAddress: request.customerAddress,
+          serviceId: service.serviceId,
+          bookingDate: bookingDateStr,
+          bookingTime: request.bookingTime,
+          amountCents: amountInCents,
+        })),
         metadata: {
           orderId,
           serviceId: service.serviceId,
@@ -609,6 +619,29 @@ export class PaymentService {
       const successUrl = `${mobileScheme}://shared/payment-sucess?order_id=${orderId}`;
       const cancelUrl = `${mobileScheme}://shared/payment-cancel?order_id=${orderId}`;
 
+      // A Checkout Session's metadata does NOT propagate to the PaymentIntent or the charge,
+      // so it must be set on BOTH: the session (read by handlePaymentSuccess when the customer
+      // returns) and payment_intent_data (read by the webhook reconciler, which only ever sees
+      // the charge). Without the latter, `payments.order_id` is null for every checkout-flow
+      // booking and the ledger row can never be linked back to its order. (Slice 1.1)
+      const bookingMetadata = {
+        orderId,
+        serviceId: service.serviceId,
+        shopId: service.shopId,
+        customerAddress: request.customerAddress,
+        totalAmount: service.priceUsd.toString(),
+        rcnRedeemed: rcnRedeemed.toString(),
+        rcnDiscountUsd: rcnDiscountUsd.toString(),
+        finalAmountUsd: finalAmountUsd.toString(),
+        platformCommissionUsd: (commissionCents / 100).toString(),
+        bookingDate: bookingDateStr || '',
+        bookingTime: request.bookingTime || '',
+        bookingEndTime: bookingEndTime || '',
+        notes: request.notes || '',
+        locationId: request.locationId || '',
+        type: 'service_booking'
+      };
+
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [{
@@ -623,31 +656,29 @@ export class PaymentService {
           quantity: 1,
         }],
         mode: 'payment',
-        // Direct charge: the commission is an application fee on the connected account (the
-        // session itself is created ON that account via the stripeAccount option below).
-        ...(connectedAccountId && commissionCents > 0
-          ? { payment_intent_data: { application_fee_amount: commissionCents } }
-          : {}),
+        payment_intent_data: {
+          // Direct charge: the commission is an application fee on the connected account (the
+          // session itself is created ON that account via the stripeAccount option below).
+          ...(connectedAccountId && commissionCents > 0
+            ? { application_fee_amount: commissionCents }
+            : {}),
+          metadata: bookingMetadata,
+        },
         success_url: successUrl,
         cancel_url: cancelUrl,
-        metadata: {
-          orderId,
-          serviceId: service.serviceId,
-          shopId: service.shopId,
+        metadata: bookingMetadata
+      }, {
+        ...(connectedAccountId ? { stripeAccount: connectedAccountId } : {}),
+        // Same reasoning as the PaymentIntent path: key on the booking, not the per-request
+        // orderId, so a retried request reuses this session instead of opening a second one.
+        idempotencyKey: idemKey('booking-checkout', bookingIdemRef({
           customerAddress: request.customerAddress,
-          totalAmount: service.priceUsd.toString(),
-          rcnRedeemed: rcnRedeemed.toString(),
-          rcnDiscountUsd: rcnDiscountUsd.toString(),
-          finalAmountUsd: finalAmountUsd.toString(),
-          platformCommissionUsd: (commissionCents / 100).toString(),
-          bookingDate: bookingDateStr || '',
-          bookingTime: request.bookingTime || '',
-          bookingEndTime: bookingEndTime || '',
-          notes: request.notes || '',
-          locationId: request.locationId || '',
-          type: 'service_booking'
-        }
-      }, connectedAccountId ? { stripeAccount: connectedAccountId } : undefined);
+          serviceId: service.serviceId,
+          bookingDate: bookingDateStr,
+          bookingTime: request.bookingTime,
+          amountCents: amountInCents,
+        })),
+      });
 
       logger.info('Stripe checkout session created (order will be created on payment success)', {
         orderId,
@@ -1016,6 +1047,31 @@ export class PaymentService {
           });
         } catch (notifError) {
           logger.error('Failed to send payment failure notification:', notifError);
+        }
+      }
+
+      // Custom Workflows: a failed booking payment is a recoverable moment — the customer WANTED the
+      // service and the card just didn't go through. Published on the bus so a shop can automate the
+      // follow-up ("your payment didn't complete, want to try again?") without this method knowing
+      // anything about automations. Its own try/catch: a bus failure must never fail the webhook,
+      // which Stripe would then retry.
+      if (metadata.shopId && metadata.customerAddress) {
+        try {
+          await eventBus.publish(createDomainEvent(
+            'service.payment_failed',
+            metadata.orderId || paymentIntentId,
+            {
+              shopId: metadata.shopId,
+              customerAddress: metadata.customerAddress,
+              orderId: metadata.orderId,
+              serviceId: metadata.serviceId,
+              serviceName,
+              reason,
+            },
+            'ServiceDomain'
+          ));
+        } catch (busError) {
+          logger.error('Failed to publish service.payment_failed:', busError);
         }
       }
     } catch (error) {
