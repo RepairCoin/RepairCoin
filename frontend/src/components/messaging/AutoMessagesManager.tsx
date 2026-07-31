@@ -22,6 +22,7 @@ import type {
   UpdateAutoMessageRequest,
 } from "@/services/api/messaging";
 import { AutoMessageRuleModal } from "./AutoMessageRuleModal";
+import { AutoMessageResults } from "./autoMessageResults";
 
 const AUDIENCE_LABELS: Record<string, string> = {
   all: "All Customers",
@@ -46,6 +47,9 @@ export const AutoMessagesManager: React.FC = () => {
   const [editingRule, setEditingRule] = useState<AutoMessage | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  /** Outcome metrics per rule id, plus the attribution window they were computed with. */
+  const [metrics, setMetrics] = useState<Record<string, messagingApi.WorkflowMetrics>>({});
+  const [attributionDays, setAttributionDays] = useState(14);
 
   const fetchRules = useCallback(async () => {
     try {
@@ -61,6 +65,15 @@ export const AutoMessagesManager: React.FC = () => {
 
   useEffect(() => {
     fetchRules();
+    // Separate from the list: the attribution join is heavier than the list query, and the list must
+    // still render if this fails. Failure leaves metrics empty, which renders no line at all.
+    messagingApi
+      .getWorkflowMetrics()
+      .then((r) => {
+        setMetrics(r.metrics ?? {});
+        if (r.attributionDays) setAttributionDays(r.attributionDays);
+      })
+      .catch(() => setMetrics({}));
   }, [fetchRules]);
 
   const handleSave = async (data: CreateAutoMessageRequest | UpdateAutoMessageRequest) => {
@@ -203,6 +216,9 @@ export const AutoMessagesManager: React.FC = () => {
                     <Zap className="w-4 h-4 text-blue-400" />
                   )}
                   <h4 className="text-white font-medium text-sm">{rule.name}</h4>
+                  {/* Campaign rules are measurable too. Their outcomes were being computed all along and
+                      shown nowhere, because only the Automation list rendered them. */}
+                  <AutoMessageResults metrics={metrics[rule.id]} attributionDays={attributionDays} />
                   <span
                     className={`px-2 py-0.5 rounded text-xs ${
                       rule.isActive
@@ -256,10 +272,16 @@ export const AutoMessagesManager: React.FC = () => {
                 </div>
               </div>
 
-              {/* Message Preview */}
-              <p className="text-gray-400 text-xs mb-3 line-clamp-2">
-                {rule.messageTemplate}
-              </p>
+              {/* What the rule does. A reward rule has no message to preview, so show the action
+                  instead of an empty line. */}
+              {rule.actionType === "issue_reward" ? (
+                <p className="text-[#FFCC00] text-xs mb-3">
+                  Issues {rule.actionPayload?.amountRcn ?? "?"} RCN
+                  {rule.actionPayload?.reason ? ` — ${rule.actionPayload.reason}` : ""}
+                </p>
+              ) : (
+                <p className="text-gray-400 text-xs mb-3 line-clamp-2">{rule.messageTemplate}</p>
+              )}
 
               {/* Meta Row */}
               <div className="flex items-center flex-wrap gap-3 text-xs text-gray-500">

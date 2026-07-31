@@ -6,6 +6,7 @@ import { createThirdwebClient } from "thirdweb";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { ReferralDashboard } from "@/components/customer/ReferralDashboard";
+import { RewardsTab } from "@/components/customer/RewardsTab";
 import { RedemptionApprovals } from "@/components/customer/RedemptionApprovals";
 import { OverviewTab } from "@/components/customer/OverviewTab";
 import { FadeSlideIn } from "@/components/ui/motion";
@@ -40,7 +41,7 @@ export default function CustomerDashboardClient() {
   const blockchainEnabled = useBlockchainEnabled();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "marketplace" | "orders" | "appointments" | "messages" | "referrals" | "approvals" | "findshop" | "gifting" | "settings" | "faq"
+    "overview" | "marketplace" | "orders" | "appointments" | "messages" | "rewards" | "referrals" | "approvals" | "findshop" | "gifting" | "settings" | "faq"
   >("overview");
   const [noShowStatus, setNoShowStatus] = useState<CustomerNoShowStatus | null>(null);
   const [loadingNoShowStatus, setLoadingNoShowStatus] = useState(false);
@@ -248,7 +249,7 @@ export default function CustomerDashboardClient() {
         }}
       >
         <div
-          className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${
+          className={`max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 ${
             isMessagesFullHeight ? "flex-1 flex flex-col overflow-hidden min-h-0 w-full" : ""
           }`}
         >
@@ -309,6 +310,7 @@ export default function CustomerDashboardClient() {
               {activeTab === "appointments" && <AppointmentsTab />}
 
               {/* Referrals Tab */}
+              {activeTab === "rewards" && <RewardsTab />}
               {activeTab === "referrals" && <ReferralDashboard />}
 
               {/* Approvals Tab */}

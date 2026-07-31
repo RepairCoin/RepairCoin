@@ -8,4 +8,6 @@ export { AskAICustomerCard } from "./AskAICustomerCard";
 export { ActiveServicesCard } from "./ActiveServicesCard";
 export { RecommendedShopsCard } from "./RecommendedShopsCard";
 export { TrustedProfessionalsCard } from "./TrustedProfessionalsCard";
+export { ImpactSummaryCard } from "./ImpactSummaryCard";
+export { ReviewNudgeCard } from "./ReviewNudgeCard";
 export { PopularServicesCard } from "./PopularServicesCard";

@@ -59,6 +59,11 @@ export const lapsedCustomersDetector: RecommendationDetector = {
         // point yet. Until that exists this opens the assistant, which HAS the
         // marketing tools and can genuinely draft the campaign. Upgrading later
         // is a one-line change here; the card contract does not move.
+        // The destination this card always wanted. The comment above describes a campaign composer with
+        // no audience entry point; the workflow gallery DOES prefill, and "win back lapsed customers"
+        // running continuously beats drafting one send. Promoted by the service for Business shops;
+        // Growth keeps the assistant fallback below.
+        preferredWorkflow: { templateId: 'win-back-lapsed' },
         action: {
           kind: 'assistant',
           prompt:

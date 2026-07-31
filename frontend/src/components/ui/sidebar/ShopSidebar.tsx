@@ -25,8 +25,10 @@ import {
   Wallet,
   FileBarChart,
   Megaphone,
+  Workflow,
   CreditCard,
   Percent,
+  Receipt,
 } from "lucide-react";
 import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionMenuItem } from "./BaseSidebar";
@@ -227,8 +229,23 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           icon: <Megaphone className="w-5 h-5" />,
           tabId: "marketing",
         },
+        // Automation is its own destination, NOT a sub-tab of Marketing: an owner looking for
+        // "when inventory drops → notify Joe" would never think to open Marketing (Custom
+        // Workflows A2).
+        {
+          title: "Automation",
+          href: "/shop?tab=automation",
+          icon: <Workflow className="w-5 h-5" />,
+          tabId: "automation",
+        },
         // Team (staff management) moved to the header profile menu — it's an
         // account-level action, not a day-to-day nav destination.
+        {
+          title: "Payments",
+          href: "/shop?tab=payments",
+          icon: <Receipt className="w-5 h-5" />,
+          tabId: "payments",
+        },
         ...(commissionsEnabled
           ? [
               {

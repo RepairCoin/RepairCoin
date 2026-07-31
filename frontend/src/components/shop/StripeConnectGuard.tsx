@@ -82,7 +82,7 @@ export const StripeConnectGuard: React.FC<StripeConnectGuardProps> = ({
               connected.
             </p>
             <button
-              onClick={() => router.push("/register/shop/payouts")}
+              onClick={() => router.push("/shop/get-paid")}
               className="mt-3 rounded-lg bg-[#FFCC00] px-4 py-2 text-xs font-medium text-black transition-colors hover:bg-[#E5BB00] sm:mt-4 sm:px-5 sm:py-2.5 sm:text-sm"
             >
               Set Up Payouts

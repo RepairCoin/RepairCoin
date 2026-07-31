@@ -283,6 +283,19 @@ export const AiMemorySettings: React.FC = () => {
                       <Badge variant="secondary" className="bg-[#FFCC00]/15 text-[#FFCC00] border-0 text-[11px]">
                         {KIND_LABEL[m.kind]}
                       </Badge>
+                      {m.source === "auto" && (
+                        <Badge
+                          variant="secondary"
+                          className="bg-white/5 text-gray-400 border-0 text-[11px]"
+                          title={
+                            m.confidence != null
+                              ? `Learned automatically from a conversation (confidence ${Math.round(m.confidence * 100)}%)`
+                              : "Learned automatically from a conversation"
+                          }
+                        >
+                          Auto-captured
+                        </Badge>
+                      )}
                       {m.tags.map((t) => (
                         <span key={t} className="text-[11px] text-gray-500">
                           #{t}

@@ -441,6 +441,14 @@ export interface ConnectStatusData {
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
   requirementsDue: string[];
+  eventuallyDue: string[];
+  pendingVerification: string[];
+  disabledReason: string | null;
+  // Positive confirmation for the two steps Stripe doesn't reliably list as requirements.
+  taxIdProvided: boolean;
+  identityVerification: "unverified" | "pending" | "verified";
+  // 'standard' = the shop's own account, adopted via OAuth. Not editable from here.
+  accountType: "express" | "standard" | null;
 }
 export interface ConnectOnboardingLinkResponse extends BaseResponse<ConnectOnboardingLinkData> {}
 export interface ConnectSummaryResponse extends BaseResponse<ConnectSummaryData> {}

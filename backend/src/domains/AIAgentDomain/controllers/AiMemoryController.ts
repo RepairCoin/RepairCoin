@@ -2,18 +2,36 @@
 //
 // AI Memory settings (Phase 2) — shop-owner CRUD over their saved standing
 // instructions. All shop-scoped via the JWT (shopId never from the URL/body), so
-// a shop can only ever touch its own memories. Gated by ENABLE_AI_MEMORY: when
-// off, GET returns enabled:false + an empty list and mutations 409.
+// a shop can only ever touch its own memories. Gated by BOTH the ENABLE_AI_MEMORY flag AND the
+// Business-tier aiMemory entitlement: below either, GET returns enabled:false + an empty list and
+// mutations 409 (flag off) / 403 (below tier).
 
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { getAiMemoryService, isAiMemoryEnabled } from '../services/AiMemoryService';
+import { shopHasFeature } from '../../../utils/shopTier';
 import type { AiMemoryKind } from '../../../repositories/AiMemoryRepository';
 
 const KINDS: AiMemoryKind[] = ['preference', 'instruction', 'decision', 'correction'];
 
 function shopIdOf(req: Request): string | undefined {
   return (req as any).user?.shopId;
+}
+
+// AI Memory needs BOTH the platform flag AND the Business tier (aiMemory entitlement) — the same
+// pair the unified assistant enforces. The env flag alone left the CRUD API open to any tier that
+// called it directly (the UI hid it, but the endpoint didn't). Returns false and sends the response
+// when blocked; callers do `if (!(await ensureMemoryAllowed(shopId, res))) return;`.
+async function ensureMemoryAllowed(shopId: string, res: Response): Promise<boolean> {
+  if (!isAiMemoryEnabled()) {
+    res.status(409).json({ success: false, error: 'AI memory is not enabled' });
+    return false;
+  }
+  if (!(await shopHasFeature(shopId, 'aiMemory'))) {
+    res.status(403).json({ success: false, error: 'AI Memory is included in the Business plan', code: 'tier_upgrade_required' });
+    return false;
+  }
+  return true;
 }
 
 function parseTags(raw: unknown): string[] {
@@ -26,8 +44,12 @@ export async function listMemories(req: Request, res: Response): Promise<void> {
   const shopId = shopIdOf(req);
   if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
   try {
-    const memories = await getAiMemoryService().list(shopId);
-    res.json({ success: true, data: { enabled: isAiMemoryEnabled(), memories } });
+    // `enabled` reflects BOTH the flag and the Business tier, so a below-tier shop sees the same
+    // locked/empty state the UI already shows (can("aiMemory")) — no 4xx here since the settings
+    // page calls this to decide whether to render the panel.
+    const allowed = isAiMemoryEnabled() && (await shopHasFeature(shopId, 'aiMemory'));
+    const memories = allowed ? await getAiMemoryService().list(shopId) : [];
+    res.json({ success: true, data: { enabled: allowed, memories } });
   } catch (err) {
     logger.error('AiMemoryController.listMemories failed', err);
     res.status(500).json({ success: false, error: 'Failed to load memories' });
@@ -38,7 +60,7 @@ export async function listMemories(req: Request, res: Response): Promise<void> {
 export async function createMemory(req: Request, res: Response): Promise<void> {
   const shopId = shopIdOf(req);
   if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
-  if (!isAiMemoryEnabled()) { res.status(409).json({ success: false, error: 'AI memory is not enabled' }); return; }
+  if (!(await ensureMemoryAllowed(shopId, res))) return;
 
   const body = req.body as { kind?: unknown; content?: unknown; tags?: unknown };
   const kind: AiMemoryKind =
@@ -71,7 +93,7 @@ export async function createMemory(req: Request, res: Response): Promise<void> {
 export async function updateMemory(req: Request, res: Response): Promise<void> {
   const shopId = shopIdOf(req);
   if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
-  if (!isAiMemoryEnabled()) { res.status(409).json({ success: false, error: 'AI memory is not enabled' }); return; }
+  if (!(await ensureMemoryAllowed(shopId, res))) return;
 
   const body = req.body as { content?: unknown; tags?: unknown; pinned?: unknown };
   const fields: { content?: string; tags?: string[]; pinned?: boolean } = {};
@@ -93,7 +115,7 @@ export async function updateMemory(req: Request, res: Response): Promise<void> {
 export async function removeMemory(req: Request, res: Response): Promise<void> {
   const shopId = shopIdOf(req);
   if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
-  if (!isAiMemoryEnabled()) { res.status(409).json({ success: false, error: 'AI memory is not enabled' }); return; }
+  if (!(await ensureMemoryAllowed(shopId, res))) return;
   try {
     const deleted = await getAiMemoryService().forget(shopId, req.params.id);
     if (!deleted) { res.status(404).json({ success: false, error: 'Memory not found' }); return; }

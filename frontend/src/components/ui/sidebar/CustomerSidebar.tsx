@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   MapPin,
   Gift,
+  Trophy,
   ShoppingBag,
   Receipt,
   UserPlus,
@@ -104,6 +105,12 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
       title: "Rewards and Referrals",
       icon: <Gift className="w-5 h-5" />,
       items: [
+        {
+          title: "Rewards",
+          href: "/customer?tab=rewards",
+          icon: <Trophy className="w-5 h-5" />,
+          tabId: "rewards",
+        },
         {
           title: "Referrals",
           href: "/customer?tab=referrals",

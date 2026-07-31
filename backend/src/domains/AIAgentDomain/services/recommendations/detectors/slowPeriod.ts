@@ -68,6 +68,10 @@ export const slowPeriodDetector: RecommendationDetector = {
           weeklyAverage: Number(weeklyAvg.toFixed(1)),
           downPercent: downPct,
         },
+        // The "Fill a slow week" workflow fires on the SAME comparison this detector uses (see the note
+        // at the top of the file), so enabling it turns this one-off nudge into standing cover for every
+        // slow week from now on.
+        preferredWorkflow: { templateId: 'slow-week-promo' },
         action: {
           kind: 'assistant',
           prompt: `Bookings are down ${downPct}% this week — draft a promotion to fill next week`,

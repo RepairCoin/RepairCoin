@@ -450,6 +450,20 @@ class ShopApi {
     }
   }
 
+  // Mints a Stripe-HOSTED onboarding link (Account Link) for the "Get Paid" setup —
+  // creates the Express account on first call. 409 = the shop already owns a Standard
+  // Stripe account — surface that message, don't retry.
+  async createConnectHostedOnboardingLink(): Promise<ConnectOnboardingLinkResponse> {
+    try {
+      return await apiClient.post("/shops/connect/hosted-onboarding-link", {
+        platform: "mobile",
+      });
+    } catch (error: any) {
+      console.error("Failed to create hosted onboarding link:", error.message);
+      throw error;
+    }
+  }
+
   async getConnectStatus(): Promise<ConnectStatusResponse> {
     try {
       return await apiClient.get("/shops/connect/status");

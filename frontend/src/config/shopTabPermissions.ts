@@ -19,6 +19,7 @@ export const SHOP_TAB_PERMISSIONS: Record<string, string> = {
   // Anyone who can complete orders can open the Commissions tab; the content itself splits
   // by shop:manage (full shop-wide report + mark-paid) vs. staff (their own commission only).
   commissions: "bookings:manage",
+  payments: "payments:manage",
   reports: "analytics:view",
   purchase: "billing:manage",
   staking: "billing:manage",

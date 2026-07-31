@@ -42,8 +42,10 @@ import { LowStockAlertsTab } from "@/components/shop/tabs/LowStockAlertsTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
+import { WorkflowsList } from "@/components/shop/automation/WorkflowsList";
 import { TeamTab } from "@/components/shop/tabs/TeamTab";
 import { CommissionsTab } from "@/components/shop/tabs/CommissionsTab";
+import { TransactionsTab } from "@/components/shop/tabs/TransactionsTab";
 import { MyCommissionsTab } from "@/components/shop/tabs/MyCommissionsTab";
 import { LocationsTab } from "@/components/shop/tabs/LocationsTab";
 import { LocationSwitcher } from "@/components/shop/LocationSwitcher";
@@ -1527,11 +1529,16 @@ export default function ShopDashboardClient() {
 
           {/* Subscription Cancellation Banner - Hidden when status is cancelled */}
 
-          {/* Breadcrumb Navigation — hidden on messages tab (chat header
-              already shows the active conversation context). */}
-          {!isMessagesTab && (
-            <ShopBreadcrumb activeTab={activeTab} onTabChange={handleTabChange} />
-          )}
+          {/* Breadcrumb Navigation. On messages it drops to the actions row only —
+              the chat header already carries the page context, but the header
+              actions still need a row of their own. Rendering nothing here was
+              what forced the icon cluster to float, and it landed on top of the
+              conversation list's own filter controls. */}
+          <ShopBreadcrumb
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            compact={isMessagesTab}
+          />
 
           {/* Sub-tabs for merged nav entries (Bookings / Inventory). Each tab
               still renders its own guarded block below — this only replaces the
@@ -1768,11 +1775,30 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
 
+          {/* Automation — Custom Workflows (A2). Its own destination, gated on its own key so it
+              never depends on the AI Campaigns entitlement (D2). */}
+          {activeTab === "automation" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <TierGate feature="customWorkflows">
+                <WorkflowsList />
+              </TierGate>
+            </SubscriptionGuard>
+          )}
+
           {activeTab === "team" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <TierGate feature="teamManagement">
                 <TeamTab shopId={shopData.shopId} />
               </TierGate>
+            </SubscriptionGuard>
+          )}
+
+          {/* Payments Center (Slice 1.2) — Transactions. Refunds land in the detail drawer
+              in 1.3; invoices/links/payouts are Phase 2. No TierGate: seeing the money you
+              already took is not a paid feature. */}
+          {activeTab === "payments" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <TransactionsTab />
             </SubscriptionGuard>
           )}
 

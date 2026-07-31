@@ -16,6 +16,8 @@ import {
   YourTierLevelCard,
   MintRCNCard,
   WalletSummaryCard,
+  ImpactSummaryCard,
+  ReviewNudgeCard,
   AskAICustomerCard,
   ActiveServicesCard,
   RecommendedShopsCard,
@@ -53,7 +55,7 @@ const SkeletonBlock: React.FC<{ className?: string }> = ({ className = "" }) => 
  * mount; the real content fades in when it replaces this.
  */
 const OverviewSkeleton: React.FC = () => (
-  <div className="max-w-[1080px] mx-auto space-y-5 animate-fade-in">
+  <div className="space-y-5 animate-fade-in">
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
       {/* Left column */}
       <div className="rounded-2xl border border-[#262626] bg-[#161616] p-5 space-y-5">
@@ -212,7 +214,7 @@ export const OverviewTab: React.FC = () => {
   const handleViewService = (service: ShopServiceWithShopInfo) =>
     router.push(`/customer?tab=marketplace&service=${service.serviceId}`);
   const handleViewOrder = (_order: ServiceOrderWithDetails) =>
-    router.push(`/customer?tab=bookings`);
+    router.push(`/customer?tab=orders`);
   const handleViewShop = (shop: ShopMapData) =>
     router.push(`/customer?tab=marketplace&shop=${shop.shopId}`);
   const handleSelectCategory = (category: string) =>
@@ -241,7 +243,11 @@ export const OverviewTab: React.FC = () => {
 
   return (
     <>
-      <Stagger className="max-w-[1080px] mx-auto space-y-5">
+      <Stagger className="space-y-5">
+      <StaggerItem>
+        <ReviewNudgeCard onReview={() => router.push("/customer?tab=orders")} />
+      </StaggerItem>
+
       <StaggerItem className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         {/* ============================= LEFT COLUMN ============================= */}
         <div className="rounded-2xl border border-[#262626] bg-[#161616] p-5">
@@ -269,6 +275,11 @@ export const OverviewTab: React.FC = () => {
           <YourTierLevelCard
             tier={customerData?.tier || "BRONZE"}
             lifetimeEarned={balanceData?.lifetimeEarned || 0}
+          />
+
+          <ImpactSummaryCard
+            lifetimeEarned={balanceData?.lifetimeEarned || 0}
+            totalRedeemed={balanceData?.totalRedeemed || 0}
           />
 
           {/* Mint RCN to Wallet (blockchain-only; hidden in database-only mode) */}

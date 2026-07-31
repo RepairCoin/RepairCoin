@@ -47,6 +47,10 @@ const KNOWN_DRIFT: Record<number, string> = {
   // 240: same "NNN_" prefix drift. Verified applied on staging 2026-07-25 — both objects the
   // migration creates are present (view ai_usage_events, table ai_misc_usage).
   240: '240_create_ai_usage_events_view',
+  // 241: same "NNN_" prefix drift — recorded under the full filename instead of the bare
+  // name. Already applied (reported in schema_migrations by the migrate collision gate);
+  // benign name-format mismatch, no change lost.
+  241: '241_ai_usage_events_management_labels',
 };
 
 // Legacy duplicate-numbered migration files (kept in sync with

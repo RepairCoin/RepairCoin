@@ -29,6 +29,7 @@ export const FEATURE_TIERS: Record<string, PaidShopTier> = {
   aiMemory: 'business',
   aiAutoReplies: 'business',
   aiCampaignsAdvanced: 'business',
+  customWorkflows: 'business',
   advancedInventory: 'business',
   // AI Sales Agent master on/off (ai_global_enabled) is Starter+ = intentionally NOT gated.
 };

@@ -51,13 +51,22 @@ export const rememberThis: OrchestratorTool = {
         items: { type: 'string' },
         description: "Optional keywords for later retrieval, e.g. ['campaigns','discounts'].",
       },
+      supersedes: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          "ids of rules in OWNER PREFERENCES & STANDING INSTRUCTIONS that this one REPLACES. Set it " +
+          "whenever the owner changes or reverses an earlier rule (they said 'never use emojis' before " +
+          "and now say 'actually, do use emojis') — otherwise BOTH rules stay active and contradict " +
+          "each other. Leave empty for genuinely new intent.",
+      },
     },
     required: ['kind', 'content'],
     additionalProperties: false,
   },
 
   async execute(args: unknown, ctx: OrchestratorToolContext): Promise<OrchestratorToolResult> {
-    const a = (args ?? {}) as { kind?: unknown; content?: unknown; tags?: unknown };
+    const a = (args ?? {}) as { kind?: unknown; content?: unknown; tags?: unknown; supersedes?: unknown };
     const kind: AiMemoryKind =
       typeof a.kind === 'string' && (KINDS as string[]).includes(a.kind)
         ? (a.kind as AiMemoryKind)
@@ -69,17 +78,24 @@ export const rememberThis: OrchestratorTool = {
 
     if (!content) return { data: { saved: false, reason: 'empty' } };
 
+    const supersedes = Array.isArray(a.supersedes)
+      ? a.supersedes.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+      : [];
+
     const result = await getAiMemoryService().remember(ctx.shopId, {
       kind,
       content,
       tags,
       source: 'explicit',
+      supersedes,
     });
 
     return {
       data: { saved: result.saved, reason: result.reason ?? null, kind, content },
-      ...(result.saved
-        ? { display: { kind: 'memory_saved' as const, content, memoryKind: kind } }
+      // memoryId lets the panel render the same "Remembered … [Undo]" receipt the auto-extract path
+      // shows, so both ways of capturing a rule look identical and are equally reversible.
+      ...(result.saved && result.memory
+        ? { display: { kind: 'memory_saved' as const, content, memoryKind: kind, memoryId: result.memory.id } }
         : {}),
     };
   },

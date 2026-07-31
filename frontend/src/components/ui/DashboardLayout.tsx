@@ -136,13 +136,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* Icons — rendered once, repositioned via responsive classes */}
       {/* Mobile: top-right inside header area | Desktop: fixed top-right */}
       {/* Floating top-right icons. For shops on desktop the icons live in the
-          ShopBreadcrumb header bar, so this cluster is hidden there (lg:hidden)
-          — except on the messages tab where the breadcrumb is hidden, so it
-          stays visible as a fallback. Mobile always uses this floating cluster. */}
+          ShopBreadcrumb header bar — on every tab, including messages, where the
+          breadcrumb renders in its compact actions-only form. So shops never use
+          this floating cluster on desktop: it is fixed-position and was landing on
+          top of the messages page's own controls. Customers still fall back to it
+          on their messages tab, which has no equivalent header row.
+          Mobile always uses this floating cluster. */}
       {userRole !== "admin" && (
         <div className={`fixed right-4 z-[1001] flex items-center gap-3 pt-4 pb-2 lg:pt-2 transition-all duration-300 ease-in-out ${
           isScrolled ? "top-0 lg:top-0" : "top-0 lg:top-6"
-        } ${activeTab !== "messages" ? "lg:hidden" : ""}`}>
+        } ${activeTab !== "messages" || userRole === "shop" ? "lg:hidden" : ""}`}>
           {userRole === "shop" && <CartIcon variant="subtle" />}
           <MessageIcon variant={userRole === "shop" ? "subtle" : "default"} />
           <NotificationBell variant={userRole === "shop" ? "subtle" : "default"} />

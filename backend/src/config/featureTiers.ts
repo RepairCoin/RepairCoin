@@ -24,6 +24,10 @@ export const FEATURE_TIERS: Record<string, PaidTier> = {
   aiMemory: 'business',        // Advanced AI Memory & Automation
   aiAutoReplies: 'business',   // AI Auto-Replies (Voice + Text)
   aiCampaignsAdvanced: 'business',
+  // D2: its own key rather than reusing aiCampaignsAdvanced. They are separate bullets on the pricing
+  // sheet, and one key would silently entitle a Campaigns buyer to Workflows and vice versa — fine
+  // while both sit on Business, wrong the moment either is trialled, moved, or sold as an add-on.
+  customWorkflows: 'business',
   advancedInventory: 'business',
   // NOTE: the AI Sales Agent master on/off (ai_global_enabled) is Starter+ = intentionally NOT gated.
 };

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Heart, Grid3x3, Map as MapIcon, Filter, X } from "lucide-react";
+import { Loader2, Heart, Grid3x3, Map as MapIcon, List, Filter, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getAllServices, ShopServiceWithShopInfo, servicesApi } from "@/services/api/services";
 import { ServiceCard } from "./ServiceCard";
@@ -32,6 +32,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
+  const [shopViewMode, setShopViewMode] = useState<"grid" | "list">("grid");
   const [refreshKey, setRefreshKey] = useState(0); // For refreshing recently viewed
   const [customerGroups, setCustomerGroups] = useState<AffiliateShopGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
@@ -290,8 +291,49 @@ export const ServiceMarketplaceClient: React.FC = () => {
   return (
     <div className="text-white">
       <div className="max-w-7xl mx-auto">
-        {/* View Controls */}
-        <div className="border-b border-gray-800 pb-4 mb-6">
+        {/* Tabs */}
+        <div className="border-b border-gray-800">
+          <div className="flex gap-8 overflow-x-auto">
+            <button
+              onClick={() => {
+                setActiveTab("services");
+                setShowFavoritesOnly(false);
+              }}
+              className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
+                activeTab === "services"
+                  ? "text-[#FFCC00]"
+                  : "text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              Services
+              {activeTab === "services" && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("shops");
+                setShowFavoritesOnly(false);
+                setViewMode("grid"); // Reset to grid view when switching to shops
+              }}
+              className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
+                activeTab === "shops"
+                  ? "text-[#FFCC00]"
+                  : "text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              Shops
+              {activeTab === "shops" && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* View Controls — sit under the tabs so their position is consistent
+            across tab switches. Reserve the row height even on the Shops tab
+            (where they're hidden) so the tabs above don't shift. */}
+        <div className="mt-4 mb-6 min-h-[3rem]">
           <div className="flex items-center justify-end gap-4">
             {activeTab === "services" && (
               <div className="flex items-center gap-3 flex-shrink-0">
@@ -347,45 +389,42 @@ export const ServiceMarketplaceClient: React.FC = () => {
                 </button>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="mb-8 border-b border-gray-800">
-          <div className="flex gap-8 overflow-x-auto">
-            <button
-              onClick={() => {
-                setActiveTab("services");
-                setShowFavoritesOnly(false);
-              }}
-              className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
-                activeTab === "services"
-                  ? "text-[#FFCC00]"
-                  : "text-gray-400 hover:text-gray-300"
-              }`}
-            >
-              Services
-              {activeTab === "services" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
-              )}
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab("shops");
-                setShowFavoritesOnly(false);
-                setViewMode("grid"); // Reset to grid view when switching to shops
-              }}
-              className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
-                activeTab === "shops"
-                  ? "text-[#FFCC00]"
-                  : "text-gray-400 hover:text-gray-300"
-              }`}
-            >
-              Shops
-              {activeTab === "shops" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
-              )}
-            </button>
+            {activeTab === "shops" && (
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {/* Grid / List Toggle */}
+                <div className="inline-flex items-center bg-[#1A1A1A] border border-gray-800 rounded-lg p-1">
+                  <button
+                    onClick={() => setShopViewMode("grid")}
+                    title="View shops in grid layout"
+                    aria-label="Grid view"
+                    aria-pressed={shopViewMode === "grid"}
+                    className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                      shopViewMode === "grid"
+                        ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                        : "text-gray-400 hover:text-white hover:bg-gray-800"
+                    }`}
+                  >
+                    <Grid3x3 className="w-4 h-4 flex-shrink-0" />
+                    <span className="hidden sm:inline">Grid</span>
+                  </button>
+                  <button
+                    onClick={() => setShopViewMode("list")}
+                    title="View shops in list layout"
+                    aria-label="List view"
+                    aria-pressed={shopViewMode === "list"}
+                    className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                      shopViewMode === "list"
+                        ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                        : "text-gray-400 hover:text-white hover:bg-gray-800"
+                    }`}
+                  >
+                    <List className="w-4 h-4 flex-shrink-0" />
+                    <span className="hidden sm:inline">List</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -406,6 +445,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
           <ShopsGridView
             searchTerm={filters.search}
             selectedCategory=""
+            layout={shopViewMode}
           />
         )}
 

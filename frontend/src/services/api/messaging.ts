@@ -306,16 +306,44 @@ export const useQuickReply = async (id: string): Promise<void> => {
 // ============ Auto-Messages ============
 
 /** One step of a drip sequence: a message sent `delayHours` after the previous step fires. */
+/**
+ * One step of a sequence. Since A1 a step may declare its OWN action — that is what turns a drip
+ * sequence into a workflow. A step with no `actionType` is a message step, the pre-A1 shape.
+ */
 export interface SequenceStep {
-  messageTemplate: string;
+  actionType?: string;
+  actionPayload?: Record<string, any> | null;
+  /** Required for send_message steps; absent for steps that send nothing. */
+  messageTemplate?: string;
   delayHours: number;
 }
+
+/** What an automation DOES when it fires (Custom Workflows W2). */
+export type AutoMessageActionType = 'send_message' | 'issue_reward' | 'notify_staff';
+
+/**
+ * Which product surface owns a rule (D7). One engine, two surfaces: 'campaign' is AI Campaigns
+ * (Advanced) under Marketing; 'workflow' is the Automation section.
+ */
+export type AutoMessageSurface = 'campaign' | 'workflow';
+
+/**
+ * Lifecycle (A4). Separate from isActive, which is pause/resume for something already published:
+ *   draft                   → never runs
+ *   published + isActive    → running
+ *   published + !isActive   → paused
+ */
+export type AutoMessageStatus = 'draft' | 'published';
 
 export interface AutoMessage {
   id: string;
   shopId: string;
   name: string;
-  messageTemplate: string;
+  /** Null for non-messaging actions (issue_reward) — they send nothing. */
+  messageTemplate: string | null;
+  actionType: AutoMessageActionType;
+  /** Action config. issue_reward: { amountRcn, reason? }. Null for send_message. */
+  actionPayload: Record<string, any> | null;
   triggerType: 'schedule' | 'event';
   scheduleType: string | null;
   scheduleDayOfWeek: number | null;
@@ -329,10 +357,17 @@ export interface AutoMessage {
   steps: SequenceStep[] | null;
   stopOnBooking: boolean;
   variantB: string | null;
+  surface: AutoMessageSurface;
+  /** draft = composed but inert; published = eligible to run (A4). */
+  status: AutoMessageStatus;
   createdAt: string;
   updatedAt: string;
   totalSends?: number;
   lastSentAt?: string;
+  /** Distinct customers this rule has ever enrolled (A2 list column). */
+  totalEnrolled?: number;
+  /** Distinct customers with a step still pending — mid-workflow right now. */
+  activeEnrolled?: number;
 }
 
 export interface AutoMessageSend {
@@ -350,7 +385,14 @@ export interface AutoMessageSend {
 
 export interface CreateAutoMessageRequest {
   name: string;
-  messageTemplate: string;
+  /** Required for send_message; null for actions that send nothing. */
+  messageTemplate: string | null;
+  actionType?: AutoMessageActionType;
+  actionPayload?: Record<string, any> | null;
+  /** Which surface is creating it (D7). Defaults to 'campaign' server-side. */
+  surface?: AutoMessageSurface;
+  /** A4. Omit for the campaign default ('published'); the Automation surface sends 'draft'. */
+  status?: AutoMessageStatus;
   triggerType: 'schedule' | 'event';
   scheduleType?: string;
   scheduleDayOfWeek?: number;
@@ -385,8 +427,45 @@ export interface UpdateAutoMessageRequest {
 /**
  * Get all auto-message rules for the authenticated shop
  */
-export const getAutoMessages = async (): Promise<AutoMessage[]> => {
-  const response = await apiClient.get('/messages/auto-messages');
+/** Rules for ONE surface (D7). Omit for 'campaign' — the AI Campaigns list. */
+/**
+ * This shop's own counts behind each template's relevance line ("18 customers haven't booked in 90 days").
+ *
+ * Any metric may be absent — that means it wasn't computable for this shop, and the card must render no
+ * line rather than a zero. Returns {} on failure so the gallery still opens.
+ */
+export const getTemplateRelevance = async (): Promise<Record<string, number>> => {
+  const response = await apiClient.get('/messages/auto-messages/template-relevance');
+  return response.data ?? {};
+};
+
+export interface WorkflowMetrics {
+  sent: number;
+  /** Sends addressed to a customer — the denominator for `read`. Shop-scoped runs are excluded. */
+  delivered: number;
+  read: number;
+  booked: number;
+  revenue: number;
+}
+
+/**
+ * Outcome metrics per workflow, plus the attribution window they were computed with.
+ *
+ * The window comes from the server rather than being hardcoded here: the label has to state the same
+ * number the data was built from, and two copies of "14 days" is how a label drifts from its data.
+ */
+export const getWorkflowMetrics = async (): Promise<{
+  attributionDays: number;
+  metrics: Record<string, WorkflowMetrics>;
+}> => {
+  const response = await apiClient.get('/messages/auto-messages/metrics');
+  return response.data ?? { attributionDays: 14, metrics: {} };
+};
+
+export const getAutoMessages = async (surface?: AutoMessageSurface): Promise<AutoMessage[]> => {
+  const response = await apiClient.get('/messages/auto-messages', {
+    params: surface ? { surface } : undefined,
+  });
   return response.data;
 };
 
@@ -418,6 +497,15 @@ export const deleteAutoMessage = async (id: string): Promise<void> => {
  */
 export const toggleAutoMessage = async (id: string): Promise<AutoMessage> => {
   const response = await apiClient.patch(`/messages/auto-messages/${id}/toggle`);
+  return response.data;
+};
+
+/**
+ * Take a draft workflow live (A4). Drafts never run until this is called — publishing is deliberate
+ * because these send real messages and issue real RCN.
+ */
+export const publishAutoMessage = async (id: string): Promise<AutoMessage> => {
+  const response = await apiClient.patch(`/messages/auto-messages/${id}/publish`);
   return response.data;
 };
 

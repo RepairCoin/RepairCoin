@@ -2,32 +2,50 @@
 
 import React, { useState } from "react";
 import { ChevronDown, HelpCircle } from "lucide-react";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
-const faqs = [
+interface Faq {
+  question: string;
+  answer: string;
+  /** Hidden in database-only mode (mentions on-chain/RCG concepts that don't apply). */
+  blockchainOnly?: boolean;
+}
+
+/**
+ * FAQ content adapts to database-only mode: blockchain-only entries are dropped and
+ * the RCG/crypto clauses in shared answers are swapped for their database-only wording,
+ * so the help copy never references features the current mode doesn't have.
+ */
+const buildFaqs = (blockchainEnabled: boolean): Faq[] => [
   {
     question: "How do I issue RCN rewards to customers?",
-    answer:
-      "Navigate to the 'Tools' tab and use the 'Issue Rewards' section. Enter the customer's wallet address and the repair amount. The system automatically calculates RCN rewards (1 RCN per $10 spent) plus any tier bonuses. Confirm the transaction to issue the rewards instantly.",
+    answer: blockchainEnabled
+      ? "Navigate to the 'Tools' tab and use the 'Issue Rewards' section. Enter the customer's wallet address and the repair amount. The system automatically calculates RCN rewards (1 RCN per $10 spent) plus any tier bonuses. Confirm the transaction to issue the rewards instantly."
+      : "Navigate to the 'Tools' tab and use the 'Issue Rewards' section. Enter the customer's RepairCoin ID and the repair amount. The system automatically calculates RCN rewards (1 RCN per $10 spent) plus any tier bonuses. Confirm to issue the rewards instantly.",
   },
   {
     question: "How does the redemption process work?",
-    answer:
-      "When a customer wants to redeem RCN at your shop, go to the 'Tools' tab and use the 'Process Redemption' section. Enter the customer's wallet address and redemption amount. The customer will receive a notification to approve the redemption. Once approved, tokens are transferred and deducted from their balance.",
+    answer: blockchainEnabled
+      ? "When a customer wants to redeem RCN at your shop, go to the 'Tools' tab and use the 'Process Redemption' section. Enter the customer's wallet address and redemption amount. The customer will receive a notification to approve the redemption. Once approved, tokens are transferred and deducted from their balance."
+      : "When a customer wants to redeem RCN at your shop, go to the 'Tools' tab and use the 'Process Redemption' section. Enter the customer's RepairCoin ID and redemption amount. The customer will receive a notification to approve the redemption. Once approved, the balance is deducted.",
   },
   {
     question: "What is the difference between RCN and RCG?",
     answer:
       "RCN (RepairCoin) is the utility token used for customer rewards ($0.10 per token). RCG (RepairCoin Governance) is the governance token that shops can stake to unlock tier benefits (Standard/Premium/Elite) and participate in DAO voting. Staking RCG reduces your RCN purchase costs.",
+    blockchainOnly: true,
   },
   {
     question: "How do I purchase RCN tokens?",
-    answer:
-      "Go to the 'Purchase' tab to buy RCN tokens. Pricing is tiered based on your RCG holdings: $0.10/RCN (Standard), $0.09/RCN (Premium), $0.08/RCN (Elite). You can pay via Stripe (credit card) or cryptocurrency. Tokens are added to your balance immediately after payment.",
+    answer: blockchainEnabled
+      ? "Go to the 'Purchase' tab to buy RCN tokens. Pricing is tiered based on your RCG holdings: $0.10/RCN (Standard), $0.09/RCN (Premium), $0.08/RCN (Elite). You can pay via Stripe (credit card) or cryptocurrency. Tokens are added to your balance immediately after payment."
+      : "Go to the 'Purchase' tab to buy RCN. Pay via Stripe (credit card); the balance is added immediately after payment.",
   },
   {
     question: "What subscription plans are available?",
-    answer:
-      "RepairCoin offers a $500/month subscription that gives your shop full operational access including reward issuance, redemption processing, customer management, service marketplace, and analytics. Alternatively, shops holding 200K+ RCG tokens qualify for free access via RCG staking.",
+    answer: blockchainEnabled
+      ? "RepairCoin offers a $500/month subscription that gives your shop full operational access including reward issuance, redemption processing, customer management, service marketplace, and analytics. Alternatively, shops holding 200K+ RCG tokens qualify for free access via RCG staking."
+      : "RepairCoin offers a monthly subscription that gives your shop full operational access including reward issuance, redemption processing, customer management, service marketplace, and analytics. See the 'Subscription' tab for current plans and pricing.",
   },
   {
     question: "How do customer tiers affect my shop?",
@@ -46,8 +64,9 @@ const faqs = [
   },
   {
     question: "What happens if my subscription is cancelled?",
-    answer:
-      "If you cancel your subscription, you'll maintain full access until the end of your current billing period. After that, operational features (reward issuance, redemptions, service bookings) will be disabled. You can reactivate anytime by renewing your subscription or staking 200K+ RCG.",
+    answer: blockchainEnabled
+      ? "If you cancel your subscription, you'll maintain full access until the end of your current billing period. After that, operational features (reward issuance, redemptions, service bookings) will be disabled. You can reactivate anytime by renewing your subscription or staking 200K+ RCG."
+      : "If you cancel your subscription, you'll maintain full access until the end of your current billing period. After that, operational features (reward issuance, redemptions, service bookings) will be disabled. You can reactivate anytime by renewing your subscription.",
   },
   {
     question: "How do I handle appointment scheduling?",
@@ -77,7 +96,13 @@ const faqs = [
 ];
 
 export function ShopFAQSection() {
+  const blockchainEnabled = useBlockchainEnabled();
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+
+  // Drop blockchain-only entries in database-only mode.
+  const faqs = buildFaqs(blockchainEnabled).filter(
+    (faq) => blockchainEnabled || !faq.blockchainOnly
+  );
 
   return (
     <div className="w-full">

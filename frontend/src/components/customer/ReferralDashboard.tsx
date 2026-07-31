@@ -14,10 +14,20 @@ import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import Tooltip from "../ui/tooltip";
 
 import { Referral } from "@/constants/types";
 import apiClient from "@/services/api/client";
+
+/** A friend referred by this customer, name-enriched by the backend. */
+interface ReferredFriend {
+  name: string | null;
+  address: string | null;
+  status: "pending" | "completed" | "expired";
+  joinedAt: string;
+  rewardRcn: number;
+}
 
 export function ReferralDashboard() {
   const {
@@ -41,12 +51,14 @@ export function ReferralDashboard() {
     pendingReferrals: number;
     totalEarned: number;
     referrals: Referral[];
+    friends: ReferredFriend[];
   }>({
     totalReferrals: 0,
     successfulReferrals: 0,
     pendingReferrals: 0,
     totalEarned: 0,
     referrals: [],
+    friends: [],
   });
 
   useEffect(() => {
@@ -60,6 +72,7 @@ export function ReferralDashboard() {
             pendingReferrals: resp.data.pendingReferrals || 0,
             totalEarned: resp.data.totalEarned ?? 0,
             referrals: resp.data.referrals || [],
+            friends: resp.data.friends || [],
           });
         }
       } catch (error) {
@@ -267,7 +280,18 @@ export function ReferralDashboard() {
     },
   ];
 
-  const recentReferrals = referralStats.referrals.slice(0, 10);
+  // Prefer the name-enriched friends list (real names + reward); fall back to the
+  // raw referral records (masked address) only if friends isn't populated.
+  const recentReferrals: ReferredFriend[] =
+    referralStats.friends.length > 0
+      ? referralStats.friends.slice(0, 10)
+      : referralStats.referrals.slice(0, 10).map((r) => ({
+          name: null,
+          address: r.referredAddress,
+          status: r.status as ReferredFriend["status"],
+          joinedAt: r.createdAt,
+          rewardRcn: r.status === "completed" ? 25 : 0,
+        }));
 
   return (
     <div className="space-y-6">
@@ -430,6 +454,19 @@ export function ReferralDashboard() {
                 <p className="text-sm font-medium text-white mb-2">
                   Share Your Referral Link
                 </p>
+
+                {/* Scannable QR of the referral link */}
+                {referralLink && (
+                  <div className="mb-3 flex flex-col items-center gap-2 rounded-xl border border-gray-800 bg-[#111] p-4">
+                    <div className="rounded-lg bg-white p-3">
+                      <QRCodeSVG value={referralLink} size={132} level="M" />
+                    </div>
+                    <p className="text-xs text-gray-500 text-center">
+                      Let a friend scan this to join with your code
+                    </p>
+                  </div>
+                )}
+
                 <button
                   onClick={copyReferralLink}
                   disabled={copying || !customerData?.referralCode}
@@ -486,34 +523,30 @@ export function ReferralDashboard() {
 
                 {/* Table Rows */}
                 <div className="divide-y divide-gray-800/50">
-                  {recentReferrals.map((referral) => (
+                  {recentReferrals.map((friend, idx) => (
                     <div
-                      key={referral.id || referral.referredAddress}
+                      key={friend.address || idx}
                       className="grid grid-cols-4 gap-2 px-6 py-3 hover:bg-white/[0.02] transition-colors items-center"
                     >
-                      <span className="text-xs text-gray-300 font-mono truncate">
-                        {formatName(referral.referredAddress)}
+                      <span className={`text-xs truncate ${friend.name ? "text-gray-200" : "text-gray-300 font-mono"}`}>
+                        {friend.name || formatName(friend.address || "")}
                       </span>
                       <span className="text-xs text-gray-400">
-                        {formatDate(referral.createdAt)}
+                        {formatDate(friend.joinedAt)}
                       </span>
                       <span className="text-center">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
-                            referral.status === "completed"
+                            friend.status === "completed"
                               ? "bg-green-500/15 text-green-400"
                               : "bg-yellow-500/15 text-yellow-400"
                           }`}
                         >
-                          {referral.status === "completed"
-                            ? "Joined"
-                            : "Pending"}
+                          {friend.status === "completed" ? "Joined" : "Pending"}
                         </span>
                       </span>
                       <span className="text-right text-xs font-medium text-green-400">
-                        {referral.status === "completed"
-                          ? "+25 RCN"
-                          : "—"}
+                        {friend.rewardRcn ? `+${friend.rewardRcn} RCN` : "—"}
                       </span>
                     </div>
                   ))}

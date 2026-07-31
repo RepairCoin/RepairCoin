@@ -51,6 +51,7 @@ interface ShopData {
   subscriptionId?: string;
   // Stripe Connect (the shop as a SELLER) — distinct from the subscription customer id
   stripeConnectAccountId?: string;
+  connectAccountType?: string; // null (not connected) | 'standard' (legacy OAuth) | 'express' (embedded)
   connectChargesEnabled?: boolean;
   connectPayoutsEnabled?: boolean;
   connectOnboardedAt?: string;
@@ -158,6 +159,7 @@ export class ShopRepository extends BaseRepository {
         locationState: row.location_state,
         locationZipCode: row.location_zip_code,
         stripeConnectAccountId: row.stripe_connect_account_id,
+        connectAccountType: row.connect_account_type,
         connectChargesEnabled: row.connect_charges_enabled,
         connectPayoutsEnabled: row.connect_payouts_enabled,
         connectOnboardedAt: row.connect_onboarded_at,
@@ -319,7 +321,7 @@ export class ShopRepository extends BaseRepository {
         await this.pool.query(`
           INSERT INTO shop_availability (shop_id, day_of_week, is_open, open_time, close_time)
           VALUES ($1, $2, $3, $4, $5)
-          ON CONFLICT (shop_id, day_of_week) DO NOTHING
+          ON CONFLICT (shop_id, day_of_week) WHERE location_id IS NULL DO NOTHING
         `, [
           shopId,
           day,
@@ -419,6 +421,7 @@ export class ShopRepository extends BaseRepository {
         operational_status: 'operational_status',
         // Stripe Connect
         stripeConnectAccountId: 'stripe_connect_account_id',
+        connectAccountType: 'connect_account_type',
         connectChargesEnabled: 'connect_charges_enabled',
         connectPayoutsEnabled: 'connect_payouts_enabled',
         connectOnboardedAt: 'connect_onboarded_at',
@@ -886,22 +889,20 @@ export class ShopRepository extends BaseRepository {
   }
 
   /**
-   * Look up a shop by its Stripe Connect account id. Used by the account.updated webhook,
-   * which is keyed by acct_... rather than by shop.
+   * Every shop on a Stripe Connect account id. Nothing stops two shops under one owner from
+   * authorizing the same account, so account-keyed events (account.updated) must reach all of
+   * them — resolving to a single shop leaves the others holding stale charges/payouts flags.
    */
-  async getShopByConnectAccountId(accountId: string): Promise<ShopData | null> {
+  async getShopIdsByConnectAccountId(accountId: string): Promise<string[]> {
     try {
       const result = await this.pool.query(
-        'SELECT shop_id FROM shops WHERE stripe_connect_account_id = $1',
+        'SELECT shop_id FROM shops WHERE stripe_connect_account_id = $1 ORDER BY shop_id',
         [accountId]
       );
-      if (result.rows.length === 0) {
-        return null;
-      }
-      return this.getShop(result.rows[0].shop_id);
+      return result.rows.map((row) => row.shop_id as string);
     } catch (error) {
-      logger.error('Error fetching shop by Connect account id:', error);
-      throw new Error('Failed to fetch shop by Connect account id');
+      logger.error('Error fetching shops by Connect account id:', error);
+      throw new Error('Failed to fetch shops by Connect account id');
     }
   }
 
@@ -1408,6 +1409,15 @@ export class ShopRepository extends BaseRepository {
       promoBonus: number;
       promoCode: string | null;
       newTier: string;
+      /**
+       * BUG-013. Where this issuance came from — 'marketing_campaign', 'automation', or absent for a
+       * genuine repair reward. Without it every path collapsed into the same record and a campaign or
+       * workflow payout was labelled "Repair reward - $0 repair": a repair that never happened, and no
+       * way to answer "why did this customer receive this RCN?".
+       */
+      source?: string;
+      /** Human description from the caller, e.g. the campaign or workflow name. */
+      reason?: string;
     }
   ): Promise<{
     success: boolean;
@@ -1494,7 +1504,11 @@ export class ShopRepository extends BaseRepository {
         customerAddress.toLowerCase(),
         shopId,
         amount,
-        `Repair reward - $${transactionData.repairAmount} repair`,
+        // BUG-013: the caller's reason wins. Only fall back to the repair wording when this really is
+        // a repair reward — labelling a campaign or automation payout as a "$0 repair" is a claim about
+        // something that never happened, and it destroys provenance across all three issuance paths.
+        transactionData.reason?.trim() ||
+          `Repair reward - $${transactionData.repairAmount} repair`,
         transactionData.transactionHash,
         'confirmed',
         JSON.stringify({
@@ -1502,7 +1516,10 @@ export class ShopRepository extends BaseRepository {
           baseReward: transactionData.baseReward,
           tierBonus: transactionData.tierBonus,
           promoBonus: transactionData.promoBonus,
-          promoCode: transactionData.promoCode
+          promoCode: transactionData.promoCode,
+          // Machine-readable provenance — the reason text is for humans, this is for querying
+          // "which issuances came from automations?" later.
+          ...(transactionData.source ? { source: transactionData.source } : {}),
         })
       ]);
 

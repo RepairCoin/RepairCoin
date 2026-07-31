@@ -17,6 +17,43 @@ export function requireTierRollout(feature: string) {
   return makeTierGuard(feature, effectiveTierAllows);
 }
 
+/**
+ * Rollout-aware guard for routes shared by SEVERAL features: passes when the shop is entitled to ANY
+ * of them. Needed where one set of endpoints backs two product surfaces — /auto-messages* serves both
+ * AI Campaigns (Advanced) and Custom Workflows (D1). Gating on a single key there would lock a shop
+ * out of a surface it IS entitled to, just because it lacks the other.
+ *
+ * The 403 names the first feature, which is the more established surface and the better error.
+ */
+export function requireAnyTierRollout(features: string[]) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const shopId =
+        req.params.shopId || req.body?.shopId || (req as any).shopId || req.user?.shopId;
+      if (!shopId) {
+        return res.status(400).json({ success: false, error: 'Shop ID required', code: 'MISSING_SHOP_ID' });
+      }
+
+      const tier = await getShopTier(shopId);
+      if (features.some((f) => effectiveTierAllows(tier, f))) return next();
+
+      const requiredTier = getRequiredTier(features[0])!;
+      return res.status(403).json({
+        success: false,
+        error: `This feature requires the ${getPlanByTier(requiredTier).label} plan`,
+        code: 'FEATURE_NOT_IN_TIER',
+        details: { feature: features[0], currentTier: tier, requiredTier },
+      });
+    } catch (error) {
+      logger.error('Tier guard error (any-of)', {
+        features,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return res.status(500).json({ success: false, error: 'Failed to verify plan access' });
+    }
+  };
+}
+
 function makeTierGuard(
   feature: string,
   allows: (tier: SubscriptionTier, feature: string) => boolean

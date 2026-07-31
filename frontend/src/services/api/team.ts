@@ -48,6 +48,8 @@ export const SHOP_PERMISSIONS: { value: string; label: string }[] = [
   { value: 'team:manage', label: 'Manage team' },
   { value: 'shop:manage', label: 'Manage shop profile & settings' },
   { value: 'marketing:manage', label: 'Manage marketing & ads' },
+  { value: 'payments:manage', label: 'View payments & export' },
+  { value: 'payments:refund', label: 'Issue refunds' },
 ];
 
 export const getTeamMembers = async (): Promise<TeamMember[]> => {

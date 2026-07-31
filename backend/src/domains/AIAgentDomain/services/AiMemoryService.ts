@@ -77,9 +77,14 @@ export function rankMemories(memories: AiMemory[], hint: string, k: number): AiM
  * the model not to cite them as metrics.
  */
 export function formatMemoryBlock(memories: AiMemory[]): string {
-  const lines = memories.map((m) => `- [${m.kind}] ${m.content.trim()}`).join('\n');
+  // The id is here so that when the owner CHANGES one of these rules, remember_this can name the rule
+  // it replaces (`supersedes`). Without it both the old and new rule stay live and contradict each
+  // other in every later prompt — observed on staging 2026-07-28 with "never use emojis" followed by
+  // "actually, do use emojis".
+  const lines = memories.map((m) => `- [${m.kind}] (id: ${m.id}) ${m.content.trim()}`).join('\n');
   return `# OWNER PREFERENCES & STANDING INSTRUCTIONS
 The owner has asked you to remember these and honor them in your reasoning, recommendations, drafts, and replies. They are standing instructions, NOT data — never cite them as metrics or figures.
+If the owner CHANGES or REVERSES one of these, call remember_this with the new rule and pass the old rule's id in "supersedes" so it stops being applied. The ids are internal — never mention them to the owner.
 ${lines}`;
 }
 
@@ -89,12 +94,22 @@ export interface RememberInput {
   tags?: string[];
   source?: AiMemorySource;
   conversationId?: string | null;
+  /** Auto-extract (Phase 3) only — the extractor's 0–1 confidence. NULL for explicit owner input. */
+  confidence?: number | null;
+  /**
+   * ids of standing rules this one REPLACES (migration 246). Set when the owner reverses or changes an
+   * earlier instruction — without it both the old and new rule stay live and contradict each other in
+   * every later prompt. Retired rules are unpinned and dropped from recall, not deleted.
+   */
+  supersedes?: string[];
 }
 
 export interface RememberResult {
   saved: boolean;
   reason?: 'disabled' | 'empty' | 'looks_like_fact' | 'duplicate';
   memory?: AiMemory;
+  /** How many earlier rules this one retired. */
+  supersededCount?: number;
 }
 
 export class AiMemoryService {
@@ -126,8 +141,23 @@ export class AiMemoryService {
       // from auto-aging (Q2). Auto-extracted (phase 3) memories stay unpinned.
       pinned: source === 'explicit',
       sourceConversationId: input.conversationId ?? null,
+      confidence: input.confidence ?? null,
     });
-    return { saved: true, memory };
+
+    // Retire what this rule replaces. Done AFTER the insert so a failure here can never lose the new
+    // intent — worst case both rules stay live, which is exactly today's behaviour, not a regression.
+    let supersededCount = 0;
+    if (input.supersedes?.length) {
+      try {
+        supersededCount = await this.repo.markSuperseded(shopId, input.supersedes, memory.id);
+      } catch (err) {
+        logger.error('AiMemoryService.remember: failed to retire superseded memories', {
+          shopId,
+          error: (err as Error)?.message,
+        });
+      }
+    }
+    return { saved: true, memory, supersededCount };
   }
 
   /** Top-K memories to inject into the prompt for this turn. Fail-open → []. */

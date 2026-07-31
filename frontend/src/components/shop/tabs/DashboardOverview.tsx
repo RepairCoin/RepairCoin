@@ -444,6 +444,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       case "assistant":
         openWithPrompt(rec.action.prompt);
         break;
+      case "workflow":
+        // "I recommend enabling the Win Back workflow" — land on Automation with that template
+        // preselected, so the builder opens prefilled and the owner only edits copy and timing.
+        router.push(`/shop?tab=automation&template=${encodeURIComponent(rec.action.templateId)}`);
+        break;
       case "campaign":
         // No audience-key entry point into the campaign composer yet, so fall
         // back to the assistant (which has the marketing tools) rather than

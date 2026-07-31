@@ -54,6 +54,15 @@ class FakeRepo {
   async purgeStale(): Promise<number> {
     return 0;
   }
+  supersedeCalls: Array<{ shopId: string; ids: string[]; by: string }> = [];
+  supersedeThrows = false;
+  async markSuperseded(shopId: string, ids: string[], by: string): Promise<number> {
+    if (this.supersedeThrows) throw new Error("db down");
+    this.supersedeCalls.push({ shopId, ids, by });
+    // Mirror the real query: retired rows drop out of listActive and lose their pin.
+    this.rows = this.rows.filter((r) => !ids.includes(r.id));
+    return ids.length;
+  }
 }
 
 function svcWith(repo: FakeRepo): AiMemoryService {
@@ -163,5 +172,70 @@ describe("AiMemoryService — enabled behavior", () => {
     const dup = await s.remember("shop1", { kind: "instruction", content: "never suggest discounts" });
     expect(dup.saved).toBe(false);
     expect(dup.reason).toBe("duplicate");
+  });
+});
+
+// Observed on staging 2026-07-28: the owner said "never use emojis", then later "actually, do use
+// emojis". BOTH were stored, both pinned, both live — the newer one merely *described* itself as
+// overriding the older. Nothing retired the old rule, so two contradictory instructions went into
+// every later prompt and which one won was effectively undefined.
+describe("AI Memory — superseding a rule the owner replaced", () => {
+  const prev = process.env.ENABLE_AI_MEMORY;
+  beforeEach(() => { process.env.ENABLE_AI_MEMORY = "true"; });
+  afterEach(() => {
+    if (prev === undefined) delete process.env.ENABLE_AI_MEMORY;
+    else process.env.ENABLE_AI_MEMORY = prev;
+  });
+
+  it("retires the replaced rule so both can't shape later answers", async () => {
+    const repo = new FakeRepo();
+    const s = svcWith(repo);
+
+    const first = await s.remember("shop1", {
+      kind: "instruction",
+      content: "Never use emojis in customer-facing messages",
+    });
+    const oldId = first.memory!.id;
+
+    const second = await s.remember("shop1", {
+      kind: "correction",
+      content: "Do use emojis in customer-facing messages — they perform better",
+      supersedes: [oldId],
+    });
+
+    expect(second.saved).toBe(true);
+    expect(second.supersededCount).toBe(1);
+    expect(repo.supersedeCalls).toEqual([
+      { shopId: "shop1", ids: [oldId], by: second.memory!.id },
+    ]);
+    // The retired rule is gone from the active set, so recall can't surface the contradiction.
+    expect((await repo.listActive("shop1")).map((m) => m.content)).toEqual([
+      "Do use emojis in customer-facing messages — they perform better",
+    ]);
+  });
+
+  it("keeps the new rule even if retiring the old one fails", async () => {
+    const repo = new FakeRepo();
+    const s = svcWith(repo);
+    repo.supersedeThrows = true;
+
+    const r = await s.remember("shop1", {
+      kind: "correction",
+      content: "Do use emojis now",
+      supersedes: ["some-old-id"],
+    });
+
+    // Losing the owner's NEW intent would be worse than leaving the old rule live — that failure mode
+    // is just today's behaviour, not a regression.
+    expect(r.saved).toBe(true);
+    expect(r.supersededCount).toBe(0);
+    expect(repo.rows).toHaveLength(1);
+  });
+
+  it("does not touch anything when nothing is superseded", async () => {
+    const repo = new FakeRepo();
+    const s = svcWith(repo);
+    await s.remember("shop1", { kind: "instruction", content: "Sign off as Peanut" });
+    expect(repo.supersedeCalls).toEqual([]);
   });
 });
