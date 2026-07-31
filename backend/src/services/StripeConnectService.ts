@@ -98,6 +98,14 @@ const connectRedirectUri = (): string => {
   return `${base}/api/shops/connect/oauth/callback`;
 };
 
+// Where Stripe sends the browser back from HOSTED (Account Link) onboarding. Same base
+// resolution as the OAuth redirect above; a separate route because this hop also serves the
+// self-healing refresh bounce (see refreshHostedOnboardingLink).
+const hostedReturnUri = (): string => {
+  const base = (process.env.API_BASE_URL || 'http://localhost:4000').trim().replace(/\/$/, '');
+  return `${base}/api/shops/connect/hosted/return`;
+};
+
 export class StripeConnectService {
   private get stripe(): Stripe {
     return getStripeService().getStripe();
@@ -453,6 +461,87 @@ export class StripeConnectService {
     }
 
     return { clientSecret: session.client_secret, accountId };
+  }
+
+  /**
+   * Hosted onboarding via a Stripe Account Link, for surfaces where the embedded component
+   * cannot run. Connect embedded components are unsupported in mobile WebViews — their auth
+   * step opens a popup via window.open, which a WebView can't service — so mobile sends the
+   * shop to Stripe's hosted onboarding page in a browser instead. Same account semantics as
+   * createAccountSession: getOrCreateExpressAccount, including the 409 refusal when the shop
+   * already owns a Standard account.
+   *
+   * Account Links reject custom schemes, so return_url/refresh_url can't deep-link straight
+   * into the app — both bounce through the public /connect/hosted/return route, which
+   * redirects by the platform hint carried in a signed state token (the OAuth-state pattern).
+   * The links themselves are single-use and short-lived; the refresh hop re-mints one
+   * server-side from that state and 302s straight back into Stripe, no app round-trip.
+   */
+  async createHostedOnboardingLink(
+    shopId: string,
+    platform: ConnectOAuthPlatform = 'web'
+  ): Promise<string> {
+    const accountId = await this.getOrCreateExpressAccount(shopId);
+
+    const state = jwt.sign(
+      { shopId, purpose: 'connect_hosted', platform },
+      process.env.JWT_SECRET as string,
+      // Far outlives the Account Link itself, so a shop that lingers on Stripe's form for a
+      // long session still gets a working refresh bounce instead of a dead end.
+      { expiresIn: '24h' }
+    );
+
+    const returnBase = hostedReturnUri();
+    const link = await this.stripe.accountLinks.create({
+      account: accountId,
+      type: 'account_onboarding',
+      return_url: `${returnBase}?state=${encodeURIComponent(state)}`,
+      refresh_url: `${returnBase}?mode=refresh&state=${encodeURIComponent(state)}`,
+    });
+
+    return link.url;
+  }
+
+  /**
+   * Re-mint a hosted onboarding link from a refresh-hop state token. Account Links are
+   * single-use and expire within minutes; Stripe sends the browser to refresh_url when that
+   * happens. There is no app session on that hop — trust comes from the signed state alone.
+   */
+  async refreshHostedOnboardingLink(state: string): Promise<string> {
+    let shopId: string;
+    let platform: ConnectOAuthPlatform;
+    try {
+      const payload = jwt.verify(state, process.env.JWT_SECRET as string) as {
+        shopId?: string;
+        purpose?: string;
+        platform?: string;
+      };
+      if (payload.purpose !== 'connect_hosted' || !payload.shopId) {
+        throw new Error('bad state payload');
+      }
+      shopId = payload.shopId;
+      platform = payload.platform === 'mobile' ? 'mobile' : 'web';
+    } catch {
+      throw new Error('Invalid or expired onboarding state');
+    }
+
+    return this.createHostedOnboardingLink(shopId, platform);
+  }
+
+  /**
+   * Read the `platform` a hosted-onboarding state was minted for — drives the return route's
+   * redirect decision. Side-effect-free like getOAuthStatePlatform above, and defaults to
+   * 'web' on any decode failure for the same reason.
+   */
+  getHostedStatePlatform(state: string): ConnectOAuthPlatform {
+    try {
+      const payload = jwt.verify(state, process.env.JWT_SECRET as string) as {
+        platform?: string;
+      };
+      return payload.platform === 'mobile' ? 'mobile' : 'web';
+    } catch {
+      return 'web';
+    }
   }
 
   /**
