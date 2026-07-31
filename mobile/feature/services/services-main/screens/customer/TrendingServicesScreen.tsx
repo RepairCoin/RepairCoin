@@ -1,12 +1,11 @@
 import { View, Text, FlatList, RefreshControl, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
-import SponsoredAdCard from "@/shared/components/shared/SponsoredAdCard";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import { useTrendingServices } from "../../feature-tab/hooks";
-import { ServiceGridRow } from "../../feature-tab/utils/buildAdRows";
+import { ServiceGridRow } from "../../feature-tab/utils/buildServiceRows";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = (SCREEN_WIDTH - 32 - 16) / 2;
@@ -19,7 +18,6 @@ export default function TrendingServicesScreen() {
     onRefresh,
     getCategoryLabel,
     handleServicePress,
-    handleAdPress,
   } = useTrendingServices();
 
   const renderServiceCard = (item: ServiceData) => (
@@ -42,18 +40,11 @@ export default function TrendingServicesScreen() {
     </View>
   );
 
-  // Rows are pre-chunked (see buildAdRows) instead of using numColumns, because a sponsored
-  // card spans both columns and numColumns forces every item to the same width.
-  const renderRow = ({ item }: { item: ServiceGridRow }) => {
-    if (item.kind === "ad") {
-      return (
-        <View style={{ marginHorizontal: 4, marginVertical: 8 }}>
-          <SponsoredAdCard ad={item.ad} onPress={() => handleAdPress(item.ad)} />
-        </View>
-      );
-    }
-    return <View className="flex-row">{item.items.map(renderServiceCard)}</View>;
-  };
+  // Rows are pre-chunked (see buildServiceRows) instead of using numColumns, because
+  // ServiceCard carries its own fixed width and numColumns forces uniform-width items.
+  const renderRow = ({ item }: { item: ServiceGridRow }) => (
+    <View className="flex-row">{item.items.map(renderServiceCard)}</View>
+  );
 
   const renderEmptyState = () => (
     <View className="flex-1 items-center justify-center py-20">

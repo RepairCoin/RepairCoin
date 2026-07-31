@@ -733,27 +733,3 @@ export interface MyAppointmentsResponse extends BaseResponse<MyAppointment[]> {}
 export interface BookingResponse extends BaseResponse<BookingData[]> {}
 export interface ServiceResponse extends BaseResponse<ServiceData[]> {}
 export interface ServiceDetailResponse extends BaseResponse<ServiceData> {}
-
-// ============================================
-// In-app ad placements (sponsored cards)
-// ============================================
-
-/** Where tapping a sponsored card navigates. Resolved server-side. */
-export type AdPlacementTarget =
-  | { type: "service"; serviceId: string }
-  | { type: "shop"; shopId: string };
-
-/** One sponsored card, from GET /ads/app-placements. Mirrors AppPlacementController. */
-export interface AdPlacement {
-  campaignId: string;
-  shopId: string;
-  shopName: string;
-  headline: string;
-  body: string | null;
-  imageUrl: string;
-  logoUrl: string | null;
-  offer: string | null;
-  target: AdPlacementTarget;
-}
-
-export interface AdPlacementsResponse extends BaseResponse<AdPlacement[]> {}

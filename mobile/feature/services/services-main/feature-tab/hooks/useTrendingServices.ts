@@ -1,11 +1,10 @@
 import { useState, useCallback, useMemo } from "react";
 import { router } from "expo-router";
-import { useGetTrendingServicesQuery, DEFAULT_AD_PLACEMENT } from "./useFeatureTabQuery";
-import { useAdPlacements } from "./useAdPlacements";
+import { useGetTrendingServicesQuery } from "./useFeatureTabQuery";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import { DEFAULT_TRENDING_LIMIT, DEFAULT_TRENDING_DAYS } from "@/shared/constants/services";
-import { buildAdRows } from "../utils/buildAdRows";
+import { buildServiceRows } from "../utils/buildServiceRows";
 
 export function useTrendingServices() {
   const {
@@ -17,23 +16,18 @@ export function useTrendingServices() {
     days: DEFAULT_TRENDING_DAYS,
   });
 
-  // Ads are additive only — this query never gates loading or the empty state, so a failure
-  // here leaves the trending grid exactly as it would render without ads.
-  const { ads, refetchAds, handleAdPress } = useAdPlacements(DEFAULT_AD_PLACEMENT);
-
   const [refreshing, setRefreshing] = useState(false);
 
   const rows = useMemo(
-    () => buildAdRows(trendingServices, ads),
-    [trendingServices, ads],
+    () => buildServiceRows(trendingServices),
+    [trendingServices],
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Rotate ads alongside the services; an ads failure must not abort the refresh.
-    await Promise.all([refetch(), refetchAds().catch(() => undefined)]);
+    await refetch();
     setRefreshing(false);
-  }, [refetch, refetchAds]);
+  }, [refetch]);
 
   const getCategoryLabel = (category?: string) => {
     if (!category) return "Other";
@@ -53,6 +47,5 @@ export function useTrendingServices() {
     onRefresh,
     getCategoryLabel,
     handleServicePress,
-    handleAdPress,
   };
 }

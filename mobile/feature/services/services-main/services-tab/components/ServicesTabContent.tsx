@@ -11,18 +11,13 @@ import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ServiceGridCard } from "@/shared/components/shared/ServiceGridCard";
-import SponsoredAdCard from "@/shared/components/shared/SponsoredAdCard";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
 import { ThemedText } from "@/shared/components/ui/ThemedText";
 import { useTheme } from "@/shared/hooks/theme/useTheme";
-import {
-  useToggleFavoriteMutation,
-  MARKETPLACE_AD_PLACEMENT,
-} from "../../feature-tab/hooks/useFeatureTabQuery";
+import { useToggleFavoriteMutation } from "../../feature-tab/hooks/useFeatureTabQuery";
 import { useServicesTab } from "../../feature-tab/hooks";
-import { useAdPlacements } from "../../feature-tab/hooks/useAdPlacements";
-import { buildAdRows, ServiceGridRow } from "../../feature-tab/utils/buildAdRows";
+import { buildServiceRows, ServiceGridRow } from "../../feature-tab/utils/buildServiceRows";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../../feature-tab/components";
 import { ServiceData, ServiceSortOption } from "@/feature/services/services/service.interface";
 
@@ -84,16 +79,12 @@ export default function ServicesTabContent() {
   // One favorite mutation for the whole list — NOT one per card.
   const { toggleFavorite } = useToggleFavoriteMutation();
 
-  // Sponsored cards. Additive only: an empty/failed ads query leaves the grid exactly as it
-  // renders without ads, and never affects loading, filters or the empty state.
-  const { ads, handleAdPress } = useAdPlacements(MARKETPLACE_AD_PLACEMENT);
-
-  // Rows are pre-chunked instead of using numColumns, because a sponsored card spans both
-  // columns and numColumns forces every item to the same width. ServiceGridCard already
-  // carries its own fixed width + margins, so a row is just a flex-row of cards.
+  // Rows are pre-chunked instead of using numColumns, because numColumns forces every item
+  // to the same width. ServiceGridCard already carries its own fixed width + margins, so a
+  // row is just a flex-row of cards.
   const rows = useMemo(
-    () => buildAdRows(filteredServices, ads),
-    [filteredServices, ads]
+    () => buildServiceRows(filteredServices),
+    [filteredServices]
   );
 
   const renderServiceCard = useCallback(
@@ -111,25 +102,16 @@ export default function ServicesTabContent() {
 
   // Stable render/key callbacks so cells don't remount on every parent render.
   const renderRow = useCallback(
-    ({ item }: { item: ServiceGridRow }) => {
-      if (item.kind === "ad") {
-        return (
-          <View style={{ marginHorizontal: 4, marginVertical: 8 }}>
-            <SponsoredAdCard ad={item.ad} onPress={() => handleAdPress(item.ad)} />
-          </View>
-        );
-      }
-      return <View className="flex-row">{item.items.map(renderServiceCard)}</View>;
-    },
-    [renderServiceCard, handleAdPress]
+    ({ item }: { item: ServiceGridRow }) => (
+      <View className="flex-row">{item.items.map(renderServiceCard)}</View>
+    ),
+    [renderServiceCard]
   );
 
   const keyExtractor = useCallback((row: ServiceGridRow) => row.key, []);
 
-  // NOTE: still no getItemLayout. The list is single-column now (rows are pre-chunked),
-  // but rows are no longer uniform height — a sponsored ad row is shorter than a service
-  // row — so a fixed offset calculation would be wrong. Cards are fixed-height, so native
-  // measurement stays cheap without it.
+  // NOTE: no getItemLayout. The list is single-column (rows are pre-chunked pairs of
+  // fixed-height cards), so native measurement stays cheap without it.
 
   // Guard onEndReached against a recursive multi-fetch loop: it fires on mount
   // and repeatedly whenever the loaded rows don't fill the viewport (client-side
