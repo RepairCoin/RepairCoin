@@ -11,6 +11,7 @@ export { default as BookingsTabContent } from "../booking-tab/components/Booking
 export { default as TrendingServicesScreen } from "./customer/TrendingServicesScreen";
 export { default as CategoryServicesScreen } from "./customer/CategoryServicesScreen";
 export { default as WriteReviewScreen } from "./customer/WriteReviewScreen";
+export { default as AdLandingScreen } from "./customer/AdLandingScreen";
 
 // Shared screens
 export { default as UnifiedServiceDetailScreen } from "./shared/UnifiedServiceDetailScreen";

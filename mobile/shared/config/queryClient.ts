@@ -116,6 +116,8 @@ export const queryKeys = {
   // In-app ad placements (sponsored cards)
   adPlacements: (placement?: string) =>
     [...queryKeys.all, 'ads', 'placements', placement] as const,
+  adLanding: (campaignId: string) =>
+    [...queryKeys.all, 'ads', 'landing', campaignId] as const,
 
   // Booking related
   bookings: () => [...queryKeys.all, 'bookings'] as const,

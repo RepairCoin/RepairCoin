@@ -1,5 +1,9 @@
 import { buildQueryString } from "@/shared/utilities/buildQueryString";
-import { AdPlacementsResponse } from "@/feature/services/services/service.interface";
+import {
+  AdLandingResponse,
+  AdLeadInput,
+  AdPlacementsResponse,
+} from "@/feature/services/services/service.interface";
 import { apiClient } from "@/shared/utilities/axios";
 
 /**
@@ -18,6 +22,30 @@ class AdsApi {
       console.error("Failed to get ad placements:", error.message);
       throw error;
     }
+  }
+
+  /**
+   * Landing data for one campaign — the same PUBLIC endpoint the web page at /l/:campaignId uses,
+   * so in-app and web ad clicks show identical copy, offer and promoted services.
+   */
+  async getLanding(campaignId: string): Promise<AdLandingResponse> {
+    try {
+      return await apiClient.get<AdLandingResponse>(
+        `/ads/landing/${encodeURIComponent(campaignId)}`,
+      );
+    } catch (error: any) {
+      console.error("Failed to get ad landing:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Lead capture from the in-app landing form. Same public webform endpoint as the web landing
+   * page, so leads from both surfaces attribute and dedupe through one path. Errors propagate —
+   * unlike the click log, a dropped lead must be surfaced to the customer so they can retry.
+   */
+  async submitLead(input: AdLeadInput): Promise<{ success: boolean; data?: { deduped: boolean } }> {
+    return apiClient.post("/ads/leads/webform", { ...input, consentToContact: true });
   }
 
   /** Fire-and-forget tap log. Callers must not block navigation on this. */

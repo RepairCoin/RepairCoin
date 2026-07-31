@@ -17,6 +17,9 @@ interface SponsoredAdCardProps {
  *
  * The "Sponsored" pill is deliberately always rendered and always legible: paid placement must
  * never be mistakable for organic content.
+ *
+ * Tapping opens the campaign's in-app landing page (AdLandingScreen) — the native twin of the web
+ * /l/:campaignId page every off-platform ad click lands on.
  */
 function SponsoredAdCard({ ad, onPress }: SponsoredAdCardProps) {
   const haptics = useHaptics();
@@ -85,8 +88,10 @@ function SponsoredAdCard({ ad, onPress }: SponsoredAdCardProps) {
           )}
 
           <View className="flex-row items-center mt-2">
+            {/* The tap goes to the campaign landing page, not the service/shop, so the label is
+                offer-framed rather than naming `ad.target`. */}
             <Text className="text-[#FFCC00] text-xs font-semibold">
-              {ad.target.type === "service" ? "View service" : "View shop"}
+              {ad.offer ? "Claim offer" : "Learn more"}
             </Text>
             <Ionicons
               name="chevron-forward"

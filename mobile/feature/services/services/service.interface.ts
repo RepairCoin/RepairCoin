@@ -757,3 +757,59 @@ export interface AdPlacement {
 }
 
 export interface AdPlacementsResponse extends BaseResponse<AdPlacement[]> {}
+
+// ============================================
+// Ad landing page (in-app twin of web /l/:campaignId)
+// ============================================
+
+/** One promoted service shown on an ad landing page. */
+export interface AdLandingService {
+  id: string;
+  name: string;
+  priceUsd: number | null;
+  imageUrl: string | null;
+  category: string | null;
+}
+
+/**
+ * Public landing data for one campaign, from GET /ads/landing/:campaignId. Mirrors
+ * LandingController.getCampaignLanding — the backend composes shop overrides over auto-generated
+ * defaults, and every enrichment degrades to null rather than failing, so treat ALL of these as
+ * optional at render time.
+ */
+export interface AdLandingData {
+  shopId: string;
+  shopName: string;
+  offer: string | null;
+  goal: string | null;
+  services: AdLandingService[];
+  /** Meta Pixel id — web-only (no pixel on native); kept so the shape matches the API. */
+  pixelId: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  heroImageUrl: string | null;
+  rating: number | null;
+  reviewCount: number;
+  testimonial: { quote: string; rating: number } | null;
+  city: string | null;
+  state: string | null;
+  headline: string | null;
+  subhead: string | null;
+  urgencyText: string | null;
+  benefitBullets: string[];
+  ctaLabel: string | null;
+  /** Only present when the shop opted into Call-now; the phone is not exposed otherwise. */
+  callNow: { phone: string } | null;
+}
+
+export interface AdLandingResponse extends BaseResponse<AdLandingData> {}
+
+/** Lead captured from the in-app landing form → POST /ads/leads/webform. */
+export interface AdLeadInput {
+  campaignId: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  utm?: Record<string, string>;
+}

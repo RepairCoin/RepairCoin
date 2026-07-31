@@ -25,11 +25,11 @@ export function useAdPlacements(placement: string = DEFAULT_AD_PLACEMENT) {
     (ad: AdPlacement) => {
       // Fire-and-forget: navigation must never wait on analytics.
       recordAdClick({ campaignId: ad.campaignId, placement });
-      if (ad.target.type === "service") {
-        router.push(`/customer/service/${ad.target.serviceId}` as any);
-      } else {
-        router.push(`/customer/profile/shop-profile/${ad.target.shopId}` as any);
-      }
+      // Every tap lands on the campaign's landing page — the same destination a Meta/Google ad
+      // click gets on the web (/l/:campaignId). The card's `target` is NOT used for navigation:
+      // the landing page carries the full offer + lead form, and its promoted-service tiles are
+      // the in-app route to the service that `target` used to point at.
+      router.push(`/customer/ads/${ad.campaignId}` as any);
     },
     [recordAdClick, placement],
   );

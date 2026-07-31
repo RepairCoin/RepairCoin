@@ -7,6 +7,7 @@ import { adsApi } from "@/feature/services/services/ads.services";
 import { useAppToast } from "@/shared/hooks";
 import apiClient from "@/shared/utilities/axios";
 import {
+  AdLeadInput,
   ServiceData,
   ServiceFilters,
   ServiceResponse,
@@ -168,6 +169,31 @@ export function useAdPlacementsQuery(placement: string = DEFAULT_AD_PLACEMENT) {
     enabled: !!accessToken,
     staleTime: 10 * 60 * 1000,
     retry: false,
+  });
+}
+
+/**
+ * Landing page for one sponsored campaign. Unlike the placements feed this is NOT additive — it
+ * IS the screen, so callers render a loading state and an "offer unavailable" fallback. `retry:
+ * false` matches the placements query: a campaign that 404s (ended, deleted) will not recover.
+ */
+export function useAdLandingQuery(campaignId: string) {
+  return useQuery({
+    queryKey: queryKeys.adLanding(campaignId),
+    queryFn: async () => {
+      const response = await adsApi.getLanding(campaignId);
+      return response.data;
+    },
+    enabled: !!campaignId,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+/** Lead capture from the in-app landing form. Errors surface so the customer can retry. */
+export function useSubmitAdLeadMutation() {
+  return useMutation({
+    mutationFn: async (input: AdLeadInput) => adsApi.submitLead(input),
   });
 }
 

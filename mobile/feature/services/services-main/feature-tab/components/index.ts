@@ -21,3 +21,4 @@ export { default as EmptyReviewsState } from "./EmptyReviewsState";
 export { CustomerTabBar } from "./CustomerTabBar";
 export { ServiceFilterModal } from "./ServiceFilterModal";
 export { FilterChip, ClearAllFilters } from "./FilterChip";
+export { AdLeadForm } from "./AdLeadForm";
