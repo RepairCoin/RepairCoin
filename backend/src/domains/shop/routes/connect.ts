@@ -149,6 +149,15 @@ router.post('/connect/account-session', async (req: Request, res: Response) => {
       shopId: req.user?.shopId,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
+    // Refusing to replace a shop's own Stripe account is a deliberate 409, and the reason is
+    // meant for the shop to read — don't flatten it into the generic 500 below.
+    const status = (error as { status?: number })?.status;
+    if (status === 409) {
+      return res.status(409).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Payment onboarding is not available'
+      });
+    }
     return res.status(500).json({
       success: false,
       error: 'Failed to start payment onboarding'

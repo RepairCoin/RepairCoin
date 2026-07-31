@@ -206,6 +206,9 @@ export class StripeConnectService {
       throw new Error('Stripe did not return a connected account id');
     }
 
+    // Sharing one Stripe account across several shops under the same owner is allowed; the
+    // account.updated handler fans out to every shop on the account so none is left stale.
+    //
     // Record the account TYPE, not just the id. OAuth yields a Standard account the shop owns;
     // without this the column keeps whatever it was — NULL, or a stale 'express' from an earlier
     // embedded attempt, which would send getOrCreateExpressAccount and accountSessions.create
@@ -213,6 +216,12 @@ export class StripeConnectService {
     await shopRepository.updateShop(shopId, {
       stripeConnectAccountId: connectedAccountId,
       connectAccountType: 'standard',
+      // The mirror flags describe the account being replaced, so they are wrong the moment the
+      // id changes. Clearing them here means a failure of the status read below leaves the shop
+      // reading as "not ready" instead of inheriting the previous account's charges_enabled —
+      // the same reset getOrCreateExpressAccount performs, for the same reason.
+      connectChargesEnabled: false,
+      connectPayoutsEnabled: false,
     });
 
     // Sync charges/payouts immediately — an existing active account is already enabled, so the
@@ -356,7 +365,10 @@ export class StripeConnectService {
    * account (that is irreversible and bricks it), we just repoint stripe_connect_account_id
    * once the Express account exists.
    */
-  async getOrCreateExpressAccount(shopId: string): Promise<string> {
+  async getOrCreateExpressAccount(
+    shopId: string,
+    options: { migrateFromStandard?: boolean } = {}
+  ): Promise<string> {
     const shop = await shopRepository.getShop(shopId);
     if (!shop) {
       throw new Error(`Shop not found: ${shopId}`);
@@ -365,6 +377,26 @@ export class StripeConnectService {
     // Reuse only if we've already created an Express account for this shop.
     if (shop.stripeConnectAccountId && shop.connectAccountType === 'express') {
       return shop.stripeConnectAccountId;
+    }
+
+    // A Standard account is the shop's own, and it is where their money is currently landing.
+    // Creating an Express account repoints us away from it: the old account keeps taking
+    // payments while FixFlow stops referencing it. The UI hides this path for Standard accounts,
+    // but that guard is bypassed by a direct API call and by a failed status read — which is
+    // indistinguishable from a shop that has no account at all. Refuse unless a caller asks for
+    // the migration explicitly.
+    if (
+      shop.stripeConnectAccountId &&
+      shop.connectAccountType === 'standard' &&
+      !options.migrateFromStandard
+    ) {
+      throw Object.assign(
+        new Error(
+          'This shop is connected to its own Stripe account. Manage it in the Stripe Dashboard, ' +
+            'or disconnect it before setting up FixFlow-managed payments.'
+        ),
+        { status: 409 }
+      );
     }
 
     const account = await this.stripe.accounts.create({
@@ -414,6 +446,12 @@ export class StripeConnectService {
       },
     });
 
+    // Typed as nullable. Failing here gives the client a real error instead of a secret-shaped
+    // null that only surfaces as an opaque Connect initialisation failure in the browser.
+    if (!session.client_secret) {
+      throw new Error('Stripe returned an Account Session without a client secret');
+    }
+
     return { clientSecret: session.client_secret, accountId };
   }
 
@@ -421,12 +459,25 @@ export class StripeConnectService {
    * Resolve the shop behind an account.updated event. Prefers the metadata we set at
    * creation, falling back to the indexed column lookup.
    */
-  async findShopIdByAccount(account: Stripe.Account): Promise<string | null> {
-    const fromMetadata = account.metadata?.shopId;
-    if (fromMetadata) return fromMetadata;
+  async findShopIdsByAccount(account: Stripe.Account): Promise<string[]> {
+    // The column is authoritative — it says which account each shop is actually using — and
+    // several shops may share one account, so this is the full set, not the first match.
+    const shopIds = await shopRepository.getShopIdsByConnectAccountId(account.id);
 
-    const shop = await shopRepository.getShopByConnectAccountId(account.id);
-    return shop?.shopId ?? null;
+    // metadata.shopId is stamped when we create an Express account and never cleared, so it
+    // outlives the link: an account the shop abandoned still names them. It is only a hint, and
+    // only a valid one while the shop still points at this account — which the column lookup
+    // above already establishes. Trusting it on its own is how a dead account's account.updated
+    // overwrites the live account's charges/payouts flags and silently switches payments off.
+    const fromMetadata = account.metadata?.shopId;
+    if (fromMetadata && !shopIds.includes(fromMetadata)) {
+      logger.info('Ignoring account.updated metadata for a shop that has moved accounts', {
+        accountId: account.id,
+        claimedShopId: fromMetadata,
+      });
+    }
+
+    return shopIds;
   }
 }
 

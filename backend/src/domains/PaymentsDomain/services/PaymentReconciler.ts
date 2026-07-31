@@ -188,9 +188,7 @@ export class PaymentReconciler {
 
   private async reconcilePaymentFailed(pi: Stripe.PaymentIntent, accountId?: string): Promise<void> {
     const shopId =
-      (accountId ? (await shopRepository.getShopByConnectAccountId(accountId))?.shopId : null) ??
-      pi.metadata?.shopId ??
-      null;
+      pi.metadata?.shopId ?? (await this.shopIdFromAccount(accountId, pi.id));
     if (!shopId) return;
 
     await paymentRepository.upsertByPaymentIntent({
@@ -208,12 +206,41 @@ export class PaymentReconciler {
     });
   }
 
+  /**
+   * Which shop a payment belongs to.
+   *
+   * The charge's own metadata wins: it is stamped per payment and names the shop the money was
+   * taken for. The connected account is only a fallback for charges written before that was
+   * stamped, and a coarse one — several shops under an owner may share a Stripe account, and the
+   * account cannot say which of them a given payment was for.
+   */
   private async resolveShopId(charge: Stripe.Charge, accountId?: string): Promise<string | null> {
-    if (accountId) {
-      const shop = await shopRepository.getShopByConnectAccountId(accountId);
-      if (shop) return shop.shopId;
+    const fromMetadata = charge.metadata?.shopId;
+    if (fromMetadata) return fromMetadata;
+    return this.shopIdFromAccount(accountId, charge.id);
+  }
+
+  /**
+   * Fallback attribution by connected account. Returns null when the account is shared, rather
+   * than picking a row: filing one shop's money under a sibling is worse than leaving the
+   * payment unattributed, because the ledger then reads as settled under the wrong shop.
+   */
+  private async shopIdFromAccount(
+    accountId: string | undefined,
+    reference: string
+  ): Promise<string | null> {
+    if (!accountId) return null;
+
+    const shopIds = await shopRepository.getShopIdsByConnectAccountId(accountId);
+    if (shopIds.length === 1) return shopIds[0];
+
+    if (shopIds.length > 1) {
+      logger.warn(
+        'PaymentReconciler: several shops share this connected account and the payment carries no shopId — left unattributed',
+        { accountId, shopIds, reference }
+      );
     }
-    return charge.metadata?.shopId ?? null;
+    return null;
   }
 
   // Phase 0 only reconciles the existing booking direct charges; later slices set source
