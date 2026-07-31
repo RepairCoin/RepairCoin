@@ -889,22 +889,20 @@ export class ShopRepository extends BaseRepository {
   }
 
   /**
-   * Look up a shop by its Stripe Connect account id. Used by the account.updated webhook,
-   * which is keyed by acct_... rather than by shop.
+   * Every shop on a Stripe Connect account id. Nothing stops two shops under one owner from
+   * authorizing the same account, so account-keyed events (account.updated) must reach all of
+   * them — resolving to a single shop leaves the others holding stale charges/payouts flags.
    */
-  async getShopByConnectAccountId(accountId: string): Promise<ShopData | null> {
+  async getShopIdsByConnectAccountId(accountId: string): Promise<string[]> {
     try {
       const result = await this.pool.query(
-        'SELECT shop_id FROM shops WHERE stripe_connect_account_id = $1',
+        'SELECT shop_id FROM shops WHERE stripe_connect_account_id = $1 ORDER BY shop_id',
         [accountId]
       );
-      if (result.rows.length === 0) {
-        return null;
-      }
-      return this.getShop(result.rows[0].shop_id);
+      return result.rows.map((row) => row.shop_id as string);
     } catch (error) {
-      logger.error('Error fetching shop by Connect account id:', error);
-      throw new Error('Failed to fetch shop by Connect account id');
+      logger.error('Error fetching shops by Connect account id:', error);
+      throw new Error('Failed to fetch shops by Connect account id');
     }
   }
 

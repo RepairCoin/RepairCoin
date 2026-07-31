@@ -472,21 +472,37 @@ async function handleConnectAccountUpdated(event: Stripe.Event) {
 
   try {
     const connectService = getStripeConnectService();
-    const shopId = await connectService.findShopIdByAccount(account);
+    // Several shops under one owner may share a connected account, so this syncs every shop on
+    // it. An account the shop has since moved off resolves to nothing and is ignored — its
+    // state no longer describes any shop.
+    const shopIds = await connectService.findShopIdsByAccount(account);
 
-    if (!shopId) {
-      logger.warn('account.updated for an unknown Connect account', { accountId: account.id });
+    if (shopIds.length === 0) {
+      logger.warn('account.updated for a Connect account no shop is using', {
+        accountId: account.id
+      });
       return;
     }
 
-    await connectService.syncAccountState(
-      shopId,
-      account.charges_enabled === true,
-      account.payouts_enabled === true
-    );
+    // One shop failing must not strand the others on stale flags.
+    for (const shopId of shopIds) {
+      try {
+        await connectService.syncAccountState(
+          shopId,
+          account.charges_enabled === true,
+          account.payouts_enabled === true
+        );
+      } catch (error) {
+        logger.error('Failed to sync Connect state for shop', {
+          shopId,
+          accountId: account.id,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
 
     logger.info('Connect account state synced from webhook', {
-      shopId,
+      shopIds,
       accountId: account.id,
       chargesEnabled: account.charges_enabled,
       payoutsEnabled: account.payouts_enabled,

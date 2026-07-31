@@ -182,14 +182,21 @@ export default function GetPaidPage() {
   const [status, setStatus] = useState<ConnectStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // A failed read leaves `status` null, which is indistinguishable from a shop that has never
+  // connected anything — and that renders "Set Up Payments", which would create a second,
+  // FixFlow-managed account for a shop that already has its own. Track the failure so the page
+  // can say so instead of guessing.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const body: any = await apiClient.get("/shops/connect/status");
       setStatus(body?.data ?? null);
+      setLoadFailed(false);
     } catch (error) {
       console.error("Failed to read payment status:", error);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -317,7 +324,24 @@ export default function GetPaidPage() {
 
         {/* Onboarding action / embedded component */}
         <div className={PANEL}>
-          {isStandard ? (
+          {loadFailed && !status ? (
+            /* Status unknown — not "no account". Offering setup here can point the shop at a new
+               account while their existing one is still taking payments. */
+            <div className="text-center">
+              <p className="text-sm text-[#999999]">
+                We couldn&apos;t load your payment status just now.
+              </p>
+              <button
+                onClick={load}
+                className="mx-auto mt-4 block h-12 w-full max-w-[416px] cursor-pointer rounded-md bg-[#FFCC00] text-base font-medium text-black transition-colors hover:bg-[#E5BB00]"
+              >
+                Try again
+              </button>
+              <p className="mx-auto mt-3 max-w-[420px] text-xs leading-relaxed text-[#999999]">
+                Nothing has changed about your account — this is only a display problem.
+              </p>
+            </div>
+          ) : isStandard ? (
             /* The shop's own Stripe account. We can't mint an Account Session for it, so the
                embedded editor is impossible — and offering "Set Up Payments" here would create
                a SEPARATE Express account and point us away from the one taking their money.
