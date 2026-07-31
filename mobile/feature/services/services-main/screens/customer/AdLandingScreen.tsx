@@ -13,9 +13,14 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
+import { queryKeys } from "@/shared/config/queryClient";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { AdLandingService } from "@/feature/services/services/service.interface";
+import {
+  AdLandingService,
+  AdPlacement,
+} from "@/feature/services/services/service.interface";
 import { useAdLandingQuery } from "../../feature-tab/hooks/useFeatureTabQuery";
 import { AdLeadForm } from "../../feature-tab/components/AdLeadForm";
 
@@ -37,8 +42,23 @@ const fmtPrice = (p: number | null) =>
  */
 export default function AdLandingScreen() {
   const { campaignId } = useLocalSearchParams<{ campaignId: string }>();
-  const { data, isLoading, error } = useAdLandingQuery(campaignId ?? "");
+  const { data, isLoading, error, refetch, isFetching } = useAdLandingQuery(campaignId ?? "");
   const { userProfile } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  // The sponsored card the customer just tapped is already cached, and it carries the hero image,
+  // headline and shop name. Paint those immediately rather than showing a bare spinner — the
+  // landing request is a round trip to a remote DB and the tap should never feel like a dead end.
+  const seed = useMemo(() => {
+    const cached = queryClient.getQueriesData<AdPlacement[]>({
+      queryKey: [...queryKeys.all, "ads", "placements"],
+    });
+    for (const [, ads] of cached) {
+      const hit = ads?.find((ad) => ad.campaignId === campaignId);
+      if (hit) return hit;
+    }
+    return null;
+  }, [campaignId, queryClient]);
 
   const scrollRef = useRef<ScrollView>(null);
   const formOffset = useRef(0);
@@ -62,14 +82,38 @@ export default function AdLandingScreen() {
     return (
       <View className="flex-1 bg-zinc-950">
         <AppHeader title="Sponsored" />
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={ACCENT_FALLBACK} />
-        </View>
+        {seed ? (
+          // Preview from the tapped card: the offer is on screen instantly, and only the parts
+          // that need the request (services, trust signals, lead form) wait.
+          <View className="p-4">
+            <Text className="text-gray-500 text-xs uppercase tracking-wide text-center">
+              Special offer from
+            </Text>
+            <Text className="text-white text-2xl font-bold text-center mt-1">
+              {seed.shopName}
+            </Text>
+            <View className="rounded-2xl overflow-hidden border border-white/10 mt-4">
+              <Image source={{ uri: seed.imageUrl }} className="w-full h-52" resizeMode="cover" />
+            </View>
+            <Text className="text-white text-lg font-semibold text-center mt-4">
+              {seed.headline}
+            </Text>
+            <View className="flex-row items-center justify-center gap-2 mt-6">
+              <ActivityIndicator size="small" color={ACCENT_FALLBACK} />
+              <Text className="text-gray-400 text-sm">Loading offer…</Text>
+            </View>
+          </View>
+        ) : (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color={ACCENT_FALLBACK} />
+          </View>
+        )}
       </View>
     );
   }
 
-  // A campaign can end or be deleted between the placement being cached and the tap landing here.
+  // Either the campaign ended between the placement being cached and this tap, or the request
+  // failed. Both are recoverable from the customer's side, so always offer the retry.
   if (error || !data) {
     return (
       <View className="flex-1 bg-zinc-950">
@@ -79,6 +123,16 @@ export default function AdLandingScreen() {
           <Text className="text-gray-400 text-base text-center mt-4">
             This offer isn&apos;t available right now.
           </Text>
+          <Pressable
+            onPress={() => refetch()}
+            disabled={isFetching}
+            className="mt-5 flex-row items-center gap-2 px-5 py-3 rounded-xl border border-white/15"
+          >
+            {isFetching && <ActivityIndicator size="small" color="#FFFFFF" />}
+            <Text className="text-white text-sm font-medium">
+              {isFetching ? "Retrying…" : "Try again"}
+            </Text>
+          </Pressable>
         </View>
       </View>
     );

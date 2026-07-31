@@ -8,105 +8,112 @@
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { getSharedPool } from '../../../utils/database-pool';
-import { CampaignRepository } from '../repositories/CampaignRepository';
-import { CampaignRequestRepository } from '../repositories/CampaignRequestRepository';
-import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
-import { CreativeRepository } from '../repositories/CreativeRepository';
+import { CampaignRepository, LandingConfig } from '../repositories/CampaignRepository';
 
 const campaigns = new CampaignRepository();
-const requests = new CampaignRequestRepository();
-const connections = new MetaConnectionRepository();
-const creatives = new CreativeRepository();
 
-/** Public-safe shop brand (logo + colors) for branding the landing page. Null-safe. */
-async function getBrand(shopId: string): Promise<{ logoUrl: string | null; primaryColor: string | null; secondaryColor: string | null }> {
-  try {
-    const r = await getSharedPool().query(
-      `SELECT logo_url, primary_color_hex, secondary_color_hex FROM shop_brand_kits WHERE shop_id = $1`,
-      [shopId]
-    );
-    const b = r.rows[0];
-    return { logoUrl: b?.logo_url ?? null, primaryColor: b?.primary_color_hex ?? null, secondaryColor: b?.secondary_color_hex ?? null };
-  } catch { return { logoUrl: null, primaryColor: null, secondaryColor: null }; }
-}
+/**
+ * Everything about the campaign itself, in ONE round trip: the campaign, its brief, the shop, and
+ * the newest creative that has an image.
+ *
+ * This used to be four separate repository calls issued together with Promise.all. That shape is
+ * what made this endpoint hang: with a cold pool, N parallel queries force N brand-new TLS
+ * connections to the (remote) database at once, and connections that lose that race die on the
+ * 10s connect timeout — long enough for the whole request to blow past the 30s request timeout and
+ * return nothing at all. Two sequential queries reuse a single pooled client instead.
+ *
+ * LATERAL … LIMIT 1 keeps the one-row-per-campaign semantics the repository calls had; a plain
+ * LEFT JOIN would fan the row out if a campaign ever had two briefs or two creatives.
+ */
+const CORE_SQL = `
+  SELECT c.id                    AS campaign_id,
+         c.shop_id               AS shop_id,
+         c.landing_config        AS landing_config,
+         req.offer               AS offer,
+         req.goal                AS goal,
+         req.promote_service_ids AS promote_service_ids,
+         s.name                  AS shop_name,
+         s.location_city         AS city,
+         s.location_state        AS state,
+         s.phone                 AS phone,
+         s.meta_pixel_id         AS pixel_id
+    FROM ad_campaigns c
+    LEFT JOIN shops s ON s.shop_id = c.shop_id
+    LEFT JOIN LATERAL (
+      SELECT offer, goal, promote_service_ids
+        FROM ad_campaign_requests
+       WHERE campaign_id = c.id
+       LIMIT 1
+    ) req ON true
+   WHERE c.id = $1 AND c.deleted_at IS NULL`;
 
-/** Aggregate trust signals from the shop's reviews + one recent positive testimonial. Null-safe. */
-async function getTrust(shopId: string): Promise<{ rating: number | null; reviewCount: number; testimonial: { quote: string; rating: number } | null }> {
-  try {
-    const pool = getSharedPool();
-    const agg = await pool.query(
-      `SELECT ROUND(AVG(rating)::numeric, 1)::float AS avg, COUNT(*)::int AS cnt FROM service_reviews WHERE shop_id = $1`,
-      [shopId]
-    );
-    const tRow = await pool.query(
-      `SELECT comment, rating FROM service_reviews
-        WHERE shop_id = $1 AND rating >= 4 AND comment IS NOT NULL AND length(trim(comment)) > 0
-        ORDER BY created_at DESC LIMIT 1`,
-      [shopId]
-    );
-    const cnt = agg.rows[0]?.cnt ?? 0;
-    const t = tRow.rows[0];
-    return {
-      rating: cnt > 0 ? (agg.rows[0]?.avg ?? null) : null,
-      reviewCount: cnt,
-      testimonial: t ? { quote: String(t.comment), rating: Number(t.rating) } : null,
-    };
-  } catch { return { rating: null, reviewCount: 0, testimonial: null }; }
-}
-
-/** Shop name + location + phone for the header / "serving {city}" chip / opt-in Call-now. Null-safe.
- *  Phone is fetched here but only ever exposed when the shop enables Call-now (D3). */
-async function getShopInfo(shopId: string): Promise<{ name: string; city: string | null; state: string | null; phone: string | null }> {
-  try {
-    const r = await getSharedPool().query(
-      `SELECT name, location_city, location_state, phone FROM shops WHERE shop_id = $1`,
-      [shopId]
-    );
-    const s = r.rows[0];
-    return { name: s?.name ?? 'Our shop', city: s?.location_city ?? null, state: s?.location_state ?? null, phone: s?.phone ?? null };
-  } catch { return { name: 'Our shop', city: null, state: null, phone: null }; }
-}
+/**
+ * The page's enrichments — creative image, brand kit, review aggregate, testimonial and promoted
+ * services — as scalar subqueries in ONE round trip. Best-effort by design: the caller degrades
+ * every field to its empty value if this fails, so a missing brand kit or a broken reviews table
+ * costs the page its polish, never the offer itself.
+ */
+const ENRICHMENT_SQL = `
+  SELECT
+    (SELECT image_url FROM ad_creatives
+      WHERE campaign_id = $1 AND image_url IS NOT NULL AND deleted_at IS NULL
+      ORDER BY updated_at DESC LIMIT 1) AS creative_image_url,
+    (SELECT json_build_object('logoUrl', logo_url, 'primary', primary_color_hex, 'secondary', secondary_color_hex)
+       FROM shop_brand_kits WHERE shop_id = $2) AS brand,
+    (SELECT json_build_object('rating', ROUND(AVG(rating)::numeric, 1)::float, 'count', COUNT(*)::int)
+       FROM service_reviews WHERE shop_id = $2) AS trust,
+    (SELECT json_build_object('quote', comment, 'rating', rating)
+       FROM service_reviews
+      WHERE shop_id = $2 AND rating >= 4 AND comment IS NOT NULL AND length(trim(comment)) > 0
+      ORDER BY created_at DESC LIMIT 1) AS testimonial,
+    (SELECT json_agg(json_build_object(
+              'id', service_id, 'name', service_name, 'priceUsd', price_usd,
+              'imageUrl', image_url, 'category', category))
+       FROM shop_services WHERE service_id = ANY($3::text[]) AND active = true) AS services`;
 
 // GET /ads/landing/:campaignId — PUBLIC.
 export async function getCampaignLanding(req: Request, res: Response): Promise<void> {
   try {
-    const campaign = await campaigns.findById(req.params.campaignId);
-    if (!campaign) { res.status(404).json({ success: false, error: 'not_found' }); return; }
+    const pool = getSharedPool();
+    const core = (await pool.query(CORE_SQL, [req.params.campaignId])).rows[0];
+    if (!core) { res.status(404).json({ success: false, error: 'not_found' }); return; }
 
-    // Fetch everything in parallel; each helper is null-safe so a missing brand kit / zero reviews /
-    // no creative just degrades that piece rather than failing the page.
-    const [request, conn, brand, trust, shop, creative] = await Promise.all([
-      requests.findByCampaignId(campaign.id),
-      connections.getConnection(campaign.shopId).catch(() => null),
-      getBrand(campaign.shopId),
-      getTrust(campaign.shopId),
-      getShopInfo(campaign.shopId),
-      creatives.findAiByCampaign(campaign.id).catch(() => null),
-    ]);
+    const ids: string[] = core.promote_service_ids ?? [];
+    const extra = await pool
+      .query(ENRICHMENT_SQL, [core.campaign_id, core.shop_id, ids])
+      .then((r) => r.rows[0])
+      .catch((err) => {
+        logger.warn('LandingController: enrichment query failed, serving core fields only', err);
+        return null;
+      });
 
-    const ids = request?.promoteServiceIds ?? [];
-    let services: Array<{ id: string; name: string; priceUsd: number | null; imageUrl: string | null; category: string | null }> = [];
-    if (ids.length) {
-      const r = await getSharedPool().query(
-        `SELECT service_id, service_name, price_usd, image_url, category
-           FROM shop_services WHERE service_id = ANY($1) AND active = true`,
-        [ids]
-      );
-      services = r.rows.map((s) => ({
-        id: s.service_id,
-        name: s.service_name,
-        priceUsd: s.price_usd != null ? Number(s.price_usd) : null,
-        imageUrl: s.image_url ?? null,
+    const brand = extra?.brand ?? null;
+    const trust = extra?.trust ?? null;
+    const testimonial = extra?.testimonial ?? null;
+    const reviewCount: number = trust?.count ?? 0;
+    const services: Array<{ id: string; name: string; priceUsd: number | null; imageUrl: string | null; category: string | null }> =
+      (extra?.services ?? []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        priceUsd: s.priceUsd != null ? Number(s.priceUsd) : null,
+        imageUrl: s.imageUrl ?? null,
         category: s.category ?? null,
       }));
-    }
 
     // Hero = the approved ad creative image; fall back to the first promoted service photo.
-    const heroImageUrl = creative?.imageUrl ?? services.find((s) => s.imageUrl)?.imageUrl ?? null;
+    const heroImageUrl = extra?.creative_image_url ?? services.find((s) => s.imageUrl)?.imageUrl ?? null;
+
+    const shop = {
+      name: core.shop_name ?? 'Our shop',
+      city: core.city ?? null,
+      state: core.state ?? null,
+      phone: core.phone ?? null,
+    };
 
     // Phase 2 — merge the shop's overrides over the auto-composed defaults (overrides win).
-    const cfg = campaign.landingConfig ?? {};
-    const offer = request?.offer ?? null;
+    // landing_config is JSONB, so pg hands it back already parsed.
+    const cfg: LandingConfig = core.landing_config ?? {};
+    const offer = core.offer ?? null;
     const showRating = cfg.showRating !== false; // default on
     const benefitBullets = Array.isArray(cfg.benefitBullets)
       ? cfg.benefitBullets.map((b) => String(b).trim()).filter(Boolean).slice(0, 6)
@@ -115,20 +122,23 @@ export async function getCampaignLanding(req: Request, res: Response): Promise<v
     res.json({
       success: true,
       data: {
-        shopId: campaign.shopId,
+        shopId: core.shop_id,
         shopName: shop.name,
         offer,
-        goal: request?.goal ?? null,
+        goal: core.goal ?? null,
         services,
-        pixelId: conn?.pixelId ?? null, // Meta Pixel → fire PageView + Lead for conversion tracking
+        pixelId: core.pixel_id ?? null, // Meta Pixel → fire PageView + Lead for conversion tracking
         // Phase 1 conversion fields (auto-composed; all null-safe):
-        logoUrl: brand.logoUrl,
-        primaryColor: brand.primaryColor,
-        secondaryColor: brand.secondaryColor,
+        logoUrl: brand?.logoUrl ?? null,
+        primaryColor: brand?.primary ?? null,
+        secondaryColor: brand?.secondary ?? null,
         heroImageUrl,
-        rating: showRating ? trust.rating : null,
-        reviewCount: showRating ? trust.reviewCount : 0,
-        testimonial: trust.testimonial,
+        // A zero-review shop aggregates to AVG(NULL) — report no rating rather than a bare 0.
+        rating: showRating && reviewCount > 0 ? trust?.rating ?? null : null,
+        reviewCount: showRating ? reviewCount : 0,
+        testimonial: testimonial
+          ? { quote: String(testimonial.quote), rating: Number(testimonial.rating) }
+          : null,
         city: shop.city,
         state: shop.state,
         // Phase 2 — resolved magnet config (overrides over defaults):

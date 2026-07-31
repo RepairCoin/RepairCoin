@@ -70,10 +70,49 @@ Native-only differences, all deliberate:
 - Sticky CTA scrolls to the form (no anchor links) and disappears once the lead is captured.
 - No Meta Pixel.
 
+## Follow-up: landing request hung, then errored (same day)
+
+First device test: the screen spun for ~30s and the app logged
+`[API Error] {"data": undefined, "status": undefined, "url": "/ads/landing/956d51bc-…"}` —
+`status: undefined` means no response arrived at all.
+
+Measured against the running dev server (DB is remote DigitalOcean staging):
+
+| Call | Result |
+|------|--------|
+| `/api/ads/landing/<unknown id>` | 404 in **38ms** |
+| `/api/ads/landing/<real id>`, cold pool | **no response**, socket closed at ~28s |
+| same, next attempt | 200 in 15.2s |
+| same, once pool warm | 200 in **145ms** |
+| every individual SQL query, run standalone | **~40ms each**, 724ms total |
+
+So the SQL was never slow. `getCampaignLanding` issued 8 queries with a 6-way `Promise.all`, which
+forces the pool to open ~6 brand-new TLS connections to the remote DB *simultaneously* whenever the
+pool is cold (observed `totalConnections: 2`). Connections losing that race die on the pool's 10s
+connect timeout — `logs/error.log` is full of pg-pool `timeout exceeded when trying to connect` —
+and the request then blows past the server's 30s request timeout, so the client gets nothing.
+
+**Backend fix** (`LandingController.getCampaignLanding`): 8 queries → 2 sequential ones that reuse a
+single pooled client. `CORE_SQL` pulls campaign + brief + shop in one row via `LEFT JOIN LATERAL …
+LIMIT 1` (LATERAL, not a plain join, so a second brief or creative can't fan the row out);
+`ENRICHMENT_SQL` pulls creative image + brand kit + review aggregate + testimonial + promoted
+services as scalar subqueries, and degrades to defaults if it fails. Response shape is byte-for-byte
+unchanged (886 B for this campaign, verified before and after). Now consistently **~75ms**.
+
+**Mobile fix** (`AdLandingScreen`): the tapped sponsored card is already in the React Query cache, so
+the screen paints its hero, shop name and headline immediately and only the request-dependent parts
+wait; the failure state gained a "Try again" button instead of being a dead end.
+
+**Not fixed — separate issue:** the dev backend process was at **2516 MB / 2577 MB heap** after ~2h
+uptime (`GET /api/system/info`), which is what turned slow connection setup into full stalls. Worth
+a restart plus a look at what leaks.
+
 ## Verification Checklist
 
-- [x] `npx tsc --noEmit` introduces no new errors
+- [x] `npx tsc --noEmit` introduces no new errors (mobile + backend)
 - [x] `npx expo lint` introduces no new errors
+- [x] `/ads/landing/:campaignId` returns an identical payload after the query consolidation
+- [x] Endpoint responds in ~75ms across repeated calls
 - [ ] Tap a sponsored card → landing screen opens with the campaign's copy and hero
 - [ ] Screen matches the web page at `/l/:campaignId` for the same campaign
 - [ ] Submitting the form creates a lead (admin Ads → Leads), attributed to the campaign
