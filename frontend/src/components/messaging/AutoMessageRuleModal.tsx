@@ -130,7 +130,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   // What the rule DOES when it fires (Custom Workflows W2). 'send_message' is everything that existed
   // before actions; 'issue_reward' sends nothing and needs no template.
   const [actionType, setActionType] = useState<
-    "send_message" | "issue_reward" | "notify_staff" | "run_campaign" | "ai_step"
+    "send_message" | "issue_reward" | "notify_staff" | "run_campaign" | "ai_step" | "draft_reorder"
   >("send_message");
   /** run_campaign: the campaign used as a template. Each firing clones and sends a copy. */
   const [campaignId, setCampaignId] = useState("");
@@ -220,7 +220,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         rule.actionType === "issue_reward" ||
           rule.actionType === "notify_staff" ||
           rule.actionType === "run_campaign" ||
-          rule.actionType === "ai_step"
+          rule.actionType === "ai_step" ||
+          rule.actionType === "draft_reorder"
           ? rule.actionType
           : "send_message"
       );
@@ -379,7 +380,12 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     // Any SHOP-scoped action is legitimate here, not just the staff alert — a campaign resolves its
     // own audience, so "stock is low → send the clearance campaign" is coherent. Only a
     // customer-facing action needs correcting, and notify_staff is the safe landing spot.
-    if (shopScoped && actionType !== "notify_staff" && actionType !== "run_campaign") {
+    if (
+      shopScoped &&
+      actionType !== "notify_staff" &&
+      actionType !== "run_campaign" &&
+      actionType !== "draft_reorder"
+    ) {
       setActionType("notify_staff" as any);
     }
   }, [shopScoped, actionType]);
@@ -401,7 +407,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     }
 
     let cleanSteps: WorkflowStep[] = [];
-    if (rewardMode || actionType === "notify_staff" || actionType === "run_campaign" || actionType === "ai_step") {
+    if (rewardMode || actionType === "notify_staff" || actionType === "run_campaign" || actionType === "ai_step" || actionType === "draft_reorder") {
       // None of these sends a customer message, so there is no body to validate.
     } else if (sequenceMode) {
       // Keep a step if it's a non-messaging step (nothing to compose) OR a message step with a body.
@@ -444,9 +450,10 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       const isNotify = actionType === "notify_staff";
       const isCampaign = actionType === "run_campaign";
       const isAiStep = actionType === "ai_step";
+      const isReorder = actionType === "draft_reorder";
       // None of these stores a message_template: a campaign carries its own body, and an AI step
       // writes one when it runs — a stored template is the thing it exists to replace.
-      const sendsNoMessage = isReward || isNotify || isCampaign || isAiStep;
+      const sendsNoMessage = isReward || isNotify || isCampaign || isAiStep || isReorder;
       const data: CreateAutoMessageRequest = {
         name: name.trim(),
         // An action that sends nothing carries no template. In a sequence the rule-level template
@@ -608,9 +615,33 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   <div className="font-medium">Let AI write it</div>
                   <div className="text-xs text-gray-500">Fresh copy each run</div>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActionType("draft_reorder")}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                    actionType === "draft_reorder"
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="font-medium">Draft a reorder</div>
+                  <div className="text-xs text-gray-500">A purchase order to approve</div>
+                </button>
               </div>
             )}
           </div>
+
+          {actionType === "draft_reorder" && (
+            // No config: the reorder logic already decides which items and how many from usage
+            // analytics. A quantity field here would just be a second opinion competing with it.
+            <div className="rounded-lg border border-gray-700 bg-[#0D0D0D] px-3 py-2">
+              <p className="text-xs text-gray-400">
+                Drafts a purchase order for whatever is at or below its reorder level, and puts it in
+                your PO suggestions to approve. It never places an order or spends money on its own,
+                and running again won&apos;t create a duplicate draft for the same item.
+              </p>
+            </div>
+          )}
 
           {actionType === "ai_step" && (
             <div>

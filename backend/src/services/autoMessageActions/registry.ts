@@ -17,6 +17,7 @@ import { IssueRewardAction } from './issueRewardAction';
 import { NotifyStaffAction } from './notifyStaffAction';
 import { RunCampaignAction } from './runCampaignAction';
 import { AiStepAction } from './aiStepAction';
+import { DraftReorderAction } from './draftReorderAction';
 
 export const DEFAULT_ACTION_TYPE = 'send_message';
 
@@ -27,6 +28,7 @@ export const AUTO_MESSAGE_ACTION_TYPES = [
   'notify_staff',
   'run_campaign',
   'ai_step',
+  'draft_reorder',
 ] as const;
 export type AutoMessageActionType = (typeof AUTO_MESSAGE_ACTION_TYPES)[number];
 
@@ -48,6 +50,8 @@ export const NO_TEMPLATE_ACTIONS: ReadonlySet<string> = new Set([
   'run_campaign',
   // Writes the body when it runs — a stored template is exactly what it exists to replace.
   'ai_step',
+  // Drafts a purchase order; nobody is being messaged.
+  'draft_reorder',
 ]);
 
 /**
@@ -63,6 +67,8 @@ export const SHOP_SCOPED_ACTIONS: ReadonlySet<string> = new Set([
   // A campaign resolves its OWN audience and sends one-to-many. Run per customer it would fire fifty
   // campaigns to fifty people, each one addressing all fifty again.
   'run_campaign',
+  // Reordering happens to the shop's inventory — there is no customer in it at all.
+  'draft_reorder',
 ]);
 
 export class AutoMessageActionRegistry {
@@ -114,6 +120,7 @@ export function getAutoMessageActionRegistry(messages: SendMessageDeps): AutoMes
     new NotifyStaffAction(),
     new RunCampaignAction(),
     new AiStepAction(sendMessage),
+    new DraftReorderAction(),
   ]));
 }
 
