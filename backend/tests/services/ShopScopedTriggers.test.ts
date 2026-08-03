@@ -30,7 +30,7 @@ describe('low_stock — shop-scoped trigger', () => {
   // A low_stock rule set to "send a message" has nobody to send to. Rejected at write time rather
   // than sitting in the list looking active while quietly doing nothing.
   //
-  // Keyed on SHOP_SCOPED_ACTIONS since 2026-07-30. It used to read NON_MESSAGING_ACTIONS, which
+  // Keyed on SHOP_SCOPED_ACTIONS since 2026-07-30. It used to read NO_TEMPLATE_ACTIONS, which
   // contains issue_reward — an action that sends no message but still needs somebody to pay — so
   // "low stock → issue 25 RCN" passed validation and could only ever fail.
   it('rejects a shop-scoped rule that would need a recipient', () => {

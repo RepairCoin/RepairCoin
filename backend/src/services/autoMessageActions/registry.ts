@@ -16,6 +16,7 @@ import { SendMessageAction, SendMessageDeps } from './sendMessageAction';
 import { IssueRewardAction } from './issueRewardAction';
 import { NotifyStaffAction } from './notifyStaffAction';
 import { RunCampaignAction } from './runCampaignAction';
+import { AiStepAction } from './aiStepAction';
 
 export const DEFAULT_ACTION_TYPE = 'send_message';
 
@@ -25,21 +26,34 @@ export const AUTO_MESSAGE_ACTION_TYPES = [
   'issue_reward',
   'notify_staff',
   'run_campaign',
+  'ai_step',
 ] as const;
 export type AutoMessageActionType = (typeof AUTO_MESSAGE_ACTION_TYPES)[number];
 
-/** Actions that send no customer message — message_template is not required for these. */
-export const NON_MESSAGING_ACTIONS: ReadonlySet<string> = new Set([
+/**
+ * Actions that carry no `message_template`, so the engine must not try to resolve one.
+ *
+ * Named for what it CHECKS, not for what its members happen to have in common. It was
+ * `NON_MESSAGING_ACTIONS`, which was true of every member until `ai_step` — an AI step very much
+ * messages the customer, it just writes the body at send time instead of storing a template. The
+ * previous overloading of a set name is what let the coherence guard accept `low_stock` +
+ * `issue_reward`, a pairing that could only ever fail; SHOP_SCOPED_ACTIONS below exists because of it.
+ *
+ * All nine call sites are template checks: skip `resolveTemplate`, and don't demand a body at write time.
+ */
+export const NO_TEMPLATE_ACTIONS: ReadonlySet<string> = new Set([
   'issue_reward',
   'notify_staff',
   // The campaign carries its own subject and body; there is no per-customer template to write here.
   'run_campaign',
+  // Writes the body when it runs — a stored template is exactly what it exists to replace.
+  'ai_step',
 ]);
 
 /**
  * Actions whose recipient is the SHOP, so no customer is involved at all.
  *
- * Deliberately narrower than NON_MESSAGING_ACTIONS: `issue_reward` sends no message but still needs
+ * Deliberately narrower than NO_TEMPLATE_ACTIONS: `issue_reward` sends no message but still needs
  * somebody to pay, so it belongs there and not here. The distinction is load-bearing — the scheduler
  * runs an action once per customer in the target audience, which for a staff alert would page the team
  * once per customer rather than once. Anything listed here fires exactly once per rule per run.
@@ -90,11 +104,16 @@ let _registry: AutoMessageActionRegistry | null = null;
 
 /** Process-wide registry, built from the message repository the scheduler already owns. */
 export function getAutoMessageActionRegistry(messages: SendMessageDeps): AutoMessageActionRegistry {
-  return (_registry ??= new AutoMessageActionRegistry([
-    new SendMessageAction(messages),
+  if (_registry) return _registry;
+  // ai_step delegates delivery to the same instance rather than building a second one — the
+  // conversation lookup and blocked-conversation skip live there and must not be duplicated.
+  const sendMessage = new SendMessageAction(messages);
+  return (_registry = new AutoMessageActionRegistry([
+    sendMessage,
     new IssueRewardAction(),
     new NotifyStaffAction(),
     new RunCampaignAction(),
+    new AiStepAction(sendMessage),
   ]));
 }
 
