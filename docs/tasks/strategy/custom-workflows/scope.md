@@ -411,13 +411,30 @@ outcome metrics. Everything in §7 (W0–W3) and §8 (A1–A4) is built and merg
 - ~~Browser QA tests 4 and 5~~ **DONE 2026-08-03 — all 5 passed on `peanut`.** The edit P0 fix is
   confirmed in a browser, not just over the API. See the result block at the top of
   `docs/tasks/test/qa-custom-workflows-staging-checklist.md`.
-- One metrics check on `dc_shopu` → Marketing → AI Campaigns (the full `Sent · Read · Booked · Revenue`
-  line — peanut has no rule with send history, so it cannot show it). **Verified at the API layer
-  2026-08-03; the browser render is the only part still unwalked.** Setting this check up is what
-  surfaced the revenue-attribution bug fixed in `6c388d31e`: `booked` and `revenue` shared one filter,
-  so expired and no-show orders counted as money taken (~45% of the figure platform-wide).
-- The AI-recommendation → workflow deep-link, on `7777` or `dc_shopu`. Peanut has no qualifying cards
-  (3 lapsed vs a floor of 5, no booking history), so it was not testable there. **Still open.**
+- ~~One metrics check on `dc_shopu`~~ **DONE 2026-08-03** (verified against the live API). Setting this
+  check up is what surfaced the revenue-attribution bug fixed in `6c388d31e`: `booked` and `revenue`
+  shared one filter, so expired and no-show orders counted as money taken (~45% of the figure).
+- ~~The AI-recommendation → workflow deep-link~~ **PASSED on dc_shopu 2026-08-03** — card → Automation
+  with the win-back template open, `?template=` stripped, create mode, mixed `message → +48h RCN 25`
+  sequence rendering.
+
+**§9.1 is complete. The current scope is shipped on staging.** The browser pass was worth running: it
+found **four bugs that 2,656 passing unit tests and a clean typecheck could not see**, three of them
+silent by construction —
+
+1. `6c388d31e` revenue counted `expired`/`no_show` orders as money taken.
+2. `58c73e67c` recommendations froze on first detection and could never refresh (`ON CONFLICT DO
+   NOTHING` against an index that ignores expiry, plus no purge anywhere). This is what made the
+   deep-link untestable at first — every stored card predated M2.
+3. `d95feeb07` an empty `targetAudience` passed validation, then meant *everyone* on create
+   (`|| 'all'`) and *nobody* on update (`default: return []`).
+4. `a62584696` (PR #716) the Target Audience dropdown showed a placeholder over a correct stored value.
+   **Root cause never identified** — the fix is correct under both candidate causes. The first attempt
+   at it failed. Full write-up at the end of
+   `docs/tasks/test/qa-custom-workflows-staging-checklist.md`; read it before touching that modal.
+
+**Next is prod.** D3 measured staging before flipping and found 0 breaks; **prod is still unmeasured** —
+run the same "which shops have automations, at what tier" query there first.
 
 ### 9.2 Remaining ACTIONS — 4 of the 7 scoped in §4
 
