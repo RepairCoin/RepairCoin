@@ -9,6 +9,7 @@ import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AdsEvents } from '../events';
 import { LeadRepository, AttributionMethod } from '../repositories/LeadRepository';
+import { CampaignRepository } from '../repositories/CampaignRepository';
 // normalizePhone now lives in the shared phone util (SMS needs it too); re-exported here so existing
 // imports (and tests) that pull it from this module keep working.
 export { normalizePhone } from '../../../utils/phone';
@@ -38,7 +39,12 @@ export interface AttributeResult {
 }
 
 export class LeadAttributionService {
-  constructor(private readonly leads = new LeadRepository()) {}
+  constructor(
+    private readonly leads = new LeadRepository(),
+    // Only needed to resolve the shop behind a lead — `ad_leads` has no shop_id of its own, so it has
+    // to come from campaign_id → ad_campaigns.shop_id.
+    private readonly campaigns = new CampaignRepository()
+  ) {}
 
   async attribute(raw: RawLead): Promise<AttributeResult> {
     const campaignId = raw.campaignId || raw.utm?.utm_campaign;
@@ -74,11 +80,22 @@ export class LeadAttributionService {
       fbclid: raw.fbclid ?? null,
     });
 
+    // shopId is added ADDITIVELY — existing subscribers keep the payload they already read, and
+    // Custom Workflows gets the one field it cannot work without: automations are keyed on shopId, and
+    // a lead has no shop of its own (ad_leads stores only campaign_id). Resolved best-effort, because
+    // failing to look up a campaign must not stop a captured lead from being recorded.
+    let shopId: string | null = null;
+    try {
+      shopId = (await this.campaigns.findById(campaignId))?.shopId ?? null;
+    } catch {
+      shopId = null;
+    }
+
     await eventBus.publish(
       createDomainEvent(
         AdsEvents.LEAD_CAPTURED,
         lead.id,
-        { campaignId, creativeId, method: raw.method },
+        { campaignId, creativeId, method: raw.method, shopId },
         'AdsDomain'
       )
     );

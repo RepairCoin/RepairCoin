@@ -141,6 +141,34 @@ export class MessagingDomain implements DomainModule {
     // Reuses the event LowStockAlertService already publishes, which also already throttles per item
     // and honours the shop's digest preference — so the automation inherits that de-duplication
     // instead of building a second, competing one.
+    /**
+     * W3 — a new lead from an ad campaign.
+     *
+     * SHOP-scoped, and that is not a shortcut: an ad lead is a name and a phone number, not a platform
+     * customer. There is no wallet to message and nobody to credit RCN to until they convert, so a
+     * customer-facing action here would have nothing to act on. The useful automation is "tell the team
+     * to ring them", which is what the shop-scoped path gives.
+     *
+     * shopId is read from the payload rather than looked up here — LeadAttributionService resolves it
+     * via campaign_id → ad_campaigns.shop_id, because ad_leads has no shop of its own.
+     */
+    eventBus.subscribe('ads:lead_captured', async (event) => {
+      try {
+        const { shopId, campaignId } = event.data;
+        // Absent when the campaign lookup failed. Skipping is right: an automation addressed to no
+        // shop would either do nothing or, worse, be attributed to the wrong one.
+        if (!shopId) return;
+
+        await autoMessageSchedulerService.handleShopEvent('new_ad_lead', {
+          shopId,
+          reference: event.aggregateId ? String(event.aggregateId) : undefined,
+          summary: 'A new lead came in from your ads.',
+        });
+      } catch (error) {
+        logger.error('Error handling ads:lead_captured for automations:', error);
+      }
+    });
+
     eventBus.subscribe('inventory:low_stock_alert', async (event) => {
       try {
         const { shopId, items, itemsCount } = event.data;
