@@ -13,6 +13,10 @@
 //    estimate from, and "Opened" would borrow email's vaguer meaning.
 //  - Booked and revenue carry the attribution window in the label, with the rule on hover. "Revenue
 //    Generated" would assert the automation CAUSED the money, which a time window cannot show.
+//  - Booked and revenue count DIFFERENT sets of orders. Booked = every order the customer did not
+//    cancel; revenue = only the ones actually paid. They shared a filter until 2026-08-03, which summed
+//    expired and no-show orders into revenue — on staging, ~45% of the figure was orders that never
+//    happened. So "Booked 2 · $5" is a truthful line, not a rendering bug.
 //  - A shop-facing rule (notify_staff) has no recipient, so it reports "Ran N times" rather than
 //    pretending to a 0% read rate on messages it never sent.
 
@@ -30,8 +34,9 @@ const money = (n: number) =>
  * different stories about the same number.
  */
 const attributionNote = (days: number) =>
-  `Booked and revenue count orders placed within ${days} days of a message from this automation. ` +
-  `Correlation, not proof of cause.`;
+  `Booked counts orders placed within ${days} days of a message from this automation. ` +
+  `Revenue counts only the ones that were actually paid, so it can be lower than the booking count ` +
+  `suggests. Correlation, not proof of cause.`;
 
 /**
  * Renders null when the rule has never run. That is a real state, not an error: a brand-new automation
