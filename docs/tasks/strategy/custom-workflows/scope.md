@@ -412,7 +412,10 @@ outcome metrics. Everything in §7 (W0–W3) and §8 (A1–A4) is built and merg
   confirmed in a browser, not just over the API. See the result block at the top of
   `docs/tasks/test/qa-custom-workflows-staging-checklist.md`.
 - One metrics check on `dc_shopu` → Marketing → AI Campaigns (the full `Sent · Read · Booked · Revenue`
-  line — peanut has no rule with send history, so it cannot show it). **Still open.**
+  line — peanut has no rule with send history, so it cannot show it). **Verified at the API layer
+  2026-08-03; the browser render is the only part still unwalked.** Setting this check up is what
+  surfaced the revenue-attribution bug fixed in `6c388d31e`: `booked` and `revenue` shared one filter,
+  so expired and no-show orders counted as money taken (~45% of the figure platform-wide).
 - The AI-recommendation → workflow deep-link, on `7777` or `dc_shopu`. Peanut has no qualifying cards
   (3 lapsed vs a floor of 5, no booking history), so it was not testable there. **Still open.**
 

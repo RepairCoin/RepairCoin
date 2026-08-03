@@ -200,10 +200,10 @@ Useful if a number looks wrong and you want to know whether it should have appea
   - *When cancelled Booking* — `Sent 1 · Read 100% · Booked 2 · $5 within 14d`
   - *Booking Competed* — `Sent 1 · Read 100% · Booked 1 · $0 within 14d`
 
-> **⏳ These are the numbers AFTER the booked/revenue filter split, which is not deployed yet.**
-> Until staging picks it up, the browser will show `$49` and `$44` — the pre-fix figures, which counted
-> expired orders as revenue. Either walk this check after the deploy, or expect the old numbers and
-> treat only the *shape* of the line as the thing under test.
+> **✅ Deployed and re-verified against the live API 2026-08-03** (`6c388d31e`, merged). These are the
+> post-split numbers: the `$44` expired order is out of both the booking count and the revenue. If the
+> browser still shows `$49` / `$44`, the frontend is serving a stale bundle — hard-reload before
+> reporting it.
 - **The last two were swapped in an earlier draft of this doc.** Both rules have `sent: 1`, so the
   transcription was easy to get wrong and impossible to spot. The numbers above come from
   `GET /api/messages/auto-messages/metrics` and were confirmed against the underlying sends and orders.
