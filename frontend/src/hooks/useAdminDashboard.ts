@@ -32,7 +32,6 @@ export function useAdminDashboard(options?: {
     suspendShop,
     unsuspendShop,
     approveShop,
-    rejectShop,
     mintShopBalance,
     // Customer actions
     mintTokensToCustomer,
@@ -80,7 +79,6 @@ export function useAdminDashboard(options?: {
       suspend: suspendShop,
       unsuspend: unsuspendShop,
       approve: approveShop,
-      reject: rejectShop,
       mintBalance: mintShopBalance,
     },
     
@@ -95,7 +93,6 @@ export function useAdminDashboard(options?: {
     suspendShop,
     unsuspendShop,
     approveShop,
-    rejectShop,
     mintShopBalance,
     mintTokensToCustomer,
     suspendCustomer,

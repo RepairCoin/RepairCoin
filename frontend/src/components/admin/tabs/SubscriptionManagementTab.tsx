@@ -521,6 +521,73 @@ export default function SubscriptionManagementTab() {
     );
   };
 
+  /**
+   * What the shop is on RIGHT NOW. Only an active subscription grants a paid plan —
+   * getActiveSubscriptionByShopId matches `status = 'active'` and nothing else, so cancelled,
+   * paused, defaulted and pending all resolve to the free tier in getShopTier. Listing the raw
+   * status instead describes an event that has already happened and reads as if the shop were
+   * in some non-free state.
+   */
+  const currentPlanLabel = (sub: Subscription): string =>
+    sub.status === "active"
+      ? resolvePlanLabel({
+          subscriptionType: sub.subscriptionType,
+          monthlyAmount: sub.monthlyAmount,
+        })
+      : resolvePlanLabel({ tier: "free" });
+
+  /**
+   * How they arrived at that plan. Null while active — the plan name already says everything.
+   * A cancelled subscription that never took a payment is a trial that lapsed, not a plan
+   * someone chose to end; calling both "cancelled" is what made this column confusing.
+   */
+  const planReason = (sub: Subscription): string | null => {
+    switch (sub.status) {
+      case "active":
+        return null;
+      case "pending":
+        return "awaiting activation";
+      case "paused":
+        return sub.pauseReason?.trim() || "paused";
+      case "defaulted":
+        return sub.daysOverdue
+          ? `payment failed · ${sub.daysOverdue}d overdue`
+          : "payment failed";
+      case "cancelled":
+        if (sub.cancellationReason?.trim()) return sub.cancellationReason.trim();
+        return sub.paymentsMade > 0 ? "cancelled" : "trial ended";
+      default:
+        return null;
+    }
+  };
+
+  // Current plan + how they got there, for the list surfaces. The exact status stays on the
+  // detail view, which is where an admin goes for the history.
+  const getPlanCell = (sub: Subscription) => {
+    const reason = planReason(sub);
+    const isPaid = sub.status === "active";
+
+    return (
+      <div className="min-w-0">
+        <span
+          className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs font-medium border ${
+            isPaid
+              ? "bg-green-500/10 text-green-400 border-green-500/20"
+              : "bg-gray-500/10 text-gray-300 border-gray-500/20"
+          }`}
+        >
+          {isPaid && <CheckCircle className="w-3 h-3" />}
+          <span>{currentPlanLabel(sub)}</span>
+        </span>
+        {reason && (
+          <p className="mt-1 text-xs text-gray-500 truncate first-letter:uppercase">
+            {reason}
+          </p>
+        )}
+      </div>
+    );
+  };
+
   // Table columns
   const columns: Column<Subscription>[] = [
     {
@@ -546,12 +613,12 @@ export default function SubscriptionManagementTab() {
     },
     {
       key: "status",
-      header: "Status",
+      header: "Plan",
       sortable: true,
-      sortValue: (sub) => sub.status,
+      sortValue: (sub) => `${currentPlanLabel(sub)} ${sub.status}`,
       className: "hidden sm:table-cell",
       headerClassName: "hidden sm:table-cell",
-      accessor: (sub) => getStatusBadge(sub),
+      accessor: (sub) => getPlanCell(sub),
     },
     {
       key: "monthly",
@@ -765,10 +832,11 @@ export default function SubscriptionManagementTab() {
   // Render expanded content for mobile
   const renderExpandedContent = (sub: Subscription) => (
     <div className="p-4 space-y-4">
-      {/* Status - Show on mobile when hidden in table */}
+      {/* Plan - Show on mobile when the table column is hidden. Mirrors the column rather than
+          the raw status, so the two surfaces don't disagree about what the shop is on. */}
       <div className="sm:hidden">
-        <p className="text-xs text-gray-500 mb-2">Status</p>
-        {getStatusBadge(sub)}
+        <p className="text-xs text-gray-500 mb-2">Plan</p>
+        {getPlanCell(sub)}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
