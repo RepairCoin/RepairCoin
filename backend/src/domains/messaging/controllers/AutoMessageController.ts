@@ -14,6 +14,7 @@ import {
   MAX_AUTOMATED_RCN,
 } from '../../../services/autoMessageActions/issueRewardAction';
 import { parseNotifyStaffPayload } from '../../../services/autoMessageActions/notifyStaffAction';
+import { parseRunCampaignPayload } from '../../../services/autoMessageActions/runCampaignAction';
 import { workflowRelevanceService } from '../services/WorkflowRelevanceService';
 import { workflowMetricsService, ATTRIBUTION_DAYS } from '../services/WorkflowMetricsService';
 
@@ -85,6 +86,7 @@ const ACTION_LABELS: Record<string, string> = {
   send_message: 'Send a message',
   issue_reward: 'Issue an RCN reward',
   notify_staff: 'Notify my team',
+  run_campaign: 'Send a campaign',
 };
 
 /** The error explaining why a shop-scoped trigger can't be paired with a customer-facing action. */
@@ -126,6 +128,22 @@ function parseAction(
         actionType,
         actionPayload: null,
         error: `issue_reward needs actionPayload.amountRcn — a number between 1 and ${MAX_AUTOMATED_RCN}`,
+      };
+    }
+    return { actionType, actionPayload: payload as unknown as Record<string, unknown> };
+  }
+
+  if (actionType === 'run_campaign') {
+    // A campaign id is required and cannot be defaulted — a run_campaign rule with no campaign is a
+    // rule that logs an error every tick and does nothing, which is the failure mode this whole
+    // validator exists to prevent. Ownership is NOT checked here; the handler re-checks it at send
+    // time, because a campaign can be deleted or the rule copied long after this request.
+    const payload = parseRunCampaignPayload(rawPayload);
+    if (!payload.campaignId) {
+      return {
+        actionType,
+        actionPayload: null,
+        error: 'run_campaign needs actionPayload.campaignId — pick the campaign to send',
       };
     }
     return { actionType, actionPayload: payload as unknown as Record<string, unknown> };

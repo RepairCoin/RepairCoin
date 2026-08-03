@@ -61,6 +61,8 @@ function actionLabel(actionType: string | undefined, payload: any, short: boolea
       return short ? `${payload?.amountRcn ?? "?"} RCN` : `Issue ${payload?.amountRcn ?? "?"} RCN`;
     case "notify_staff":
       return "Notify team";
+    case "run_campaign":
+      return short ? "Campaign" : "Send a campaign";
     default:
       return short ? "Message" : "Send a message";
   }
