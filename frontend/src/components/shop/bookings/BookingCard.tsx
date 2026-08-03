@@ -185,6 +185,25 @@ export const BookingCard: React.FC<BookingCardProps> = ({
             </button>
           </>
         );
+      // The grace window closed without this being completed, so it's now waiting on
+      // the customer. Completing it is still the right outcome and still settles
+      // payment — there is deliberately no time limit on that any more.
+      case 'awaiting_confirmation':
+        return (
+          <button
+            onClick={onComplete}
+            disabled={isBlocked}
+            title={isBlocked ? blockReason : "Confirm this service was delivered"}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+              isBlocked
+                ? "bg-gray-700 text-gray-500 " + disabledClass
+                : "text-white bg-green-600 hover:bg-green-700"
+            }`}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Mark Complete
+          </button>
+        );
       default:
         return null;
     }
@@ -311,6 +330,21 @@ export const BookingCard: React.FC<BookingCardProps> = ({
             </button>
           </>
         );
+      // See the desktop branch: still completable, no time limit.
+      case 'awaiting_confirmation':
+        return (
+          <button
+            onClick={onComplete}
+            disabled={isBlocked}
+            title={isBlocked ? blockReason : "Confirm this service was delivered"}
+            className={`${baseButtonClass} text-white bg-green-600 ${
+              isBlocked ? disabledClass : "hover:bg-green-700"
+            }`}
+          >
+            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">Complete</span>
+          </button>
+        );
       default:
         return null;
     }
@@ -336,6 +370,9 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         actions.push({ label: 'Mark Complete', icon: <CheckCircle className="w-4 h-4" />, onClick: onComplete, variant: 'primary' });
         actions.push({ label: 'No-Show', icon: <AlertTriangle className="w-4 h-4" />, onClick: onMarkNoShow, variant: 'danger' });
         actions.push({ label: 'Reschedule', icon: <RefreshCw className="w-4 h-4" />, onClick: onReschedule, variant: 'secondary' });
+        break;
+      case 'awaiting_confirmation':
+        actions.push({ label: 'Mark Complete', icon: <CheckCircle className="w-4 h-4" />, onClick: onComplete, variant: 'primary' });
         break;
     }
 

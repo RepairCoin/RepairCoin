@@ -3,7 +3,17 @@ import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
 import { formatLocalDate } from '../utils/dateUtils';
 
-export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show' | 'expired';
+export type OrderStatus =
+  | 'pending'
+  | 'paid'
+  | 'completed'
+  | 'cancelled'
+  | 'refunded'
+  | 'no_show'
+  /** Legacy. No new order enters this state; kept so historical rows still map. */
+  | 'expired'
+  /** Grace window closed with no completion. Not refunded, not settled. */
+  | 'awaiting_confirmation';
 
 export interface ServiceOrder {
   orderId: string;
@@ -765,6 +775,92 @@ export class OrderRepository extends BaseRepository {
       return this.mapOrderRow(result.rows[0]);
     } catch (error) {
       logger.error('Error marking order as expired:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Park an unconfirmed booking in 'awaiting_confirmation'.
+   *
+   * The shop's grace window closed without a completion — which is NOT evidence the
+   * service didn't happen, so nothing is refunded and nothing is settled. Only a shop
+   * completion, a customer confirmation, or a customer report resolves it from here.
+   *
+   * Guarded on `status = 'paid'` so a booking completed between the sweep's SELECT and
+   * this UPDATE isn't dragged backwards.
+   */
+  async markAwaitingConfirmation(orderId: string): Promise<ServiceOrder | null> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE service_orders
+            SET status = 'awaiting_confirmation',
+                awaiting_confirmation_at = NOW(),
+                updated_at = NOW()
+          WHERE order_id = $1
+            AND status = 'paid'
+            AND completed_at IS NULL
+        RETURNING *`,
+        [orderId]
+      );
+
+      if (result.rows.length === 0) {
+        logger.info('Order no longer eligible for awaiting_confirmation (already resolved)', { orderId });
+        return null;
+      }
+
+      logger.info('Order moved to awaiting_confirmation', { orderId });
+      return this.mapOrderRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error moving order to awaiting_confirmation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stamp the customer's "yes, this happened" confirmation.
+   *
+   * Only records attribution — the caller routes through completeOrder() so reward and
+   * commission side effects stay identical to a shop-driven completion.
+   */
+  async markCustomerConfirmed(orderId: string): Promise<void> {
+    try {
+      await this.pool.query(
+        `UPDATE service_orders
+            SET customer_confirmed_at = NOW(), updated_at = NOW()
+          WHERE order_id = $1`,
+        [orderId]
+      );
+    } catch (error) {
+      logger.error('Error stamping customer confirmation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Record a customer report that the service never happened and move the order to
+   * 'refunded'. Guarded on the source status so a double-submit can't refund twice —
+   * the caller must treat a null return as "already handled" and skip the refund.
+   */
+  async markCompletionReported(orderId: string, reason: string): Promise<ServiceOrder | null> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE service_orders
+            SET status = 'refunded',
+                completion_reported_at = NOW(),
+                completion_report_reason = $2,
+                updated_at = NOW()
+          WHERE order_id = $1
+            AND status IN ('awaiting_confirmation', 'completed')
+        RETURNING *`,
+        [orderId, reason]
+      );
+
+      if (result.rows.length === 0) return null;
+
+      logger.info('Order marked refunded after customer report', { orderId });
+      return this.mapOrderRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error recording completion report:', error);
       throw error;
     }
   }

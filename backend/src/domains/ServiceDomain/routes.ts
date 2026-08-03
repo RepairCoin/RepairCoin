@@ -3940,6 +3940,69 @@ export function initializeRoutes(stripe: StripeService): Router {
     );
   }
 
+  // ==================== BOOKING CONFIRMATION ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/orders/{id}/confirm:
+   *   post:
+   *     summary: Confirm a booking happened (Customer)
+   *     description: >
+   *       For a booking the shop never marked complete. Completes the order and issues
+   *       RCN rewards exactly as a shop completion would.
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Booking confirmed and completed
+   *       400:
+   *         description: Booking is not awaiting confirmation
+   *       403:
+   *         description: Order doesn't belong to this customer
+   */
+  router.post(
+    '/orders/:id/confirm',
+    authMiddleware,
+    requireRole(['customer']),
+    orderController.confirmCompletion
+  );
+
+  /**
+   * @swagger
+   * /api/services/orders/{id}/report-not-completed:
+   *   post:
+   *     summary: Report that a booking never happened (Customer)
+   *     description: >
+   *       The only path that refunds a booking. Valid while awaiting confirmation, or
+   *       for a completed booking still inside the shop's report window (default 14 days).
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               reason:
+   *                 type: string
+   *                 description: Optional free-text explanation from the customer
+   *     responses:
+   *       200:
+   *         description: Reported and refunded
+   *       400:
+   *         description: Status not reportable, or the report window has passed
+   *       409:
+   *         description: Already resolved (guards against a double submit)
+   */
+  router.post(
+    '/orders/:id/report-not-completed',
+    authMiddleware,
+    requireRole(['customer']),
+    orderController.reportNotCompleted
+  );
+
   // ==================== DISPUTE ROUTES ====================
 
   /**

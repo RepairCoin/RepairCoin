@@ -252,12 +252,16 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
     const paid = statusCounts["paid"] || 0;
     const completed = statusCounts["completed"] || 0;
     const cancelled = (statusCounts["cancelled"] || 0) + (statusCounts["refunded"] || 0) + (statusCounts["no_show"] || 0) + (statusCounts["expired"] || 0);
+    // Deliberately NOT folded into `cancelled`: these are live bookings you were paid
+    // for and can still complete, not terminal ones.
+    const awaitingConfirmation = statusCounts["awaiting_confirmation"] || 0;
     return {
-      all: pending + paid + completed + cancelled,
+      all: pending + paid + completed + cancelled + awaitingConfirmation,
       pending,
       paid,
       completed,
       cancelled,
+      awaiting_confirmation: awaitingConfirmation,
     };
   }, [statusCounts]);
 

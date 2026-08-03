@@ -454,6 +454,18 @@ export class AutoNoShowDetectionService {
       report.errors.push(errorMsg);
     }
 
+    // Nudges and reminders run on the same cadence but must never be able to fail the
+    // expiry pass — they're independent of the status transitions above.
+    try {
+      const expiredOrderService = getExpiredOrderService();
+      await expiredOrderService.sendCompletionNudges();
+      await expiredOrderService.sendConfirmationRemindersAndEscalate();
+    } catch (error) {
+      const errorMsg = `Error in completion nudges/reminders: ${error instanceof Error ? error.message : String(error)}`;
+      logger.error(errorMsg);
+      report.errors.push(errorMsg);
+    }
+
     return report;
   }
 

@@ -104,6 +104,87 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
     },
   },
 
+  // ── Shop nudge: a paid booking still hasn't been marked complete ─────────────
+  // Sent TO the shop during the grace window. Transactional: this protects the shop's
+  // own revenue — ignoring it is what sends the booking to the customer to resolve.
+  booking_completion_nudge: {
+    channels: ['persist', 'ws', 'push'],
+    transactional: true,
+    display: {
+      title: (m) => `Mark "${m.serviceName || 'a booking'}" complete?`,
+      icon: 'appointments',
+      color: '#F59E0B',
+    },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'default',
+      title: (m) => `Mark "${m.serviceName || 'a booking'}" complete?`,
+      body: (m) =>
+        `${m.customerName || 'A customer'}'s booking is still open. Confirm it so payment settles.`,
+    },
+  },
+
+  // ── Customer reminder while a booking awaits their confirmation ──────────────
+  booking_confirmation_reminder: {
+    channels: ['persist', 'ws', 'push'],
+    transactional: true,
+    display: {
+      title: (m) => `Still need to know about your ${m.serviceName || 'booking'}`,
+      icon: 'appointments',
+      color: '#F59E0B',
+    },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'default',
+      title: (m) => `Still need to know about your ${m.serviceName || 'booking'}`,
+      body: (m) =>
+        `Tell us whether your booking at ${m.shopName || 'the shop'} went ahead so we can close it off.`,
+    },
+  },
+
+  // ── Booking parked awaiting the customer's confirmation ──────────────────────
+  // The shop's grace window closed without a completion. Transactional: the customer
+  // has money sitting against an unresolved booking, and this is the prompt that lets
+  // them close it off or report it never happened. Not something to let preferences mute.
+  booking_awaiting_confirmation: {
+    channels: ['persist', 'ws', 'push'],
+    transactional: true,
+    display: {
+      title: (m) => `Did your ${m.serviceName || 'booking'} go ahead?`,
+      icon: 'appointments',
+      color: '#F59E0B',
+    },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'default',
+      title: (m) => `Did your ${m.serviceName || 'booking'} go ahead?`,
+      // Metadata only — push builders never receive the in-app `message`.
+      body: (m) =>
+        `${m.shopName || 'The shop'} hasn't confirmed it. Tell us whether it happened so we can close it off.`,
+    },
+  },
+
+  // ── Follow shop: a shop a customer follows published a new service ───────────
+  // Sent TO each follower. Not transactional — it's a marketing-style nudge the
+  // customer can mute via preferences.
+  shop_new_service: {
+    channels: ['persist', 'ws', 'push'],
+    display: {
+      title: (m) => `${m.shopName || 'A shop you follow'} added a new service`,
+      icon: 'campaign',
+      color: '#FFCC00',
+    },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'default',
+      title: (m) => `${m.shopName || 'A shop you follow'} added a new service`,
+      // Built from metadata, not the in-app `message` — push builders only ever
+      // receive metadata, so naming the shop here keeps the banner as specific
+      // as the in-app copy instead of falling back to generic text.
+      body: (m) =>
+        `${m.shopName || 'A shop you follow'} just added "${m.serviceName || 'a new service'}". Book before it fills up.`,
+    },
+  },
   // ── AI Usage Overage billing (T3.2) — shop-facing billing events ──────────
   ai_overage_started: {
     channels: ['persist', 'ws', 'push'],

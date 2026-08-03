@@ -1595,3 +1595,46 @@ export const resetEmailTemplateToDefault = async (
     return { success: false, message: 'Failed to reset template' };
   }
 };
+// ── Stale bookings (booking confirmation backstop) ──────────────────────────
+
+/**
+ * A booking nobody resolved — the shop never completed it and the customer never
+ * answered — flagged after 90 days so an admin can decide while a refund is still
+ * viable. Nothing is auto-settled or auto-refunded; this is the manual decision.
+ */
+export interface StaleBooking {
+  orderId: string;
+  customerAddress: string;
+  customerName?: string;
+  customerEmail?: string;
+  shopId: string;
+  shopName: string;
+  serviceName: string;
+  totalAmount: number;
+  finalAmountUsd?: number;
+  rcnRedeemed?: number;
+  bookingDate?: string;
+  bookingTimeSlot?: string;
+  awaitingConfirmationAt?: string;
+  needsAdminReviewAt?: string;
+  daysUnresolved: number;
+}
+
+export const getStaleBookings = async (): Promise<StaleBooking[]> => {
+  try {
+    const res = await apiClient.get<{ success: boolean; data?: StaleBooking[] }>('/admin/stale-bookings');
+    return Array.isArray(res?.data) ? res.data : [];
+  } catch (error) {
+    console.error('Error loading stale bookings:', error);
+    return [];
+  }
+};
+
+export const resolveStaleBooking = async (
+  orderId: string,
+  action: 'complete' | 'refund',
+  reason?: string
+): Promise<boolean> => {
+  await apiClient.post(`/admin/stale-bookings/${orderId}/resolve`, { action, reason });
+  return true;
+};

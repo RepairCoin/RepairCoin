@@ -11,6 +11,8 @@ interface FilterCounts {
   paid: number;
   completed: number;
   cancelled: number;
+  /** Paid bookings the shop never completed, now waiting on the customer. */
+  awaiting_confirmation?: number;
 }
 
 type MainTabKey = 'bookings' | 'messages' | 'expired';
@@ -43,7 +45,8 @@ export const BookingFilters: React.FC<BookingFiltersProps> = ({
     pending: bookings.filter(b => b.status === 'requested').length,
     paid: bookings.filter(b => b.status === 'paid' || b.status === 'approved' || b.status === 'scheduled').length,
     completed: bookings.filter(b => b.status === 'completed').length,
-    cancelled: bookings.filter(b => b.status === 'cancelled').length
+    cancelled: bookings.filter(b => b.status === 'cancelled').length,
+    awaiting_confirmation: bookings.filter(b => b.status === 'awaiting_confirmation').length
   };
 
   const mainTabs: PageTab<MainTabKey>[] = [
@@ -56,6 +59,12 @@ export const BookingFilters: React.FC<BookingFiltersProps> = ({
     { key: 'all', label: `All (${filterCounts.all})` },
     { key: 'pending', label: `Pending (${filterCounts.pending})` },
     { key: 'paid', label: `Paid (${filterCounts.paid})` },
+    // These are bookings you were paid for but never marked complete. They're waiting
+    // on the customer to confirm, so they sit right after Paid rather than at the end.
+    {
+      key: 'awaiting_confirmation',
+      label: `Needs Confirming (${filterCounts.awaiting_confirmation ?? 0})`
+    },
     { key: 'completed', label: `Completed (${filterCounts.completed})` },
     { key: 'cancelled', label: `Cancelled (${filterCounts.cancelled})` },
   ];

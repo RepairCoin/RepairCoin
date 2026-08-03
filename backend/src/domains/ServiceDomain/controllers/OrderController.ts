@@ -356,22 +356,20 @@ export class OrderController {
         return res.status(403).json({ success: false, error: 'Unauthorized to update this order' });
       }
 
-      // Block completion if order is already expired
-      if (order.status === 'expired') {
-        return res.status(400).json({
-          success: false,
-          error: 'Cannot complete an expired order. The appointment has passed the 24-hour completion window.'
-        });
-      }
-
-      // Check if trying to mark as completed and order is past 24h window
+      // A late completion is no longer refused. The old 24-hour cutoff (plus a hard
+      // block on anything already 'expired') meant a shop that noticed late could not
+      // fix its own booking and was told to contact support — which is a large part of
+      // why bookings went uncompleted and were then auto-refunded.
+      //
+      // canCompleteOrder currently always allows; Phase 2 reintroduces real guards
+      // there (e.g. an order the customer already reported as never having happened).
       if (status === 'completed') {
         const expiredOrderService = getExpiredOrderService();
         const canComplete = expiredOrderService.canCompleteOrder(order);
         if (!canComplete.canComplete) {
           return res.status(400).json({
             success: false,
-            error: canComplete.reason || 'Order cannot be completed after 24 hours past the scheduled appointment time.'
+            error: canComplete.reason || 'This order can no longer be completed.'
           });
         }
       }
@@ -1417,6 +1415,173 @@ export class OrderController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to cancel expired bookings'
+      });
+    }
+  };
+
+  /**
+   * POST /orders/:id/confirm (Customer)
+   *
+   * "Yes, this happened" on a booking the shop never got round to completing.
+   * Routes through completeOrder() and emits service.order_completed so RCN rewards
+   * and team commission behave exactly as they would for a shop-driven completion.
+   */
+  confirmCompletion = async (req: Request, res: Response) => {
+    try {
+      const customerAddress = req.user?.address;
+      if (!customerAddress) {
+        return res.status(401).json({ success: false, error: 'Customer authentication required' });
+      }
+
+      const { id } = req.params;
+      const order = await this.orderRepository.getOrderById(id);
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+      if (order.customerAddress !== customerAddress.toLowerCase()) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to confirm this order' });
+      }
+      if (order.status !== 'awaiting_confirmation') {
+        return res.status(400).json({
+          success: false,
+          error: `Only a booking awaiting confirmation can be confirmed (this one is '${order.status}').`
+        });
+      }
+
+      await this.orderRepository.markCustomerConfirmed(id);
+      const updatedOrder = await this.orderRepository.completeOrder(id);
+
+      // Same event the shop completion path emits — this is what mints RCN rewards.
+      try {
+        await eventBus.publish(createDomainEvent(
+          'service.order_completed',
+          updatedOrder.customerAddress,
+          {
+            orderId: updatedOrder.orderId,
+            customerAddress: updatedOrder.customerAddress,
+            shopId: updatedOrder.shopId,
+            serviceId: updatedOrder.serviceId,
+            totalAmount: updatedOrder.totalAmount,
+            completedAt: updatedOrder.completedAt,
+            completedBy: 'customer_confirmation'
+          },
+          'ServiceDomain'
+        ));
+      } catch (eventError) {
+        logger.error('Error publishing order_completed event (customer confirmation):', eventError);
+      }
+
+      logger.info('Customer confirmed booking completion', { orderId: id, customerAddress });
+      return res.json({ success: true, data: updatedOrder });
+    } catch (error: unknown) {
+      logger.error('Error confirming order completion:', error);
+      return res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to confirm booking'
+      });
+    }
+  };
+
+  /**
+   * POST /orders/:id/report-not-completed (Customer)
+   *
+   * "This didn't happen" — the ONLY path that refunds a booking. Valid from
+   * awaiting_confirmation, or from completed while still inside the report window.
+   */
+  reportNotCompleted = async (req: Request, res: Response) => {
+    try {
+      const customerAddress = req.user?.address;
+      if (!customerAddress) {
+        return res.status(401).json({ success: false, error: 'Customer authentication required' });
+      }
+
+      const { id } = req.params;
+      const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+
+      const order = await this.orderRepository.getOrderWithDetails(id);
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+      if (order.customerAddress !== customerAddress.toLowerCase()) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to report this order' });
+      }
+
+      const expiredOrderService = getExpiredOrderService();
+
+      if (order.status === 'completed') {
+        // A completed booking can still be reported, but only for a limited window.
+        const reportWindowDays = await expiredOrderService.getReportWindowDays(order.shopId);
+
+        if (!order.completedAt || !expiredOrderService.isWithinReportWindow(order.completedAt, reportWindowDays)) {
+          return res.status(400).json({
+            success: false,
+            error: `This booking can no longer be reported — the ${reportWindowDays}-day window has passed. Please contact support.`
+          });
+        }
+      } else if (order.status !== 'awaiting_confirmation') {
+        return res.status(400).json({
+          success: false,
+          error: `A booking with status '${order.status}' can't be reported as not completed.`
+        });
+      }
+
+      // Flip the status FIRST. The guard inside markCompletionReported is what makes a
+      // double-submit safe — a null return means another request already refunded it,
+      // so we must not refund again.
+      const updated = await this.orderRepository.markCompletionReported(
+        id,
+        reason || 'Customer reported the service did not happen'
+      );
+      if (!updated) {
+        return res.status(409).json({
+          success: false,
+          error: 'This booking has already been resolved.'
+        });
+      }
+
+      // getOrderWithDetails doesn't carry the customer's email, and refundOrder gates
+      // the refund email on it — without this the customer gets the in-app notice but
+      // no email about their money coming back.
+      const customer = await customerRepository.getCustomer(order.customerAddress).catch(() => null);
+
+      const refund = await expiredOrderService.refundOrder(
+        {
+          orderId: order.orderId,
+          customerAddress: order.customerAddress,
+          customerName: order.customerName || customer?.name,
+          customerEmail: customer?.email,
+          shopId: order.shopId,
+          shopName: order.shopName || 'the shop',
+          serviceId: order.serviceId,
+          serviceName: order.serviceName || 'your booking',
+          bookingDate: order.bookingDate as Date,
+          // getOrderWithDetails combines date+time into one string; refundOrder's email
+          // renders this next to the date, so pass just the time part.
+          bookingTimeSlot: (order.bookingTimeSlot || '').split('T')[1] || '',
+          totalAmount: order.totalAmount,
+          finalAmountUsd: order.finalAmountUsd ?? order.totalAmount,
+          rcnRedeemed: order.rcnRedeemed ?? 0,
+          stripePaymentIntentId: order.stripePaymentIntentId
+        },
+        reason || 'customer reported the service did not happen'
+      );
+
+      logger.info('Customer reported booking as not completed', {
+        orderId: id,
+        customerAddress,
+        rcnRefunded: refund.rcnRefunded,
+        stripeRefunded: refund.stripeRefunded
+      });
+
+      return res.json({
+        success: true,
+        data: { order: updated, rcnRefunded: refund.rcnRefunded, stripeRefunded: refund.stripeRefunded }
+      });
+    } catch (error: unknown) {
+      logger.error('Error reporting order as not completed:', error);
+      return res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to report booking'
       });
     }
   };

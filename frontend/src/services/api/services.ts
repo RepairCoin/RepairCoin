@@ -17,7 +17,17 @@ export type ServiceCategory =
   | 'legal_services'
   | 'other_local_services';
 
-export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show' | 'expired';
+export type OrderStatus =
+  | 'pending'
+  | 'paid'
+  | 'completed'
+  | 'cancelled'
+  | 'refunded'
+  | 'no_show'
+  /** Legacy. No new booking enters this state; historical rows still show it. */
+  | 'expired'
+  /** The shop's grace window closed with no completion. Not refunded, not settled. */
+  | 'awaiting_confirmation';
 
 /**
  * AI Sales Assistant tone — controls the persona/voice of AI replies for a
@@ -596,6 +606,43 @@ export const cancelOrder = async (
     return true;
   } catch (error) {
     console.error('Error canceling order:', error);
+    throw error;
+  }
+};
+
+/**
+ * "Yes, this happened" on a booking the shop never marked complete.
+ * Completes the order and issues RCN rewards as a shop completion would.
+ */
+export const confirmOrderCompletion = async (orderId: string): Promise<boolean> => {
+  try {
+    await apiClient.post(`/services/orders/${orderId}/confirm`);
+    return true;
+  } catch (error) {
+    console.error('Error confirming order completion:', error);
+    throw error;
+  }
+};
+
+/**
+ * "This didn't happen" — the only path that refunds a booking. Valid while awaiting
+ * confirmation, or for a completed booking still inside the shop's report window.
+ */
+export const reportOrderNotCompleted = async (
+  orderId: string,
+  reason?: string
+): Promise<{ rcnRefunded: number; stripeRefunded: number }> => {
+  try {
+    const res = await apiClient.post<{
+      success: boolean;
+      data?: { rcnRefunded?: number; stripeRefunded?: number };
+    }>(`/services/orders/${orderId}/report-not-completed`, { reason });
+    return {
+      rcnRefunded: res?.data?.rcnRefunded ?? 0,
+      stripeRefunded: res?.data?.stripeRefunded ?? 0,
+    };
+  } catch (error) {
+    console.error('Error reporting order as not completed:', error);
     throw error;
   }
 };
@@ -1190,6 +1237,8 @@ export const servicesApi = {
   getOrderById,
   updateOrderStatus,
   cancelOrder,
+  confirmOrderCompletion,
+  reportOrderNotCompleted,
   cancelOrderByShop,
   markOrderAsNoShow,
   markOrderAsPaid,
