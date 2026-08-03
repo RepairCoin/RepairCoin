@@ -333,7 +333,15 @@ export class AutoMessageController {
         }
       }
 
-      if (targetAudience && !VALID_TARGET_AUDIENCES.includes(targetAudience)) {
+      // `!== undefined`, not a truthiness check. The old guard was `if (targetAudience && ...)`, so an
+      // EMPTY audience — the one value a form can submit by accident — short-circuited past validation
+      // and was written unchecked. The two write paths then disagreed about what '' meant: create()
+      // coerces `targetAudience || 'all'` and messages EVERY customer, while update() stores '' as-is
+      // and the scheduler's audience switch falls to `default: return []` and messages NOBODY, silently.
+      // Neither is what the caller asked for, so refuse the value instead of picking one of two wrong
+      // answers. Omitting the field entirely is still fine — that means "leave it alone" on update and
+      // takes the column default on create.
+      if (targetAudience !== undefined && !VALID_TARGET_AUDIENCES.includes(targetAudience)) {
         return res.status(400).json({ success: false, error: `targetAudience must be one of: ${VALID_TARGET_AUDIENCES.join(', ')}` });
       }
 
@@ -467,7 +475,15 @@ export class AutoMessageController {
         return res.status(400).json({ success: false, error: `triggerType must be one of: ${VALID_TRIGGER_TYPES.join(', ')}` });
       }
 
-      if (targetAudience && !VALID_TARGET_AUDIENCES.includes(targetAudience)) {
+      // `!== undefined`, not a truthiness check. The old guard was `if (targetAudience && ...)`, so an
+      // EMPTY audience — the one value a form can submit by accident — short-circuited past validation
+      // and was written unchecked. The two write paths then disagreed about what '' meant: create()
+      // coerces `targetAudience || 'all'` and messages EVERY customer, while update() stores '' as-is
+      // and the scheduler's audience switch falls to `default: return []` and messages NOBODY, silently.
+      // Neither is what the caller asked for, so refuse the value instead of picking one of two wrong
+      // answers. Omitting the field entirely is still fine — that means "leave it alone" on update and
+      // takes the column default on create.
+      if (targetAudience !== undefined && !VALID_TARGET_AUDIENCES.includes(targetAudience)) {
         return res.status(400).json({ success: false, error: `targetAudience must be one of: ${VALID_TARGET_AUDIENCES.join(', ')}` });
       }
 

@@ -231,6 +231,19 @@ export class AutoMessageSchedulerService {
       }
 
       default:
+        // Returning [] is the right OUTCOME — an audience we cannot resolve must not fall back to
+        // 'all', because guessing the widest possible audience is how a workflow messages a shop's
+        // entire customer list by accident. The defect was the SILENCE: a rule with an unresolvable
+        // audience showed as published and active, updated nothing, and enrolled nobody, forever, with
+        // no error and no failed send to look at. Say so, loudly, and keep the safe behaviour.
+        logger.error('AutoMessageScheduler: rule has an unresolvable target audience — enrolling nobody', {
+          ruleId: rule.id,
+          shopId: rule.shopId,
+          name: rule.name,
+          targetAudience: rule.targetAudience,
+          triggerType: rule.triggerType,
+          eventType: rule.eventType,
+        });
         return [];
     }
   }
