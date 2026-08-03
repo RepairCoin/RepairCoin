@@ -330,7 +330,9 @@ to message steps. Applying **W1's move one level down** yields
 already proves that pattern. Linear steps + a few exit conditions cover every template below; branching can
 be added later without rework.
 
-### Revised remaining work
+### Revised remaining work — SUPERSEDED, see §9
+
+*(A1, A2, A3 and A4 are all built. §9 is the current remaining-work list.)*
 
 **A1 — action steps.** Generalize `steps[]` from message steps to action steps (mirrors W1, one level
 down). Reuses enrollment, waits and step tracking that already work. **This is the structural unlock.** ~M
@@ -395,6 +397,75 @@ drift apart.
   API: `GET /api/messages/auto-messages?surface=workflow`; create takes `surface` in the body. Absent =
   `'campaign'`, so every existing client is unchanged and today the filter is a no-op.
   **A2 is unblocked.**
+
+---
+
+## 9. Remaining work (2026-07-31)
+
+**Shipped and live:** 11 triggers · 3 actions · 10 templates · multi-step sequences · A/B · Draft→Publish ·
+team alerts · template relevance numbers · AI recommendations that point at a workflow · per-workflow
+outcome metrics. Everything in §7 (W0–W3) and §8 (A1–A4) is built and merged.
+
+### 9.1 To ship the CURRENT scope — verification only, no code
+
+- ~~Browser QA tests 4 and 5~~ **DONE 2026-08-03 — all 5 passed on `peanut`.** The edit P0 fix is
+  confirmed in a browser, not just over the API. See the result block at the top of
+  `docs/tasks/test/qa-custom-workflows-staging-checklist.md`.
+- One metrics check on `dc_shopu` → Marketing → AI Campaigns (the full `Sent · Read · Booked · Revenue`
+  line — peanut has no rule with send history, so it cannot show it). **Still open.**
+- The AI-recommendation → workflow deep-link, on `7777` or `dc_shopu`. Peanut has no qualifying cards
+  (3 lapsed vs a floor of 5, no booking history), so it was not testable there. **Still open.**
+
+### 9.2 Remaining ACTIONS — 4 of the 7 scoped in §4
+
+Each is **small**: W1's dispatcher was built so a new action costs one `register()` call plus its config
+UI. A test asserts exactly that.
+
+1. **Create a task / flag** — put an item on the shop's to-do list, or flag a customer/booking for
+   follow-up. Turns "tell me" into "remind me until it's done".
+2. **Draft a reorder (purchase order)** — on low stock, draft a PO to the supplier rather than only
+   alerting. Closes the loop `low_stock` opens; `reorderNeeded`/`POSuggestionsCard` already exist to build on.
+3. **Run a campaign** — fire a marketing campaign as a workflow step. The Campaigns-Advanced bridge from
+   §3: lets a workflow trigger a one-to-many send instead of a single message.
+4. **AI step** — compose the message at send time from live context, instead of a fixed template with
+   `{{variables}}`. Reuses the marketing AI + brand kit.
+
+**Highest impact: 3 and 4.** They change what the feature can *do*; 1 and 2 are conveniences.
+
+### 9.3 Remaining TRIGGERS — 4
+
+Larger than the actions, because each needs an event **emitted** from wherever it happens. That was the
+real work in `no_show` and `payment_failed`: the state already existed, nothing published it.
+
+1. **Booking created** (today: completed / cancelled / no-show only)
+2. **Repair ready for pickup**
+3. **New ad lead**
+4. **Subscription lapsed**
+
+### 9.4 Supporting work
+
+- **M4 — real performance benchmarks.** Replace each template's qualitative `benefit` with a measured
+  figure, behind an explicit minimum-sample gate. Blocked on data: outcome collection began 2026-07-30.
+  See `management-change-request.md` D1 for why the requested "12–18%" was not shipped as static copy.
+- **`service_orders.payment_status`** — would let the failed-payment template show a relevance number
+  like the others. It is the one template with no line today.
+
+### 9.5 Deferred BY DECISION — not gaps
+
+- **Branching (if/else)** — only if linear sequences plus exit conditions prove insufficient. They have
+  not; `stop_on_booking` covers the common case.
+- **Folders / smart lists** — shops have 0–4 workflows. Folders solve nothing at that scale.
+- **Build-with-AI authoring** — templates already answer "where do I start", which is the problem it was
+  meant to solve.
+
+### 9.6 Known limits, documented rather than fixed
+
+- **Delays are hourly-granular.** `delayHours: 3` means 3–4h, because queued sends drain on the hourly
+  tick. Fine for follow-ups; matters only if minute-level timing is ever wanted.
+- **An hour-23 schedule cannot be caught up** across midnight if the backend is down for that hour — the
+  UTC day changes and the day checks stop matching. Pinned in `AutoMessageCatchUp.test.ts`.
+- **Attribution is correlation.** Booked/revenue count orders within 14 days of a message; the UI says so
+  on hover. Do not let it be reported as caused.
 
 ---
 

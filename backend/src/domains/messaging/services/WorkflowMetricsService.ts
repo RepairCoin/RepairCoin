@@ -28,6 +28,28 @@ import { logger } from '../../../utils/logger';
  */
 export const ATTRIBUTION_DAYS = 14;
 
+/**
+ * Orders that do NOT count as the customer having booked.
+ *
+ * Only a cancellation retracts the booking. An order the customer later missed (`no_show`) or let lapse
+ * (`expired`) still means the message produced a booking, which is what this metric claims.
+ */
+export const NON_BOOKING_STATUSES = ['cancelled'];
+
+/**
+ * Orders where money was actually taken. Deliberately an ALLOW-list, not a deny-list.
+ *
+ * `booked` and `revenue` used to share one filter — `status <> 'cancelled'` — so every `expired` and
+ * `no_show` order was summed into revenue. On staging that was 242 expired ($38.1k) and 37 no-show
+ * ($3.4k) against 275 completed ($49.5k): roughly 45% of any revenue figure was orders that never
+ * happened. dc_shopu's headline "$49" was $5 completed plus a $44 expired order.
+ *
+ * The two metrics answer different questions, so they get different filters. An allow-list also fails
+ * SAFE: a status added to the schema later is excluded until someone decides it represents money,
+ * whereas a deny-list would silently start counting it.
+ */
+export const REVENUE_STATUSES = ['completed', 'paid'];
+
 export interface WorkflowMetrics {
   /** Sends recorded for this rule. For a shop-scoped rule (notify_staff) this is "times it ran". */
   sent: number;
@@ -35,9 +57,14 @@ export interface WorkflowMetrics {
   delivered: number;
   /** Customer messages actually opened in-app. */
   read: number;
-  /** DISTINCT orders attributed within the window. */
+  /** DISTINCT non-cancelled orders attributed within the window — did the message produce a booking? */
   booked: number;
-  /** Revenue on those orders. */
+  /**
+   * Money actually taken on those orders (`REVENUE_STATUSES` only).
+   *
+   * So `revenue` can be lower than `booked` implies, and that gap is meaningful rather than a bug:
+   * "Booked 2 · $5" means two bookings followed the message and one of them never paid.
+   */
   revenue: number;
 }
 
@@ -60,6 +87,7 @@ export class WorkflowMetricsService {
         attributed AS (
           SELECT DISTINCT s.auto_message_id,
                           o.order_id,
+                          o.status,
                           COALESCE(o.final_amount_usd, o.total_amount, 0) AS amount
           FROM sends s
           JOIN service_orders o
@@ -67,7 +95,7 @@ export class WorkflowMetricsService {
            AND LOWER(o.customer_address) = s.addr
            AND o.created_at >  s.sent_at
            AND o.created_at <= s.sent_at + INTERVAL '${ATTRIBUTION_DAYS} days'
-           AND o.status <> 'cancelled'
+           AND o.status <> ALL($2::text[])
           WHERE s.addr IS NOT NULL
         )
         SELECT
@@ -75,13 +103,18 @@ export class WorkflowMetricsService {
           COUNT(*)                                                 AS sent,
           COUNT(*) FILTER (WHERE s.addr IS NOT NULL)               AS delivered,
           COUNT(*) FILTER (WHERE m.is_read)                        AS read,
-          COALESCE((SELECT COUNT(*)          FROM attributed a WHERE a.auto_message_id = s.auto_message_id), 0) AS booked,
-          COALESCE((SELECT SUM(a.amount)     FROM attributed a WHERE a.auto_message_id = s.auto_message_id), 0) AS revenue
+          -- Two questions, two filters. 'Did the message produce a booking?' counts every order the
+          -- customer did not cancel; 'how much money came in?' counts only orders that were paid.
+          COALESCE((SELECT COUNT(*)      FROM attributed a
+                     WHERE a.auto_message_id = s.auto_message_id), 0) AS booked,
+          COALESCE((SELECT SUM(a.amount) FROM attributed a
+                     WHERE a.auto_message_id = s.auto_message_id
+                       AND a.status = ANY($3::text[])), 0)            AS revenue
         FROM sends s
         LEFT JOIN messages m ON m.message_id = s.message_id
         GROUP BY s.auto_message_id
         `,
-        [shopId]
+        [shopId, NON_BOOKING_STATUSES, REVENUE_STATUSES]
       );
 
       for (const row of result.rows) {

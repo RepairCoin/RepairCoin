@@ -1,5 +1,14 @@
 # QA — Custom Workflows on staging
 
+> **RESULT — all 5 tests PASSED on `peanut`.** Tests 1–3 on 2026-07-30, tests 4–5 on 2026-08-03.
+> Test 4 confirmed the edit P0 fix in a browser: `QA edit test` survived save → reopen, and all four
+> absence checks held (no Target Audience, no Max sends per customer, no message preview, trigger
+> `Event → Low Stock (shop alert)`). The row shape line read `Low stock → Notify team`, and its metrics
+> line read `Ran 1 time` — state **B**, correct for a shop-scoped rule. Alert text restored afterwards.
+>
+> **Still unwalked:** the full `Sent · Read · Booked · Revenue` line (needs `dc_shopu` → Marketing →
+> AI Campaigns) and the AI-recommendation deep-link (needs `7777` or `dc_shopu`).
+
 **Scope:** staging only. Prod comes later, once this is polished.
 **Shop:** `peanut` · **Screen:** Automation tab · **Time:** ~15 minutes
 
@@ -186,12 +195,30 @@ Useful if a number looks wrong and you want to know whether it should have appea
 **dc_shopu** — where the full metrics line is visible
 - 8 lapsed customers → win-back relevance line in the template gallery
 - Its three rules are on the **campaign** surface, so they appear under **Marketing → AI Campaigns**, and
-  its Automation tab is empty. Expect under each rule name:
+  its Automation tab is empty. Expect under each rule name — **verified against the live API 2026-08-03**:
   - *Daily Morning Greeting* — `Sent 8 · Read 100% · Booked 0 · $0 within 14d`
-  - *When cancelled Booking* — `Sent 1 · Read 100% · Booked 1 · $44 within 14d`
-  - *Booking Competed* — `Sent 1 · Read 100% · Booked 2 · $49 within 14d`
-- That last one is **one customer with two genuine orders** in the window, not a double count. Worth
-  confirming it reads as sensible rather than as a bug.
+  - *When cancelled Booking* — `Sent 1 · Read 100% · Booked 2 · $5 within 14d`
+  - *Booking Competed* — `Sent 1 · Read 100% · Booked 1 · $0 within 14d`
+
+> **⏳ These are the numbers AFTER the booked/revenue filter split, which is not deployed yet.**
+> Until staging picks it up, the browser will show `$49` and `$44` — the pre-fix figures, which counted
+> expired orders as revenue. Either walk this check after the deploy, or expect the old numbers and
+> treat only the *shape* of the line as the thing under test.
+- **The last two were swapped in an earlier draft of this doc.** Both rules have `sent: 1`, so the
+  transcription was easy to get wrong and impossible to spot. The numbers above come from
+  `GET /api/messages/auto-messages/metrics` and were confirmed against the underlying sends and orders.
+- *When cancelled Booking* is **one customer with two genuine orders** in the window, not a double count.
+- *Booking Competed* is `is_active = false` (published but paused), so expect a **Paused** badge. Not a bug.
+
+> **✅ Revenue defect — FOUND AND FIXED 2026-08-03 (not yet deployed).**
+> `booked` and `revenue` shared one filter (`status <> 'cancelled'`), so **`expired` and `no_show` orders
+> were summed into revenue**. Of dc_shopu's `$49`, only `$5` was a completed order; the other `$44` was
+> **expired**. Platform-wide the filter admitted 242 expired ($38.1k) and 37 no-show ($3.4k) against 275
+> completed ($49.5k) — roughly **45% of any revenue figure was orders that never happened**.
+>
+> Now two filters: `booked` counts every order the customer did not cancel (a missed appointment is
+> still a booking the message produced); `revenue` allows only `completed` + `paid`. So **`Booked 2 · $5`
+> is a truthful line, not a rendering bug** — two bookings followed the message, one never paid.
 
 ---
 

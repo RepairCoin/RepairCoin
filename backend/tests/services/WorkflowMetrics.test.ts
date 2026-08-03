@@ -5,11 +5,75 @@
 // asserts causation an attribution window cannot show. See
 // docs/tasks/strategy/custom-workflows/management-change-request.md (D2).
 
-import { ATTRIBUTION_DAYS } from '../../src/domains/messaging/services/WorkflowMetricsService';
+import {
+  ATTRIBUTION_DAYS,
+  NON_BOOKING_STATUSES,
+  REVENUE_STATUSES,
+} from '../../src/domains/messaging/services/WorkflowMetricsService';
 
 describe('attribution window', () => {
   it('is a single named constant, so the label and the data cannot disagree', () => {
     expect(ATTRIBUTION_DAYS).toBe(14);
+  });
+});
+
+// `booked` and `revenue` shared one filter (`status <> 'cancelled'`) until 2026-08-03, so every expired
+// and no-show order was summed into revenue. Staging: 242 expired ($38.1k) + 37 no-show ($3.4k) against
+// 275 completed ($49.5k) — about 45% of the figure was orders that never happened, on the one metric the
+// change request was most careful about labelling.
+describe('booked and revenue count different things', () => {
+  type Order = { status: string; amount: number };
+
+  /** Mirrors the query: booked excludes NON_BOOKING_STATUSES, revenue allows only REVENUE_STATUSES. */
+  const summarise = (orders: Order[]) => {
+    const booked = orders.filter((o) => !NON_BOOKING_STATUSES.includes(o.status));
+    return {
+      booked: booked.length,
+      revenue: booked
+        .filter((o) => REVENUE_STATUSES.includes(o.status))
+        .reduce((s, o) => s + o.amount, 0),
+    };
+  };
+
+  it('does not sum an expired order into revenue', () => {
+    // dc_shopu's real line: one $5 completed order and one $44 expired one, reported as $49.
+    expect(summarise([
+      { status: 'completed', amount: 5 },
+      { status: 'expired', amount: 44 },
+    ])).toEqual({ booked: 2, revenue: 5 });
+  });
+
+  it('does not sum a no-show into revenue', () => {
+    expect(summarise([{ status: 'no_show', amount: 90 }])).toEqual({ booked: 1, revenue: 0 });
+  });
+
+  // The customer responded to the message by booking. Missing the appointment afterwards is a different
+  // fact, and folding it into `booked` would understate what the automation actually did.
+  it('still counts a missed or lapsed booking AS a booking', () => {
+    expect(summarise([
+      { status: 'expired', amount: 44 },
+      { status: 'no_show', amount: 90 },
+    ]).booked).toBe(2);
+  });
+
+  it('drops a cancellation from both — the customer retracted the booking', () => {
+    expect(summarise([{ status: 'cancelled', amount: 300 }])).toEqual({ booked: 0, revenue: 0 });
+  });
+
+  it('counts completed and paid orders as money taken', () => {
+    expect(summarise([
+      { status: 'completed', amount: 120 },
+      { status: 'paid', amount: 30 },
+    ])).toEqual({ booked: 2, revenue: 150 });
+  });
+
+  // An allow-list fails safe: a status added to the schema later is excluded from revenue until someone
+  // decides it represents money. A deny-list would silently start counting it.
+  it('excludes a status nobody has classified yet', () => {
+    expect(summarise([{ status: 'some_future_status', amount: 500 }])).toEqual({
+      booked: 1,
+      revenue: 0,
+    });
   });
 });
 
