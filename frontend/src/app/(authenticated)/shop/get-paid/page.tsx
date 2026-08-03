@@ -17,6 +17,7 @@ import {
 import apiClient from "@/services/api/client";
 import { getApiBaseUrl } from "@/utils/apiUrl";
 import GetPaidOnboarding from "@/components/shop/payments/GetPaidOnboarding";
+import CardReaders from "@/components/shop/payments/CardReaders";
 
 const PANEL =
   "rounded-2xl bg-[linear-gradient(90deg,#000000_0%,#1D1D1D_100%)] p-6 md:p-8";
@@ -84,6 +85,7 @@ interface ConnectStatus {
   identityVerification: "unverified" | "pending" | "verified";
   // 'standard' = the shop's own account, adopted via OAuth. Not editable from here.
   accountType: "express" | "standard" | null;
+  terminalReady: boolean;
 }
 
 // Dashboard home rather than a deep link: Stripe surfaces the outstanding-requirements banner
@@ -482,6 +484,8 @@ export default function GetPaidPage() {
             </div>
           )}
         </div>
+
+        {status?.terminalReady && <CardReaders />}
       </div>
     </div>
   );
