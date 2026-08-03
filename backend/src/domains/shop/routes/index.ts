@@ -2991,6 +2991,9 @@ router.use('/', subscriptionRoutes); // Then mount authenticated routes
 // Mount Stripe Connect onboarding routes (authenticated)
 router.use('/', connectRoutes);
 
+import terminalRoutes from './terminal';
+router.use('/', terminalRoutes);
+
 // Mount webhook routes - MUST BE PUBLIC FOR STRIPE
 import webhookRoutes from './webhooks';
 

@@ -17,6 +17,7 @@ export { AgencyRepository } from './AgencyRepository';
 export { PaymentRepository } from './PaymentRepository';
 export { StripeEventRepository } from './StripeEventRepository';
 export { RefundRepository } from './RefundRepository';
+export { ShopTerminalRepository } from './ShopTerminalRepository';
 
 // Create singleton instances
 import { CustomerRepository } from './CustomerRepository';
@@ -36,6 +37,7 @@ import { AgencyRepository } from './AgencyRepository';
 import { PaymentRepository } from './PaymentRepository';
 import { StripeEventRepository } from './StripeEventRepository';
 import { RefundRepository } from './RefundRepository';
+import { ShopTerminalRepository } from './ShopTerminalRepository';
 
 export const customerRepository = new CustomerRepository();
 export const shopRepository = new ShopRepository();
@@ -54,3 +56,4 @@ export const agencyRepository = new AgencyRepository();
 export const paymentRepository = new PaymentRepository();
 export const stripeEventRepository = new StripeEventRepository();
 export const refundRepository = new RefundRepository();
+export const shopTerminalRepository = new ShopTerminalRepository();
