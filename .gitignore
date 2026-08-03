@@ -150,3 +150,6 @@ tmpclaude-*
 **/tmpclaude-*
 # Claude Code local settings
 .claude/settings.local.json
+
+# macOS finder metadata
+.DS_Store

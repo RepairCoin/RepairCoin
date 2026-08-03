@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 29, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+    --amber: #b45309; --amber-bg: #fef3e2; --red: #b91c1c; --red-bg: #fdecec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  h3 { font-size: 15px; margin: 18px 0 4px; color: var(--ink); letter-spacing: -.01em; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-done { background: var(--green-bg); color: #14753b; }
+  .tag-new { background: var(--violet-bg); color: var(--violet); }
+  .tag-fix { background: #e4eeff; color: #1d4ed8; }
+  .tag-plan { background: var(--amber-bg); color: var(--amber); }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  pre { background: #1a1a2e; color: #e8eaf4; padding: 14px 18px; border-radius: 10px; overflow-x: auto; font-size: 13px; line-height: 1.55; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  pre .c { color: #8b93b0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  td .warn { color: var(--amber); font-weight: 700; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.amber { background: var(--amber-bg); border: 1px solid #f6d9a8; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+  .callout.amber strong { color: var(--amber); }
+  .test-card { background: #fbfcfe; border: 1px solid var(--line); border-left: 3px solid var(--brand); border-radius: 10px; padding: 6px 20px 14px; margin: 14px 0; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>A Customer Dashboard Worth Coming Back To</h1>
+    <p class="sub">A rewards hub, a referral QR code with real names, honest account standing — and the first pieces of a retention loop: rebooking nudges and following a shop.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 29, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ 4 commits shipped</span> · 2 features complete, awaiting commit</span>
+      <span class="meta-pill"><strong>Focus:</strong>&nbsp; Customer Experience · Referrals · Retention</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      The whole day sat on the <strong>customer side</strong>. Four things shipped: the marketplace's view
+      controls now sit in one consistent place with a Grid/List toggle for shops; referrals gained a scannable
+      <strong>QR code</strong> and show friends' <strong>real names</strong> instead of masked wallet addresses;
+      a new <strong>Rewards</strong> hub explains the tier ladder and how to earn; and <strong>Account
+      Standing</strong> became a real explanation rather than a single line. Two further features were then built
+      out end-to-end but are not yet committed — a <strong>smart rebooking nudge</strong> and <strong>following a
+      shop</strong>, the first thing on the platform that brings a customer back on its own, now complete with a
+      Following view, follower counts and a profile-page follow button.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Marketplace — Consistent View Controls <span class="tag tag-new">NEW</span></h2>
+    <p>
+      The Grid / Map / Favorites controls used to sit in a different place depending on which tab you were on,
+      and the Shops tab had no layout choice at all.
+    </p>
+    <ul>
+      <li>View controls moved <strong>below</strong> the Services / Shops tabs, so both tabs present them in the
+          same position.</li>
+      <li>The control row has a <strong>reserved height</strong> — switching tabs no longer shifts the content
+          underneath it.</li>
+      <li>The Shops tab gained a <strong>Grid / List toggle</strong> with a compact list layout, matching what
+          Services already offered.</li>
+    </ul>
+    <p class="lead" style="font-size:14px">
+      <code class="inline">ServiceMarketplaceClient.tsx</code> · <code class="inline">ShopsGridView.tsx</code>
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Referrals — QR Code &amp; Real Names <span class="tag tag-new">NEW</span></h2>
+    <p>
+      Referrals were technically complete but socially awkward: the invite could only be shared as a link, and
+      the list of people you'd referred showed masked wallet addresses — so you couldn't tell who had actually
+      taken you up on it.
+    </p>
+    <ul>
+      <li><strong>Scannable QR code</strong> of the referral link, so a customer can refer someone standing in
+          front of them without typing anything.</li>
+      <li><strong>Real friend names</strong> in the referred-friends list, alongside each referral's status and
+          the reward it earned.</li>
+      <li>Backend: a new <code class="inline">getCustomerReferralsWithNames()</code> joins the referee's name, and
+          <code class="inline">/referrals/stats</code> now returns the name-enriched list.</li>
+    </ul>
+    <div class="callout violet">
+      <strong>Why it matters:</strong> a referral program only compounds if sharing is frictionless and the result
+      is visible. A QR code removes the friction; real names make the payoff legible.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Rewards Hub &amp; Overview Cards <span class="tag tag-new">NEW</span></h2>
+    <p>
+      Tier progress existed in the data but was never explained to the customer. It now has its own home.
+    </p>
+    <ul>
+      <li><strong>New Rewards tab</strong> — the Bronze / Silver / Gold ladder, current progress toward the next
+          tier, and a plain-language list of ways to earn.</li>
+      <li><strong>"Your impact" card</strong> on the overview — the savings a customer has actually accumulated,
+          rather than an abstract token balance.</li>
+      <li><strong>Review nudge card</strong> — surfaces completed bookings that still need a review, which is how
+          shops accumulate ratings at all.</li>
+      <li>Dashboard container widened and the overview's extra max-width dropped, so content lines up with the
+          header instead of floating narrower than everything above it.</li>
+    </ul>
+    <div class="callout amber">
+      <strong>Bug found along the way:</strong> the Active Services card linked to <code class="inline">tab=orders</code>'s
+      predecessor, <code class="inline">tab=bookings</code> — a tab that no longer exists. Every click landed the
+      customer on a <strong>blank page</strong>. Now routed correctly.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> Account Standing, Explained <span class="tag tag-new">NEW</span></h2>
+    <p>
+      "Good standing" was a single line of text with nothing behind it — no indication of what it meant, what it
+      was worth, or how it could be lost.
+    </p>
+    <ul>
+      <li>A <strong>status hero</strong>, the concrete <strong>perks</strong> good standing unlocks, and a
+          <strong>no-show policy explainer</strong> so the consequences are stated before they're applied.</li>
+      <li>Customer settings refactored into <strong>sectioned navigation with <code class="inline">?section=</code>
+          deep-linking</strong>, matching how shop settings already work — so any part of settings can now be
+          linked to directly from elsewhere in the product.</li>
+    </ul>
+    <p class="lead" style="font-size:14px">
+      Largest single-file change of the day: <code class="inline">SettingsTab.tsx</code>, 777 lines touched.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Smart Rebooking Nudge <span class="tag tag-new">NEW</span></h2>
+    <p>
+      Most bookings on the platform are naturally recurring — grooming, cleaning, oil changes — but nothing ever
+      asked the customer to come back. This card does.
+    </p>
+    <ul>
+      <li>Reads completed bookings and estimates a per-service <strong>cadence from its category</strong> —
+          grooming ~4 weeks, pet care ~6 weeks, automotive ~3 months, repairs ~6 months — then surfaces the
+          services that are <strong>due again</strong>.</li>
+      <li>Renders <strong>nothing</strong> when nothing is due, so it never becomes background noise.</li>
+      <li>Alongside it, <strong>appointment-history stats</strong> in Account Standing — total, completed,
+          upcoming and missed — giving the standing panel something concrete to stand on.</li>
+    </ul>
+    <div class="callout amber">
+      <strong>Caught while finishing it:</strong> the cadence lookup was reading a field the order record
+      doesn't have (<code class="inline">category</code> instead of <code class="inline">serviceCategory</code>),
+      so every service silently fell back to the 60-day default and the entire per-category table was dead code.
+      The nudge <em>looked</em> like it worked — it just ignored the category it was built around. Fixed.
+    </div>
+    <p class="lead" style="font-size:14px">
+      <code class="inline">RebookingNudgeCard.tsx</code> · <code class="inline">AccountStandingStats.tsx</code>
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span> Follow a Shop <span class="tag tag-new">NEW</span></h2>
+    <p>
+      A customer can now follow a shop and be told when it publishes something new. This is the platform's first
+      genuine <strong>re-engagement loop</strong> — the only mechanism that reaches back out to a customer without
+      a transaction prompting it.
+    </p>
+    <ul>
+      <li><strong>Database:</strong> a <code class="inline">shop_favorites</code> table (migration 258), distinct
+          from the existing per-service favorites.</li>
+      <li><strong>API:</strong> follow, unfollow, follow-status and followed-shops endpoints under
+          <code class="inline">/api/shops/follow</code>, restricted to authenticated customers.</li>
+      <li><strong>Notification:</strong> a new <code class="inline">shop_new_service</code> type delivered in-app,
+          over websocket and as a native push — declared through the notification registry, so no delivery channel
+          can be silently dropped. Deliberately <em>not</em> transactional, so customers can mute it in
+          preferences.</li>
+      <li><strong>Fan-out:</strong> when a shop creates a service, its followers are notified. The fan-out is
+          fully detached — it can never slow down or fail service creation.</li>
+      <li><strong>Follow button</strong> on shop cards in both grid and list views, with optimistic toggling and
+          revert-on-failure.</li>
+      <li><strong>"Following" view</strong> — a toggle on the Shops tab, the direct counterpart to Favorites on
+          Services, filtering the marketplace to the shops a customer follows. Unfollowing from inside that view
+          removes the shop from the list immediately, and its empty state routes back to browsing all shops.</li>
+      <li><strong>Follower counts</strong> on shop cards and the shop profile, fetched for a whole grid in
+          <strong>one batched request</strong> rather than one per card — and kept in sync locally as the visitor
+          follows or unfollows.</li>
+      <li><strong>Labeled follow button on the shop profile</strong>, alongside the follower count. Hidden in
+          preview mode, so a shop looking at its own profile isn't offered a button to follow itself.</li>
+    </ul>
+    <div class="callout green">
+      <strong>Applied.</strong> The <code class="inline">shop_favorites</code> table is live — schema, unique
+      constraint and both indexes verified against the database. The migration was renumbered
+      <strong>253 → 255</strong> along the way: 253 and 254 had already been claimed by work on other branches,
+      so keeping the original number would have tripped the migration runner's collision check.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span> Login — Saved Profiles Being Skipped <span class="tag tag-fix">FIXED</span></h2>
+    <p>
+      If a wallet was left connected to the site after logout — which MetaMask does by default — opening the login
+      modal would silently re-authenticate that wallet and <strong>skip straight past the saved-profiles
+      picker</strong>. The customer never got to choose which account to sign in as.
+    </p>
+    <ul>
+      <li>The stray wallet is now disconnected when the login modal opens, so the picker owns the choice.</li>
+      <li>Scoped narrowly — login only, and only when saved accounts actually exist — so the normal connect flow
+          and sign-up are untouched.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">8</span> Notification Hardening &amp; Test Coverage <span class="tag tag-fix">FIXED</span></h2>
+    <p>
+      The follow feature shipped with no automated tests, so a safety net was added to the existing
+      notification-gateway suite — five cases pinning the <code class="inline">shop_new_service</code> contract.
+      The first run failed, for a good reason.
+    </p>
+    <div class="callout amber">
+      <strong>The bug the tests found:</strong> push notification bodies are built from <em>metadata only</em> —
+      they never receive the in-app message text. The new-service entry was written as
+      <code class="inline">message || "Check out …"</code>, so the first half was permanently empty and the
+      fallback silently took over. The result: the in-app notification read <em>"Peanut Repairs just added 'Full
+      Groom'"</em>, while the <strong>push banner that actually reaches the customer's lock screen dropped the shop
+      name entirely</strong> — on a notification whose whole purpose is getting someone to return to that shop.
+      Now built from metadata, so both read the same.
+    </div>
+    <ul>
+      <li>Five tests covering: three-channel fan-out, push title and body construction, graceful degradation when
+          names are missing, and — most importantly — that the type <strong>does not bypass user preferences</strong>.
+          That last one guards the design decision that a marketing-style nudge must stay mutable; it's exactly the
+          kind of flag a future edit could flip without anyone noticing.</li>
+      <li><strong>14/14 passing</strong> in the gateway suite.</li>
+    </ul>
+    <div class="callout violet">
+      <strong>Worth a follow-up:</strong> the same dead <code class="inline">message ||</code> pattern exists in
+      <strong>five other notification types</strong> — announcements and the four AI-overage billing events. Each
+      has a sensible hardcoded fallback so nothing is broken, but every one of those push bodies is ignoring
+      dynamic text a caller may believe it's passing. Left untouched here: rewriting other people's billing
+      notifications isn't a change to make silently.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">9</span> Verification</h2>
+    <div class="test-card">
+      <h3>Backend</h3>
+      <p>TypeScript compilation <span class="ok" style="color:#16a34a;font-weight:700">clean</span> — no errors
+      across the referral, follow-shop and notification changes.</p>
+    </div>
+    <div class="test-card">
+      <h3>Frontend</h3>
+      <p>No new type errors introduced. The project carries a pre-existing baseline of unrelated type errors;
+      <strong>none of them fall in any file touched today</strong>.</p>
+    </div>
+    <div class="test-card">
+      <h3>Database</h3>
+      <p><code class="inline">shop_favorites</code> confirmed live: all four columns with correct types, the
+      <code class="inline">(customer_address, shop_id)</code> unique constraint, and both lookup indexes.</p>
+    </div>
+    <div class="test-card">
+      <h3>Unit tests</h3>
+      <p><strong>14/14 passing</strong> in the notification-gateway suite, including five new cases for
+      <code class="inline">shop_new_service</code>.</p>
+    </div>
+    <div class="test-card">
+      <h3>Not yet verified</h3>
+      <p>The follow endpoints have not been exercised against a running server — follow/unfollow, the batched
+      follower-count lookup, and the fan-out to followers are untested at runtime. The repository layer and the
+      HTTP routes have no automated coverage either; only the notification contract does.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What's done vs. what's left</h2>
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Marketplace view controls + Shops Grid/List toggle</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Referral QR code + name-enriched friends list</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Rewards tab, impact card, review nudge</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Active Services dead-link fix</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Account Standing + settings deep-linking</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Rebooking nudge + appointment stats (incl. cadence-lookup fix)</td><td><span class="warn">◆ Built, not committed</span></td></tr>
+        <tr><td>Follow a shop — table, API, notification, UI</td><td><span class="warn">◆ Built, not committed</span></td></tr>
+        <tr><td>"Following" view, follower counts, profile-page follow button</td><td><span class="warn">◆ Built, not committed</span></td></tr>
+        <tr><td>Saved-profiles login fix</td><td><span class="warn">◆ Built, not committed</span></td></tr>
+        <tr><td>Push-body fix + 5 notification tests (14/14 passing)</td><td><span class="warn">◆ Built, not committed</span></td></tr>
+        <tr><td>Runtime walk-through of the follow flow</td><td><span class="warn">◆ Not done — needs a running server</span></td></tr>
+        <tr><td><code class="inline">message ||</code> dead pattern in 5 other notification types</td><td><span class="warn">◆ Flagged, deliberately untouched</span></td></tr>
+        <tr><td>Migration 255 (renumbered from 253) applied to database</td><td><span class="ok">✓ Applied &amp; verified</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>
+      The customer dashboard stopped being a balance readout and started being a place with reasons to return.
+      Rewards are now explained rather than implied, referrals are shareable in person and legible afterwards, and
+      account standing states its own rules. The two strategically interesting features are now complete
+      end-to-end: rebooking nudges turn one-off bookings into recurring ones, and following a shop — with a
+      Following view, follower counts and a profile-page button — is the first mechanism on the platform capable
+      of bringing a customer back <em>without</em> a transaction to prompt it. Everything typechecks clean, and
+      the <code class="inline">shop_favorites</code> table is applied and verified — the work is ready to commit.
+    </p>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 29, 2026</footer>
+</div>
+</body>
+</html>

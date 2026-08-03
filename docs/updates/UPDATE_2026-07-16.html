@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepairCoin — Engineering Update · July 16, 2026</title>
+<style>
+  :root {
+    --brand: #FFCC00; --brand-dark: #1a1a2e; --ink: #1f2433; --muted: #5b6478;
+    --line: #e6e9f0; --bg: #f6f7fb; --card: #ffffff; --green: #16a34a;
+    --green-bg: #e9f8ef; --violet: #7c3aed; --violet-bg: #f3effe;
+    --amber: #b45309; --amber-bg: #fef3e2; --red: #b91c1c; --red-bg: #fdecec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d52 100%); color: #fff; padding: 56px 0 48px; border-bottom: 4px solid var(--brand); }
+  header.hero .wrap { padding-bottom: 0; }
+  .badge { display: inline-block; background: var(--brand); color: #1a1a2e; font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 14px; border-radius: 999px; text-transform: uppercase; }
+  header.hero h1 { font-size: 33px; margin: 18px 0 6px; font-weight: 800; letter-spacing: -.02em; }
+  header.hero .sub { color: #c7cbe0; font-size: 16px; margin: 0; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .meta-pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 13px; font-size: 13.5px; color: #e8eaf4; }
+  .meta-pill strong { color: #fff; }
+  .status-ok { color: #7ee2a8; font-weight: 700; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; margin-top: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  section.summary { border-left: 4px solid var(--brand); }
+  h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  h2 .num { background: var(--brand-dark); color: var(--brand); width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; }
+  .tag-done { background: var(--green-bg); color: #14753b; }
+  .tag-new { background: var(--violet-bg); color: var(--violet); }
+  .tag-fix { background: #e4eeff; color: #1d4ed8; }
+  p { margin: 10px 0; color: #2b3142; }
+  .lead { font-size: 16.5px; color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #2b3142; }
+  code.inline { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; color: #b91c1c; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td .ok { color: var(--green); font-weight: 700; }
+  td .warn { color: var(--amber); font-weight: 700; }
+  .callout { border-radius: 10px; padding: 15px 18px; margin: 16px 0; }
+  .callout.green { background: var(--green-bg); border: 1px solid #bfe9cd; }
+  .callout.violet { background: var(--violet-bg); border: 1px solid #ddd0fb; }
+  .callout.amber { background: var(--amber-bg); border: 1px solid #f6d9a8; }
+  .callout.green strong { color: #14753b; }
+  .callout.violet strong { color: #5b21b6; }
+  .callout.amber strong { color: var(--amber); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Engineering Update</span>
+    <h1>Onboarding, Subscriptions, SMS &amp; Settings</h1>
+    <p class="sub">Rebuilt the customer's first experience, clarified shop subscriptions, shipped SMS reminders, and unified the settings design.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><strong>Date:</strong>&nbsp; July 16, 2026</span>
+      <span class="meta-pill"><strong>Status:</strong>&nbsp; <span class="status-ok">✓ Delivered &amp; Pushed to main</span></span>
+      <span class="meta-pill"><strong>Focus:</strong>&nbsp; Customer UX + growth features</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p class="lead">
+      A heavy product day focused on the customer's first experience and shop subscription management, plus
+      shipping the first real growth feature (SMS) and unifying the settings design. Everything below is
+      implemented, verified against a clean production build, and pushed to <code class="inline">main</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Login &amp; Sign-Up — Redesigned <span class="tag tag-new">NEW</span></h2>
+    <p>
+      We reworked the entire authentication entry point so it feels like a normal modern app rather than a crypto
+      product:
+    </p>
+    <ul>
+      <li><strong>"Connect Wallet" → "Log In".</strong> Login now leads with <strong>Google / Apple / Facebook /
+          Email / Passkey</strong> — a wallet is created invisibly behind the scenes, so customers never think about
+          crypto. Connecting an external wallet remains available for those who want it.</li>
+      <li><strong>Dedicated "Sign Up" button</strong> (desktop + mobile) with an <strong>intent-aware modal</strong> —
+          Sign Up shows "Join FixFlow," Login shows "Welcome," using the same secure flow underneath.</li>
+      <li><strong>Removed a broken option:</strong> phone/SMS <em>login</em> was failing (needs extra provider setup),
+          so it was removed rather than shown as a dead option on launch day.</li>
+      <li><strong>"Switch Account" button</strong> — one click fully logs out (clears session, disconnects wallet,
+          clears cookie) so users can sign in with a different account. Fixed a real testing/UX gap.</li>
+      <li><strong>FixFlow branding</strong> applied across all login/sign-up screens (keeping "RepairCoin" as the
+          reward-currency name, per the naming convention).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Customer Registration — Hardened <span class="tag tag-fix">FIXED</span></h2>
+    <ul>
+      <li><strong>Honest reward messaging.</strong> The form promised a "10 RCN bonus" to <em>everyone</em>, but that
+          bonus is only earned with a referral code — a non-referred customer would never get it. The promise is now
+          correctly tied to entering a valid referral code.</li>
+      <li><strong>Inline referral validation.</strong> A mistyped code used to fail the <em>entire</em> registration.
+          It's now checked as it's entered (green if valid, clear error if not), so a typo can't block sign-up.</li>
+      <li><strong>Email locked</strong> to the verified login identity (read-only), so the stored email can't drift.</li>
+      <li><strong>Required-field validation</strong> — name and email show required markers + inline errors instead
+          of silent failures.</li>
+      <li><strong>Privacy Policy consent</strong> checkbox added, matching the shop registration flow.</li>
+      <li><strong>Phone number field added</strong> (optional, with country-code picker) — wired end-to-end and saved
+          to the customer record, so shops can reach customers.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Reliability — Phone Country List <span class="tag tag-fix">FIXED</span></h2>
+    <p>
+      The phone-number field depended on an external third-party API (RestCountries) that was intermittently failing
+      and throwing errors on a sign-up-critical screen. We <strong>bundled the full country list (~165 countries)
+      with the app</strong> — instant, offline-safe, no external dependency. Fixed for both customer and shop
+      registration.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> Subscription Management — Clearer <span class="tag tag-new">NEW</span> <span class="tag tag-fix">FIXED</span></h2>
+    <ul>
+      <li><strong>Added a "Current Plan" card</strong> to the shop's Subscription settings showing the <strong>plan
+          name</strong> (Starter / Growth / Business — previously only the price showed), price, <strong>renewal /
+          expiry date</strong>, <strong>"subscribed since"</strong> date, and a prominent <strong>"Upgrade / Compare
+          Plans"</strong> button.</li>
+      <li><strong>Fixed a visibility bug:</strong> shops with the legacy "RCG-qualified" status saw <em>only</em>
+          notification toggles — the actual subscription management (current plan, upgrade, cancel) was hidden. Made
+          that gate blockchain-aware so all shops see it in the current database-only mode. Fully reversible.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> New Feature — SMS Reminders &amp; Alerts <span class="tag tag-new">NEW</span></h2>
+    <p>
+      Shipped the first real growth feature, using the phone numbers we now collect and the existing Twilio
+      integration (previously only used for the ads lead system, not customer notifications):
+    </p>
+    <ul>
+      <li><strong>Added SMS as a first-class notification channel</strong> to the platform's notification system — so
+          any notification (reminders, alerts, confirmations) can now be delivered by text, not just in-app/push.</li>
+      <li><strong>Wired SMS into</strong> booking confirmations and the <strong>24-hour and 2-hour appointment
+          reminders</strong>, which already run automatically on a schedule.</li>
+      <li><strong>Safe by design:</strong> respects customer opt-out (STOP/START), validates phone format, and only
+          sends when Twilio is configured (a silent no-op otherwise) — ready to flip on with a Twilio number, zero
+          risk until then.</li>
+      <li><strong>Easily extensible</strong> to reward alerts ("You earned 25 RCN"), no-show follow-ups, and more.</li>
+    </ul>
+    <div class="callout violet">
+      <strong>Why it matters:</strong> for a barbershop loyalty product, SMS is the single highest-ROI channel for
+      driving repeat visits — and most of the plumbing was already in place.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span> Unified Settings Design <span class="tag tag-new">NEW</span></h2>
+    <p>
+      Rebuilt the <strong>customer settings</strong> page to match the <strong>shop settings</strong> layout — a
+      clean two-column design with a left section-nav (<strong>Profile · Notifications · Accessibility · Account
+      Standing</strong>) instead of one long scrolling page. All existing functionality preserved; the two dashboards
+      now feel consistent.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span> Stability Fix <span class="tag tag-fix">FIXED</span></h2>
+    <p>
+      Resolved a backend console log-loop (repeated database-connection messages) by disabling a redundant diagnostic
+      self-test — quieter logs and less unnecessary database load. Recommended for production too.
+    </p>
+  </section>
+
+  <section>
+    <h2>What's shipped vs. what's left</h2>
+    <table>
+      <thead><tr><th>Area</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Login / Sign-Up redesign + Switch Account</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Customer registration hardening + phone field</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Country list reliability</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Subscription "Current Plan" card + visibility fix</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>SMS notification channel + reminders</td><td><span class="ok">✓ Shipped (Twilio env to enable)</span></td></tr>
+        <tr><td>Unified customer settings layout</td><td><span class="ok">✓ Shipped</span></td></tr>
+        <tr><td>Stripe prod price IDs + live keys, deploy, migrations</td><td><span class="warn">⚠ Ops hand-off</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>
+      The customer's first impression — login, sign-up, and registration — is now clean, trustworthy, and crypto-free,
+      while wallet access is preserved and everything is reversible. Shops get a clearer subscription view, the
+      platform gained SMS as a delivery channel (a major engagement lever for a barbershop), and the customer/shop
+      settings now share one polished design. All committed and pushed to <code class="inline">main</code>. The
+      remaining go-live items are production operations — Stripe live configuration, deploy, migrations, and
+      (optionally) Twilio credentials to turn on SMS.
+    </p>
+  </section>
+
+  <footer>RepairCoin · Engineering Update · July 16, 2026</footer>
+</div>
+</body>
+</html>
