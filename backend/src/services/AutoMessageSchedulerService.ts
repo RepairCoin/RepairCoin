@@ -7,7 +7,7 @@ import { ShopRepository } from '../repositories/ShopRepository';
 import { getSharedPool } from '../utils/database-pool';
 import {
   getAutoMessageActionRegistry,
-  NON_MESSAGING_ACTIONS,
+  NO_TEMPLATE_ACTIONS,
   SHOP_SCOPED_ACTIONS,
   DEFAULT_ACTION_TYPE,
 } from './autoMessageActions/registry';
@@ -320,7 +320,7 @@ export class AutoMessageSchedulerService {
       // message_template = NULL since migration 248, and resolveTemplate would throw on it — note
       // tsconfig has strict:false, so `messageTemplate: string | null` does NOT catch this at compile
       // time. The guard is load-bearing, not defensive decoration.
-      const isMessaging = !NON_MESSAGING_ACTIONS.has(rule.actionType || 'send_message');
+      const isMessaging = !NO_TEMPLATE_ACTIONS.has(rule.actionType || 'send_message');
       const { message: variantMessage, variant } = isMessaging
         ? this.pickVariant(rule)
         : { message: '', variant: null };
@@ -984,7 +984,7 @@ export class AutoMessageSchedulerService {
                 : rule.actionPayload ?? null;
 
               // Same guard as the immediate path: a non-messaging action has no template to resolve.
-              const isMessaging = !NON_MESSAGING_ACTIONS.has(stepActionType);
+              const isMessaging = !NO_TEMPLATE_ACTIONS.has(stepActionType);
               // A/B on delayed single-message sends: pick a variant at send time (sequence steps skip A/B).
               const abPick = isSequenceStep || !isMessaging ? null : this.pickVariant(rule);
               const messageText = isMessaging

@@ -130,7 +130,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   // What the rule DOES when it fires (Custom Workflows W2). 'send_message' is everything that existed
   // before actions; 'issue_reward' sends nothing and needs no template.
   const [actionType, setActionType] = useState<
-    "send_message" | "issue_reward" | "notify_staff" | "run_campaign"
+    "send_message" | "issue_reward" | "notify_staff" | "run_campaign" | "ai_step"
   >("send_message");
   /** run_campaign: the campaign used as a template. Each firing clones and sends a copy. */
   const [campaignId, setCampaignId] = useState("");
@@ -140,6 +140,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [rewardReason, setRewardReason] = useState("");
   /** Body of a `notify_staff` alert. Separate from rewardReason — see the prefill note below. */
   const [alertText, setAlertText] = useState("");
+  /** ai_step: the owner's brief. Optional — the generator also has the trigger, audience and name. */
+  const [aiBrief, setAiBrief] = useState("");
   const [triggerType, setTriggerType] = useState<"schedule" | "event">("schedule");
   /**
    * Has the trigger been chosen deliberately (by a click or a template) rather than left at its default?
@@ -217,7 +219,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       setActionType(
         rule.actionType === "issue_reward" ||
           rule.actionType === "notify_staff" ||
-          rule.actionType === "run_campaign"
+          rule.actionType === "run_campaign" ||
+          rule.actionType === "ai_step"
           ? rule.actionType
           : "send_message"
       );
@@ -227,6 +230,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       // doesn't trim a value set programmatically.
       setRewardReason(typeof rule.actionPayload?.reason === "string" ? rule.actionPayload.reason : "");
       setAlertText(typeof rule.actionPayload?.message === "string" ? rule.actionPayload.message : "");
+      setAiBrief(
+        typeof rule.actionPayload?.prompt === "string" ? rule.actionPayload.prompt : ""
+      );
       setCampaignId(
         typeof rule.actionPayload?.campaignId === "string" ? rule.actionPayload.campaignId : ""
       );
@@ -395,7 +401,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     }
 
     let cleanSteps: WorkflowStep[] = [];
-    if (rewardMode || actionType === "notify_staff" || actionType === "run_campaign") {
+    if (rewardMode || actionType === "notify_staff" || actionType === "run_campaign" || actionType === "ai_step") {
       // None of these sends a customer message, so there is no body to validate.
     } else if (sequenceMode) {
       // Keep a step if it's a non-messaging step (nothing to compose) OR a message step with a body.
@@ -437,8 +443,10 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       const isReward = actionType === "issue_reward";
       const isNotify = actionType === "notify_staff";
       const isCampaign = actionType === "run_campaign";
-      // A campaign carries its own subject and body, so there is no per-customer template here either.
-      const sendsNoMessage = isReward || isNotify || isCampaign;
+      const isAiStep = actionType === "ai_step";
+      // None of these stores a message_template: a campaign carries its own body, and an AI step
+      // writes one when it runs — a stored template is the thing it exists to replace.
+      const sendsNoMessage = isReward || isNotify || isCampaign || isAiStep;
       const data: CreateAutoMessageRequest = {
         name: name.trim(),
         // An action that sends nothing carries no template. In a sequence the rule-level template
@@ -456,6 +464,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           ? (alertText.trim() ? { message: alertText.trim() } : {})
           : isCampaign
           ? { campaignId }
+          : isAiStep
+          ? (aiBrief.trim() ? { prompt: aiBrief.trim() } : {})
           : null,
         triggerType,
         ...(triggerType === "schedule" && {
@@ -586,9 +596,43 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   <div className="font-medium">Send a campaign</div>
                   <div className="text-xs text-gray-500">One send to a whole audience</div>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActionType("ai_step")}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                    actionType === "ai_step"
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="font-medium">Let AI write it</div>
+                  <div className="text-xs text-gray-500">Fresh copy each run</div>
+                </button>
               </div>
             )}
           </div>
+
+          {actionType === "ai_step" && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">What should it say? (optional)</label>
+              <textarea
+                value={aiBrief}
+                onChange={(e) => setAiBrief(e.target.value)}
+                placeholder="e.g. friendly nudge, mention we're open Sundays"
+                maxLength={500}
+                rows={2}
+                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+              />
+              {/* Says the two things an owner would otherwise have to discover: the copy changes
+                  between runs, and it is written once per run rather than once per person — which is
+                  what keeps it affordable against the shop's monthly AI allowance. */}
+              <p className="text-xs text-gray-500 mt-1">
+                Written fresh each time this runs, using your brand voice. One version per run, with{" "}
+                {"{{customerName}}"} filled in per customer. Leave blank and it works from the trigger
+                and audience alone.
+              </p>
+            </div>
+          )}
 
           {actionType === "run_campaign" && (
             <div>

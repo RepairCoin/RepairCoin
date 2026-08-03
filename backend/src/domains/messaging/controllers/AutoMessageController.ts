@@ -6,7 +6,7 @@ import { logger } from '../../../utils/logger';
 import {
   AUTO_MESSAGE_ACTION_TYPES,
   DEFAULT_ACTION_TYPE,
-  NON_MESSAGING_ACTIONS,
+  NO_TEMPLATE_ACTIONS,
   SHOP_SCOPED_ACTIONS,
 } from '../../../services/autoMessageActions/registry';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../../../services/autoMessageActions/issueRewardAction';
 import { parseNotifyStaffPayload } from '../../../services/autoMessageActions/notifyStaffAction';
 import { parseRunCampaignPayload } from '../../../services/autoMessageActions/runCampaignAction';
+import { parseAiStepPayload } from '../../../services/autoMessageActions/aiStepAction';
 import { workflowRelevanceService } from '../services/WorkflowRelevanceService';
 import { workflowMetricsService, ATTRIBUTION_DAYS } from '../services/WorkflowMetricsService';
 
@@ -61,7 +62,7 @@ function parseSteps(raw: unknown): { steps?: SequenceStep[]; error?: string } {
     const { actionType, actionPayload, error } = parseAction(s?.actionType, s?.actionPayload);
     if (error) return { error: `step ${i + 1}: ${error}` };
 
-    if (NON_MESSAGING_ACTIONS.has(actionType)) {
+    if (NO_TEMPLATE_ACTIONS.has(actionType)) {
       steps.push({ actionType, actionPayload, delayHours: Math.round(delay) });
       continue;
     }
@@ -87,6 +88,7 @@ const ACTION_LABELS: Record<string, string> = {
   issue_reward: 'Issue an RCN reward',
   notify_staff: 'Notify my team',
   run_campaign: 'Send a campaign',
+  ai_step: 'Let AI write it',
 };
 
 /** The error explaining why a shop-scoped trigger can't be paired with a customer-facing action. */
@@ -147,6 +149,15 @@ function parseAction(
       };
     }
     return { actionType, actionPayload: payload as unknown as Record<string, unknown> };
+  }
+
+  if (actionType === 'ai_step') {
+    // The brief is optional: with none, the generator still has the trigger, audience and rule name to
+    // work from, which is the same context the authoring-time drafter uses.
+    return {
+      actionType,
+      actionPayload: parseAiStepPayload(rawPayload) as unknown as Record<string, unknown>,
+    };
   }
 
   if (actionType === 'notify_staff') {
@@ -284,7 +295,7 @@ export class AutoMessageController {
       // What the rule DOES (W2). Absent = send_message, so every existing client keeps working.
       const { actionType, actionPayload, error: actionError } = parseAction(rawActionType, rawActionPayload);
       if (actionError) return res.status(400).json({ success: false, error: actionError });
-      const needsMessage = !NON_MESSAGING_ACTIONS.has(actionType);
+      const needsMessage = !NO_TEMPLATE_ACTIONS.has(actionType);
 
       // Validation
       if (!name || !triggerType) {
@@ -339,7 +350,7 @@ export class AutoMessageController {
         // A shop-scoped trigger has no customer, so an action that needs a recipient can never run.
         // Rejected at write time rather than failing silently every time the rule fires.
         //
-        // Keyed on SHOP_SCOPED_ACTIONS, not NON_MESSAGING_ACTIONS: the latter contains issue_reward,
+        // Keyed on SHOP_SCOPED_ACTIONS, not NO_TEMPLATE_ACTIONS: the latter contains issue_reward,
         // which sends no message but still needs somebody to PAY — so it let "low stock → issue 25 RCN"
         // be stored happily, and it could never do anything but fail. That is the exact silent failure
         // this guard exists to prevent.
@@ -450,7 +461,7 @@ export class AutoMessageController {
       const effectiveTemplate = messageTemplate !== undefined ? messageTemplate : existing.messageTemplate;
       const effectiveSteps = rawSteps === undefined ? existing.steps : rawSteps;
       const carriesMessage = Array.isArray(effectiveSteps) && effectiveSteps.length > 0;
-      if (!NON_MESSAGING_ACTIONS.has(effectiveActionType) && !effectiveTemplate && !carriesMessage) {
+      if (!NO_TEMPLATE_ACTIONS.has(effectiveActionType) && !effectiveTemplate && !carriesMessage) {
         return res.status(400).json({
           success: false,
           error: 'messageTemplate is required for send_message rules',

@@ -445,8 +445,21 @@ UI. A test asserts exactly that.
    follow-up. Turns "tell me" into "remind me until it's done".
 2. **Draft a reorder (purchase order)** — on low stock, draft a PO to the supplier rather than only
    alerting. Closes the loop `low_stock` opens; `reorderNeeded`/`POSuggestionsCard` already exist to build on.
-3. **Run a campaign** — fire a marketing campaign as a workflow step. The Campaigns-Advanced bridge from
-   §3: lets a workflow trigger a one-to-many send instead of a single message.
+3. ~~**Run a campaign**~~ **BUILT + MERGED 2026-08-03 (`566b80bf9`, PR #717).** The Campaigns-Advanced
+   bridge from §3, and the first action that can send **email** — every other action writes an in-app
+   message, which only reaches customers who open the app.
+   **Two non-obvious constraints decided the design.** It is **shop-scoped**: the scheduler runs an
+   action once per customer in the audience, so a per-customer campaign action would fire one campaign
+   per recipient, each resolving the same audience again. And it **clones**: `sendCampaign` throws on
+   `status === 'sent'` and then calls `markAsSent`, so pointing an action straight at a campaign works
+   exactly once and throws on every later trigger — a recurring workflow that quietly stops. The
+   configured campaign is a TEMPLATE; each firing clones it to a fresh draft and sends the clone, which
+   also gives every run its own stats instead of overwriting one row's history.
+   **Open decision: the clone drops campaign rewards.** A workflow firing a reward campaign weekly is a
+   standing order against the shop's RCN balance that nobody re-approves. It needs a cap or a per-run
+   budget (compare `issue_reward`'s 100 RCN limit) before rewards should carry through.
+   Backend verified against the deployed API 2026-08-03; **the picker is not browser-verified yet** —
+   test with a DRAFT campaign on peanut first.
 4. **AI step** — compose the message at send time from live context, instead of a fixed template with
    `{{variables}}`. Reuses the marketing AI + brand kit.
 

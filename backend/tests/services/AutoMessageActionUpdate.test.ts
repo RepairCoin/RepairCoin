@@ -15,7 +15,7 @@
 // they cannot drift from the values the real code uses.
 
 import {
-  NON_MESSAGING_ACTIONS,
+  NO_TEMPLATE_ACTIONS,
   SHOP_SCOPED_ACTIONS,
   DEFAULT_ACTION_TYPE,
 } from "../../src/services/autoMessageActions/registry";
@@ -95,7 +95,7 @@ describe("effective action resolution", () => {
 describe("a messaging rule must end up with something to send", () => {
   /** The controller's guard, over effective values. */
   const rejects = (action: string, template: string | null, steps: unknown[] | null) =>
-    !NON_MESSAGING_ACTIONS.has(action) && !template && !(Array.isArray(steps) && steps.length > 0);
+    !NO_TEMPLATE_ACTIONS.has(action) && !template && !(Array.isArray(steps) && steps.length > 0);
 
   // The exact corruption: form switches to notify_staff, sends messageTemplate null. If the action
   // change doesn't land, applying the null alone produces a rule that throws on every tick.
@@ -124,7 +124,7 @@ describe("a messaging rule must end up with something to send", () => {
 // A shop-scoped trigger has no customer, so an action needing a recipient can never run. Checked against
 // effective values on update so it can't be reached by changing only one side of the pair.
 //
-// Keyed on SHOP_SCOPED_ACTIONS. Using NON_MESSAGING_ACTIONS here was a real bug found by writing this
+// Keyed on SHOP_SCOPED_ACTIONS. Using NO_TEMPLATE_ACTIONS here was a real bug found by writing this
 // suite: that set contains issue_reward, which sends no message but still needs somebody to pay, so
 // "low stock → issue 25 RCN" was accepted and could only ever fail.
 describe("shop-scoped trigger coherence on update", () => {

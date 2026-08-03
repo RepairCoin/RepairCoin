@@ -11,7 +11,7 @@
 
 import {
   AUTO_MESSAGE_ACTION_TYPES,
-  NON_MESSAGING_ACTIONS,
+  NO_TEMPLATE_ACTIONS,
   SHOP_SCOPED_ACTIONS,
 } from '../../src/services/autoMessageActions/registry';
 import {
@@ -80,7 +80,7 @@ describe('run_campaign registration', () => {
   });
 
   it('needs no messageTemplate — the campaign carries its own body', () => {
-    expect(NON_MESSAGING_ACTIONS.has('run_campaign')).toBe(true);
+    expect(NO_TEMPLATE_ACTIONS.has('run_campaign')).toBe(true);
   });
 });
 
