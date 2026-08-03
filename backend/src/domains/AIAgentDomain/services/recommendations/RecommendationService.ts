@@ -144,6 +144,29 @@ export class RecommendationService {
 
       for (const c of candidates) {
         try {
+          // UPSERT, not insert-or-skip.
+          //
+          // This was `ON CONFLICT DO NOTHING` against a unique index on
+          // (shop_id, detector_key, presentation) WHERE acted_at IS NULL. Expiry and dismissal are not
+          // in that predicate and nothing ever deletes a row, so the FIRST time a detector fired for a
+          // shop it wrote a row that could never be replaced. Three consequences, all silent:
+          //
+          //   1. Evidence froze. dc_shopu's card still said "8 inactive customers" eleven days later.
+          //   2. Once `expires_at` passed, the card vanished and could never come back — the dead row
+          //      kept blocking its own replacement. That detector went permanently silent for that shop.
+          //   3. The stored `action` froze too, so the workflow deep-link added in M2 was unreachable
+          //      for every shop whose detectors had already fired — i.e. every shop with data. The
+          //      feature looked un-shipped.
+          //
+          // Only `acted_at` ever freed the slot, which meant a recommendation the shop ignored was
+          // worse off than one it clicked.
+          //
+          // Refresh fires when the row is expired OR its content actually changed, so an unchanged
+          // condition re-detected nightly is still a no-op — no write, no re-phrasing, no AI spend.
+          // `dismissed_at IS NULL` is load-bearing: a permanent dismissal must keep blocking, because
+          // "never show me this again" is the one case where a frozen row is the correct outcome.
+          // `snoozed_until` is deliberately untouched — a snooze already expires on its own, and
+          // resetting it here would override the shop's choice the moment a number moved.
           const result = await this.pool.query(
             `INSERT INTO ai_recommendations
                (shop_id, detector_key, category, severity, score, evidence, action,
@@ -151,7 +174,35 @@ export class RecommendationService {
                 presentation, cta_label, expires_at)
              VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,
                      NOW() + INTERVAL '${EXPIRY_DAYS} days')
-             ON CONFLICT DO NOTHING`,
+             ON CONFLICT (shop_id, detector_key, presentation) WHERE acted_at IS NULL
+             DO UPDATE SET
+               category         = EXCLUDED.category,
+               severity         = EXCLUDED.severity,
+               score            = EXCLUDED.score,
+               evidence         = EXCLUDED.evidence,
+               action           = EXCLUDED.action,
+               assistant_prompt = EXCLUDED.assistant_prompt,
+               required_feature = EXCLUDED.required_feature,
+               title            = EXCLUDED.title,
+               description      = EXCLUDED.description,
+               cta_label        = EXCLUDED.cta_label,
+               detected_at      = NOW(),
+               expires_at       = EXCLUDED.expires_at,
+               -- The AI rewrite described the OLD numbers. Clearing it sends the row back through the
+               -- phraser rather than leaving "8 inactive customers" narrating an evidence blob that
+               -- now says 12. The deterministic template is already refreshed above, so the card is
+               -- correct in the meantime.
+               ai_title         = NULL,
+               ai_description   = NULL,
+               phrased_at       = NULL
+             WHERE ai_recommendations.dismissed_at IS NULL
+               AND (
+                 ai_recommendations.expires_at <= NOW()
+                 OR ai_recommendations.title       IS DISTINCT FROM EXCLUDED.title
+                 OR ai_recommendations.description IS DISTINCT FROM EXCLUDED.description
+                 OR ai_recommendations.action      IS DISTINCT FROM EXCLUDED.action
+                 OR ai_recommendations.evidence    IS DISTINCT FROM EXCLUDED.evidence
+               )`,
             [
               shopId,
               c.detectorKey,
