@@ -126,6 +126,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({
     imageUrl: initialData?.imageUrl || "",
     tags: initialData?.tags || [],
     active: initialData?.active !== undefined ? initialData.active : true,
+    taxable: initialData?.taxable !== undefined ? initialData.taxable : true,
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof CreateServiceData, string>>>({});
@@ -311,6 +312,21 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({
           {errors.priceUsd && (
             <p className="mt-1 text-sm text-red-500">{errors.priceUsd}</p>
           )}
+
+          <label className="mt-4 flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={formData.taxable !== false}
+              onChange={(e) => handleChange("taxable", e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#FFCC00]"
+            />
+            <span>
+              <span className="block text-sm font-medium text-white">Charge sales tax</span>
+              <span className="block text-xs text-gray-500">
+                Turn this off where labour isn&apos;t taxed. Only affects counter sales.
+              </span>
+            </span>
+          </label>
         </div>
       </div>
 

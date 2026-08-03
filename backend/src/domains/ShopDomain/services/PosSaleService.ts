@@ -5,7 +5,11 @@ import { getStripeService } from '../../../services/StripeService';
 import { getStripeTerminalService } from '../../../services/StripeTerminalService';
 import { computeCommissionCents } from '../../../utils/platformCommission';
 import { getSharedPool } from '../../../utils/database-pool';
-import { posSaleRepository, shopTerminalRepository } from '../../../repositories';
+import {
+  posSaleRepository,
+  shopTaxRepository,
+  shopTerminalRepository,
+} from '../../../repositories';
 import type {
   AddPosSaleItemInput,
   PosSale,
@@ -28,6 +32,7 @@ export interface AddItemRequest {
   quantity?: number;
   unitPriceCents?: number;
   discountCents?: number;
+  taxable?: boolean;
 }
 
 export class PosSaleService {
@@ -55,9 +60,36 @@ export class PosSaleService {
    * stock. The resolved values are snapshotted onto the line by the repository.
    */
   async addItem(shopId: string, saleId: string, req: AddItemRequest): Promise<PosSaleWithDetails> {
+    const sale = await this.requireSale(saleId, shopId);
     const input = await this.resolveItem(shopId, req);
-    await posSaleRepository.addItem(saleId, input);
+    await posSaleRepository.addItem(saleId, await this.applyTax(shopId, sale.locationId, input));
     return this.requireSale(saleId, shopId);
+  }
+
+  /**
+   * Tax is charged per line, on the discounted amount, and rounded there rather than across the
+   * whole sale — that is what a receipt has to show, and it keeps each line's stored tax true to
+   * its own price once a line is refunded or voided on its own.
+   *
+   * A line the shop has marked non-taxable stays at zero regardless of the rate, which is how
+   * labour is excluded in the states that don't tax it.
+   */
+  private async applyTax(
+    shopId: string,
+    locationId: string | null,
+    input: AddPosSaleItemInput
+  ): Promise<AddPosSaleItemInput> {
+    if (input.taxable === false) return { ...input, taxRateBps: 0, taxCents: 0 };
+
+    const rateBps = await shopTaxRepository.resolveRateBps(shopId, locationId);
+    if (rateBps <= 0) return { ...input, taxRateBps: 0, taxCents: 0 };
+
+    const base = (input.quantity ?? 1) * input.unitPriceCents - (input.discountCents ?? 0);
+    return {
+      ...input,
+      taxRateBps: rateBps,
+      taxCents: Math.max(Math.round((base * rateBps) / 10000), 0),
+    };
   }
 
   private async resolveItem(shopId: string, req: AddItemRequest): Promise<AddPosSaleItemInput> {
@@ -68,7 +100,7 @@ export class PosSaleService {
     if (req.kind === 'service') {
       if (!req.serviceId) throw httpError('serviceId is required for a service line.', 400);
       const result = await pool.query(
-        `SELECT service_name, price_usd FROM shop_services
+        `SELECT service_name, price_usd, taxable FROM shop_services
          WHERE service_id = $1 AND shop_id = $2`,
         [req.serviceId, shopId]
       );
@@ -81,6 +113,7 @@ export class PosSaleService {
         quantity,
         unitPriceCents: req.unitPriceCents ?? toCents(row.price_usd),
         discountCents,
+        taxable: row.taxable !== false,
       };
     }
 
@@ -89,7 +122,7 @@ export class PosSaleService {
         throw httpError('inventoryItemId is required for a product line.', 400);
       }
       const result = await pool.query(
-        `SELECT name, price FROM inventory_items
+        `SELECT name, price, taxable FROM inventory_items
          WHERE id = $1 AND shop_id = $2 AND deleted_at IS NULL`,
         [req.inventoryItemId, shopId]
       );
@@ -102,6 +135,7 @@ export class PosSaleService {
         quantity,
         unitPriceCents: req.unitPriceCents ?? toCents(row.price),
         discountCents,
+        taxable: row.taxable !== false,
       };
     }
 
@@ -115,6 +149,7 @@ export class PosSaleService {
       quantity,
       unitPriceCents: req.unitPriceCents,
       discountCents,
+      taxable: req.taxable !== false,
     };
   }
 

@@ -67,9 +67,8 @@ keystone and it is more work than the Terminal integration itself.
 
 ### Secondary gaps
 
-- **No tax engine anywhere.** `tax_rate` / `taxRate` / `tax_amount` return zero hits
-  across the backend. Repair shops need item-level taxability — labor is non-taxable in
-  many US states while parts are taxable.
+- ~~**No tax engine anywhere.**~~ Built in S3 for POS sales; online bookings still
+  charge no tax (see Open questions).
 - **No gift card concept.** Fully greenfield.
 - **No device / warranty model.** Phase 6's "devices owned, warranty" is greenfield.
 - **No repair ticket model.** Phase 4 is greenfield; existing "ticket" references are
@@ -175,8 +174,8 @@ being designed. That is the fastest route to something real in a shop's hands.
 |---|---|---|---|
 | S0 | Terminal readiness — extend `ConnectAccountStatus`, Stripe Location strategy — **built** | S | — |
 | S1 | **Phase 1** — reader pairing, status, default reader, disconnect, test charge — **built, untested against hardware** | M | S0 |
-| S2 | **Sale model** — `pos_sales` / `pos_sale_items` / `pos_sale_payments` | L | — |
-| S3 | Tax — rates, taxability, per-line snapshot | M | S2 |
+| S2 | **Sale model** — `pos_sales` / `pos_sale_items` / `pos_sale_payments` — **shipped (#710)** | L | — |
+| S3 | Tax — rates, taxability, per-line snapshot — **built** | M | S2 |
 | S4 | **Phase 2** — POS UI, tablet web, split tender | L | S1, S2, S3 |
 | S5 | **Phase 5** — inventory wiring (mostly exists) | S | S2 |
 | S6 | **Phase 8** — receipt, warranty, loyalty, review via notification gateway | M | S2 |
@@ -241,11 +240,58 @@ Service lines already deduct via `service:completed`. Product lines need a direc
 
 ---
 
+### S3 — Tax — **built**
+
+Migration 257: `shop_tax_rates` plus a `taxable` column on `shop_services` and
+`inventory_items`. A shop-level rate that locations inherit, with an optional
+per-location override, enforced by partial unique indexes.
+
+Tax is charged **per line, on the discounted price, and rounded there** rather than
+across the whole sale — that is what a receipt has to show, and it keeps each line's
+stored tax true to its own price when a line is later refunded or voided alone. A line
+marked non-taxable stays at zero regardless of the rate, which is how labour is excluded
+in the states that don't tax it.
+
+Rates enter as a percentage and store as basis points, so 8.25% survives without a float.
+Settings UI lives at Settings → Sales Tax (`shop:manage`); taxable toggles sit on the
+service form and both inventory item modals.
+
+**Nothing changes until a shop acts:** existing rows default to taxable, but no rate
+exists until one is created, so tax stays zero until it is deliberately configured.
+
+**Route trap worth knowing:** `shop/routes/index.ts` has a `router.get('/:shopId')`
+catch-all mounted early, so any NEW single-segment route under `/api/shops` is swallowed
+by it and returns "Shop not found". The tax endpoints are namespaced under
+`/api/shops/pos/tax-rates` for that reason; the terminal and POS routes were already safe
+by virtue of having two segments.
+
 ## 7. Open questions
 
-1. **Offline mode** — in or out of scope for MVP.
-2. **Gift cards** — fully greenfield, currently sitting inside Phase 2's tender list but
-   really deserves its own slice.
+1. **Tax on online bookings.** S3 is POS-only — `ServiceDomain/PaymentService` charges
+   `finalAmountUsd` with no tax, so the same service costs $120 booked online and $129.90
+   at the counter with an 8.25% rate. A shop legally required to collect tax owes it on
+   both channels, so today they absorb it on bookings. Extending is not large (resolve the
+   rate the same way, honour the `taxable` flag, add to `amountInCents`), but it needs
+   decisions on RCN redemption ordering against the taxable base, returning the tax portion
+   on refunds, and showing a tax line in the customer booking UI before payment.
+2. **Gift cards** — greenfield. Rejected at the route boundary with a 400 for now; the
+   tender enum accepts the value but there is no balance ledger behind it.
+
+### Resolved
+
+- **Offline mode** — out of scope. Sale ids stay server-generated with no idempotency layer.
+
+## 7b. Known bug, tracked separately
+
+`InventoryDomain` subscribes to **`service:completed`** (`serviceIntegrationController.ts`),
+but the event `OrderController` publishes on completion is **`service.order_completed`**.
+`EventBus` does exact-match lookups with no normalisation, so `deductStockForService` has
+**never run** — any shop that linked parts to a service has been expecting stock to come
+down on booking completion, and it never has.
+
+The payload is already compatible, so the fix is a one-word change. It is deliberately NOT
+in the POS branches: flipping it starts moving stock for every shop with linked parts,
+which is a live behavioural change that wants its own commit and its own decision.
 
 ---
 

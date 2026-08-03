@@ -37,6 +37,7 @@ export interface ShopService {
   imageUrl?: string;
   tags?: string[];
   active: boolean;
+  taxable?: boolean;
   createdAt: string;
   updatedAt: string;
   avgRating?: number;
@@ -173,6 +174,7 @@ export interface CreateServiceData {
   imageUrl?: string;
   tags?: string[];
   active?: boolean;
+  taxable?: boolean;
   // AI Sales Assistant
   aiSalesEnabled?: boolean;
   aiTone?: AITone;
@@ -195,6 +197,7 @@ export interface UpdateServiceData {
   imageUrl?: string;
   tags?: string[];
   active?: boolean;
+  taxable?: boolean;
   // AI Sales Assistant
   aiSalesEnabled?: boolean;
   aiTone?: AITone;

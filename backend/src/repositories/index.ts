@@ -19,6 +19,7 @@ export { StripeEventRepository } from './StripeEventRepository';
 export { RefundRepository } from './RefundRepository';
 export { ShopTerminalRepository } from './ShopTerminalRepository';
 export { PosSaleRepository } from './PosSaleRepository';
+export { ShopTaxRepository } from './ShopTaxRepository';
 
 // Create singleton instances
 import { CustomerRepository } from './CustomerRepository';
@@ -40,6 +41,7 @@ import { StripeEventRepository } from './StripeEventRepository';
 import { RefundRepository } from './RefundRepository';
 import { ShopTerminalRepository } from './ShopTerminalRepository';
 import { PosSaleRepository } from './PosSaleRepository';
+import { ShopTaxRepository } from './ShopTaxRepository';
 
 export const customerRepository = new CustomerRepository();
 export const shopRepository = new ShopRepository();
@@ -60,3 +62,4 @@ export const stripeEventRepository = new StripeEventRepository();
 export const refundRepository = new RefundRepository();
 export const shopTerminalRepository = new ShopTerminalRepository();
 export const posSaleRepository = new PosSaleRepository();
+export const shopTaxRepository = new ShopTaxRepository();
