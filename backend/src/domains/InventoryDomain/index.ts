@@ -3,7 +3,10 @@ import { DomainModule } from '../types';
 import { initializeRoutes } from './routes';
 import { logger } from '../../utils/logger';
 import { Router } from 'express';
-import { setupServiceCompletionListener } from './controllers/serviceIntegrationController';
+import {
+  setupServiceCompletionListener,
+  setupPosSaleListener,
+} from './controllers/serviceIntegrationController';
 import { getLowStockAlertScheduler } from '../../services/LowStockAlertScheduler';
 
 export class InventoryDomain implements DomainModule {
@@ -17,6 +20,7 @@ export class InventoryDomain implements DomainModule {
   async initialize(): Promise<void> {
     // Setup service completion event listener for auto stock deduction
     setupServiceCompletionListener();
+    setupPosSaleListener();
 
     // Start low stock alert scheduler in production
     if (process.env.NODE_ENV === 'production' || process.env.LOW_STOCK_ALERTS_ENABLED === 'true') {

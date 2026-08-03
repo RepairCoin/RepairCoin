@@ -385,6 +385,81 @@ export async function getServicesUsingItem(req: Request, res: Response): Promise
   }
 }
 
+/**
+ * Deduct a product sold directly over the counter. Distinct from deductStockForService, which
+ * consumes the PARTS linked to a service — a retail line is the item itself.
+ */
+export async function deductStockForProduct(
+  inventoryItemId: string,
+  quantity: number,
+  shopId: string,
+  saleId: string
+): Promise<void> {
+  try {
+    const updated = await pool.query(
+      `UPDATE inventory_items
+       SET stock_quantity = GREATEST(stock_quantity - $1, 0)
+       WHERE id = $2 AND shop_id = $3 AND deleted_at IS NULL
+       RETURNING name, stock_quantity, stock_quantity + $1 AS previous_quantity`,
+      [quantity, inventoryItemId, shopId]
+    );
+    const row = updated.rows[0];
+    if (!row) return;
+
+    await pool.query(
+      `INSERT INTO inventory_adjustments (
+         item_id, shop_id, quantity_change, quantity_before, quantity_after,
+         adjustment_type, reason, reference_type, reference_id, adjusted_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        inventoryItemId,
+        shopId,
+        -quantity,
+        parseInt(row.previous_quantity),
+        parseInt(row.stock_quantity),
+        'sale',
+        'Sold at point of sale',
+        'pos_sale',
+        saleId,
+        'system',
+      ]
+    );
+  } catch (error) {
+    logger.error('Error deducting stock for POS product:', error);
+    // Never fail a completed sale over bookkeeping — the money has already changed hands.
+  }
+}
+
+export function setupPosSaleListener(): void {
+  eventBus.subscribe(
+    'pos.sale_completed',
+    async (event: {
+      data: {
+        saleId: string;
+        shopId: string;
+        items: Array<{
+          kind: string;
+          serviceId: string | null;
+          inventoryItemId: string | null;
+          quantity: number;
+        }>;
+      };
+    }) => {
+      const { saleId, shopId, items } = event.data;
+      for (const item of items ?? []) {
+        if (item.kind === 'product' && item.inventoryItemId) {
+          await deductStockForProduct(item.inventoryItemId, item.quantity, shopId, saleId);
+        } else if (item.kind === 'service' && item.serviceId) {
+          await deductStockForService(item.serviceId, saleId, shopId);
+        }
+      }
+    },
+    'InventoryDomain:PosSale'
+  );
+
+  logger.info('POS sale listener registered for inventory stock deduction');
+}
+
 // Setup event listener for service completion
 export function setupServiceCompletionListener(): void {
   eventBus.subscribe('service:completed', async (event: {
