@@ -35,6 +35,7 @@ import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
 import { ShopSubTabs } from "@/components/shop/ShopSubTabs";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
+import { PosTab } from "@/components/shop/tabs/PosTab";
 import { InventoryTab } from "@/components/shop/tabs/InventoryTab";
 import { PurchaseOrdersTab } from "@/components/shop/tabs/PurchaseOrdersTab";
 import { InventoryAnalyticsTab } from "@/components/shop/tabs/InventoryAnalyticsTab";
@@ -1606,6 +1607,12 @@ export default function ShopDashboardClient() {
               <StripeConnectGuard feature="service management" shopData={shopData}>
                 <ServicesTab shopId={shopData.shopId} shopData={shopData} />
               </StripeConnectGuard>
+            </SubscriptionGuard>
+          )}
+
+          {activeTab === "pos" && shopData && (
+            <SubscriptionGuard shopData={shopData} allowFree>
+              <PosTab />
             </SubscriptionGuard>
           )}
 

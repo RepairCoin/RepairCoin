@@ -177,8 +177,8 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S2 | **Sale model** — `pos_sales` / `pos_sale_items` / `pos_sale_payments` — **shipped (#710)** | L | — |
 | S3 | Tax — rates, taxability, per-line snapshot — **built** | M | S2 |
 | S4 | **Phase 2** — POS UI, tablet web, split tender | L | S1, S2, S3 |
-| S5 | **Phase 5** — inventory wiring (mostly exists) | S | S2 |
-| S6 | **Phase 8** — receipt, warranty, loyalty, review via notification gateway | M | S2 |
+| S5 | **Phase 5** — inventory wiring (mostly exists), **plus per-branch stock (see 7)** | S | S2 |
+| S6 | **Phase 8** — receipt, warranty, loyalty, review via notification gateway, **plus fiat-ledger reconciliation (see 7a)** | M | S2 |
 | S7 | **Phase 6** — devices & warranty model | M | S2 |
 | S8 | **Phase 4** — repair ticket workflow | L | S2, S7 |
 | — | **Phases 3 & 7 (AI)** — deferred handoff | — | S2 |
@@ -280,6 +280,93 @@ by virtue of having two segments.
 ### Resolved
 
 - **Offline mode** — out of scope. Sale ids stay server-generated with no idempotency layer.
+
+## 6a. The reader test can leave an abandoned authorization
+
+The Test button on the Card Readers panel raises a $1 PaymentIntent with
+`capture_method: 'manual'` and cancels it on "Finish test". Nothing cancels it if the shop
+taps a card and then closes the tab instead: the intent stays at `requires_capture` and the
+$1 hold remains visible on that card's statement until Stripe auto-releases it, roughly a
+week later. No money moves either way, but a real cardholder sees a pending charge.
+
+Harmless while the shop is testing with its own card. It becomes a support ticket once shops
+other than us are pairing readers.
+
+Options, best first:
+
+1. **Switch the test to a SetupIntent.** `stripe.terminal.readers.processSetupIntent` is
+   already in the SDK; it reads the card and proves the reader works with no authorization
+   hold at all, so the abandoned case stops existing. Trade-off: it saves a PaymentMethod, so
+   card details are stored for what is meant to be a throwaway check.
+2. **Sweep abandoned test intents** — a scheduled job cancelling intents with
+   `terminalTest: 'true'` older than a few minutes. The metadata flag is already stamped.
+3. **Best-effort cancel on unmount** — cheapest, catches ordinary navigation but not a hard
+   tab close.
+
+Deliberately left as-is for now.
+
+## 7. POS stock deduction is not per-branch (deferred to S5)
+
+A POS sale now carries a `location_id` — the register binds to a branch on the Point of Sale
+tab, which drives the tax rate and filters readers to that branch. **Stock deduction does not
+use it.**
+
+`deductStockForProduct` decrements `inventory_items.stock_quantity`, the shop-wide total, and
+never touches the per-branch `inventory_item_stock` row that `InventoryRepository` maintains
+(and that the per-location inventory views read). A sale at branch B therefore reduces the
+shop total but leaves both branches' per-branch figures untouched, so they drift from reality
+the moment a multi-location shop sells anything at the counter.
+
+Single-location shops are unaffected: their totals and their one branch row stay in step.
+
+**Fix in S5**, where the inventory wiring already lives: `pos.sale_completed` already carries
+`locationId`, so the deduction needs to write `inventory_item_stock` for that branch and keep
+the item total consistent — the same pair of writes `adjustStock` already performs. Reserved
+quantity is the related question worth settling at the same time.
+
+## 7a. POS sales are not properly in the fiat ledger (deferred to S6)
+
+Found while testing the POS in August 2026. The shop Transactions page reads the `payments`
+table, and POS card sales are reaching it **by accident** — via the Stripe webhook, not
+because we write them.
+
+`PaymentReconciler` builds each row from charge metadata:
+
+```
+customerAddress: this.lower(charge.metadata?.customerAddress)   // → null for POS
+orderId:         charge.metadata?.orderId ?? null               // → null for POS
+source:          this.sourceFromMetadata(charge.metadata)       // → always 'booking'
+```
+
+The POS PaymentIntent stamps only `{ shopId, posSaleId }`, so rows land with:
+
+- **no customer** — correct for a walk-in, but indistinguishable from a lost attribution
+- **no service name** — a counter sale is multi-line by definition, so there is no single
+  service to join; it needs a summary, not a name
+- **`source` = `'booking'`** — counter sales are actively **mislabeled as bookings**.
+  `sourceFromMetadata` is an acknowledged stub whose own comment says "later slices set
+  source explicitly for invoices/terminal/links". This is that slice.
+
+Worse: **cash sales never reach the ledger at all**, because there is no Stripe charge for
+the reconciler to see. The Transactions page therefore under-reports revenue silently —
+the same structural point that ruled out Stripe Tax in S3.
+
+### The fix — write the ledger ourselves, don't infer it from Stripe
+
+1. Add `pos_sale_id` to `payments` so a row can point back at the sale.
+2. On sale completion, write one `payments` row **per tender, cash included**, with
+   `source: 'terminal'`, the customer when one is attached, and the fee on the card leg.
+3. Stamp `type: 'pos_sale'` and `customerAddress` on the PaymentIntent, and teach
+   `sourceFromMetadata` to return `'terminal'`, so the webhook reconciles onto the row we
+   already wrote rather than creating a mislabeled duplicate.
+4. Transactions UI: render "Counter sale #N — 3 items" where a service name would go, and
+   leave the customer blank for walk-ins (blank is the correct answer there).
+
+**The fiddly part is idempotency.** The webhook can land before or after completion, so the
+write must be idempotent on `stripe_payment_intent_id` — the unique index `uq_payments_intent`
+(migration 244) already exists for exactly this.
+
+Until this is done, treat the Transactions page as incomplete for any shop using the POS.
 
 ## 7b. Known bug, tracked separately
 
