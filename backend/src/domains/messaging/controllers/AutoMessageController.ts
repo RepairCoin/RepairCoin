@@ -89,6 +89,7 @@ const ACTION_LABELS: Record<string, string> = {
   notify_staff: 'Notify my team',
   run_campaign: 'Send a campaign',
   ai_step: 'Let AI write it',
+  draft_reorder: 'Draft a reorder',
 };
 
 /** The error explaining why a shop-scoped trigger can't be paired with a customer-facing action. */

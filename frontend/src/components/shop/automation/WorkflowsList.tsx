@@ -65,6 +65,8 @@ function actionLabel(actionType: string | undefined, payload: any, short: boolea
       return short ? "Campaign" : "Send a campaign";
     case "ai_step":
       return short ? "AI message" : "Let AI write it";
+    case "draft_reorder":
+      return short ? "Reorder" : "Draft a reorder";
     default:
       return short ? "Message" : "Send a message";
   }
