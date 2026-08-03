@@ -107,7 +107,6 @@
     "jimp": "^0.22.12",
     "json-2-csv": "^5.5.9",
     "jsonwebtoken": "^9.0.2",
-    "keytar": "^7.9.0",
     "morgan": "^1.10.0",
     "multer": "^2.1.1",
     "node-cron": "^3.0.3",
