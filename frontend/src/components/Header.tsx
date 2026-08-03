@@ -16,7 +16,7 @@ import { useModalStore } from "@/stores/modalStore";
 import { authApi } from "@/services/api/auth";
 import { useAuthStore } from "@/stores/authStore";
 import { performSwitchAccount } from "@/utils/switchAccount";
-import { consumePendingAccount, consumeOpenLogin, type SavedAccount } from "@/utils/savedAccounts";
+import { consumePendingAccount, consumeOpenLogin, getSavedAccounts, type SavedAccount } from "@/utils/savedAccounts";
 import { SavedProfilesLogin } from "@/components/auth/SavedProfilesLogin";
 
 const Header: React.FC = () => {
@@ -163,7 +163,24 @@ const Header: React.FC = () => {
       // User opened the modal - mark that a sign-in was initiated
       console.log("🟦 [Header] Modal opened - marking sign-in initiated");
       signInInitiatedRef.current = true;
+
+      // If the user has saved accounts and a wallet is STILL connected (e.g.
+      // MetaMask left connected to the site after logout), the wallet effect below
+      // would treat it as a fresh sign-in and auto-authenticate it — skipping the
+      // saved-profiles picker the user opened this modal to use. Disconnect it so
+      // the picker owns the choice; "Use another profile" reconnects a wallet on
+      // demand. Only for login (not sign-up) and only when saved accounts exist,
+      // so the normal connect flow is untouched.
+      if (!isSignup && getSavedAccounts().length > 0 && wallet && disconnect) {
+        console.log("🟦 [Header] Saved accounts present — disconnecting stray wallet so the picker isn't skipped");
+        try {
+          disconnect(wallet);
+        } catch (e) {
+          console.warn("Stray-wallet disconnect failed (non-blocking):", e);
+        }
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isWelcomeModalOpen]);
 
   // Handle wallet connection after sign-in

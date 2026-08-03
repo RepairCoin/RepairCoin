@@ -10,4 +10,5 @@ export { RecommendedShopsCard } from "./RecommendedShopsCard";
 export { TrustedProfessionalsCard } from "./TrustedProfessionalsCard";
 export { ImpactSummaryCard } from "./ImpactSummaryCard";
 export { ReviewNudgeCard } from "./ReviewNudgeCard";
+export { RebookingNudgeCard } from "./RebookingNudgeCard";
 export { PopularServicesCard } from "./PopularServicesCard";

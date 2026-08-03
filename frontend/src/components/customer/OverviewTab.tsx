@@ -18,6 +18,7 @@ import {
   WalletSummaryCard,
   ImpactSummaryCard,
   ReviewNudgeCard,
+  RebookingNudgeCard,
   AskAICustomerCard,
   ActiveServicesCard,
   RecommendedShopsCard,
@@ -246,6 +247,14 @@ export const OverviewTab: React.FC = () => {
       <Stagger className="space-y-5">
       <StaggerItem>
         <ReviewNudgeCard onReview={() => router.push("/customer?tab=orders")} />
+      </StaggerItem>
+
+      <StaggerItem>
+        <RebookingNudgeCard
+          onRebook={(serviceId) =>
+            router.push(`/customer?tab=marketplace&service=${serviceId}`)
+          }
+        />
       </StaggerItem>
 
       <StaggerItem className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
