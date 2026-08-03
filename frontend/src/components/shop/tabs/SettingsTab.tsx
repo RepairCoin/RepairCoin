@@ -12,6 +12,7 @@ const SECTION_PERMISSION: Record<string, string | undefined> = {
   notifications: undefined,
   subscription: "billing:manage",
   "no-show-policy": "bookings:manage",
+  "sales-tax": "shop:manage",
   emails: "shop:manage",
   password: "shop:manage",
   "social-media": "shop:manage",
@@ -25,6 +26,7 @@ const SECTION_PERMISSION: Record<string, string | undefined> = {
 import { SubscriptionManagement } from "../SubscriptionManagement";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import { NoShowPolicySettings } from "../NoShowPolicySettings";
+import TaxSettings from "../TaxSettings";
 import { EmailSettings } from "../EmailSettings";
 import { PasswordAuthSettings } from "../PasswordAuthSettings";
 import { SocialMediaSettings } from "../SocialMediaSettings";
@@ -59,6 +61,7 @@ import {
   Palette,
   Gift,
   Clock,
+  Percent,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
@@ -126,6 +129,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     | "notifications"
     | "subscription"
     | "no-show-policy"
+    | "sales-tax"
     | "emails"
     | "password"
     | "social-media"
@@ -149,6 +153,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       section === "notifications" ||
       section === "subscription" ||
       section === "no-show-policy" ||
+      section === "sales-tax" ||
       section === "emails" ||
       section === "password" ||
       section === "social-media" ||
@@ -356,6 +361,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const accessTabs = [
     { id: "subscription" as const, label: "Subscription", icon: CreditCard },
     { id: "no-show-policy" as const, label: "No-Show Policy", icon: Ban },
+    { id: "sales-tax" as const, label: "Sales Tax", icon: Percent },
     { id: "emails" as const, label: "Emails", icon: Mail },
     {
       id: "password" as const,
@@ -791,6 +797,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <SubscriptionNotificationSettings userType="shop" />
             </div>
           )}
+
+          {activeTab === "sales-tax" && <TaxSettings />}
 
           {/* No-Show Policy Tab Content */}
           {activeTab === "no-show-policy" && (

@@ -27,6 +27,7 @@ export interface CreateServiceRequest {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
+  taxable?: boolean;
   /**
    * Q&A FAQ entries for the AI to reference. Optional; empty array means
    * the AI relies on description only. Persisted to
@@ -50,6 +51,7 @@ export interface UpdateServiceRequest {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
+  taxable?: boolean;
   /**
    * When provided, replaces the entire FAQ entry list for the service.
    * Undefined leaves existing entries untouched (partial updates of the
@@ -207,7 +209,8 @@ export class ServiceManagementService {
         aiSalesEnabled: request.aiSalesEnabled,
         aiTone: request.aiTone,
         aiSuggestUpsells: request.aiSuggestUpsells,
-        aiBookingAssistance: request.aiBookingAssistance
+        aiBookingAssistance: request.aiBookingAssistance,
+        taxable: request.taxable
       };
 
       const service = await this.repository.createService(params);
@@ -394,7 +397,8 @@ export class ServiceManagementService {
         aiSalesEnabled: updates.aiSalesEnabled,
         aiTone: updates.aiTone,
         aiSuggestUpsells: updates.aiSuggestUpsells,
-        aiBookingAssistance: updates.aiBookingAssistance
+        aiBookingAssistance: updates.aiBookingAssistance,
+        taxable: updates.taxable
       };
 
       const service = await this.repository.updateService(serviceId, params);
