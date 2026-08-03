@@ -71,6 +71,11 @@ const hourLabel = (h: number) =>
  * its value already set. Same component, same props, opposite outcome — decided by mount order.
  *
  * Deriving the label from state removes the timing question entirely.
+ *
+ * That reasoning did NOT fix Target Audience — it stayed blank on the deployed build — so that one
+ * field goes further and renders its label as a plain span, bypassing `SelectValue` altogether. See
+ * `effectiveAudience`. The explicit children below remain correct and are worth keeping regardless;
+ * they are simply not sufficient on their own.
  */
 
 const TEMPLATE_VARIABLES = [
@@ -142,6 +147,30 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [eventType, setEventType] = useState("booking_completed");
   const [delayHours, setDelayHours] = useState(24);
   const [targetAudience, setTargetAudience] = useState("all");
+  /**
+   * The audience this form is actually operating on.
+   *
+   * Target Audience rendered as an empty "Select audience" on rules that demonstrably HAVE a stored
+   * audience — the API returns `inactive_30d`, the database agrees, and yet the control came up blank.
+   * Two causes were possible and I could not tell them apart from outside the browser: either the state
+   * was somehow empty, or the dropdown was failing to reflect a state that was fine.
+   *
+   * Rather than guess again, this collapses both. The value is whatever the state holds IF that is a
+   * real option; otherwise it falls back to the rule's stored audience, and only then to "all". So a
+   * blank or corrupted state can no longer either display as empty or be SAVED over the top of a
+   * correct stored value — which was the actual risk, since an owner seeing a blank field would pick
+   * something and overwrite an audience that was right all along.
+   *
+   * It never invents a value that contradicts the rule: the fallback IS the stored one.
+   */
+  const isAudience = (v: unknown): v is string =>
+    typeof v === "string" && TARGET_AUDIENCES.some((a) => a.value === v);
+  const storedAudience = rule?.targetAudience;
+  const effectiveAudience = isAudience(targetAudience)
+    ? targetAudience
+    : isAudience(storedAudience)
+    ? storedAudience
+    : "all";
   const [maxSendsPerCustomer, setMaxSendsPerCustomer] = useState(1);
   // Drip sequence (multi-step) state. Sequences are event-triggered only.
   const [useSequence, setUseSequence] = useState(false);
@@ -218,7 +247,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       const { messageTemplate: text } = await generateAutoMessageContent({
         triggerType,
         eventType: triggerType === "event" ? eventType : undefined,
-        targetAudience,
+        targetAudience: effectiveAudience,
         name: name || undefined,
         prompt: "This is variant B of an A/B test — write a distinctly different angle from variant A.",
       });
@@ -243,7 +272,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       const { messageTemplate: text } = await generateAutoMessageContent({
         triggerType,
         eventType: triggerType === "event" ? eventType : undefined,
-        targetAudience,
+        targetAudience: effectiveAudience,
         name: name || undefined,
         prompt: `This is step ${i + 1} of a multi-step sequence. Keep it distinct from earlier steps.`,
       });
@@ -268,7 +297,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         triggerType,
         scheduleType: triggerType === "schedule" ? scheduleType : undefined,
         eventType: triggerType === "event" ? eventType : undefined,
-        targetAudience,
+        targetAudience: effectiveAudience,
         name: name || undefined,
       });
       setMessageTemplate(text);
@@ -388,7 +417,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           eventType,
           delayHours,
         }),
-        targetAudience,
+        targetAudience: effectiveAudience,
         // Hiding the input is not enough: it defaults to 1, and the engine's per-customer cap applies
         // to a staff alert on a customer event too — so a repeat no-show by the same customer would be
         // reported once and then never again. 0 means uncapped (the engine's check is truthy).
@@ -686,11 +715,13 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           {/* Target Audience — hidden when the engine won't consult it (see audienceApplies). */}
           <div className={audienceApplies ? "" : "hidden"}>
             <label className="block text-sm text-gray-400 mb-1">Target Audience</label>
-            <Select value={targetAudience} onValueChange={(value) => setTargetAudience(value)}>
+            <Select value={effectiveAudience} onValueChange={(value) => setTargetAudience(value)}>
+              {/* The label is rendered directly, NOT via <SelectValue>. SelectValue only shows its
+                  children when the library's own copy of the value is non-empty; when that copy went
+                  empty the field showed a placeholder over a rule that had a perfectly good audience.
+                  A plain span cannot do that — it renders what this form is holding, always. */}
               <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#0D0D0D] border-gray-700 rounded-lg text-white text-sm">
-                <SelectValue placeholder="Select audience">
-                  {TARGET_AUDIENCES.find((a) => a.value === targetAudience)?.label}
-                </SelectValue>
+                <span>{TARGET_AUDIENCES.find((a) => a.value === effectiveAudience)?.label}</span>
               </SelectTrigger>
               <SelectContent variant="dark">
                 {TARGET_AUDIENCES.map((a) => (
