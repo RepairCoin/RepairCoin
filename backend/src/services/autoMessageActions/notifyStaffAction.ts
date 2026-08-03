@@ -49,6 +49,8 @@ const MAX_MESSAGE = 500;
  */
 const NOTIFY_PERMISSION_BY_EVENT: Record<string, string> = {
   low_stock: 'inventory:view',
+  // A lead is a marketing contact, so whoever handles customers should be the one paged to ring them.
+  new_ad_lead: 'customers:view',
   no_show: 'bookings:view',
   booking_cancelled: 'bookings:view',
   booking_completed: 'bookings:view',

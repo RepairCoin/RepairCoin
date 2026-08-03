@@ -22,9 +22,11 @@ describe('low_stock — shop-scoped trigger', () => {
     expect(controller).toContain("'low_stock'");
   });
 
+  // Asserts MEMBERSHIP, not the whole list. This used to pin the set to exactly ['low_stock'], which
+  // made it fail the moment new_ad_lead became the second shop-scoped trigger — a test failing on a
+  // correct change, because it asserted the contents of a list instead of the property it cares about.
   it('is declared shop-scoped, so the API can reject customer actions on it', () => {
-    expect(controller).toContain('SHOP_SCOPED_EVENTS');
-    expect(controller).toMatch(/SHOP_SCOPED_EVENTS\s*=\s*new Set\(\['low_stock'\]\)/);
+    expect(controller).toMatch(/SHOP_SCOPED_EVENTS\s*=\s*new Set\(\[[^\]]*'low_stock'/);
   });
 
   // A low_stock rule set to "send a message" has nobody to send to. Rejected at write time rather

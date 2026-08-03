@@ -27,6 +27,7 @@ const EVENT_TYPES = [
   { value: "low_rating", label: "Low Rating (1–2 stars)" },
   { value: "payment_failed", label: "Payment Failed" },
   { value: "low_stock", label: "Low Stock (shop alert)" },
+  { value: "new_ad_lead", label: "New Ad Lead (shop alert)" },
 ];
 
 /**
@@ -34,7 +35,7 @@ const EVENT_TYPES = [
  * force a shop-facing action — the API rejects the alternative, and a form that let you pick it would
  * just be a 400 waiting to happen.
  */
-const SHOP_SCOPED_EVENTS = new Set(["low_stock"]);
+const SHOP_SCOPED_EVENTS = new Set(["low_stock", "new_ad_lead"]);
 
 /**
  * Event triggers that SWEEP instead of reacting: nothing hands them a customer, so the engine resolves
