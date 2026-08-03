@@ -31,7 +31,7 @@ export class StripeTerminalService {
    * The connected account to address, having confirmed it can actually transact. Callers get a
    * 409 they can show the shop rather than an opaque Stripe error at reader-registration time.
    */
-  private async requireAccountId(shopId: string): Promise<string> {
+  async requireAccountId(shopId: string): Promise<string> {
     const shop = await shopRepository.getShop(shopId);
     if (!shop) throw httpError(`Shop not found: ${shopId}`, 404);
     if (!shop.stripeConnectAccountId) {

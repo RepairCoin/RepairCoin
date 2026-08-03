@@ -2994,6 +2994,9 @@ router.use('/', connectRoutes);
 import terminalRoutes from './terminal';
 router.use('/', terminalRoutes);
 
+import posRoutes from './pos';
+router.use('/', posRoutes);
+
 // Mount webhook routes - MUST BE PUBLIC FOR STRIPE
 import webhookRoutes from './webhooks';
 

@@ -19,7 +19,7 @@ import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
 import { resolveBookingLocationId, getCalendarLocationLabel } from '../../../utils/multiLocationEntitlement';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
 import { isShopStripeConnected } from '../../../middleware/stripeConnectGuard';
-import { computeBookingCommissionCents } from '../../../utils/platformCommission';
+import { computeCommissionCents } from '../../../utils/platformCommission';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
 export interface CreatePaymentIntentRequest {
@@ -362,7 +362,7 @@ export class PaymentService {
       // tier-based platform commission (Starter/Growth 1%, Business 0.5%). The shop is
       // guaranteed connected here — the isShopStripeConnected() guard above already blocked
       // the booking otherwise.
-      const commissionCents = await computeBookingCommissionCents(service.shopId, amountInCents);
+      const commissionCents = await computeCommissionCents(service.shopId, amountInCents);
 
       const paymentIntent = await this.stripeService.createPaymentIntent({
         amount: amountInCents,
@@ -611,7 +611,7 @@ export class PaymentService {
       // Connect: route the payment to the shop's own Stripe account and retain the tier-based
       // platform commission (Starter/Growth 1%, Business 0.5%). The shop is guaranteed connected
       // here — the isShopStripeConnected() guard above already blocked the booking otherwise.
-      const commissionCents = await computeBookingCommissionCents(service.shopId, amountInCents);
+      const commissionCents = await computeCommissionCents(service.shopId, amountInCents);
       const connectedAccountId = shop?.stripeConnectAccountId;
 
       // Set redirect URLs - use deep links for mobile (shared payment success screen)
