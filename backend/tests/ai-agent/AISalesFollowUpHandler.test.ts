@@ -15,9 +15,20 @@ import { AISalesFollowUpHandler } from "../../src/domains/AIAgentDomain/services
  * An Etc/GMT timezone string in which the current local hour is `target`.
  * Etc/GMT zones invert the sign (Etc/GMT-5 == UTC+5). Lets the daytime-window
  * tests be deterministic regardless of when CI runs.
+ *
+ * The offset is WRAPPED into the range Etc/GMT actually defines, which is UTC-12 to UTC+14. Without
+ * that, this helper was only deterministic for part of the day: `tzWhereHourIs(3)` computes
+ * `3 - utcHour`, which drops below -12 once the UTC hour passes 15 and asks for `Etc/GMT+13`
+ * upwards — zones that do not exist. Node throws on them, and the daytime-window test failed for
+ * eight hours out of every twenty-four while passing the rest of the time.
+ *
+ * Wrapping is always possible because the supported range spans 27 hours, comfortably more than a
+ * day: any target hour is reachable from any UTC hour.
  */
 function tzWhereHourIs(target: number): string {
-  const offset = target - new Date().getUTCHours();
+  let offset = target - new Date().getUTCHours();
+  if (offset < -12) offset += 24;
+  if (offset > 14) offset -= 24;
   return offset >= 0 ? `Etc/GMT-${offset}` : `Etc/GMT+${-offset}`;
 }
 
