@@ -164,6 +164,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
       icon: <HeartHandshakeIcon className="w-5 h-5" />,
       items: [
         {
+          title: "Point of Sale",
+          href: "/shop?tab=pos",
+          icon: <CreditCard className="w-5 h-5" />,
+          tabId: "pos",
+        },
+        {
           title: "Services",
           href: "/shop?tab=services",
           icon: <HeartHandshakeIcon className="w-5 h-5" />,
