@@ -15,15 +15,26 @@ import type {
 import { SendMessageAction, SendMessageDeps } from './sendMessageAction';
 import { IssueRewardAction } from './issueRewardAction';
 import { NotifyStaffAction } from './notifyStaffAction';
+import { RunCampaignAction } from './runCampaignAction';
 
 export const DEFAULT_ACTION_TYPE = 'send_message';
 
 /** Action types a shop can configure. The UI and the create/update validator read this. */
-export const AUTO_MESSAGE_ACTION_TYPES = ['send_message', 'issue_reward', 'notify_staff'] as const;
+export const AUTO_MESSAGE_ACTION_TYPES = [
+  'send_message',
+  'issue_reward',
+  'notify_staff',
+  'run_campaign',
+] as const;
 export type AutoMessageActionType = (typeof AUTO_MESSAGE_ACTION_TYPES)[number];
 
 /** Actions that send no customer message — message_template is not required for these. */
-export const NON_MESSAGING_ACTIONS: ReadonlySet<string> = new Set(['issue_reward', 'notify_staff']);
+export const NON_MESSAGING_ACTIONS: ReadonlySet<string> = new Set([
+  'issue_reward',
+  'notify_staff',
+  // The campaign carries its own subject and body; there is no per-customer template to write here.
+  'run_campaign',
+]);
 
 /**
  * Actions whose recipient is the SHOP, so no customer is involved at all.
@@ -33,7 +44,12 @@ export const NON_MESSAGING_ACTIONS: ReadonlySet<string> = new Set(['issue_reward
  * runs an action once per customer in the target audience, which for a staff alert would page the team
  * once per customer rather than once. Anything listed here fires exactly once per rule per run.
  */
-export const SHOP_SCOPED_ACTIONS: ReadonlySet<string> = new Set(['notify_staff']);
+export const SHOP_SCOPED_ACTIONS: ReadonlySet<string> = new Set([
+  'notify_staff',
+  // A campaign resolves its OWN audience and sends one-to-many. Run per customer it would fire fifty
+  // campaigns to fifty people, each one addressing all fifty again.
+  'run_campaign',
+]);
 
 export class AutoMessageActionRegistry {
   private readonly handlers = new Map<string, AutoMessageActionHandler>();
@@ -78,6 +94,7 @@ export function getAutoMessageActionRegistry(messages: SendMessageDeps): AutoMes
     new SendMessageAction(messages),
     new IssueRewardAction(),
     new NotifyStaffAction(),
+    new RunCampaignAction(),
   ]));
 }
 

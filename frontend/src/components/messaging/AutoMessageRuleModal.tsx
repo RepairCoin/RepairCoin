@@ -5,6 +5,8 @@ import { X, Loader2, Zap, Calendar, Plus, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AutoMessage, CreateAutoMessageRequest, UpdateAutoMessageRequest } from "@/services/api/messaging";
 import { generateAutoMessageContent, getAutoMessageAbResults, type AbResults } from "@/services/api/messaging";
+import { getCampaigns } from "@/services/api/marketing";
+import { useAuthStore } from "@/stores/authStore";
 import toast from "react-hot-toast";
 
 const SCHEDULE_TYPES = [
@@ -127,7 +129,13 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [messageTemplate, setMessageTemplate] = useState("");
   // What the rule DOES when it fires (Custom Workflows W2). 'send_message' is everything that existed
   // before actions; 'issue_reward' sends nothing and needs no template.
-  const [actionType, setActionType] = useState<"send_message" | "issue_reward" | "notify_staff">("send_message");
+  const [actionType, setActionType] = useState<
+    "send_message" | "issue_reward" | "notify_staff" | "run_campaign"
+  >("send_message");
+  /** run_campaign: the campaign used as a template. Each firing clones and sends a copy. */
+  const [campaignId, setCampaignId] = useState("");
+  const [campaigns, setCampaigns] = useState<{ id: string; name: string; status: string }[]>([]);
+  const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [rewardAmount, setRewardAmount] = useState(25);
   const [rewardReason, setRewardReason] = useState("");
   /** Body of a `notify_staff` alert. Separate from rewardReason — see the prefill note below. */
@@ -207,7 +215,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       setName(rule.name ?? "");
       setMessageTemplate(rule.messageTemplate ?? "");
       setActionType(
-        rule.actionType === "issue_reward" || rule.actionType === "notify_staff"
+        rule.actionType === "issue_reward" ||
+          rule.actionType === "notify_staff" ||
+          rule.actionType === "run_campaign"
           ? rule.actionType
           : "send_message"
       );
@@ -217,6 +227,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       // doesn't trim a value set programmatically.
       setRewardReason(typeof rule.actionPayload?.reason === "string" ? rule.actionPayload.reason : "");
       setAlertText(typeof rule.actionPayload?.message === "string" ? rule.actionPayload.message : "");
+      setCampaignId(
+        typeof rule.actionPayload?.campaignId === "string" ? rule.actionPayload.campaignId : ""
+      );
       setTriggerType(rule.triggerType ?? "schedule");
       // A prefill that states a trigger has made the choice deliberately — don't second-guess it below.
       if (rule.triggerType) setTriggerTouched(true);
@@ -332,10 +345,37 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   // reward / staff-alert / shop-scoped rules send no customer message at all.
   const needsRuleMessage = !rewardMode && !sequenceMode && !shopScoped && actionType === "send_message";
 
+  /**
+   * Campaigns available as templates for `run_campaign`.
+   *
+   * Fetched lazily — only when the action is actually chosen — so opening the builder to edit a
+   * message rule doesn't pull a campaign list nobody asked for. Failure is silent and leaves the
+   * list empty: the select then says there are none, which is the same thing a shop with no
+   * campaigns sees, and is better than an error toast on a field you may not be using.
+   */
+  useEffect(() => {
+    if (actionType !== "run_campaign" || campaignsLoaded) return;
+    const shopId = useAuthStore.getState().userProfile?.shopId;
+    if (!shopId) return;
+    setCampaignsLoaded(true);
+    getCampaigns(shopId, 1, 50)
+      .then((res) =>
+        setCampaigns(
+          (res.items ?? []).map((c) => ({ id: c.id, name: c.name, status: c.status }))
+        )
+      )
+      .catch(() => setCampaigns([]));
+  }, [actionType, campaignsLoaded]);
+
   // Picking a shop-scoped trigger forces the shop-facing action, so the form can't produce a rule the
   // API will reject.
   useEffect(() => {
-    if (shopScoped && actionType !== "notify_staff") setActionType("notify_staff" as any);
+    // Any SHOP-scoped action is legitimate here, not just the staff alert — a campaign resolves its
+    // own audience, so "stock is low → send the clearance campaign" is coherent. Only a
+    // customer-facing action needs correcting, and notify_staff is the safe landing spot.
+    if (shopScoped && actionType !== "notify_staff" && actionType !== "run_campaign") {
+      setActionType("notify_staff" as any);
+    }
   }, [shopScoped, actionType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -347,9 +387,16 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       return;
     }
 
+    if (actionType === "run_campaign" && !campaignId) {
+      // Caught here as well as by the API, because the API's 400 would arrive as a toast about
+      // "actionPayload.campaignId" — words that appear nowhere on this form.
+      toast.error("Pick the campaign this workflow should send");
+      return;
+    }
+
     let cleanSteps: WorkflowStep[] = [];
-    if (rewardMode || actionType === "notify_staff") {
-      // Neither sends a customer message, so there is no body to validate.
+    if (rewardMode || actionType === "notify_staff" || actionType === "run_campaign") {
+      // None of these sends a customer message, so there is no body to validate.
     } else if (sequenceMode) {
       // Keep a step if it's a non-messaging step (nothing to compose) OR a message step with a body.
       cleanSteps = steps
@@ -389,7 +436,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     try {
       const isReward = actionType === "issue_reward";
       const isNotify = actionType === "notify_staff";
-      const sendsNoMessage = isReward || isNotify;
+      const isCampaign = actionType === "run_campaign";
+      // A campaign carries its own subject and body, so there is no per-customer template here either.
+      const sendsNoMessage = isReward || isNotify || isCampaign;
       const data: CreateAutoMessageRequest = {
         name: name.trim(),
         // An action that sends nothing carries no template. In a sequence the rule-level template
@@ -405,6 +454,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           ? { amountRcn: rewardAmount, ...(rewardReason.trim() ? { reason: rewardReason.trim() } : {}) }
           : isNotify
           ? (alertText.trim() ? { message: alertText.trim() } : {})
+          : isCampaign
+          ? { campaignId }
           : null,
         triggerType,
         ...(triggerType === "schedule" && {
@@ -480,7 +531,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setActionType("send_message")}
@@ -523,9 +574,50 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   <div className="font-medium">Notify my team</div>
                   <div className="text-xs text-gray-500">Alerts you, not the customer</div>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActionType("run_campaign")}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                    actionType === "run_campaign"
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="font-medium">Send a campaign</div>
+                  <div className="text-xs text-gray-500">One send to a whole audience</div>
+                </button>
               </div>
             )}
           </div>
+
+          {actionType === "run_campaign" && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Campaign to send</label>
+              <select
+                value={campaignId}
+                onChange={(e) => setCampaignId(e.target.value)}
+                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
+              >
+                <option value="">
+                  {campaigns.length ? "Select a campaign…" : "No campaigns yet — create one in Marketing"}
+                </option>
+                {campaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.status === "draft" ? " (draft)" : ""}
+                  </option>
+                ))}
+              </select>
+              {/* Both sentences describe behaviour a shop would otherwise discover by accident: that
+                  the campaign is reused rather than consumed, and that its rewards do NOT fire on a
+                  schedule nobody approved. */}
+              <p className="text-xs text-gray-500 mt-1">
+                Used as a template — each run sends a fresh copy, so the original keeps its own history.
+                The campaign picks its own audience, and any RCN rewards on it are <strong>not</strong>{" "}
+                issued by the workflow.
+              </p>
+            </div>
+          )}
 
           {actionType === "notify_staff" && (
             <div>
