@@ -27,6 +27,7 @@ import { PromoCodeService } from '../../../services/PromoCodeService';
 import { PromoCodeRepository } from '../../../repositories/PromoCodeRepository';
 import rcgRoutes from './rcg';
 import reportsRoutes from './reports';
+import followRoutes from './follow';
 import { eventBus } from '../../../events/EventBus';
 import { getSharedPool } from '../../../utils/database-pool';
 import { ShopMetricsService } from '../../../services/ShopMetricsService';
@@ -82,6 +83,7 @@ const router = Router();
 
 // Register sub-routes (protected by auth)
 // Purchase routes - auth required, but subscription only for purchase operations (not viewing history/balance)
+router.use('/follow', authMiddleware, requireRole(['customer']), followRoutes); // Customer "follow shop"
 router.use('/purchase', authMiddleware, requireRole(['shop']), purchaseRoutes);
 router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes);
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes

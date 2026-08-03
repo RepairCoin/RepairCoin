@@ -2,8 +2,43 @@
 import { Request, Response } from 'express';
 import { ServiceManagementService, CreateServiceRequest, UpdateServiceRequest } from '../services/ServiceManagementService';
 import { logger } from '../../../utils/logger';
-import { shopLocationRepository } from '../../../repositories';
+import { shopLocationRepository, shopRepository } from '../../../repositories';
 import { hasPaidMultiLocation } from '../../../utils/multiLocationEntitlement';
+import { ShopFavoriteRepository } from '../../../repositories/ShopFavoriteRepository';
+import { getNotificationGateway } from '../../notification/services/NotificationGateway';
+
+const shopFavoriteRepository = new ShopFavoriteRepository();
+
+/**
+ * Notify everyone following this shop that it published a new service. Best-effort
+ * and fully detached — never blocks or fails service creation.
+ */
+async function notifyFollowersOfNewService(
+  shopId: string,
+  serviceId: string,
+  serviceName: string
+): Promise<void> {
+  try {
+    const followers = await shopFavoriteRepository.getFollowerAddresses(shopId);
+    if (followers.length === 0) return;
+    const shop = await shopRepository.getShop(shopId).catch(() => null);
+    const shopName = shop?.name || 'A shop you follow';
+    const gateway = getNotificationGateway();
+    await Promise.all(
+      followers.map((address) =>
+        gateway
+          .dispatch('shop_new_service', address, {
+            message: `${shopName} just added "${serviceName}". Book before it fills up.`,
+            metadata: { shopId, serviceId, serviceName, shopName },
+          })
+          .catch(() => null)
+      )
+    );
+    logger.info('Notified followers of new service', { shopId, serviceId, followers: followers.length });
+  } catch (error) {
+    logger.error('Failed to notify shop followers of new service:', error);
+  }
+}
 
 export class ServiceController {
   private service: ServiceManagementService;
@@ -34,6 +69,9 @@ export class ServiceController {
         success: true,
         data: service
       });
+
+      // Fan out "new service" alerts to followers — detached, never blocks the response.
+      void notifyFollowersOfNewService(shopId, service.serviceId, service.serviceName);
     } catch (error: unknown) {
       logger.error('Error in createService controller:', error);
       res.status(400).json({
