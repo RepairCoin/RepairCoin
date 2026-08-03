@@ -153,31 +153,6 @@ export function useAdminDashboardData(
     }
   };
 
-  const rejectShop = async (shopId: string, reason?: string) => {
-    console.log("Rejecting shop:", shopId);
-    try {
-      // Use the reject endpoint if available, otherwise use suspend
-      const success = await adminApi.rejectShop(shopId, reason || "Does not meet requirements");
-      if (!success) {
-        // Fallback to suspend for backward compatibility
-        const suspendSuccess = await adminApi.suspendShop(
-          shopId,
-          `Application Rejected: ${reason || "Does not meet requirements"}`
-        );
-        if (!suspendSuccess) {
-          throw new Error("Failed to reject shop");
-        }
-      }
-
-      // Refresh the data after rejection
-      await loadDashboardData();
-      // Toast removed - let the component handle notifications
-    } catch (error: any) {
-      console.error("Error rejecting shop:", error);
-      throw error; // Re-throw to handle in the UI
-    }
-  };
-
   const mintShopBalance = async (shopId: string) => {
     try {
       const result = await adminApi.mintShopBalance(shopId);
@@ -249,7 +224,6 @@ export function useAdminDashboardData(
     suspendShop,
     unsuspendShop,
     approveShop,
-    rejectShop,
     mintShopBalance,
     // Customer actions
     mintTokensToCustomer,

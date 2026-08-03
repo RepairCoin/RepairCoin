@@ -211,16 +211,6 @@ export const approveShop = async (shopId: string, notes?: string): Promise<boole
   }
 };
 
-export const rejectShop = async (shopId: string, reason: string): Promise<boolean> => {
-  try {
-    await apiClient.post(`/admin/shops/${shopId}/reject`, { reason });
-    return true;
-  } catch (error) {
-    console.error('Error rejecting shop:', error);
-    return false;
-  }
-};
-
 export const createShop = async (data: CreateShopData): Promise<Shop | null> => {
   try {
     const response = await apiClient.post<Shop>('/admin/create-shop', data);
@@ -853,7 +843,6 @@ export const adminApi = {
   // Shops
   getShops: getAdminShops,
   approveShop,
-  rejectShop,
   createShop,
   suspendShop,
   unsuspendShop,
