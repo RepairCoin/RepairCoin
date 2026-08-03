@@ -51,6 +51,28 @@ const TARGET_AUDIENCES = [
 
 const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+/** Shared by the hour dropdown and its own trigger label, so the two can't drift. */
+const hourLabel = (h: number) =>
+  `${h === 0 ? "12:00 AM" : h < 12 ? `${h}:00 AM` : h === 12 ? "12:00 PM" : `${h - 12}:00 PM`} (UTC)`;
+
+/**
+ * Every `SelectValue` below is given EXPLICIT children rather than letting the trigger resolve its own
+ * label.
+ *
+ * Left to itself, the trigger's text comes from the selected item, and the items only exist while the
+ * dropdown is open. A select that is mounted BEFORE its value arrives therefore renders its
+ * placeholder and never re-resolves — the value is correct in state and in what gets saved, but the
+ * field reads as empty.
+ *
+ * That is exactly what happened here. Editing a saved rule showed "Select audience" on a rule that had
+ * a stored audience, because Target Audience is mounted on first render (it sits outside the trigger
+ * blocks) and the prefill effect sets it a tick later. Event looked fine purely by luck of mounting:
+ * it lives inside `triggerType === "event"`, which is false on first render, so it mounts fresh with
+ * its value already set. Same component, same props, opposite outcome — decided by mount order.
+ *
+ * Deriving the label from state removes the timing question entirely.
+ */
+
 const TEMPLATE_VARIABLES = [
   { key: "{{customerName}}", label: "Customer Name" },
   { key: "{{rcnBalance}}", label: "RCN Balance" },
@@ -567,7 +589,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 <label className="block text-xs text-gray-400 mb-1">Frequency</label>
                 <Select value={scheduleType} onValueChange={(value) => setScheduleType(value)}>
                   <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                    <SelectValue placeholder="Select frequency" />
+                    <SelectValue placeholder="Select frequency">
+                      {SCHEDULE_TYPES.find((t) => t.value === scheduleType)?.label}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent variant="dark">
                     {SCHEDULE_TYPES.map((t) => (
@@ -582,7 +606,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   <label className="block text-xs text-gray-400 mb-1">Day of Week</label>
                   <Select value={String(scheduleDayOfWeek)} onValueChange={(value) => setScheduleDayOfWeek(parseInt(value))}>
                     <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder="Select day">{DAYS_OF_WEEK[scheduleDayOfWeek]}</SelectValue>
                     </SelectTrigger>
                     <SelectContent variant="dark">
                       {DAYS_OF_WEEK.map((day, i) => (
@@ -598,7 +622,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   <label className="block text-xs text-gray-400 mb-1">Day of Month</label>
                   <Select value={String(scheduleDayOfMonth)} onValueChange={(value) => setScheduleDayOfMonth(parseInt(value))}>
                     <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder="Select day">{String(scheduleDayOfMonth)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent variant="dark">
                       {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
@@ -613,12 +637,12 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 <label className="block text-xs text-gray-400 mb-1">Send at (UTC Hour)</label>
                 <Select value={String(scheduleHour)} onValueChange={(value) => setScheduleHour(parseInt(value))}>
                   <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                    <SelectValue placeholder="Select hour" />
+                    <SelectValue placeholder="Select hour">{hourLabel(scheduleHour)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent variant="dark">
                     {Array.from({ length: 24 }, (_, i) => (
                       <SelectItem variant="dark" key={i} value={String(i)}>
-                        {i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i - 12}:00 PM`} (UTC)
+                        {hourLabel(i)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -634,7 +658,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 <label className="block text-xs text-gray-400 mb-1">Event</label>
                 <Select value={eventType} onValueChange={(value) => setEventType(value)}>
                   <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                    <SelectValue placeholder="Select event" />
+                    <SelectValue placeholder="Select event">
+                      {EVENT_TYPES.find((t) => t.value === eventType)?.label}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent variant="dark">
                     {EVENT_TYPES.map((t) => (
@@ -662,7 +688,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             <label className="block text-sm text-gray-400 mb-1">Target Audience</label>
             <Select value={targetAudience} onValueChange={(value) => setTargetAudience(value)}>
               <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#0D0D0D] border-gray-700 rounded-lg text-white text-sm">
-                <SelectValue placeholder="Select audience" />
+                <SelectValue placeholder="Select audience">
+                  {TARGET_AUDIENCES.find((a) => a.value === targetAudience)?.label}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent variant="dark">
                 {TARGET_AUDIENCES.map((a) => (
