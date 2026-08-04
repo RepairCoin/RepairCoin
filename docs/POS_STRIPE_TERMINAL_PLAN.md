@@ -183,7 +183,9 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S6c | **Receipt + review** via the notification gateway — **not started** | M | S6b |
 | S7 | **Phase 6** — devices & warranty model | M | S2 |
 | S8 | **Phase 4** — repair ticket workflow | L | S2, S7 |
-| S9 | **Unify revenue reporting** (see 9) — **scoped, not started** | L | S6a |
+| S9a | **Revenue excludes unpaid orders** (see 9a) — **built** | M | — |
+| S9b | **Ledger completeness** (see 9b) — **not started** | M | S6a |
+| S9c | **Move revenue reporting onto the ledger** (see 9) | M | S9b |
 | — | **Phases 3 & 7 (AI)** — deferred handoff | — | S2 |
 
 ### S0 — Terminal readiness — **done**
@@ -509,8 +511,14 @@ to it.
 ### The obvious fix does not work yet
 
 "Point revenue analytics at `payments`" is the right end state — it is already the unified fiat
-ledger and S6a made it complete for counter sales. But measured against the live database
-(4 Aug 2026), **neither table can produce correct total revenue today**:
+ledger and S6a made it complete for counter sales. But **neither table can produce correct total
+revenue today**.
+
+> **The figures below are from the shared development database, not production — there is no
+> production yet.** Every Stripe id in it is test-mode (60 `cs_test_…`, zero `cs_live_…`) and the
+> shops include `1111`, `7777` and `peanut`. They demonstrate that each defect class **exists**;
+> the amounts are seeded data and carry no revenue meaning. An earlier draft of this section
+> presented them as though they measured real money, which was wrong.
 
 | | Rows | Revenue |
 |---|---|---|
@@ -521,24 +529,91 @@ ledger and S6a made it complete for counter sales. But measured against the live
 `service_orders` misses POS entirely; `payments` misses a fifth of booking revenue. Switching
 naively would trade one wrong number for a differently wrong number.
 
-The 57 break down as:
+Investigating the 57 turned up **four** classes, not three, and the largest one is not a ledger
+problem at all:
 
-- **31 orders / $7,203.92 — no Stripe intent at all.** Money that never went through Stripe:
-  manual bookings, RCN-settled, or free. Structurally the same problem cash tender had, and it
-  wants the same answer S6a gave: write the ledger row rather than infer it from Stripe.
-- **25 orders / $3,328.88 — a payment reference that is not `pi_…`.** `backfill-payments.ts`
-  filters on `stripe_payment_intent_id LIKE 'pi_%'`, so these were skipped. Needs a look at what
-  the references actually are before deciding whether they are backfillable.
-- **1 order / $55.00 — has a `pi_` but no row.** Almost certainly created after the backfill ran,
-  with a webhook that never landed. A straggler, not a class.
+- **15 orders — `status` and `payment_status` disagree.** Marked paid/completed while payment is
+  `unpaid` or `pending`. These should never have been counted; see 9a, now fixed.
+- **25 orders — the reference is a Checkout Session (`cs_…`), not a PaymentIntent.** A
+  `stripe_session_id` column already exists and is populated on 55 rows, so the id is simply in
+  the wrong column. `backfill-payments.ts` filters on `LIKE 'pi_%'` and skips them. Recoverable:
+  a session resolves to its PaymentIntent through the Stripe API.
+- **16 orders — genuinely settled outside Stripe.** `payment_status = 'paid'`, no Stripe record.
+  Structurally the same problem cash tender had, and it wants the same answer S6a gave: write the
+  ledger row rather than infer it from Stripe.
+- **1 order — has a `pi_` but no row.** Created after the backfill ran, with a webhook that never
+  landed. A straggler, not a class.
+
+## 9a. Revenue excludes unpaid orders — **built**
+
+`status` tracks fulfilment and `payment_status` tracks money, and they disagree. Every revenue
+figure keyed on `status IN ('paid','completed')` alone, so **work that was done but never paid for
+counted as revenue** — on the dev database, 15 orders and 8.8% of the reported total.
+
+`payment_status` is populated on every row (875/875), so it is a reliable signal to gate on.
+
+The predicate was duplicated **26 times** across three files. It now lives once, in
+`utils/sqlFragments.ts` as `revenueRecognized(alias?)`, which qualifies **both** halves with the
+alias — aliasing only the first leaves a bare `payment_status` that becomes ambiguous the moment
+the query joins another table carrying that column, and fails at runtime rather than build.
+
+Both halves are required. `payment_status` alone would pull in cancelled and expired orders that
+were paid — on the dev data, far more money than the over-count it fixes. Whether a paid-then-
+cancelled order is revenue depends on whether it was refunded, which is a separate question and
+deliberately not answered here.
+
+**Money only.** `CalendarRepository` (sync) and `DiscoveryController` (trending services) keep the
+old predicate: an unpaid booking still happened, and it is still demand signal.
+
+### The dashboard revenue tile moved to the ledger
+
+Two faults, one of them nothing to do with POS. It read `service_orders`, so counter sales could
+never appear — a shop that took $335 across its till saw $0. And it bucketed revenue by
+**`booking_date`**, so a tile labelled "Revenue / Today" with a vs-yesterday trend was reporting
+takings for work *scheduled* today: money taken today for next week's booking landed on next week,
+and a day of real trade could read zero.
+
+Revenue now comes from `payments`, bucketed by `COALESCE(captured_at, created_at)` and net of
+refunds. Bookings still bucket by `booking_date` — the two answer different questions and were
+only ever sharing a join. `ancient-realm-tech` went from $0 to $205.69 on the first run.
+
+This is the first piece of S9c rather than a parallel `pos_sales` branch. The ledger is already the
+union of every channel, so the tile does not grow a case per channel; the warning against parallel
+aggregation still stands for the remaining reports.
+
+**Consequence to expect:** revenue for a booking now lands on the day it was paid, not the day it
+was booked, so historical days will not match what the tile showed before. The S9b gap also applies
+— a booking whose payment never reached the ledger contributes nothing here until S9b closes it.
+
+### Handoff — 13 occurrences remain in AI-owned files
+
+`AIAgentDomain` belongs to another developer, so these were left alone. Each is a money figure and
+each still counts unpaid orders:
+
+| File | Occurrences |
+|---|---|
+| `services/insights/tools/businessBriefing.ts` | 3 |
+| `services/insights/tools/revenueSummary.ts` | 2 |
+| `services/insights/tools/topServices.ts` | 2 |
+| `services/MetricsAggregator.ts` | 2 |
+| `services/insights/anomalies/metrics.ts` | 1 |
+| `services/insights/tools/repeatCustomerAnalysis.ts` | 1 |
+| `services/insights/tools/topCustomers.ts` | 1 |
+| `services/marketing/estimateCampaignRevenue.ts` | 1 |
+
+The change is mechanical: import `revenueRecognized` from `utils/sqlFragments` and interpolate it
+where the bare predicate sits, matching the table alias. Until then AI-reported revenue reads
+higher than the dashboards.
+
+## 9b. Ledger completeness — not started
+
+Close the remaining three classes above, extend the backfill (including resolving `cs_…` sessions
+to their PaymentIntents), and add a reconciliation check that fails loudly when a paid order has
+no ledger row. Until this holds, nothing that reads the ledger for totals can be trusted.
 
 ### Build order
 
-**S9a — make the ledger complete.** Close the three gaps above, extend the backfill, and add a
-reconciliation check that fails loudly when a paid order has no ledger row. Until this holds,
-nothing downstream can be trusted. This is the slice that carries the risk.
-
-**S9b — move fiat revenue onto the ledger.** `ServiceAnalyticsRepository` currently derives
+**S9c — move fiat revenue onto the ledger.** `ServiceAnalyticsRepository` currently derives
 `total_revenue` and `avg_order_value` from `service_orders.total_amount` across roughly eight
 report shapes. Those move to `payments`. Service *volume* metrics — order counts, conversion, top
 services, category mix — stay on `service_orders`, because they genuinely are about bookings and
