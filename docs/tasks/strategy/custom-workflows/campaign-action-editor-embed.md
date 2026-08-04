@@ -1,7 +1,21 @@
 # Custom Workflows — making "Send a campaign" usable (2026-08-04)
 
-**Status:** P1 and P2 built, merged and deployed 2026-08-04 (PR #730). P3–P5 not started.
+**Status:** ALL PHASES BUILT, merged and deployed 2026-08-04 (PRs #730, #731).
+**NOT VERIFIED IN A BROWSER — see §7.**
 **Applies to:** the `run_campaign` action shipped 2026-08-03.
+
+> **P3/P4/P5 — preview, create, edit in place.** Done. The §6 unknowns resolved in the plan's
+> favour: `CampaignBuilderModal` is a Radix `Dialog` portalled to `document.body`, so it stacks over
+> the workflow builder without a z-index fight, Escape closes only the top layer, and it does not
+> navigate on close. `viewOnly` gave Preview for free.
+>
+> Two things the plan did not anticipate. `onClose` now returns the campaign that was written
+> (additive; Marketing ignores it) — "refetch and select the newest" was rejected as a guess that is
+> wrong whenever another tab saves in between. And campaigns are held WHOLE rather than narrowed,
+> because `existingCampaign` wants the real row and refetching one already in memory would rebuild an
+> object we chose to discard.
+>
+> Loaded with `next/dynamic`, so 2,477 lines stay out of the builder's chunk.
 
 > **P1 — save a draft without a campaign.** Done. The requirement moved to the publish path, which
 > also gained an ownership check (`getById` is not shop-scoped, so another shop's rule must read as

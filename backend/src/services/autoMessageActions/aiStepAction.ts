@@ -31,6 +31,7 @@
 
 import { logger } from '../../utils/logger';
 import { autoMessageContentService } from '../../domains/messaging/services/AutoMessageContentService';
+import { statesUnaskedOffer } from '../aiCopyGuards';
 import type { SendMessageAction } from './sendMessageAction';
 import type {
   AutoMessageActionContext,
@@ -59,21 +60,8 @@ const AUDIENCE_SWEEP_EVENTS: ReadonlySet<string> = new Set(['inactive_30_days', 
 const MIN_BODY = 20;
 const MAX_BODY = 2000;
 
-/**
- * Claims that COMMIT THE SHOP TO SOMETHING, which is the real risk in letting a model write to
- * customers unattended. An imperfect sentence is survivable; "20% off your next service" is a
- * discount the shop must either honour or look dishonest refusing.
- *
- * Deliberately NARROW. `free` and `guaranteed` are left out because "feel free to call" is ordinary
- * friendly copy, and a guard that fires on it would silence workflows — which this codebase keeps
- * relearning is the worse failure. High precision matters more than coverage here: everything caught
- * must be worth cancelling a message over.
- */
-const OFFER_CLAIMS: ReadonlyArray<{ pattern: RegExp; what: string }> = [
-  { pattern: /\d+\s*%/, what: 'a percentage' },
-  { pattern: /[$£€₱]\s?\d/, what: 'a price' },
-  { pattern: /\b(discount|coupon|voucher|promo code)\b/i, what: 'an offer' },
-];
+// The offer rules moved to aiCopyGuards — an email campaign carries exactly the same risk, and two
+// copies of "what counts as an unasked-for discount" would drift into two different answers.
 
 /**
  * The placeholders this action can actually substitute — see `resolve()`.
@@ -109,13 +97,7 @@ export function validateGeneratedMessage(body: string, brief?: string): string |
   if (UNRESOLVED_PLACEHOLDER.test(body)) return 'contains a placeholder this action cannot fill';
   if (EXTERNAL_LINK.test(body)) return 'contains an external link';
 
-  const asked = (brief ?? '').toLowerCase();
-  for (const { pattern, what } of OFFER_CLAIMS) {
-    if (pattern.test(body) && !pattern.test(asked)) {
-      return `states ${what} the brief never asked for`;
-    }
-  }
-  return null;
+  return statesUnaskedOffer(body, brief);
 }
 
 export function parseAiStepPayload(raw: unknown): AiStepPayload {
