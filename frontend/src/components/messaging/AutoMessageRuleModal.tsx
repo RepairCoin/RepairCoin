@@ -372,14 +372,31 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   // become meaningless — there is nobody on the other end.
   const shopScoped = triggerType === "event" && SHOP_SCOPED_EVENTS.has(eventType);
   const rewardMode = actionType === "issue_reward" && !shopScoped;
-  // Sequences are event-triggered only (enrollment is wired into the event path).
-  const sequenceMode = useSequence && triggerType === "event" && !rewardMode && !shopScoped;
-  // A/B works on any single-message rule; can't combine with a sequence.
-  const abMode = useAbTest && !sequenceMode && !rewardMode && !shopScoped;
 
-  // Does this rule carry a message on the RULE itself? A sequence keeps its copy in the steps, and
-  // reward / staff-alert / shop-scoped rules send no customer message at all.
-  const needsRuleMessage = !rewardMode && !sequenceMode && !shopScoped && actionType === "send_message";
+  /**
+   * Does this rule compose a customer message IN THIS FORM?
+   *
+   * Only `send_message` does. Every other action either carries its own content (a campaign has its
+   * own subject and body), writes it at send time (`ai_step`), or messages nobody at all (reward,
+   * staff alert, reorder). For all of them the Message Template, the variable chips, the drip
+   * sequence and the A/B toggle are meaningless — and worse than meaningless, because the form
+   * accepted text there and then discarded it at submit, so choosing "Let AI write it" still showed a
+   * template box to fill in.
+   *
+   * Written as one predicate rather than repeated inline conditions, which is how the three actions
+   * added on 2026-08-03 came to be missed in two places at once.
+   */
+  const composesMessage = !shopScoped && actionType === "send_message";
+  // Sequences are event-triggered only (enrollment is wired into the event path).
+  // Keyed on composesMessage, not just on "not a reward": a rule loaded WITH steps and then switched
+  // to an AI or campaign action would otherwise keep sequenceMode true while its editor is hidden —
+  // invisible state still driving what gets submitted.
+  const sequenceMode = useSequence && triggerType === "event" && composesMessage;
+  // A/B works on any single-message rule; can't combine with a sequence.
+  const abMode = useAbTest && !sequenceMode && composesMessage;
+
+  // Does this rule carry a message on the RULE itself? A sequence keeps its copy in the steps.
+  const needsRuleMessage = composesMessage && !sequenceMode;
 
   /**
    * Campaigns available as templates for `run_campaign`.
@@ -974,7 +991,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
           {/* Advanced-mode toggles: a rule is a single message, OR a drip sequence, OR an A/B test.
               All three are message concepts, so none of them apply to a reward rule. */}
-          <div className={`flex flex-col gap-1.5 ${rewardMode || actionType === "notify_staff" ? "hidden" : ""}`}>
+          <div className={`flex flex-col gap-1.5 ${composesMessage ? "" : "hidden"}`}>
             {/* Multi-step sequence toggle (event triggers only — enrollment is event-driven) */}
             {triggerType === "event" && (
               <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
@@ -1011,7 +1028,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           </div>
 
           {/* A reward rule has no message at all — skip the whole composer. */}
-          {rewardMode || actionType === "notify_staff" ? null : sequenceMode ? (
+          {!composesMessage ? null : sequenceMode ? (
             /* Sequence steps editor */
             <div className="space-y-3">
               <div className="flex items-center justify-between">
