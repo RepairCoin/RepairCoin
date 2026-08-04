@@ -4,16 +4,18 @@ import React, { useState, useEffect, useRef } from "react";
 import { Search, X, User, Loader2 } from "lucide-react";
 import { getApiBaseUrl } from "@/utils/apiUrl";
 
+/**
+ * Mirrors what GET /customers actually returns. It was previously declared in snake_case with
+ * fields the endpoint has never sent, so every result crashed the render on an undefined
+ * `lifetime_earnings` — invisible until the register became the first thing to open this modal.
+ */
 interface CustomerSearchResult {
   address: string;
   name?: string;
-  profile_image_url?: string;
+  email?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
-  lifetime_earnings: number;
-  last_transaction_date?: string;
-  total_transactions: number;
+  lifetimeEarnings: number;
   isActive: boolean;
-  suspended?: boolean;
 }
 
 interface CustomerSearchModalProps {
@@ -112,7 +114,16 @@ export default function CustomerSearchModal({
       }
 
       const data = await response.json();
-      setCustomers(data.data?.customers || []);
+      // Normalised here rather than at each use: one bad row must not take out the whole list.
+      const rows: CustomerSearchResult[] = (data.data?.customers ?? []).map((c: any) => ({
+        address: c.address,
+        name: c.name,
+        email: c.email,
+        tier: c.tier ?? "BRONZE",
+        lifetimeEarnings: Number(c.lifetimeEarnings ?? 0),
+        isActive: c.isActive !== false,
+      }));
+      setCustomers(rows);
     } catch (error) {
       console.error("Error searching customers:", error);
       setCustomers([]);
@@ -206,7 +217,7 @@ export default function CustomerSearchModal({
                 Start typing to search for customers
               </p>
               <p className="text-gray-500 text-sm mt-2">
-                Search by customer name to find their wallet address
+                Search by name, email, phone or wallet address
               </p>
             </div>
           )}
@@ -238,17 +249,9 @@ export default function CustomerSearchModal({
                     <div className="flex items-center gap-3">
                       {/* Avatar */}
                       <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden">
-                        {customer.profile_image_url ? (
-                          <img
-                            src={customer.profile_image_url}
-                            alt={customerName}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
-                            {customerInitial}
-                          </div>
-                        )}
+                        <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
+                          {customerInitial}
+                        </div>
                       </div>
 
                       {/* Customer details */}
@@ -279,7 +282,7 @@ export default function CustomerSearchModal({
                           Lifetime RCN
                         </p>
                         <p className="text-white font-bold text-lg">
-                          {customer.lifetime_earnings.toLocaleString()}
+                          {customer.lifetimeEarnings.toLocaleString()}
                         </p>
                       </div>
                     </div>
