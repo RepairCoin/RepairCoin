@@ -1,6 +1,7 @@
 // backend/src/repositories/ServiceAnalyticsRepository.ts
 import { BaseRepository } from './BaseRepository';
 import { logger } from '../utils/logger';
+import { revenueRecognized } from '../utils/sqlFragments';
 
 export interface ShopServiceMetrics {
   totalServices: number;
@@ -115,10 +116,10 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           SELECT
             COUNT(*) as total_orders,
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_orders,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE 0 END), 0) as total_revenue,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_redeemed ELSE 0 END), 0) as total_rcn_redeemed,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_discount_usd ELSE 0 END), 0) as total_rcn_discount,
-            COALESCE(AVG(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE NULL END), 0) as avg_order_value
+            COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN total_amount ELSE 0 END), 0) as total_revenue,
+            COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_redeemed ELSE 0 END), 0) as total_rcn_redeemed,
+            COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_discount_usd ELSE 0 END), 0) as total_rcn_discount,
+            COALESCE(AVG(CASE WHEN ${revenueRecognized()} THEN total_amount ELSE NULL END), 0) as avg_order_value
           FROM service_orders
           WHERE shop_id = $1
             AND ($2::uuid IS NULL OR location_id = $2::uuid)
@@ -193,12 +194,12 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           s.price_usd,
           COALESCE(COUNT(DISTINCT o.order_id), 0) as total_orders,
           COALESCE(SUM(CASE WHEN o.status = 'completed' THEN 1 ELSE 0 END), 0) as completed_orders,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) as total_revenue,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized('o')} THEN o.total_amount ELSE 0 END), 0) as total_revenue,
           COALESCE(s.average_rating, 0) as average_rating,
           COALESCE(s.review_count, 0) as review_count,
           COALESCE(COUNT(DISTINCT f.customer_address), 0) as favorite_count,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.rcn_redeemed ELSE 0 END), 0) as rcn_redeemed,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized('o')} THEN o.rcn_redeemed ELSE 0 END), 0) as rcn_redeemed,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized('o')} THEN o.rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd,
           CASE
             WHEN COUNT(DISTINCT o.order_id) > 0 AND COUNT(DISTINCT f.customer_address) > 0
             THEN (COUNT(DISTINCT o.order_id)::float / COUNT(DISTINCT f.customer_address)) * 100
@@ -246,8 +247,8 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         SELECT
           DATE(created_at) as date,
           COUNT(*) as order_count,
-          COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE 0 END), 0) as revenue,
-          COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd
+          COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN total_amount ELSE 0 END), 0) as revenue,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd
         FROM service_orders
         WHERE shop_id = $1
           AND created_at >= NOW() - INTERVAL '1 day' * $2
@@ -280,7 +281,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           s.category,
           COUNT(DISTINCT s.service_id) as service_count,
           COALESCE(COUNT(DISTINCT o.order_id), 0) as total_orders,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) as total_revenue,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized('o')} THEN o.total_amount ELSE 0 END), 0) as total_revenue,
           COALESCE(AVG(s.average_rating), 0) as average_rating,
           COALESCE(AVG(s.price_usd), 0) as average_price
         FROM shop_services s
@@ -323,10 +324,10 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         order_stats AS (
           SELECT
             COUNT(*) as total_orders,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE 0 END), 0) as total_revenue,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_redeemed ELSE 0 END), 0) as total_rcn_redeemed,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_discount_usd ELSE 0 END), 0) as total_rcn_discount,
-            COALESCE(AVG(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE NULL END), 0) as avg_order_value
+            COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN total_amount ELSE 0 END), 0) as total_revenue,
+            COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_redeemed ELSE 0 END), 0) as total_rcn_redeemed,
+            COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_discount_usd ELSE 0 END), 0) as total_rcn_discount,
+            COALESCE(AVG(CASE WHEN ${revenueRecognized()} THEN total_amount ELSE NULL END), 0) as avg_order_value
           FROM service_orders
         )
         SELECT
@@ -374,7 +375,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           s.category,
           COUNT(DISTINCT s.service_id) as service_count,
           COALESCE(COUNT(DISTINCT o.order_id), 0) as total_orders,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) as total_revenue,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized('o')} THEN o.total_amount ELSE 0 END), 0) as total_revenue,
           COALESCE(AVG(s.average_rating), 0) as average_rating,
           COALESCE(AVG(s.price_usd), 0) as average_price
         FROM shop_services s
@@ -412,7 +413,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           sh.name as shop_name,
           COUNT(DISTINCT s.service_id) FILTER (WHERE s.active = true) as active_services,
           COALESCE(COUNT(DISTINCT o.order_id), 0) as total_orders,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) as total_revenue,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized('o')} THEN o.total_amount ELSE 0 END), 0) as total_revenue,
           COALESCE(AVG(s.average_rating), 0) as average_rating
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
@@ -449,8 +450,8 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         SELECT
           DATE(created_at) as date,
           COUNT(*) as order_count,
-          COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE 0 END), 0) as revenue,
-          COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd
+          COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN total_amount ELSE 0 END), 0) as revenue,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd
         FROM service_orders
         WHERE created_at >= NOW() - INTERVAL '1 day' * $1
         GROUP BY DATE(created_at)
@@ -515,7 +516,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           COUNT(DISTINCT sga.group_id) as total_groups_active,
           COALESCE(SUM(
             CASE
-              WHEN so.status IN ('paid', 'completed') THEN
+              WHEN ${revenueRecognized('so')} THEN
                 (so.total_amount * (sga.token_reward_percentage / 100) * sga.bonus_multiplier)
               ELSE 0
             END
@@ -540,10 +541,10 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           asg.icon,
           COUNT(DISTINCT sga.service_id) as services_linked,
           COUNT(DISTINCT so.order_id) as total_bookings,
-          COALESCE(SUM(CASE WHEN so.status IN ('paid', 'completed') THEN so.total_amount ELSE 0 END), 0) as total_revenue,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized('so')} THEN so.total_amount ELSE 0 END), 0) as total_revenue,
           COALESCE(SUM(
             CASE
-              WHEN so.status IN ('paid', 'completed') THEN
+              WHEN ${revenueRecognized('so')} THEN
                 (so.total_amount * (sga.token_reward_percentage / 100) * sga.bonus_multiplier)
               ELSE 0
             END
@@ -573,7 +574,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
             'bonusMultiplier', sga.bonus_multiplier
           )) as groups,
           COUNT(DISTINCT so.order_id) as bookings,
-          COALESCE(SUM(CASE WHEN so.status IN ('paid', 'completed') THEN so.total_amount ELSE 0 END), 0) as revenue
+          COALESCE(SUM(CASE WHEN ${revenueRecognized('so')} THEN so.total_amount ELSE 0 END), 0) as revenue
         FROM shop_services s
         INNER JOIN service_group_availability sga ON s.service_id = sga.service_id
         INNER JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id

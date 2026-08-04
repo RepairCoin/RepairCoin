@@ -5,6 +5,27 @@
  */
 
 /**
+ * Which orders count as money the shop actually took.
+ *
+ * `status` tracks FULFILMENT and `payment_status` tracks MONEY, and they disagree: an order can
+ * be marked completed while its payment is still unpaid or pending. Reporting on `status` alone
+ * therefore counts work that was done but never paid for as revenue.
+ *
+ * Both halves are required. `payment_status` alone would pull in cancelled and expired orders
+ * that were paid and may since have been refunded — a separate question, deliberately not
+ * answered here.
+ *
+ * Money only. Order counts, popularity and calendar sync legitimately include unpaid orders —
+ * an unpaid booking still happened.
+ *
+ * @param alias table alias used in the query, e.g. 'o' or 'so'. Omit for an unaliased table.
+ */
+export const revenueRecognized = (alias = ''): string => {
+  const p = alias ? `${alias}.` : '';
+  return `${p}status IN ('paid', 'completed') AND ${p}payment_status = 'paid'`;
+};
+
+/**
  * Subquery to fetch all affiliate groups linked to a service
  * Returns a JSON array of group objects or NULL if no groups linked
  *
