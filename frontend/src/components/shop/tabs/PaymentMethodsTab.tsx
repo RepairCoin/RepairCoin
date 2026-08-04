@@ -12,19 +12,14 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import apiClient from "@/services/api/client";
-import { loadStripe, Stripe, StripeElements } from "@stripe/stripe-js";
+import { Stripe, StripeElements } from "@stripe/stripe-js";
 import {
   Elements,
   CardElement,
   useStripe,
   useElements
 } from "@stripe/react-stripe-js";
-
-// Initialize Stripe
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
-  "pk_test_51QPPk7RwJwt4ptvDCH4FPnbRpSYRt02F6EbW89d0YUU8S2aZztLyKbI3SxoM66TJOg5v8TRqm3Y1xkUgYNsqPL8t00kOYCDOuF"
-);
+import { stripeConfigured, stripePromise } from "@/services/stripe";
 
 interface PaymentMethod {
   id: string;
@@ -224,7 +219,19 @@ export const PaymentMethodsTab: React.FC = () => {
       )}
 
       {/* Add Card Modal */}
-      {showAddCard && (
+      {showAddCard && !stripeConfigured && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-red-300">Card entry is unavailable</p>
+            <p className="text-sm text-gray-400 mt-1">
+              This deployment has no Stripe publishable key configured, so cards cannot be
+              collected. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY and redeploy.
+            </p>
+          </div>
+        </div>
+      )}
+      {showAddCard && stripeConfigured && (
         <Elements stripe={stripePromise}>
           <AddCardModal
             onClose={() => setShowAddCard(false)}
