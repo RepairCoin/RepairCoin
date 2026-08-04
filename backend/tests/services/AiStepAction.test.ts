@@ -267,3 +267,27 @@ describe('failure handling', () => {
     expect(sent).toEqual(['Hello, hope everything is running smoothly since your visit.']);
   });
 });
+
+// Prevention, not just detection. The guard discards a message containing a placeholder this action
+// cannot fill — but the generation was already paid for, and the model reaches for exactly those
+// variables when writing win-back copy. Narrowing what it is offered stops the waste at source.
+describe('what the generator is allowed to use', () => {
+  it('asks for only the placeholders this action can substitute', async () => {
+    const gen = makeGen();
+    const { action: send } = makeSend();
+    await new AiStepAction(send, gen).execute(ctx());
+
+    const asked = (gen.generate as jest.Mock).mock.calls[0][1].supportedVariables;
+    expect(asked).toEqual(['{{customerName}}', '{{shopName}}']);
+  });
+
+  // The scheduler resolves all five, so the drafting endpoint must keep offering them by default.
+  it('leaves the default set alone for callers that can fill it', async () => {
+    const { DEFAULT_SUPPORTED_VARS } = await import(
+      '../../src/domains/messaging/services/AutoMessageContentService'
+    );
+    expect(DEFAULT_SUPPORTED_VARS).toContain('{{rcnBalance}}');
+    expect(DEFAULT_SUPPORTED_VARS).toContain('{{lastServiceName}}');
+    expect(DEFAULT_SUPPORTED_VARS).toContain('{{lastVisitDate}}');
+  });
+});

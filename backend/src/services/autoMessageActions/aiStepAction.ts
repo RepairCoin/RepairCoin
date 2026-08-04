@@ -75,6 +75,17 @@ const OFFER_CLAIMS: ReadonlyArray<{ pattern: RegExp; what: string }> = [
   { pattern: /\b(discount|coupon|voucher|promo code)\b/i, what: 'an offer' },
 ];
 
+/**
+ * The placeholders this action can actually substitute — see `resolve()`.
+ *
+ * The generator is told to use ONLY these. The scheduler can fill five, because it holds the whole
+ * customer record; this action resolves the message itself from the action context and holds two.
+ * Offering the other three produced win-back copy containing a literal `{{lastServiceName}}`, which
+ * the guard below then threw away — a silent non-delivery on exactly the messages the model was most
+ * likely to write that way.
+ */
+export const AI_STEP_SUPPORTED_VARS = ['{{customerName}}', '{{shopName}}'];
+
 /** A placeholder this action cannot fill leaks braces to the customer. */
 const UNRESOLVED_PLACEHOLDER = /\{\{[^}]*\}\}/;
 
@@ -181,6 +192,9 @@ export class AiStepAction implements AutoMessageActionHandler {
           targetAudience: ctx.rule.targetAudience,
           name: ctx.rule.name,
           prompt: prompt ?? null,
+          // Ask only for what resolve() can fill. The guard stays as the backstop — it also catches
+          // invented offers and links — but prevention beats discarding a paid-for generation.
+          supportedVariables: AI_STEP_SUPPORTED_VARS,
         });
         body = (messageTemplate ?? '').trim();
       } catch (err) {

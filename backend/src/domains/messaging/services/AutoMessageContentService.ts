@@ -18,15 +18,35 @@ import { cheapModel } from '../../../config/aiModels';
 
 // The ONLY placeholders the scheduler substitutes at send time (AutoMessageSchedulerService.resolveTemplate).
 // The model is told it MAY use these — anything else stays literal, so we don't invent unsupported tokens.
-const SUPPORTED_VARS = '{{customerName}}, {{shopName}}, {{rcnBalance}}, {{lastServiceName}}, {{lastVisitDate}}';
 
 const MAX_LEN = 2000; // matches the messageTemplate DB/UI cap
 
-const SYSTEM = `You write ONE short automated message a repair/service shop sends to its customers. Output ONLY the message text — no preamble, no quotes, no markdown, no subject line, no sign-off block.
+/**
+ * The variables a caller can actually substitute. Not every caller can fill all five.
+ *
+ * The default set is right for the AI Campaigns drafter, whose output is stored as a template and
+ * later resolved by the scheduler, which has the whole customer record. It is WRONG for `ai_step`,
+ * which resolves the message itself from the action context and can only fill two — so offering it
+ * the other three produced messages containing literal `{{lastServiceName}}`. Those are now rejected
+ * before sending, which turned a visible bug into a silent one: the model reaches for exactly those
+ * variables when writing win-back copy, and every time it did, the whole message was discarded.
+ *
+ * Cheaper to not offer them than to catch them afterwards.
+ */
+export const DEFAULT_SUPPORTED_VARS = [
+  '{{customerName}}',
+  '{{shopName}}',
+  '{{rcnBalance}}',
+  '{{lastServiceName}}',
+  '{{lastVisitDate}}',
+];
+
+const systemPrompt = (vars: string[]) =>
+  `You write ONE short automated message a repair/service shop sends to its customers. Output ONLY the message text — no preamble, no quotes, no markdown, no subject line, no sign-off block.
 
 Rules:
 - Warm, professional, concise (2–4 short sentences). It's an SMS/in-app style message, not an email.
-- You MAY use these placeholders where natural, and ONLY these: ${SUPPORTED_VARS}. They're substituted per customer at send time. Do NOT invent other {{tokens}} or leave literal brackets like [name].
+- You MAY use these placeholders where natural, and ONLY these: ${vars.join(", ")}. They're substituted per customer at send time. Do NOT invent other {{tokens}} or leave literal brackets like [name].
 - Match the shop's brand voice if given.
 - NEVER promise a discount, offer, price, or policy the shop didn't state. No emojis unless it fits a casual brand voice.
 - Plain text only. No markdown, no bullet lists, no tables.`;
@@ -39,6 +59,13 @@ export interface GenerateAutoMessageInput {
   name?: string | null;
   /** Optional free-text goal from the shop ("win back lapsed customers with a friendly nudge"). */
   prompt?: string | null;
+  /**
+   * Which placeholders THIS caller can substitute. Defaults to the five the scheduler resolves.
+   *
+   * A caller that resolves the message itself must narrow this to what it can actually fill —
+   * see DEFAULT_SUPPORTED_VARS.
+   */
+  supportedVariables?: string[];
 }
 
 export class AutoMessageContentService {
@@ -75,7 +102,8 @@ export class AutoMessageContentService {
     try {
       const resp = await this.anthropic.complete({
         systemPrompt: [
-          { text: SYSTEM, cache: true },
+          // Cacheable per variable set: callers that offer the same placeholders share a prefix.
+          { text: systemPrompt(input.supportedVariables ?? DEFAULT_SUPPORTED_VARS), cache: true },
           { text: buildDateContextBlock(), cache: false }, // keep copy in-season; non-cached per house rule
         ],
         messages: [{ role: 'user', content: userMessage }],
