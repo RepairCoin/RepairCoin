@@ -4,6 +4,7 @@ import { ShopRepository } from '../../../repositories/ShopRepository';
 import { ContactRepository } from '../../../repositories/ContactRepository';
 import { EmailService } from '../../../services/EmailService';
 import { campaignEmailService } from '../../../services/CampaignEmailService';
+import { aiCampaignService } from '../../../services/AiCampaignService';
 import { campaignRewardService, CampaignRewardBlockedError } from '../../../services/CampaignRewardService';
 import {
   parseCampaignRewardInput,
@@ -123,6 +124,58 @@ export class MarketingController {
   /**
    * Create a new campaign
    */
+  /**
+   * Draft a whole campaign from a one-line brief — copy, banner image and all.
+   * POST /api/marketing/shops/:shopId/campaigns/ai-draft
+   *
+   * Creates a DRAFT. Nothing is sent here, and nothing can be: sending stays with whatever uses the
+   * campaign, and the shop previews it first.
+   */
+  aiDraftCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const shopId = req.params.shopId;
+
+      // The shop id is a URL param, so it is checked against the JWT here exactly as createCampaign
+      // does. Without this, a shop could spend another shop's AI budget and leave a campaign in their
+      // account — the route guards prove WHO is calling, not WHOSE shop they named.
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      const { brief, triggerType, eventType, targetAudience, name } = req.body || {};
+
+      const result = await aiCampaignService.createDraft(shopId, {
+        brief: typeof brief === 'string' ? brief.slice(0, 500) : null,
+        triggerType: triggerType === 'schedule' || triggerType === 'event' ? triggerType : null,
+        eventType: typeof eventType === 'string' ? eventType : null,
+        targetAudience: typeof targetAudience === 'string' ? targetAudience : null,
+        name: typeof name === 'string' ? name : null,
+      });
+
+      // `imageSkipped` travels WITH a 201, not as an error. The campaign exists and is usable; the
+      // shop is told the banner is missing and why, rather than being handed a silent text-only email.
+      res.status(201).json({
+        success: true,
+        data: { campaign: result.campaign, imageSkipped: result.imageSkipped ?? null },
+      });
+    } catch (error: unknown) {
+      // The copy step throws with a status it chose — budget reached (429), unusable output (502),
+      // or copy that stated an offer nobody asked for (422). Relaying it keeps the reason intact
+      // instead of flattening everything into "something went wrong".
+      const status = (error as { status?: number })?.status;
+      if (status) {
+        res.status(status).json({
+          success: false,
+          error: error instanceof Error ? error.message : 'Could not draft the campaign',
+        });
+        return;
+      }
+      next(error);
+    }
+  };
+
   createCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const shopId = req.params.shopId;

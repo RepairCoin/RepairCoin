@@ -93,6 +93,19 @@ export function initializeRoutes(): Router {
    *       201:
    *         description: Campaign created
    */
+  /**
+   * AI-drafted campaign — copy and banner image from a one-line brief. Creates a DRAFT and never
+   * sends. Same gate as building one by hand: a shop that can create campaigns can have one written.
+   */
+  router.post(
+    '/shops/:shopId/campaigns/ai-draft',
+    authMiddleware,
+    requireRole(['shop']),
+    requireShopPermission('marketing:manage'),
+    requireTier('campaignBuilder'),
+    controller.aiDraftCampaign
+  );
+
   router.post(
     '/shops/:shopId/campaigns',
     authMiddleware,
