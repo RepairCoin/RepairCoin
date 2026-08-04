@@ -29,6 +29,7 @@ import {
   MarketingToolContext,
   MarketingToolResult,
 } from "../types";
+import { campaignDraftService } from "../../../../../services/CampaignDraftService";
 import { MarketingService } from "../../../../../services/MarketingService";
 import { logger } from "../../../../../utils/logger";
 import { estimateCampaignRevenue } from "../estimateCampaignRevenue";
@@ -346,47 +347,17 @@ export const proposeCampaignDraft: MarketingTool = {
       recipientCount
     );
 
-    // Build the designContent shape the existing email renderer expects.
-    // Headline = subject (mirrors what we tell the shop), text blocks =
-    // paragraphs split on blank lines. Footer.showUnsubscribe=true so
-    // SendGrid's compliance link renders.
-    const blocks = bodyToBlocks(subject, body);
-    if (bannerImageUrl) {
-      // Banner at the very top (above the headline) — the email renderer's
-      // 'image' block (MarketingService.renderBlock) draws it.
-      blocks.unshift({
-        type: "image",
-        src: bannerImageUrl,
-        style: { maxWidth: "100%" },
-      });
-    }
-    // Imported-customer win-back: append a REAL claim CTA button. The model only writes text, so
-    // its "[Claim Your Account]" is dead literal text (already stripped from the body above) — here
-    // we add an actual button block linking to the customer dashboard, where the account-claim
-    // banner prompts after the customer logs in / signs up with the matching email/phone. Without
-    // this the receiver has no way to act on "claim your account".
-    if (audienceType === "imported_winback") {
-      blocks.push({
-        type: "button",
-        content: "Claim Your Account",
-        url: "/customer",
-        style: { backgroundColor: "#eab308", textColor: "#000" },
-      });
-    }
-    const designContent = {
-      header: { enabled: true, showLogo: true, backgroundColor: "#1a1a2e" },
-      blocks,
-      footer: { showSocial: false, showUnsubscribe: true },
-    };
-
-    const campaign = await marketingService.createCampaign({
+    // The campaign's SHAPE — blocks, banner placement, the imported-winback claim button, the
+    // designContent wrapper — now lives in CampaignDraftService, because the workflow builder needs
+    // exactly the same answer. Two copies would drift the first time a block type changed, and the
+    // divergence would only surface in a customer's inbox.
+    const campaign = await campaignDraftService.createFromCopy({
       shopId: ctx.shopId,
       name: campaignName,
-      campaignType: "custom",
       subject,
-      previewText: truncate(body.replace(/\s+/g, " "), 150),
-      designContent,
-      audienceType: audienceType as any,
+      body,
+      imageUrl: bannerImageUrl,
+      audienceType,
       audienceFilters,
       deliveryMethod: "email",
       createdBySource: "ai_agent",
@@ -554,28 +525,8 @@ async function resolveBannerImage(
   return r.rows[0]?.image_url ?? null;
 }
 
-function bodyToBlocks(subject: string, body: string): Array<Record<string, unknown>> {
-  const paragraphs = body
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
-
-  const blocks: Array<Record<string, unknown>> = [
-    {
-      type: "headline",
-      content: subject,
-      style: { fontSize: "24px", fontWeight: "bold", textAlign: "center" },
-    },
-  ];
-  for (const para of paragraphs) {
-    blocks.push({
-      type: "text",
-      content: para,
-      style: { fontSize: "14px", textAlign: "left", color: "#444" },
-    });
-  }
-  return blocks;
-}
+// bodyToBlocks moved to CampaignDraftService — see createFromCopy. Left here it would have been a
+// second definition of the same email, quietly diverging from the one that actually ships.
 
 function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
