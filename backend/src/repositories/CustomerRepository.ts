@@ -2,6 +2,7 @@ import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { CustomerData, TierLevel } from '../contracts/TierManager';
 import { logger } from '../utils/logger';
 import { normalizePhone } from '../utils/phone';
+import { revenueRecognized } from '../utils/sqlFragments';
 
 export interface CustomerFilters {
   tier?: TierLevel;
@@ -1161,7 +1162,7 @@ export class CustomerRepository extends BaseRepository {
             SUM(total_amount) as total_spent
           FROM service_orders
           WHERE shop_id = $1
-            AND status IN ('paid', 'completed')
+            AND ${revenueRecognized()}
           GROUP BY customer_address
         ) orders ON c.address = orders.customer_address
         WHERE c.is_active = true
@@ -1244,7 +1245,7 @@ export class CustomerRepository extends BaseRepository {
             customer_address,
             MAX(created_at) as last_order,
             COUNT(*) as order_count,
-            SUM(total_amount) FILTER (WHERE status IN ('paid', 'completed')) as total_spent
+            SUM(total_amount) FILTER (WHERE ${revenueRecognized()}) as total_spent
           FROM service_orders
           WHERE shop_id = $1 AND customer_address IS NOT NULL
           GROUP BY customer_address
@@ -1414,7 +1415,7 @@ export class CustomerRepository extends BaseRepository {
             SUM(total_amount) as total_spent
           FROM service_orders
           WHERE shop_id = $1
-            AND status IN ('paid', 'completed')
+            AND ${revenueRecognized()}
           GROUP BY customer_address
         ) orders ON c.address = orders.customer_address
         WHERE c.is_active = true

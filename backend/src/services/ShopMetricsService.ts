@@ -156,8 +156,15 @@ export class ShopMetricsService {
       spark,
     });
 
-    // Bookings + revenue per day. Revenue counts money collected (paid or
-    // completed), so a paid booking today shows up immediately.
+    // Bookings and revenue are counted on different days on purpose, because they answer
+    // different questions. A booking belongs to the day the work is scheduled; revenue belongs
+    // to the day the money arrived. Deriving both from `booking_date`, as this used to, made a
+    // tile labelled "Revenue / Today" report takings for work scheduled today — so money taken
+    // today for next week's booking landed on next week, and a day of real trade could read $0.
+    //
+    // Revenue comes from the fiat ledger rather than service_orders. That is the only place a
+    // counter sale exists, so a shop selling across its till saw none of it here; and it is
+    // already the union of every channel, so this does not have to grow a branch per channel.
     const ordersRes = await this.pool.query(
       `WITH days AS (
          SELECT generate_series(
@@ -165,14 +172,35 @@ export class ShopMetricsService {
            COALESCE($2::date, CURRENT_DATE),
            INTERVAL '1 day'
          )::date AS day
+       ),
+       bookings AS (
+         SELECT o.booking_date::date AS day, COUNT(*) AS n
+         FROM service_orders o
+         WHERE o.shop_id = $1
+           AND o.booking_date::date BETWEEN
+                 COALESCE($2::date, CURRENT_DATE) - INTERVAL '6 days'
+             AND COALESCE($2::date, CURRENT_DATE)
+         GROUP BY 1
+       ),
+       takings AS (
+         -- Net of refunds, and captured_at is when the money moved; created_at only stands in
+         -- for rows written before capture (a cash tender is captured as it is taken).
+         SELECT COALESCE(p.captured_at, p.created_at)::date AS day,
+                SUM(p.gross_cents - p.refunded_cents) AS cents
+         FROM payments p
+         WHERE p.shop_id = $1
+           AND p.status IN ('succeeded', 'partially_refunded', 'refunded')
+           AND COALESCE(p.captured_at, p.created_at)::date BETWEEN
+                 COALESCE($2::date, CURRENT_DATE) - INTERVAL '6 days'
+             AND COALESCE($2::date, CURRENT_DATE)
+         GROUP BY 1
        )
        SELECT
-         COALESCE(COUNT(o.order_id), 0) AS bookings,
-         COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) AS revenue
+         COALESCE(b.n, 0) AS bookings,
+         COALESCE(t.cents, 0) / 100.0 AS revenue
        FROM days d
-       LEFT JOIN service_orders o
-         ON o.shop_id = $1 AND o.booking_date::date = d.day
-       GROUP BY d.day
+       LEFT JOIN bookings b ON b.day = d.day
+       LEFT JOIN takings  t ON t.day = d.day
        ORDER BY d.day`,
       [shopId, anchor]
     );
