@@ -125,7 +125,11 @@ interface PromoCode {
 
 interface CampaignBuilderModalProps {
   open: boolean;
-  onClose: (saved: boolean) => void;
+  /**
+   * `campaign` is the row that was just written, so a caller can select it without refetching and
+   * guessing which one is new. Optional and additive — Marketing ignores it.
+   */
+  onClose: (saved: boolean, campaign?: MarketingCampaign) => void;
   shopId: string;
   shopName?: string;
   campaignType: 'announce_service' | 'offer_coupon' | 'newsletter' | 'custom';
@@ -804,7 +808,7 @@ export function CampaignBuilderModal({
             toast.error(
               `Not enough RCN: this reward needs ${pre.required.toLocaleString()} RCN but you have ${pre.available.toLocaleString()}. Saved as a draft — buy more RCN, then send.`
             );
-            onClose(true);
+            onClose(true, savedCampaign);
             return;
           }
         }
@@ -813,7 +817,7 @@ export function CampaignBuilderModal({
         toast.success(`Campaign sent to ${result.totalRecipients} recipients!`);
       }
 
-      onClose(true);
+      onClose(true, savedCampaign);
     } catch (error: any) {
       console.error('Error saving campaign:', error);
       toast.error(error.message || 'Failed to save campaign');
@@ -848,7 +852,7 @@ export function CampaignBuilderModal({
       const savedCampaign = await persistCampaign();
       await scheduleCampaign(savedCampaign.id, when.toISOString());
       toast.success(`Campaign scheduled for ${when.toLocaleString()}`);
-      onClose(true);
+      onClose(true, savedCampaign);
     } catch (error: any) {
       console.error('Error scheduling campaign:', error);
       toast.error(error.message || 'Failed to schedule campaign');
