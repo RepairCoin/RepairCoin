@@ -115,6 +115,35 @@ describe('generation cost', () => {
     expect(sent[0]).not.toContain('{{');
   });
 
+  // An ordinary event trigger is handed ONE customer (handleEventTrigger takes a single
+  // customerAddress), so per-customer generation costs one call per event either way. Pooling there
+  // would save nothing and hand the second customer a message written about somebody else's booking.
+  it('generates fresh for each customer on a one-customer event trigger', async () => {
+    const gen = makeGen();
+    const { action: send, sent } = makeSend();
+    const ai = new AiStepAction(send, gen);
+
+    const bookingCompleted = { ...ctx().rule, eventType: 'booking_completed' };
+    await ai.execute(ctx({ rule: bookingCompleted, customerName: 'Ada' }));
+    await ai.execute(ctx({ rule: bookingCompleted, customerName: 'Grace' }));
+
+    expect(gen.calls).toBe(2);
+    expect(sent).toHaveLength(2);
+  });
+
+  // The protection has to survive on the paths that actually fan out.
+  it('still pools for a scheduled rule, which resolves a whole audience', async () => {
+    const gen = makeGen();
+    const { action: send } = makeSend();
+    const ai = new AiStepAction(send, gen);
+
+    const scheduled = { ...ctx().rule, triggerType: 'schedule', eventType: null };
+    await ai.execute(ctx({ rule: scheduled, customerName: 'Ada' }));
+    await ai.execute(ctx({ rule: scheduled, customerName: 'Grace' }));
+
+    expect(gen.calls).toBe(1);
+  });
+
   it('generates separately for a different rule', async () => {
     const gen = makeGen();
     const { action: send } = makeSend();
