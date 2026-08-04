@@ -25,6 +25,7 @@ import { ReferralService } from '../../../services/ReferralService';
 import { agencyService } from '../../agency/services/AgencyService';
 import { PromoCodeService } from '../../../services/PromoCodeService';
 import { PromoCodeRepository } from '../../../repositories/PromoCodeRepository';
+import { calculateBaseReward, calculateTierBonus } from '../../../utils/repairReward';
 import rcgRoutes from './rcg';
 import reportsRoutes from './reports';
 import followRoutes from './follow';
@@ -2119,30 +2120,11 @@ router.post('/:shopId/issue-reward',
         baseReward = customBaseReward;
       } else {
         // Standard calculation based on repair amount
-        if (repairAmount >= 100) {
-          baseReward = 15;
-        } else if (repairAmount >= 50) {
-          baseReward = 10;
-        } else if (repairAmount >= 30) {
-          baseReward = 5;
-        } else {
-          baseReward = 0; // Allow any repair amount, just no reward for under $30
-        }
+        baseReward = calculateBaseReward(repairAmount);
       }
 
       // Get tier bonus based on customer tier - updated values
-      let tierBonus = 0;
-      switch (customer.tier) {
-        case 'BRONZE':
-          tierBonus = 0;  // No bonus for Bronze
-          break;
-        case 'SILVER':
-          tierBonus = 2;  // +2 RCN for Silver
-          break;
-        case 'GOLD':
-          tierBonus = 5;  // +5 RCN for Gold
-          break;
-      }
+      const tierBonus = calculateTierBonus(customer.tier);
 
       // Calculate promo code bonus if provided
       // Uses atomic validation + reservation to prevent race conditions (Bug #4 fix)

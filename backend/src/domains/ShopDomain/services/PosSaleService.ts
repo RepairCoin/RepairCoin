@@ -6,6 +6,7 @@ import { getStripeTerminalService } from '../../../services/StripeTerminalServic
 import { computeCommissionCents } from '../../../utils/platformCommission';
 import { getSharedPool } from '../../../utils/database-pool';
 import {
+  customerRepository,
   paymentRepository,
   posSaleRepository,
   shopTaxRepository,
@@ -172,6 +173,32 @@ export class PosSaleService {
       discountCents,
       taxable: req.taxable !== false,
     };
+  }
+
+  /**
+   * Only a registered, active customer can be attached — a counter sale earns RCN on completion,
+   * and there is nobody to credit otherwise. Passing null clears it back to a walk-in.
+   */
+  async setCustomer(
+    shopId: string,
+    saleId: string,
+    customerAddress: string | null
+  ): Promise<PosSaleWithDetails> {
+    const address = customerAddress?.trim().toLowerCase() || null;
+
+    if (address) {
+      const customer = await customerRepository.getCustomer(address);
+      if (!customer) {
+        throw httpError('That customer is not registered yet.', 404);
+      }
+      if (!customer.isActive) {
+        throw httpError('That customer account is suspended.', 400);
+      }
+    }
+
+    const updated = await posSaleRepository.setCustomer(saleId, shopId, address);
+    if (!updated) throw httpError('Sale not found, or no longer open.', 404);
+    return this.requireSale(saleId, shopId);
   }
 
   async removeItem(shopId: string, saleId: string, itemId: string): Promise<PosSaleWithDetails> {
@@ -353,6 +380,9 @@ export class PosSaleService {
             customerAddress: sale.customerAddress,
             saleNumber: sale.saleNumber,
             totalCents: sale.totalCents,
+            // What the sale is worth before tax. Loyalty earns on this rather than the total, so
+            // a state's tax rate can't decide whether a customer crosses an earning threshold.
+            netCents: sale.subtotalCents - sale.discountCents,
             items: sale.items.map((item) => ({
               kind: item.kind,
               serviceId: item.serviceId,
