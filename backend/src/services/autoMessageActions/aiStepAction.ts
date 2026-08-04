@@ -11,14 +11,19 @@
 // budget for an automation the shop set and forgot, and when the cap is hit SpendCapEnforcer refuses
 // and the messages simply stop.
 //
-// So the body is generated ONCE PER RULE PER RUN and reused for everyone in that run, with the
-// existing {{variables}} carrying the per-customer parts — the same substitution send_message has
-// always used. That is what "compose at send time" is actually for: copy that reflects THIS week's
-// context rather than a template written in March. Per-recipient uniqueness is a different feature
-// with a different price, and can be added later behind its own decision.
+// So on those paths the body is generated ONCE PER RULE PER RUN and reused for everyone in that run,
+// with the existing {{variables}} carrying the per-customer parts — the same substitution
+// send_message has always used. That is what "compose at send time" is actually for: copy that
+// reflects THIS week's context rather than a template written in March.
 //
 // The memo is keyed by rule + hour, matching the scheduler's hourly tick, so a long run cannot drift
 // into a second generation and the next tick gets fresh copy.
+//
+// BUT ONLY ON THOSE PATHS. An ordinary event trigger — booking completed, no-show, low rating —
+// arrives with exactly ONE customer, because handleEventTrigger takes a single customerAddress. There
+// the cost of generating per customer is one call per event either way, so pooling saves nothing and
+// costs quality: two bookings completing in the same hour would get word-for-word identical messages.
+// Those generate fresh every time. See fansOutAcrossAudience().
 //
 // Delivery is DELEGATED to SendMessageAction rather than reimplemented. The conversation lookup,
 // blocked-conversation skip, message creation and unread bump were duplicated across both engine paths
@@ -39,6 +44,16 @@ export interface AiStepPayload {
 }
 
 const MAX_PROMPT = 500;
+
+/**
+ * The two event triggers that resolve an AUDIENCE instead of being handed a customer.
+ *
+ * Must stay in step with the sweeps in AutoMessageSchedulerService — the same pairing the frontend
+ * keeps as AUDIENCE_AWARE_EVENTS for deciding whether Target Audience is live config or dead. If a
+ * third sweep is ever added and this is not updated, its AI copy is generated per customer and the
+ * cost protection silently disappears.
+ */
+const AUDIENCE_SWEEP_EVENTS: ReadonlySet<string> = new Set(['inactive_30_days', 'low_bookings']);
 
 export function parseAiStepPayload(raw: unknown): AiStepPayload {
   const o = (raw ?? {}) as Record<string, unknown>;
@@ -81,11 +96,30 @@ export class AiStepAction implements AutoMessageActionHandler {
     return `${ruleId}:${now.toISOString().slice(0, 13)}`;
   }
 
+  /**
+   * Does this rule fan out across an audience, or act on one customer handed to it?
+   *
+   * Only the audience paths need the memo. A SCHEDULED rule resolves a target audience and runs the
+   * action once per customer — up to 50 in a tick — so generating per person is the difference
+   * between viable and not. The same is true of the two SWEEP events, which also resolve an audience
+   * rather than being handed a customer.
+   *
+   * Every other event trigger arrives with exactly ONE customer (handleEventTrigger takes a single
+   * customerAddress), so per-customer generation costs one call per event either way. Reusing a
+   * cached body there saves nothing and actively costs quality: two bookings completing in the same
+   * hour would receive word-for-word identical messages.
+   */
+  private fansOutAcrossAudience(rule: AutoMessageActionContext['rule']): boolean {
+    if (rule.triggerType === 'schedule') return true;
+    return AUDIENCE_SWEEP_EVENTS.has(rule.eventType || '');
+  }
+
   async execute(ctx: AutoMessageActionContext): Promise<AutoMessageActionResult> {
     const { prompt } = parseAiStepPayload(ctx.actionPayload);
+    const pooled = this.fansOutAcrossAudience(ctx.rule);
     const key = this.runKey(ctx.rule.id, new Date());
 
-    let body = this.memo.get(key);
+    let body = pooled ? this.memo.get(key) : undefined;
     if (body === undefined) {
       try {
         const { messageTemplate } = await this.generator.generate(ctx.shopId, {
@@ -117,13 +151,17 @@ export class AiStepAction implements AutoMessageActionHandler {
         });
         return { ok: false, skipped: 'empty' };
       }
-      this.memo.set(key, body);
+      // Only cached for the audience paths. Caching a one-customer event's message would hand the
+      // next customer in the same hour a message written about somebody else's booking.
+      if (pooled) {
+        this.memo.set(key, body);
 
-      // The map is process-lifetime and keyed per hour, so without this a long-lived process
-      // accumulates one entry per rule per hour forever.
-      if (this.memo.size > 500) {
-        for (const k of this.memo.keys()) {
-          if (k !== key) this.memo.delete(k);
+        // The map is process-lifetime and keyed per hour, so without this a long-lived process
+        // accumulates one entry per rule per hour forever.
+        if (this.memo.size > 500) {
+          for (const k of this.memo.keys()) {
+            if (k !== key) this.memo.delete(k);
+          }
         }
       }
     }
