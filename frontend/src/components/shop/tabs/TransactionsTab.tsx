@@ -8,6 +8,7 @@ import {
   exportTransactionsCsv,
   getRefunds,
   refundTransaction,
+  describePayment,
   type Transaction,
   type TransactionPage,
   type PaymentStatus,
@@ -220,7 +221,7 @@ export function TransactionsTab() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-300">
-                      {t.serviceName || <span className="text-gray-600">—</span>}
+                      {describePayment(t) || <span className="text-gray-600">—</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-300 capitalize">{t.method}</td>
                     <td className="px-4 py-3 text-right text-white">{money(t.grossCents)}</td>
@@ -372,8 +373,14 @@ function TransactionDetail({
 
         <div className="space-y-1 text-sm">
           <DetailRow label="Date" value={new Date(t.createdAt).toLocaleString()} />
-          <DetailRow label="Customer" value={t.customerName || t.customerAddress || "—"} />
-          <DetailRow label="Service" value={t.serviceName || "—"} />
+          <DetailRow
+            label="Customer"
+            value={t.customerName || t.customerAddress || (t.posSaleId ? "Walk-in" : "—")}
+          />
+          <DetailRow
+            label={t.posSaleId ? "Sale" : "Service"}
+            value={describePayment(t) || "—"}
+          />
           <DetailRow label="Method" value={<span className="capitalize">{t.method}</span>} />
           <DetailRow label="Source" value={<span className="capitalize">{t.source}</span>} />
           <DetailRow label="Gross" value={money(t.grossCents)} />

@@ -243,10 +243,13 @@ export class PaymentReconciler {
     return null;
   }
 
-  // Phase 0 only reconciles the existing booking direct charges; later slices set source
-  // explicitly for invoices/terminal/links.
+  /**
+   * A counter sale reaching the ledger before its sale is completed would otherwise be filed as a
+   * booking, which is what shipped in Phase 0 when POS did not exist. Invoices and links still
+   * fall through to booking until those slices land.
+   */
   private sourceFromMetadata(metadata?: Stripe.Metadata | null): PaymentSource {
-    return metadata?.type === 'service_booking' ? 'booking' : 'booking';
+    return metadata?.type === 'pos_sale' ? 'terminal' : 'booking';
   }
 
   private idOf(v: string | { id: string } | null | undefined): string | null {
