@@ -129,6 +129,27 @@ export interface ShopCustomersResponse {
   totalPages: number;
 }
 
+/**
+ * Draft a whole campaign — copy and banner image — from a one-line brief.
+ *
+ * Creates a DRAFT and never sends. `imageSkipped` is a reason, not an error: image generation is
+ * refused for ordinary reasons (kill-switch off, monthly cap reached, prompt flagged) and the
+ * campaign is still created with its copy. The caller should show the reason rather than hide it.
+ */
+export async function aiDraftCampaign(
+  shopId: string,
+  input: {
+    brief?: string;
+    triggerType?: 'schedule' | 'event';
+    eventType?: string;
+    targetAudience?: string;
+    name?: string;
+  }
+): Promise<{ campaign: MarketingCampaign; imageSkipped: string | null }> {
+  const response = await apiClient.post(`/marketing/shops/${shopId}/campaigns/ai-draft`, input);
+  return response.data;
+}
+
 // Get all campaigns for a shop
 export async function getCampaigns(
   shopId: string,

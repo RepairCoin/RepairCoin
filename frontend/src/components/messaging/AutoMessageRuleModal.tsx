@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { AutoMessage, CreateAutoMessageRequest, UpdateAutoMessageRequest } from "@/services/api/messaging";
 import { generateAutoMessageContent, getAutoMessageAbResults, type AbResults } from "@/services/api/messaging";
 import dynamic from "next/dynamic";
-import { getCampaigns, type MarketingCampaign } from "@/services/api/marketing";
+import { getCampaigns, aiDraftCampaign, type MarketingCampaign } from "@/services/api/marketing";
 import { useAuthStore } from "@/stores/authStore";
 
 /**
@@ -183,6 +183,17 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
    * chose to discard.
    */
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  /** The brief for an AI-drafted campaign, and whether one is being written right now. */
+  const [campaignBrief, setCampaignBrief] = useState("");
+  const [draftingCampaign, setDraftingCampaign] = useState(false);
+  /**
+   * Why the last AI draft has no banner image.
+   *
+   * Kept and shown rather than swallowed: the image is refused for ordinary reasons — the shop's
+   * kill-switch is off, its monthly image budget is gone, the prompt was flagged — and a campaign
+   * that quietly arrives without the picture the owner expected reads as broken.
+   */
+  const [campaignImageSkipped, setCampaignImageSkipped] = useState<string | null>(null);
   /** Which campaign the embedded editor is open on, and why. `null` = closed. */
   const [campaignEditor, setCampaignEditor] = useState<
     { mode: "create" | "edit" | "view"; campaign: MarketingCampaign | null } | null
@@ -365,6 +376,33 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       toast.error(e?.response?.data?.error || "Couldn't generate — please try again");
     } finally {
       setGeneratingB(false);
+    }
+  };
+
+  const draftCampaignWithAi = async () => {
+    const shopId = shopProfile?.shopId;
+    if (!shopId) return;
+    setDraftingCampaign(true);
+    setCampaignImageSkipped(null);
+    try {
+      const { campaign, imageSkipped } = await aiDraftCampaign(shopId, {
+        brief: campaignBrief.trim() || undefined,
+        triggerType,
+        eventType: triggerType === "event" ? eventType : undefined,
+        name: name.trim() || undefined,
+      });
+      // Selected immediately — the point of drafting it here is that the owner does not then have to
+      // go and find it in a list they never left.
+      setCampaigns((prev) => [campaign, ...prev.filter((c) => c.id !== campaign.id)]);
+      setCampaignId(campaign.id);
+      setCampaignImageSkipped(imageSkipped);
+      toast.success("Campaign drafted — preview it before you publish");
+    } catch (e: any) {
+      // The API chooses its status for a reason: budget reached, an offer nobody asked for, or
+      // unusable output. Relaying its message keeps that reason instead of "something went wrong".
+      toast.error(e?.response?.data?.error || "Couldn't draft the campaign — please try again");
+    } finally {
+      setDraftingCampaign(false);
     }
   };
 
@@ -757,6 +795,48 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
           {actionType === "run_campaign" && (
             <div>
+              {/* AI first. Writing a campaign by hand — subject, body, and an image that makes it
+                  worth opening — is work a shop owner will not do, which is the whole reason this
+                  action went unused. The designer below stays for fixing what the AI wrote. */}
+              <div className="rounded-lg border border-[#FFCC00]/40 bg-[#FFCC00]/5 p-3 mb-3">
+                <label className="block text-sm text-white mb-1">Let AI write the campaign</label>
+                <p className="text-xs text-gray-400 mb-2">
+                  Describe it in a line and AI writes the subject, the body and a banner image. You
+                  preview it before anything is published.
+                </p>
+                <input
+                  type="text"
+                  value={campaignBrief}
+                  onChange={(e) => setCampaignBrief(e.target.value)}
+                  placeholder="e.g. win back customers we haven't seen since spring"
+                  maxLength={500}
+                  className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+                />
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={draftCampaignWithAi}
+                    disabled={draftingCampaign}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FFCC00] text-black text-xs font-medium disabled:opacity-60"
+                  >
+                    {draftingCampaign ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5" />
+                    )}
+                    {draftingCampaign ? "Writing…" : "Create it for me"}
+                  </button>
+                  {/* Regeneration is a decision, not a reflex — each press is a Claude call plus an
+                      image, and the image is the expensive half. */}
+                  <span className="text-xs text-gray-500">Writes copy and an image — uses your AI allowance</span>
+                </div>
+                {campaignImageSkipped && (
+                  <p className="text-xs text-amber-400/90 mt-2">
+                    Written without a banner image: {campaignImageSkipped} You can add one in Edit.
+                  </p>
+                )}
+              </div>
+
               <label className="block text-sm text-gray-400 mb-2">Campaign to send</label>
               <select
                 value={campaignId}
@@ -764,7 +844,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
               >
                 <option value="">
-                  {campaigns.length ? "Select a campaign…" : "No campaigns yet — create one in Marketing"}
+                  {/* No longer sends anyone to Marketing: both routes out of an empty list are on
+                      this screen now — let AI write one, or build one in the designer. */}
+                  {campaigns.length ? "Select a campaign…" : "No campaigns yet — let AI write one above"}
                 </option>
                 {campaigns.map((c) => (
                   <option key={c.id} value={c.id}>
