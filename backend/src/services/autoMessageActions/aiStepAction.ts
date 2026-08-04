@@ -260,8 +260,13 @@ export class AiStepAction implements AutoMessageActionHandler {
   }
 
   private resolve(body: string, ctx: AutoMessageActionContext): string {
+    // TRIMMED. A customer stored as "Mike " produced "Hey Mike ," — a space before the comma, in a
+    // message the shop's name is on. Names come from user input and imports, so trailing whitespace
+    // is ordinary; substituting it raw is what turns it into something a customer notices.
+    const customer = (ctx.customerName || '').trim() || 'Valued Customer';
+    const shop = (ctx.shopName || '').trim() || 'our shop';
     return body
-      .replace(/\{\{customerName\}\}/g, ctx.customerName || 'Valued Customer')
-      .replace(/\{\{shopName\}\}/g, ctx.shopName || 'our shop');
+      .replace(/\{\{customerName\}\}/g, customer)
+      .replace(/\{\{shopName\}\}/g, shop);
   }
 }

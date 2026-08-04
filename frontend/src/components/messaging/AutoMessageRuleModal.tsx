@@ -250,6 +250,23 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     !actionActsOnShop &&
     (triggerType === "schedule" || AUDIENCE_AWARE_EVENTS.has(eventType));
 
+  /**
+   * Does the engine actually wait before acting?
+   *
+   * `delayHours` is only read on the event-DISPATCH path (`handleEventTrigger`), where a real event
+   * hands over a customer and the send can be queued for later. The two SWEEP events resolve their
+   * own audience in `processInactiveCustomers` / `processLowBookings` and send immediately, and the
+   * shop-scoped events run through `handleShopEvent`, which has no delay either.
+   *
+   * Found the hard way: a published "Inactive 30 days + 1h" workflow sent within the same tick. The
+   * field promised a wait that nothing implements — the same dead config Target Audience was, and
+   * worth hiding for the same reason.
+   */
+  const delayApplies =
+    triggerType === "event" &&
+    !SHOP_SCOPED_EVENTS.has(eventType) &&
+    !AUDIENCE_AWARE_EVENTS.has(eventType);
+
   useEffect(() => {
     if (rule) {
       // Fallbacks throughout, because `rule` may be a TEMPLATE prefill (A3) that only sets the fields
@@ -560,7 +577,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         }),
         ...(triggerType === "event" && {
           eventType,
-          delayHours,
+          // Forced to 0 where the engine ignores it, so the stored rule cannot claim a wait that
+          // never happens — hiding the input alone would leave the old value in place on edit.
+          delayHours: delayApplies ? delayHours : 0,
         }),
         targetAudience: effectiveAudience,
         // Hiding the input is not enough: it defaults to 1, and the engine's per-customer cap applies
@@ -911,7 +930,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-              <div>
+              {/* Hidden where the engine never waits — see delayApplies. A sweep sends the moment it
+                  runs, so offering a delay there promises something nothing implements. */}
+              <div className={delayApplies ? "" : "hidden"}>
                 <label className="block text-xs text-gray-400 mb-1">Delay (hours after event)</label>
                 <input
                   type="number"
@@ -922,6 +943,12 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
                 />
               </div>
+              {!delayApplies && (
+                <p className="text-xs text-gray-500">
+                  This one runs on a sweep, so it acts as soon as it finds someone — there is nothing
+                  to delay.
+                </p>
+              )}
             </div>
           )}
 

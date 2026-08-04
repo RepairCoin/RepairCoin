@@ -47,8 +47,20 @@ bundle shows the old set. Hard-reload before reporting it.
 
 - [ ] Click each of the three new ones and confirm the panel below changes:
   - **Send a campaign** → a campaign dropdown
-  - **Let AI write it** → a "What should it say?" textarea
+  - **Let AI write it** → a "What should it say?" textarea **and a "Show me an example" button**
   - **Draft a reorder** → an explanatory box with no fields
+
+**🚩 Red flag — a Message Template box still showing** for any of those three, or the placeholder
+chips, the A/B toggle or the drip toggle. None of them composes a message here: a campaign carries
+its own, an AI step writes one at send time, a reorder messages nobody. The form used to accept text
+there and silently discard it at submit. Same for **Target Audience** or **Max sends per customer**
+appearing on *Send a campaign* or *Draft a reorder* — both are shop-scoped, so neither is consulted.
+
+- [ ] On **Let AI write it**, press **Show me an example**
+
+**Expect** — a sample message, labelled as an example rather than a preview, with a note that the
+real message is written when the workflow runs. Each press spends a little of the shop's AI
+allowance, so it must never fire while typing.
 
 **🚩 Red flag** — a panel that doesn't change, or a message-body box still showing. None of these
 three stores a message template; if the composer is still there, `NO_TEMPLATE_ACTIONS` isn't
@@ -166,13 +178,23 @@ failure mode this feature is built to avoid.
 
 - [ ] Create a workflow, trigger **Event → New Ad Lead (shop alert)**
 
-**Expect**
-- The action locks to a shop-facing one — the yellow "Notify my team" box rather than the picker
+**Expect** — updated 2026-08-04, this changed:
+- The action list **narrows to the three shop-facing actions**: Notify my team, Send a campaign,
+  Draft a reorder — with a line explaining that this trigger happens to the shop, not a customer
 - **Target Audience** and **Max sends per customer** are absent
+- No **Message Template**, no placeholder chips, no A/B or drip toggles
 
-**🚩 Red flag** — it offers "Send a message" or "Issue an RCN reward". An ad lead is a name and a
-phone number, not a platform customer: there's no wallet to message and nobody to credit RCN to
-until they convert.
+**🚩 Red flag** — it offers "Send a message", "Issue an RCN reward" or "Let AI write it". An ad lead
+is a name and a phone number, not a platform customer: there's no wallet to message and nobody to
+credit RCN to until they convert.
+
+**🚩 Red flag** — a single locked box reading "Notify my team". That was the old behaviour, and it
+made `low stock → draft a reorder` unbuildable in the UI. If you see it, the frontend is serving a
+stale bundle.
+
+> **Do the same check on `low_stock`**, which is the trigger this matters most for: it should now
+> offer **Draft a reorder** as a choice. That combination is the whole point of the reorder action
+> and was unreachable until 2026-08-04.
 
 - [ ] Close without saving
 

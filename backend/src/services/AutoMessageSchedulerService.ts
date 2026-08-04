@@ -40,12 +40,16 @@ function resolveTemplate(template: string, context: {
   lastServiceName?: string;
   lastVisitDate?: string;
 }): string {
+  // Every text value is TRIMMED. A customer stored as "Mike " produced "Hey Mike ," — a space before
+  // the comma, in a message going out under the shop's name. Names arrive from typed input and
+  // imports, so trailing whitespace is ordinary data; substituting it raw is what makes it visible.
+  const clean = (v?: string) => (v || '').trim();
   return template
-    .replace(/\{\{customerName\}\}/g, context.customerName || 'Valued Customer')
+    .replace(/\{\{customerName\}\}/g, clean(context.customerName) || 'Valued Customer')
     .replace(/\{\{rcnBalance\}\}/g, String(context.rcnBalance || 0))
-    .replace(/\{\{shopName\}\}/g, context.shopName || 'our shop')
-    .replace(/\{\{lastServiceName\}\}/g, context.lastServiceName || 'your last service')
-    .replace(/\{\{lastVisitDate\}\}/g, context.lastVisitDate || 'recently');
+    .replace(/\{\{shopName\}\}/g, clean(context.shopName) || 'our shop')
+    .replace(/\{\{lastServiceName\}\}/g, clean(context.lastServiceName) || 'your last service')
+    .replace(/\{\{lastVisitDate\}\}/g, clean(context.lastVisitDate) || 'recently');
 }
 
 export class AutoMessageSchedulerService {
