@@ -158,7 +158,17 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   >("send_message");
   /** run_campaign: the campaign used as a template. Each firing clones and sends a copy. */
   const [campaignId, setCampaignId] = useState("");
-  const [campaigns, setCampaigns] = useState<{ id: string; name: string; status: string }[]>([]);
+  const [campaigns, setCampaigns] = useState<
+    {
+      id: string;
+      name: string;
+      status: string;
+      subject: string | null;
+      audienceType: string | null;
+      deliveryMethod: string | null;
+      totalRecipients: number;
+    }[]
+  >([]);
   const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [rewardAmount, setRewardAmount] = useState(25);
   const [rewardReason, setRewardReason] = useState("");
@@ -461,8 +471,19 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     setCampaignsLoaded(true);
     getCampaigns(shopId, 1, 50)
       .then((res) =>
+        // Keep the fields the summary needs. They arrive in the same response either way — narrowing
+        // to {id,name,status} threw away everything that would tell an owner WHAT they were picking,
+        // leaving them to choose from a list of names and go to Marketing to find out.
         setCampaigns(
-          (res.items ?? []).map((c) => ({ id: c.id, name: c.name, status: c.status }))
+          (res.items ?? []).map((c) => ({
+            id: c.id,
+            name: c.name,
+            status: c.status,
+            subject: c.subject ?? null,
+            audienceType: c.audienceType ?? null,
+            deliveryMethod: c.deliveryMethod ?? null,
+            totalRecipients: c.totalRecipients ?? 0,
+          }))
         )
       )
       .catch(() => setCampaigns([]));
@@ -493,12 +514,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       return;
     }
 
-    if (actionType === "run_campaign" && !campaignId) {
-      // Caught here as well as by the API, because the API's 400 would arrive as a toast about
-      // "actionPayload.campaignId" — words that appear nowhere on this form.
-      toast.error("Pick the campaign this workflow should send");
-      return;
-    }
+    // No campaign-required check at SAVE. A draft never runs, so it cannot error, and blocking the
+    // save meant a shop with no campaign yet lost its half-configured workflow on the way to
+    // Marketing to build one. The requirement is enforced at Publish, where it actually matters.
 
     let cleanSteps: WorkflowStep[] = [];
     if (rewardMode || actionType === "notify_staff" || actionType === "run_campaign" || actionType === "ai_step" || actionType === "draft_reorder") {
@@ -744,13 +762,44 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 {campaigns.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
-                    {c.status === "draft" ? " (draft)" : ""}
+                    {/* A draft is the RECOMMENDED choice, not an unfinished one: the workflow only
+                        ever sends copies, so a draft is never itself sent and stays editable
+                        forever. A sent campaign is read-only, so picking one freezes the content of
+                        this workflow for good. "(draft)" alone read as a warning about the better
+                        option. */}
+                    {c.status === "sent" ? " — content locked" : c.status === "draft" ? " — editable" : ""}
                   </option>
                 ))}
               </select>
               {/* Both sentences describe behaviour a shop would otherwise discover by accident: that
                   the campaign is reused rather than consumed, and that its rewards do NOT fire on a
                   schedule nobody approved. */}
+              {(() => {
+                const picked = campaigns.find((c) => c.id === campaignId);
+                if (!picked) return null;
+                const audience = picked.audienceType
+                  ? picked.audienceType.replace(/_/g, " ")
+                  : "its own audience";
+                return (
+                  <div className="mt-2 rounded-lg border border-gray-700 bg-[#0D0D0D] p-3 space-y-1">
+                    <p className="text-sm text-gray-200">
+                      {picked.subject || <span className="text-gray-500">No subject line set</span>}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Goes to {audience}
+                      {picked.deliveryMethod ? ` by ${picked.deliveryMethod.replace(/_/g, "-")}` : ""}
+                      {picked.totalRecipients ? ` · reached ${picked.totalRecipients} last time` : ""}
+                    </p>
+                    {picked.status === "sent" && (
+                      <p className="text-xs text-amber-400/90">
+                        This one has been sent, so its content can no longer be edited. Pick a draft
+                        campaign if you want to change the wording later.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
               <p className="text-xs text-gray-500 mt-1">
                 Used as a template — each run sends a fresh copy, so the original keeps its own history.
                 The campaign picks its own audience, and any RCN rewards on it are <strong>not</strong>{" "}
