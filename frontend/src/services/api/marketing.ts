@@ -146,7 +146,16 @@ export async function aiDraftCampaign(
     name?: string;
   }
 ): Promise<{ campaign: MarketingCampaign; imageSkipped: string | null }> {
-  const response = await apiClient.post(`/marketing/shops/${shopId}/campaigns/ai-draft`, input);
+  // 240s, matching the server's SLOW_AI_PATHS allowance and the ads/brand-kit image routes.
+  //
+  // apiClient defaults to 30s, which is shorter than an image generation — so the browser aborted at
+  // 30s while the server carried on, finished, and created the campaign anyway. The shop saw a
+  // failure toast for a campaign that actually existed, and every retry left another one behind.
+  const response = await apiClient.post(
+    `/marketing/shops/${shopId}/campaigns/ai-draft`,
+    input,
+    { timeout: 240000 }
+  );
   return response.data;
 }
 
