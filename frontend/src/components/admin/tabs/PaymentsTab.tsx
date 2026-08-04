@@ -21,6 +21,7 @@ import {
   type AdminTransactionPage,
   type PaymentTotals,
 } from "@/services/api/adminPayments";
+import { describePayment } from "@/services/api/payments";
 import type { PaymentMethod, PaymentStatus, Refund, RefundReason } from "@/services/api/payments";
 
 const startOfMonth = () => {
@@ -431,8 +432,14 @@ function PaymentDetail({
           <DetailRow label="Shop" value={t.shopName || t.shopId} />
           <DetailRow label="Shop ID" value={t.shopId} />
           <DetailRow label="Date" value={new Date(t.createdAt).toLocaleString()} />
-          <DetailRow label="Customer" value={t.customerName || t.customerAddress || "—"} />
-          <DetailRow label="Service" value={t.serviceName || "—"} />
+          <DetailRow
+            label="Customer"
+            value={t.customerName || t.customerAddress || (t.posSaleId ? "Walk-in" : "—")}
+          />
+          <DetailRow
+            label={t.posSaleId ? "Sale" : "Service"}
+            value={describePayment(t) || "—"}
+          />
           <DetailRow label="Method" value={<span className="capitalize">{t.method}</span>} />
           <DetailRow label="Source" value={<span className="capitalize">{t.source}</span>} />
           <DetailRow label="Gross" value={money(t.grossCents)} />

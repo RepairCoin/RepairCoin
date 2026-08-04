@@ -34,10 +34,31 @@ export interface Payment {
   stripePaymentIntentId: string | null;
   stripeChargeId: string | null;
   stripeAccountId: string | null;
+  posSaleId: string | null;
+  posSalePaymentId: string | null;
   capturedAt: string | null;
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * One tender of a counter sale, written by the POS rather than inferred from Stripe. Cash never
+ * produces a Stripe object, so a ledger derived only from webhooks cannot see it at all.
+ */
+export interface RecordPosTenderInput {
+  shopId: string;
+  posSaleId: string;
+  posSalePaymentId: string;
+  method: PaymentMethod;
+  grossCents: number;
+  applicationFeeCents?: number;
+  netCents?: number;
+  currency?: string;
+  customerAddress?: string | null;
+  stripePaymentIntentId?: string | null;
+  stripeAccountId?: string | null;
+  capturedAt?: string | null;
 }
 
 /** Fields the webhook reconciler upserts, keyed by the Stripe PaymentIntent id. */
@@ -99,6 +120,12 @@ export interface PaymentWithContext extends Payment {
   completedByMemberId: string | null;
   /** Only meaningful on admin reads; a shop already knows whose rows these are. */
   shopName: string | null;
+  /**
+   * A counter sale is multi-line by definition, so there is no single service to name it by —
+   * the receipt number and a line count are what identify it on screen.
+   */
+  posSaleNumber: number | null;
+  posItemCount: number | null;
 }
 
 /**
@@ -126,6 +153,8 @@ export class PaymentRepository extends BaseRepository {
       stripePaymentIntentId: row.stripe_payment_intent_id,
       stripeChargeId: row.stripe_charge_id,
       stripeAccountId: row.stripe_account_id,
+      posSaleId: row.pos_sale_id ?? null,
+      posSalePaymentId: row.pos_sale_payment_id ?? null,
       capturedAt: row.captured_at,
       metadata: row.metadata ?? {},
       createdAt: row.created_at,
@@ -183,6 +212,63 @@ export class PaymentRepository extends BaseRepository {
     return this.mapRow(result.rows[0]);
   }
 
+  /**
+   * Write one ledger row for one tender of a counter sale.
+   *
+   * The conflict target differs by tender because the two legs are protected by different unique
+   * indexes, and a single statement can only name one. A card leg keys on the PaymentIntent so it
+   * meets whatever the webhook wrote, in either order; a cash leg keys on the tender itself,
+   * because it has no Stripe object and nothing else about it is unique.
+   *
+   * On a card leg the update deliberately leaves gross, fees, net and status alone: the webhook
+   * derives those from the balance transaction and is authoritative. This only attaches the sale
+   * and corrects the source, so completing a sale after the webhook has landed cannot zero out
+   * fees the reconciler already resolved.
+   */
+  async recordPosTender(input: RecordPosTenderInput): Promise<Payment> {
+    const columns = `
+      shop_id, customer_address, method, source, gross_cents, fee_cents,
+      application_fee_cents, net_cents, currency, status,
+      stripe_payment_intent_id, stripe_account_id, pos_sale_id, pos_sale_payment_id, captured_at`;
+    const values = [
+      input.shopId,
+      input.customerAddress ?? null,
+      input.method,
+      'terminal',
+      input.grossCents,
+      0,
+      input.applicationFeeCents ?? 0,
+      input.netCents ?? 0,
+      input.currency ?? 'usd',
+      'succeeded',
+      input.stripePaymentIntentId ?? null,
+      input.stripeAccountId ?? null,
+      input.posSaleId,
+      input.posSalePaymentId,
+      input.capturedAt ?? new Date().toISOString(),
+    ];
+
+    const conflict = input.stripePaymentIntentId
+      ? `(stripe_payment_intent_id) WHERE stripe_payment_intent_id IS NOT NULL
+         DO UPDATE SET
+           pos_sale_id         = EXCLUDED.pos_sale_id,
+           pos_sale_payment_id = EXCLUDED.pos_sale_payment_id,
+           customer_address    = COALESCE(payments.customer_address, EXCLUDED.customer_address),
+           source              = EXCLUDED.source,
+           updated_at          = now()`
+      : `(pos_sale_payment_id) WHERE pos_sale_payment_id IS NOT NULL
+         DO UPDATE SET updated_at = now()`;
+
+    const result = await this.pool.query(
+      `INSERT INTO payments (${columns})
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       ON CONFLICT ${conflict}
+       RETURNING *`,
+      values
+    );
+    return this.mapRow(result.rows[0]);
+  }
+
   async getByPaymentIntent(stripePaymentIntentId: string): Promise<Payment | null> {
     const result = await this.pool.query(
       `SELECT * FROM payments WHERE stripe_payment_intent_id = $1`,
@@ -211,6 +297,12 @@ export class PaymentRepository extends BaseRepository {
       orderStatus: row.order_status ?? null,
       completedByMemberId: row.completed_by_member_id ?? null,
       shopName: row.shop_name ?? null,
+      posSaleNumber: row.pos_sale_number === null || row.pos_sale_number === undefined
+        ? null
+        : Number(row.pos_sale_number),
+      posItemCount: row.pos_item_count === null || row.pos_item_count === undefined
+        ? null
+        : Number(row.pos_item_count),
     };
   }
 
@@ -220,7 +312,8 @@ export class PaymentRepository extends BaseRepository {
     LEFT JOIN service_orders o ON o.order_id = p.order_id
     LEFT JOIN shop_services  s ON s.service_id = o.service_id
     LEFT JOIN customers      c ON c.address = p.customer_address
-    LEFT JOIN shops          sh ON sh.shop_id = p.shop_id`;
+    LEFT JOIN shops          sh ON sh.shop_id = p.shop_id
+    LEFT JOIN pos_sales      ps ON ps.id = p.pos_sale_id`;
 
   private readonly contextSelect = `
       p.*,
@@ -228,7 +321,9 @@ export class PaymentRepository extends BaseRepository {
       c.name                AS customer_name,
       o.status              AS order_status,
       o.completed_by_member_id AS completed_by_member_id,
-      sh.name               AS shop_name`;
+      sh.name               AS shop_name,
+      ps.sale_number        AS pos_sale_number,
+      (SELECT COUNT(*) FROM pos_sale_items psi WHERE psi.sale_id = ps.id) AS pos_item_count`;
 
   /**
    * Build the WHERE clause shared by list/count/export.

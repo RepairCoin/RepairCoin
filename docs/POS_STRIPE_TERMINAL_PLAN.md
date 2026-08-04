@@ -178,7 +178,8 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S3 | Tax — rates, taxability, per-line snapshot — **built** | M | S2 |
 | S4 | **Phase 2** — POS UI, tablet web, split tender — **shipped (#715)** | L | S1, S2, S3 |
 | S5 | **Phase 5** — inventory wiring, per-branch stock, cost/margin — **built** | S | S2 |
-| S6 | **Phase 8** — receipt, warranty, loyalty, review via notification gateway, **plus fiat-ledger reconciliation (see 7a)** | M | S2 |
+| S6a | **Fiat-ledger reconciliation** (see 7a) — **built** | M | S2 |
+| S6b | **Phase 8** — receipt, loyalty, review via notification gateway — **see 8a** | M | S2 |
 | S7 | **Phase 6** — devices & warranty model | M | S2 |
 | S8 | **Phase 4** — repair ticket workflow | L | S2, S7 |
 | — | **Phases 3 & 7 (AI)** — deferred handoff | — | S2 |
@@ -354,7 +355,7 @@ is possible if anyone wants one).
 `reserved_quantity` — no reservation flow exists — so the POS has nothing to release and
 needed no handling. It stays open for whoever builds reservations.
 
-## 7a. POS sales are not properly in the fiat ledger (deferred to S6)
+## 7a. POS sales are not properly in the fiat ledger — **fixed in S6a**
 
 Found while testing the POS in August 2026. The shop Transactions page reads the `payments`
 table, and POS card sales are reaching it **by accident** — via the Stripe webhook, not
@@ -396,7 +397,51 @@ the same structural point that ruled out Stripe Tax in S3.
 write must be idempotent on `stripe_payment_intent_id` — the unique index `uq_payments_intent`
 (migration 244) already exists for exactly this.
 
-Until this is done, treat the Transactions page as incomplete for any shop using the POS.
+### How it was resolved
+
+Migration 262 adds `pos_sale_id` and `pos_sale_payment_id` to `payments`. The second is the
+idempotency key for cash: a card leg is already covered by `uq_payments_intent`, but a cash leg
+has no PaymentIntent and nothing else unique about it.
+
+`recordPosTender` writes one row per settled tender and picks its conflict target by leg, since
+one statement can only name one. A card leg keys on the PaymentIntent so it meets whatever the
+webhook wrote **in either order**; a cash leg keys on the tender.
+
+The card leg's update deliberately leaves `gross_cents`, `fee_cents`, `net_cents` and `status`
+alone. The webhook derives those from the balance transaction and is authoritative — a
+completion landing after it would otherwise zero out fees the reconciler had already resolved.
+`net_cents` is written as 0 on a card leg as a placeholder, not a claim; cash is written at full
+value because nothing is deducted between the drawer and the shop.
+
+The PaymentIntent now stamps `type: 'pos_sale'` and the customer when there is one, and
+`sourceFromMetadata` returns `'terminal'` for it — so a charge reconciling *before* its sale is
+completed is filed correctly rather than as a booking.
+
+Transactions renders `Counter sale #7 · 3 items` where a service name would go, and *Walk-in*
+where the customer would be. Blank is the correct answer for a counter sale with no customer
+attached, but it is indistinguishable from lost attribution, so it says which.
+
+**Still true:** a sale voided after a cash tender was taken leaves that tender in the ledger.
+The money did move, so the row is not wrong, but there is no refund flow behind it yet.
+
+## 8a. Phase 8 is bigger than this plan implies (S6b)
+
+S2 above states that the POS sale "emits the existing `service:completed` event" so that
+inventory, loyalty, reviews and reporting fire unchanged. **That is not what shipped.**
+`completeSale` publishes its own `pos.sale_completed`, and `InventoryDomain` is its only
+subscriber.
+
+So for counter sales today there is no RCN issued, no review request, and no emailed receipt —
+the register's receipt is on-screen only. None of it is broken; it was never wired, and the S2
+section reads as though it was.
+
+The decision S6b has to make first: emit `service:completed` as originally intended and inherit
+the existing consumers, or add POS-specific handlers on `pos.sale_completed`. The first is
+cheaper but pushes a walk-in with no customer address through machinery built around orders and
+customers; the second is more code but honest about a sale that may have no customer at all.
+
+Note also that Phase 8's receipt is specified to show **warranty**, but the device/warranty model
+is S7 and greenfield. Either the receipt ships without warranty, or S7 moves ahead of it.
 
 ## 7b. Known bug, tracked separately
 

@@ -6,6 +6,7 @@ import { getStripeTerminalService } from '../../../services/StripeTerminalServic
 import { computeCommissionCents } from '../../../utils/platformCommission';
 import { getSharedPool } from '../../../utils/database-pool';
 import {
+  paymentRepository,
   posSaleRepository,
   shopTaxRepository,
   shopTerminalRepository,
@@ -231,7 +232,14 @@ export class PosSaleService {
         payment_method_types: ['card_present'],
         capture_method: 'automatic',
         ...(commissionCents > 0 ? { application_fee_amount: commissionCents } : {}),
-        metadata: { shopId, posSaleId: saleId },
+        // `type` is what the webhook reconciler reads to file this as a counter sale rather than
+        // a booking, in the case where the charge lands before the sale is completed.
+        metadata: {
+          shopId,
+          posSaleId: saleId,
+          type: 'pos_sale',
+          ...(sale.customerAddress ? { customerAddress: sale.customerAddress } : {}),
+        },
       },
       { stripeAccount: stripeAccountId }
     );
@@ -331,6 +339,8 @@ export class PosSaleService {
   async completeSale(shopId: string, saleId: string): Promise<PosSaleWithDetails> {
     const sale = await posSaleRepository.completeSale(saleId, shopId);
 
+    await this.writeToLedger(sale);
+
     try {
       await eventBus.publish(
         createDomainEvent(
@@ -362,6 +372,54 @@ export class PosSaleService {
     }
 
     return sale;
+  }
+
+  /**
+   * Writes the sale's settled tenders into the fiat ledger — one row each, cash included.
+   *
+   * The ledger cannot be rebuilt from Stripe: a cash leg has no charge for the reconciler to
+   * find, so a POS shop's Transactions page silently under-reported revenue by however much it
+   * took over the counter. Card legs are written here too, keyed on the PaymentIntent, so the
+   * webhook meets a row that already names the sale instead of creating a bare one.
+   *
+   * Failures are logged, never thrown: the customer has paid and the sale is complete, and a
+   * bookkeeping write must not be able to undo that.
+   */
+  private async writeToLedger(sale: PosSaleWithDetails): Promise<void> {
+    const stripeAccountId = sale.payments.some((p) => p.stripePaymentIntentId)
+      ? await getStripeTerminalService()
+          .requireAccountId(sale.shopId)
+          .catch(() => null)
+      : null;
+
+    for (const payment of sale.payments) {
+      if (payment.status !== 'succeeded') continue;
+
+      try {
+        await paymentRepository.recordPosTender({
+          shopId: sale.shopId,
+          posSaleId: sale.id,
+          posSalePaymentId: payment.id,
+          method: payment.method === 'cash' ? 'cash' : 'card',
+          grossCents: payment.amountCents,
+          applicationFeeCents: payment.applicationFeeCents,
+          // Cash settles whole; a card leg's fees and net come from the balance transaction the
+          // webhook resolves, so leaving it at zero here is a placeholder, not a claim.
+          netCents: payment.method === 'cash' ? payment.amountCents : 0,
+          currency: sale.currency || 'usd',
+          customerAddress: sale.customerAddress,
+          stripePaymentIntentId: payment.stripePaymentIntentId,
+          stripeAccountId,
+          capturedAt: payment.capturedAt,
+        });
+      } catch (error) {
+        logger.error('Failed to write POS tender to the fiat ledger', {
+          saleId: sale.id,
+          salePaymentId: payment.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
   }
 
   async voidSale(shopId: string, saleId: string, reason?: string): Promise<PosSale> {
