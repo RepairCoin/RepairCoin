@@ -44,6 +44,29 @@ const SHOP_SCOPED_EVENTS = new Set(["low_stock", "new_ad_lead"]);
  */
 const AUDIENCE_AWARE_EVENTS = new Set(["inactive_30_days", "low_bookings"]);
 
+/**
+ * Every action, and whether it acts on the SHOP rather than on a customer.
+ *
+ * One table instead of conditions repeated per field. Four separate places keyed on
+ * `actionType === "notify_staff"` as shorthand for "shop-facing", which was true until three more
+ * actions arrived — after which a campaign rule offered a Target Audience it does not consult, a
+ * reorder rule offered a per-customer send cap, and a shop-scoped trigger claimed the action was
+ * "Notify my team" whatever it actually was.
+ *
+ * `shopScoped` mirrors SHOP_SCOPED_ACTIONS in the backend registry; the two must agree, because the
+ * API rejects a shop-scoped trigger paired with a customer-facing action.
+ */
+const ACTIONS: ReadonlyArray<{ value: string; label: string; hint: string; shopScoped: boolean }> = [
+  { value: "send_message", label: "Send a message", hint: "To the customer", shopScoped: false },
+  { value: "issue_reward", label: "Issue an RCN reward", hint: "Credits the customer", shopScoped: false },
+  { value: "ai_step", label: "Let AI write it", hint: "Fresh copy each run", shopScoped: false },
+  { value: "notify_staff", label: "Notify my team", hint: "Alerts you, not the customer", shopScoped: true },
+  { value: "run_campaign", label: "Send a campaign", hint: "One send to a whole audience", shopScoped: true },
+  { value: "draft_reorder", label: "Draft a reorder", hint: "A purchase order to approve", shopScoped: true },
+];
+
+const SHOP_SCOPED_ACTIONS = new Set(ACTIONS.filter((a) => a.shopScoped).map((a) => a.value));
+
 const TARGET_AUDIENCES = [
   { value: "all", label: "All Customers" },
   { value: "active", label: "Active (last 30 days)" },
@@ -208,6 +231,14 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const notifiesStaff = actionType === "notify_staff";
 
   /**
+   * Does the ACTION act on the shop rather than on a customer?
+   *
+   * Distinct from `shopScoped`, which asks the same of the TRIGGER. Either one being true means no
+   * customer is involved, so a target audience and a per-customer send cap are both meaningless.
+   */
+  const actionActsOnShop = SHOP_SCOPED_ACTIONS.has(actionType);
+
+  /**
    * Does Target Audience actually do anything for this configuration?
    *
    * It only ever did for rules where the engine has to decide WHO to act on: schedule rules, plus the
@@ -216,7 +247,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
    * never consults the audience — so showing the field there promised a filter that did not exist.
    */
   const audienceApplies =
-    !notifiesStaff &&
+    !actionActsOnShop &&
     (triggerType === "schedule" || AUDIENCE_AWARE_EVENTS.has(eventType));
 
   useEffect(() => {
@@ -432,7 +463,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       actionType !== "run_campaign" &&
       actionType !== "draft_reorder"
     ) {
-      setActionType("notify_staff" as any);
+      setActionType("notify_staff");
     }
   }, [shopScoped, actionType]);
 
@@ -535,7 +566,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         // Hiding the input is not enough: it defaults to 1, and the engine's per-customer cap applies
         // to a staff alert on a customer event too — so a repeat no-show by the same customer would be
         // reported once and then never again. 0 means uncapped (the engine's check is truthy).
-        maxSendsPerCustomer: isNotify ? 0 : maxSendsPerCustomer,
+        maxSendsPerCustomer: actionActsOnShop ? 0 : maxSendsPerCustomer,
         // Send the sequence (or clear it when not in sequence mode).
         steps: sequenceMode ? cleanSteps : null,
         stopOnBooking: sequenceMode ? stopOnBooking : false,
@@ -585,96 +616,39 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               timing — applies identically whichever action is chosen. */}
           <div>
             <label className="block text-sm text-gray-400 mb-2">Then do this</label>
-            {shopScoped ? (
-              // Nobody to message — the trigger happened to the shop, so the action is fixed.
-              <div className="rounded-lg border border-[#FFCC00] bg-[#FFCC00]/10 px-3 py-2">
-                <div className="text-sm font-medium text-white">Notify my team</div>
-                <div className="text-xs text-gray-400 mt-0.5">
-                  This one happens to your shop, not to a customer — there&apos;s nobody to message.
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
+            {/* Driven by the ACTIONS table, so a new action cannot be added to the picker and
+                forgotten in the shop-scoped case. A shop-scoped TRIGGER now NARROWS the choice to
+                shop-facing actions rather than asserting one: "low stock → draft a reorder" is the
+                obvious workflow for that trigger, and the hardcoded "Notify my team" box made it
+                unreachable in the UI entirely. */}
+            {shopScoped && (
+              <p className="text-xs text-gray-400 mb-2">
+                This one happens to your shop, not to a customer — so it can only do something for you.
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              {ACTIONS.filter((a) => !shopScoped || a.shopScoped).map((a) => (
                 <button
-                  type="button"
-                  onClick={() => setActionType("send_message")}
-                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                    actionType === "send_message"
-                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                      : "border-gray-700 text-gray-400 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="font-medium">Send a message</div>
-                  <div className="text-xs text-gray-500">To the customer</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActionType("issue_reward")}
-                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                    actionType === "issue_reward"
-                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                      : "border-gray-700 text-gray-400 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="font-medium">Issue an RCN reward</div>
-                  <div className="text-xs text-gray-500">Credits the customer</div>
-                </button>
-                <button
+                  key={a.value}
                   type="button"
                   onClick={() => {
-                    setActionType("notify_staff");
+                    setActionType(a.value as typeof actionType);
                     // "Alert me when X happens" is the overwhelmingly common intent. Only nudge an
-                    // untouched default — a deliberate Schedule choice ("every Monday, remind the team")
-                    // is legitimate and must survive.
-                    if (!triggerTouched) setTriggerType("event");
+                    // untouched default — a deliberate Schedule choice ("every Monday, remind the
+                    // team") is legitimate and must survive.
+                    if (a.value === "notify_staff" && !triggerTouched) setTriggerType("event");
                   }}
                   className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                    actionType === "notify_staff"
+                    actionType === a.value
                       ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
                       : "border-gray-700 text-gray-400 hover:border-gray-600"
                   }`}
                 >
-                  <div className="font-medium">Notify my team</div>
-                  <div className="text-xs text-gray-500">Alerts you, not the customer</div>
+                  <div className="font-medium">{a.label}</div>
+                  <div className="text-xs text-gray-500">{a.hint}</div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActionType("run_campaign")}
-                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                    actionType === "run_campaign"
-                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                      : "border-gray-700 text-gray-400 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="font-medium">Send a campaign</div>
-                  <div className="text-xs text-gray-500">One send to a whole audience</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActionType("ai_step")}
-                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                    actionType === "ai_step"
-                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                      : "border-gray-700 text-gray-400 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="font-medium">Let AI write it</div>
-                  <div className="text-xs text-gray-500">Fresh copy each run</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActionType("draft_reorder")}
-                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                    actionType === "draft_reorder"
-                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                      : "border-gray-700 text-gray-400 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="font-medium">Draft a reorder</div>
-                  <div className="text-xs text-gray-500">A purchase order to approve</div>
-                </button>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
 
           {actionType === "draft_reorder" && (
@@ -972,7 +946,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
           {/* Max Sends — a staff alert isn't addressed to a customer, so a per-customer cap is
               meaningless for it (and the submitted value is forced to "uncapped"). */}
-          <div className={notifiesStaff ? "hidden" : ""}>
+          <div className={actionActsOnShop ? "hidden" : ""}>
             <label className="block text-sm text-gray-400 mb-1">Max sends per customer</label>
             <input
               type="number"
