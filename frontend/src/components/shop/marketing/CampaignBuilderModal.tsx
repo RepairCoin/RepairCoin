@@ -1016,6 +1016,34 @@ export function CampaignBuilderModal({
                   </div>
                 );
 
+              // The switch had every block type EXCEPT this one, so an image fell through to
+              // `default: return null` and drew nothing. The email renderer has always drawn it
+              // (MarketingService.renderBlock, case 'image'), so a campaign with a banner looked
+              // empty everywhere in the app and correct in the customer's inbox — and the block
+              // palette offers "Image" as something you can add and then never see.
+              case 'image':
+                return block.src ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={block.id}
+                    src={block.src}
+                    alt=""
+                    className={`mx-auto rounded ${cursorClass} ${outlineClass}`}
+                    style={{ maxWidth: block.style?.maxWidth || '100%', height: 'auto' }}
+                    onClick={() => handleSelectBlock(block.id)}
+                  />
+                ) : (
+                  // An image block with no src is a placeholder the owner has not filled in. Showing
+                  // nothing would leave them clicking an invisible row wondering why it does nothing.
+                  <div
+                    key={block.id}
+                    className={`text-center text-xs text-gray-400 border border-dashed border-gray-300 rounded py-6 ${cursorClass} ${outlineClass}`}
+                    onClick={() => handleSelectBlock(block.id)}
+                  >
+                    Image — none chosen yet
+                  </div>
+                );
+
               case 'divider':
                 return (
                   <hr
