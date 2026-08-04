@@ -5,8 +5,24 @@ import { X, Loader2, Zap, Calendar, Plus, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AutoMessage, CreateAutoMessageRequest, UpdateAutoMessageRequest } from "@/services/api/messaging";
 import { generateAutoMessageContent, getAutoMessageAbResults, type AbResults } from "@/services/api/messaging";
-import { getCampaigns } from "@/services/api/marketing";
+import dynamic from "next/dynamic";
+import { getCampaigns, type MarketingCampaign } from "@/services/api/marketing";
 import { useAuthStore } from "@/stores/authStore";
+
+/**
+ * The real campaign designer, rendered OVER this builder rather than navigated to.
+ *
+ * Lazy on purpose: it is a 2,477-line block editor with its own image handling, and pulling it into
+ * this chunk would make every workflow — most of which never touch a campaign — pay for it.
+ *
+ * Embedding rather than rebuilding is the whole decision here. Campaigns need images to get read, so
+ * an inline composer would either duplicate that editor or ship something that cannot do the one job
+ * the campaign exists for. See campaign-action-editor-embed.md §2.
+ */
+const CampaignBuilderModal = dynamic(
+  () => import("@/components/shop/marketing/CampaignBuilderModal").then((m) => m.CampaignBuilderModal),
+  { ssr: false }
+);
 import toast from "react-hot-toast";
 
 const SCHEDULE_TYPES = [
@@ -158,17 +174,21 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   >("send_message");
   /** run_campaign: the campaign used as a template. Each firing clones and sends a copy. */
   const [campaignId, setCampaignId] = useState("");
-  const [campaigns, setCampaigns] = useState<
-    {
-      id: string;
-      name: string;
-      status: string;
-      subject: string | null;
-      audienceType: string | null;
-      deliveryMethod: string | null;
-      totalRecipients: number;
-    }[]
-  >([]);
+  /**
+   * The shop's campaigns, kept WHOLE rather than narrowed.
+   *
+   * They were mapped down to a handful of fields, which threw away everything the summary needed and
+   * — once the editor could be opened from here — left nothing to hand it: `existingCampaign` wants
+   * the real row, and refetching one we already had would be a second request to rebuild an object we
+   * chose to discard.
+   */
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  /** Which campaign the embedded editor is open on, and why. `null` = closed. */
+  const [campaignEditor, setCampaignEditor] = useState<
+    { mode: "create" | "edit" | "view"; campaign: MarketingCampaign | null } | null
+  >(null);
+  /** Subscribed rather than read via getState(), so the editor gets the shop even on a late login. */
+  const shopProfile = useAuthStore((s) => s.userProfile);
   const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [rewardAmount, setRewardAmount] = useState(25);
   const [rewardReason, setRewardReason] = useState("");
@@ -471,20 +491,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     setCampaignsLoaded(true);
     getCampaigns(shopId, 1, 50)
       .then((res) =>
-        // Keep the fields the summary needs. They arrive in the same response either way — narrowing
-        // to {id,name,status} threw away everything that would tell an owner WHAT they were picking,
-        // leaving them to choose from a list of names and go to Marketing to find out.
-        setCampaigns(
-          (res.items ?? []).map((c) => ({
-            id: c.id,
-            name: c.name,
-            status: c.status,
-            subject: c.subject ?? null,
-            audienceType: c.audienceType ?? null,
-            deliveryMethod: c.deliveryMethod ?? null,
-            totalRecipients: c.totalRecipients ?? 0,
-          }))
-        )
+        setCampaigns(res.items ?? [])
       )
       .catch(() => setCampaigns([]));
   }, [actionType, campaignsLoaded]);
@@ -799,6 +806,45 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   </div>
                 );
               })()}
+
+              {/* Design, preview and edit happen HERE. Sending the shop to Marketing mid-task was the
+                  whole complaint: they lost the half-built workflow on the way out, and a shop with
+                  no campaigns hit a dead end. */}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCampaignEditor({ mode: "create", campaign: null })}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 text-xs hover:border-gray-600"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Create new campaign
+                </button>
+                {(() => {
+                  const picked = campaigns.find((c) => c.id === campaignId);
+                  if (!picked) return null;
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setCampaignEditor({ mode: "view", campaign: picked })}
+                        className="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 text-xs hover:border-gray-600"
+                      >
+                        Preview
+                      </button>
+                      {/* A sent campaign is read-only, so an Edit button here would only ever produce
+                          a 400. The locked state in the summary explains why instead. */}
+                      {picked.status !== "sent" && (
+                        <button
+                          type="button"
+                          onClick={() => setCampaignEditor({ mode: "edit", campaign: picked })}
+                          className="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 text-xs hover:border-gray-600"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
 
               <p className="text-xs text-gray-500 mt-1">
                 Used as a template — each run sends a fresh copy, so the original keeps its own history.
@@ -1315,6 +1361,36 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Rendered as a sibling of this modal, not inside the form — it is a Radix Dialog and portals
+          to document.body regardless, and nesting a <form> inside another would submit the wrong one. */}
+      {campaignEditor && (
+        <CampaignBuilderModal
+          open
+          shopId={shopProfile?.shopId || ""}
+          shopName={shopProfile?.name}
+          campaignType={campaignEditor.campaign?.campaignType || "custom"}
+          existingCampaign={campaignEditor.campaign}
+          viewOnly={campaignEditor.mode === "view"}
+          onClose={(saved, campaign) => {
+            setCampaignEditor(null);
+            if (!saved) return;
+            // Select whatever was just written, so creating one from here leaves it chosen rather
+            // than making the owner find it in a list they just left. The row comes back from the
+            // editor: picking "the newest" instead would be a guess, and wrong if another tab saved.
+            if (campaign) {
+              setCampaigns((prev) => {
+                const without = prev.filter((c) => c.id !== campaign.id);
+                return [campaign, ...without];
+              });
+              setCampaignId(campaign.id);
+            } else {
+              // Saved without telling us which — refetch rather than show a stale summary.
+              setCampaignsLoaded(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

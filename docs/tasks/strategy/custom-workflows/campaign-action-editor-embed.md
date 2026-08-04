@@ -1,7 +1,18 @@
 # Custom Workflows — making "Send a campaign" usable (2026-08-04)
 
-**Status:** scoped, not built.
+**Status:** P1 and P2 built, merged and deployed 2026-08-04 (PR #730). P3–P5 not started.
 **Applies to:** the `run_campaign` action shipped 2026-08-03.
+
+> **P1 — save a draft without a campaign.** Done. The requirement moved to the publish path, which
+> also gained an ownership check (`getById` is not shop-scoped, so another shop's rule must read as
+> "not found" rather than as a validation failure).
+>
+> **P2 — campaign summary.** Done. Subject, audience, delivery method and last recipient count now
+> show for the selected campaign — all from the response the builder was already fetching and
+> narrowing away. Options relabelled per D2: a draft reads "editable", a sent campaign reads
+> "content locked", with a line explaining that choosing a sent one freezes the workflow's content.
+>
+> **Not yet verified in a browser.** P3–P5 are the embed work, where the unknowns in §6 live.
 
 ---
 
