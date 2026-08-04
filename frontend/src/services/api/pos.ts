@@ -174,6 +174,20 @@ export async function voidSale(saleId: string, reason?: string): Promise<void> {
   await apiClient.post(`/shops/pos/sales/${saleId}/void`, { reason });
 }
 
+export async function setSaleCustomer(saleId: string, customerAddress: string): Promise<PosSale> {
+  return unwrap(
+    await apiClient.put(`/shops/pos/sales/${saleId}/customer`, { customerAddress }),
+    "Could not attach that customer"
+  );
+}
+
+export async function clearSaleCustomer(saleId: string): Promise<PosSale> {
+  return unwrap(
+    await apiClient.delete(`/shops/pos/sales/${saleId}/customer`),
+    "Could not remove the customer"
+  );
+}
+
 export async function getPosSummary(options: {
   days?: number;
   locationId?: string | null;

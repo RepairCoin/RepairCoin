@@ -88,6 +88,20 @@ router.post(
   )
 );
 
+router.put(
+  '/pos/sales/:id/customer',
+  handle('Failed to attach the customer', (shopId, req) =>
+    getPosSaleService().setCustomer(shopId, req.params.id, String(req.body?.customerAddress ?? ''))
+  )
+);
+
+router.delete(
+  '/pos/sales/:id/customer',
+  handle('Failed to remove the customer', (shopId, req) =>
+    getPosSaleService().setCustomer(shopId, req.params.id, null)
+  )
+);
+
 router.delete(
   '/pos/sales/:id/items/:itemId',
   handle('Failed to remove line', (shopId, req) =>

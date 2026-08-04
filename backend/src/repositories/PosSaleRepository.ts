@@ -212,6 +212,24 @@ export class PosSaleRepository extends BaseRepository {
     return this.mapSale(result.rows[0]);
   }
 
+  /**
+   * Attach or clear the customer on an open sale. Deliberately settable after lines are added:
+   * at a counter you ring up first and find out who you are serving at payment, so requiring it
+   * at creation would mean voiding and restarting the sale.
+   */
+  async setCustomer(
+    saleId: string,
+    shopId: string,
+    customerAddress: string | null
+  ): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE pos_sales SET customer_address = $3, updated_at = now()
+       WHERE id = $1 AND shop_id = $2 AND status = 'open'`,
+      [saleId, shopId, customerAddress]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async getSale(saleId: string, shopId: string): Promise<PosSaleWithDetails | null> {
     const saleResult = await this.pool.query(
       `SELECT * FROM pos_sales WHERE id = $1 AND shop_id = $2`,

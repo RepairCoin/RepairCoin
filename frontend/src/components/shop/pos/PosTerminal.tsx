@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Banknote,
   CreditCard,
@@ -9,6 +10,8 @@ import {
   Plus,
   Search,
   Trash2,
+  UserPlus,
+  UserRound,
   Wrench,
   X,
 } from "lucide-react";
@@ -16,16 +19,19 @@ import { useAuthStore } from "@/stores/authStore";
 import {
   addItem,
   cancelCardPayment,
+  clearSaleCustomer,
   completeSale,
   createSale,
   formatCents,
   removeItem,
+  setSaleCustomer,
   startCardPayment,
   syncCardPayment,
   takeCash,
   voidSale,
   type PosSale,
 } from "@/services/api/pos";
+import CustomerSearchModal from "@/components/shop/customers/CustomerSearchModal";
 import { getShopServices, type ShopService } from "@/services/api/services";
 import { inventoryApi } from "@/services/api/inventory";
 import { listReaders, type TerminalReader } from "@/services/api/terminal";
@@ -46,6 +52,12 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
   const [sale, setSale] = useState<PosSale | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Held locally because the sale stores only the address — the name comes from whichever row
+  // the search returned, and re-fetching it to render one label isn't worth a round trip.
+  const [customerName, setCustomerName] = useState<string | null>(null);
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [signupOpen, setSignupOpen] = useState(false);
 
   const [tab, setTab] = useState<CatalogTab>("services");
   const [search, setSearch] = useState("");
@@ -78,6 +90,7 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
   const openSale = useCallback(() => {
     setSale(null);
     setError(null);
+    setCustomerName(null);
   }, []);
 
   useEffect(() => {
@@ -151,6 +164,19 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const attachCustomer = async (address: string, name?: string) => {
+    setCustomerOpen(false);
+    const target = await ensureSale();
+    setCustomerName(name ?? null);
+    await run(() => setSaleCustomer(target.id, address)).catch(() => setCustomerName(null));
+  };
+
+  const detachCustomer = async () => {
+    if (!sale) return;
+    setCustomerName(null);
+    await run(() => clearSaleCustomer(sale.id));
   };
 
   const filteredServices = useMemo(() => {
@@ -377,6 +403,51 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
 
           {sale && sale.items.length > 0 && (
             <>
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+                <UserRound className="h-4 w-4 shrink-0 text-[#FFCC00]" />
+                <div className="min-w-0 flex-1">
+                  {sale.customerAddress ? (
+                    <>
+                      <p className="truncate text-sm text-white">
+                        {customerName || `${sale.customerAddress.slice(0, 10)}…`}
+                      </p>
+                      <p className="text-xs text-[#6B6B6B]">Earns RCN on this sale</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-white">Walk-in</p>
+                      <p className="text-xs text-[#6B6B6B]">No rewards without an account</p>
+                    </>
+                  )}
+                </div>
+                {sale.customerAddress ? (
+                  <button
+                    onClick={detachCustomer}
+                    disabled={busy}
+                    className="shrink-0 cursor-pointer text-xs text-[#6B6B6B] transition-colors hover:text-[#F87171] disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  <div className="flex shrink-0 gap-3">
+                    <button
+                      onClick={() => setCustomerOpen(true)}
+                      disabled={busy}
+                      className="cursor-pointer text-xs text-[#FFCC00] transition-colors hover:text-[#E5BB00] disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                    <button
+                      onClick={() => setSignupOpen(true)}
+                      className="flex cursor-pointer items-center gap-1 text-xs text-[#6B6B6B] transition-colors hover:text-white"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      New
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="mt-4 space-y-1 border-t border-white/10 pt-4 text-sm">
                 <Row label="Subtotal" value={formatCents(sale.subtotalCents)} />
                 {sale.discountCents > 0 && (
@@ -485,6 +556,58 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
             </>
           )}
         </div>
+      </div>
+
+      <CustomerSearchModal
+        isOpen={customerOpen}
+        onClose={() => setCustomerOpen(false)}
+        onSelectCustomer={attachCustomer}
+      />
+
+      {signupOpen && <SignupQrModal onClose={() => setSignupOpen(false)} />}
+    </div>
+  );
+}
+
+/**
+ * A counter sale can't create an account itself: a customer IS a wallet address here, and there
+ * is no way to produce one for someone standing at a till. So the register hands them a link to
+ * sign up on their own phone. This sale stays a walk-in — they earn from the next one.
+ */
+function SignupQrModal({ onClose }: { onClose: () => void }) {
+  const url =
+    typeof window !== "undefined" ? `${window.location.origin}/register/customer` : "";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className={`${CARD} w-full max-w-[380px]`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-white">New customer</h2>
+            <p className="mt-1 text-xs text-[#999999]">
+              Have them scan this to sign up. They'll earn RCN from their next visit.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 cursor-pointer text-[#6B6B6B] transition-colors hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-5 flex justify-center rounded-xl bg-white p-4">
+          <QRCodeSVG value={url} size={190} level="H" />
+        </div>
+
+        <p className="mt-4 break-all text-center text-xs text-[#6B6B6B]">{url}</p>
+
+        <button
+          onClick={onClose}
+          className="mt-5 h-11 w-full cursor-pointer rounded-md border border-[#303236] text-sm font-medium text-[#999999] transition-colors hover:text-white"
+        >
+          Done
+        </button>
       </div>
     </div>
   );
