@@ -55,6 +55,58 @@ const MAX_PROMPT = 500;
  */
 const AUDIENCE_SWEEP_EVENTS: ReadonlySet<string> = new Set(['inactive_30_days', 'low_bookings']);
 
+/** Below this a "message" is a fragment; above it, nobody reads it. */
+const MIN_BODY = 20;
+const MAX_BODY = 2000;
+
+/**
+ * Claims that COMMIT THE SHOP TO SOMETHING, which is the real risk in letting a model write to
+ * customers unattended. An imperfect sentence is survivable; "20% off your next service" is a
+ * discount the shop must either honour or look dishonest refusing.
+ *
+ * Deliberately NARROW. `free` and `guaranteed` are left out because "feel free to call" is ordinary
+ * friendly copy, and a guard that fires on it would silence workflows — which this codebase keeps
+ * relearning is the worse failure. High precision matters more than coverage here: everything caught
+ * must be worth cancelling a message over.
+ */
+const OFFER_CLAIMS: ReadonlyArray<{ pattern: RegExp; what: string }> = [
+  { pattern: /\d+\s*%/, what: 'a percentage' },
+  { pattern: /[$£€₱]\s?\d/, what: 'a price' },
+  { pattern: /\b(discount|coupon|voucher|promo code)\b/i, what: 'an offer' },
+];
+
+/** A placeholder this action cannot fill leaks braces to the customer. */
+const UNRESOLVED_PLACEHOLDER = /\{\{[^}]*\}\}/;
+
+/** Links anywhere other than the shop's own world are not something a model should be inventing. */
+const EXTERNAL_LINK = /https?:\/\/(?!(?:www\.)?repaircoin\.ai)/i;
+
+/**
+ * Is this message safe to send unattended?
+ *
+ * Returns null when fine, or a reason to skip. Mirrors the validation RecommendationPhraser applies
+ * to AI-rewritten card copy, where any figure it cannot account for discards the whole rewrite: an
+ * automated message is the one place a model's invention reaches a customer with nobody reading it
+ * first.
+ *
+ * A claim the OWNER asked for in their brief is allowed through — if they wrote "offer 10% off",
+ * a message containing 10% is doing as it was told.
+ */
+export function validateGeneratedMessage(body: string, brief?: string): string | null {
+  if (body.length < MIN_BODY) return 'too short to be a message';
+  if (body.length > MAX_BODY) return `longer than ${MAX_BODY} characters`;
+  if (UNRESOLVED_PLACEHOLDER.test(body)) return 'contains a placeholder this action cannot fill';
+  if (EXTERNAL_LINK.test(body)) return 'contains an external link';
+
+  const asked = (brief ?? '').toLowerCase();
+  for (const { pattern, what } of OFFER_CLAIMS) {
+    if (pattern.test(body) && !pattern.test(asked)) {
+      return `states ${what} the brief never asked for`;
+    }
+  }
+  return null;
+}
+
 export function parseAiStepPayload(raw: unknown): AiStepPayload {
   const o = (raw ?? {}) as Record<string, unknown>;
   const p = typeof o.prompt === 'string' ? o.prompt.trim().slice(0, MAX_PROMPT) : '';
@@ -168,7 +220,27 @@ export class AiStepAction implements AutoMessageActionHandler {
 
     // {{variables}} are substituted by the same resolver send_message uses, so per-customer details
     // still land even though the copy was written once for the whole run.
-    return this.send.execute({ ...ctx, messageText: this.resolve(body, ctx) });
+    const messageText = this.resolve(body, ctx);
+
+    // Checked AFTER resolution, deliberately: the placeholder rule is about braces the customer would
+    // actually see, and the length is the length of what actually gets sent.
+    //
+    // On a pooled run a rejected body fails for every recipient, so this logs once per customer rather
+    // than once per run. That noise is the accurate story — the run produced copy that could not be
+    // sent to anybody — and de-duplicating it would mean caching a verdict that depends on which
+    // customer is being resolved.
+    const problem = validateGeneratedMessage(messageText, prompt);
+    if (problem) {
+      logger.error('ai_step rejected its own generated message — nothing sent', {
+        ruleId: ctx.rule.id,
+        shopId: ctx.shopId,
+        reason: problem,
+        message: messageText.slice(0, 200),
+      });
+      return { ok: false, skipped: 'empty' };
+    }
+
+    return this.send.execute({ ...ctx, messageText });
   }
 
   private resolve(body: string, ctx: AutoMessageActionContext): string {

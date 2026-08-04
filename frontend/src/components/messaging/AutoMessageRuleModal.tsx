@@ -143,6 +143,15 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [alertText, setAlertText] = useState("");
   /** ai_step: the owner's brief. Optional — the generator also has the trigger, audience and name. */
   const [aiBrief, setAiBrief] = useState("");
+  /**
+   * A one-off sample of what this workflow might send.
+   *
+   * Without it the owner publishes a BEHAVIOUR rather than a message — they never see a sentence
+   * before real customers do. It is called on demand only: every sample is a real generation against
+   * the shop's monthly AI allowance, so it must never fire on typing.
+   */
+  const [aiSample, setAiSample] = useState("");
+  const [samplingAi, setSamplingAi] = useState(false);
   const [triggerType, setTriggerType] = useState<"schedule" | "event">("schedule");
   /**
    * Has the trigger been chosen deliberately (by a click or a template) rather than left at its default?
@@ -278,6 +287,25 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       toast.error(e?.response?.data?.error || "Couldn't generate — please try again");
     } finally {
       setGeneratingB(false);
+    }
+  };
+
+  const sampleAiMessage = async () => {
+    setSamplingAi(true);
+    try {
+      const { messageTemplate: text } = await generateAutoMessageContent({
+        triggerType,
+        scheduleType: triggerType === "schedule" ? scheduleType : undefined,
+        eventType: triggerType === "event" ? eventType : undefined,
+        targetAudience: effectiveAudience,
+        name: name || undefined,
+        prompt: aiBrief.trim() || undefined,
+      });
+      setAiSample(text);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Couldn't write a sample — please try again");
+    } finally {
+      setSamplingAi(false);
     }
   };
 
@@ -663,6 +691,32 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 {"{{customerName}}"} filled in per customer. Leave blank and it works from the trigger
                 and audience alone.
               </p>
+
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={sampleAiMessage}
+                  disabled={samplingAi}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 text-xs hover:border-gray-600 disabled:opacity-60"
+                >
+                  {samplingAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                  {aiSample ? "Show another example" : "Show me an example"}
+                </button>
+                <span className="text-xs text-gray-500">Uses a little of your AI allowance</span>
+              </div>
+
+              {aiSample && (
+                <div className="mt-2 rounded-lg border border-gray-700 bg-[#0D0D0D] p-3">
+                  <p className="text-sm text-gray-200 whitespace-pre-wrap">{aiSample}</p>
+                  {/* "Example", never "preview". The live message is generated fresh at send time, so
+                      this is not what will be sent — saying otherwise would set an expectation the
+                      feature cannot keep. */}
+                  <p className="text-xs text-gray-500 mt-2">
+                    An example of what it might say. The real message is written when the workflow
+                    runs, so it will read differently.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

@@ -156,6 +156,71 @@ describe('generation cost', () => {
   });
 });
 
+// An automated message is the one place a model's invention reaches a customer with nobody reading it
+// first. The risk is not an imperfect sentence — it is a claim the shop is then bound by.
+describe('what it refuses to send', () => {
+  const send = async (text: string, brief?: string) => {
+    const gen = makeGen(text);
+    const { action, sent } = makeSend();
+    const res = await new AiStepAction(action, gen).execute(
+      ctx({ actionPayload: brief ? { prompt: brief } : {} })
+    );
+    return { res, sent };
+  };
+
+  it('refuses a discount the owner never asked for', async () => {
+    const { res, sent } = await send('Hi {{customerName}}, come back for 20% off your next service!');
+    expect(res.ok).toBe(false);
+    expect(sent).toEqual([]);
+  });
+
+  it('refuses an invented price', async () => {
+    const { res, sent } = await send('Hi {{customerName}}, brake checks are just $29 this month.');
+    expect(res.ok).toBe(false);
+    expect(sent).toEqual([]);
+  });
+
+  // If the owner asked for it, the model is doing as it was told.
+  it('allows an offer the brief actually asked for', async () => {
+    const { res, sent } = await send(
+      'Hi {{customerName}}, here is 20% off your next visit at {{shopName}}.',
+      'offer them 20% off'
+    );
+    expect(res.ok).toBe(true);
+    expect(sent).toHaveLength(1);
+  });
+
+  // "feel free to call" is ordinary friendly copy. A guard that fired on it would silence workflows,
+  // which is the worse failure — so the offer rules are deliberately narrow.
+  it('does not trip over ordinary friendly wording', async () => {
+    const { res, sent } = await send(
+      'Hi {{customerName}}, feel free to call {{shopName}} any time — happy to help.'
+    );
+    expect(res.ok).toBe(true);
+    expect(sent).toHaveLength(1);
+  });
+
+  // The generator is told it MAY use five variables; this action can only fill two. Braces reaching a
+  // customer are worse than no message.
+  it('refuses a message with a placeholder it cannot fill', async () => {
+    const { res, sent } = await send('Hi {{customerName}}, you have {{rcnBalance}} RCN waiting.');
+    expect(res.ok).toBe(false);
+    expect(sent).toEqual([]);
+  });
+
+  it('refuses an external link', async () => {
+    const { res, sent } = await send('Hi {{customerName}}, see https://not-our-domain.test/offer');
+    expect(res.ok).toBe(false);
+    expect(sent).toEqual([]);
+  });
+
+  it('refuses a fragment too short to be a message', async () => {
+    const { res, sent } = await send('Hi!');
+    expect(res.ok).toBe(false);
+    expect(sent).toEqual([]);
+  });
+});
+
 describe('failure handling', () => {
   // Expected once a shop exhausts its monthly allowance: SpendCapEnforcer refuses rather than
   // overspending. Sending nothing is right; sending something the shop never wrote would be worse.
@@ -187,7 +252,8 @@ describe('failure handling', () => {
       generate: jest.fn(async () => {
         gen.calls += 1;
         if (fail) throw new Error('transient');
-        return { messageTemplate: 'Hello' };
+        // A realistic body: anything shorter than MIN_BODY is now refused as a fragment.
+        return { messageTemplate: 'Hello, hope everything is running smoothly since your visit.' };
       }),
     };
     const { action: send, sent } = makeSend();
@@ -198,6 +264,6 @@ describe('failure handling', () => {
     await ai.execute(ctx());
 
     expect(gen.calls).toBe(2);
-    expect(sent).toEqual(['Hello']);
+    expect(sent).toEqual(['Hello, hope everything is running smoothly since your visit.']);
   });
 });
