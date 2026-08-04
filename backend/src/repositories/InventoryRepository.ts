@@ -166,6 +166,7 @@ export interface AdjustStockParams {
   locationId?: string; // branch whose stock to adjust; omitted = the shop's primary location
   adjustmentType: AdjustmentType;
   quantityChange: number;
+  clampToZero?: boolean; // deduct what is there rather than rejecting; for sales already taken
   referenceType?: string;
   referenceId?: string;
   reason?: string;
@@ -705,25 +706,32 @@ export class InventoryRepository extends BaseRepository {
           quantityBefore = branch.rows[0].stock_quantity;
           quantityAfter = quantityBefore + params.quantityChange;
           if (quantityAfter < 0) {
-            throw new Error('Insufficient stock quantity');
+            if (!params.clampToZero) {
+              throw new Error('Insufficient stock quantity');
+            }
+            quantityAfter = 0;
           }
           await client.query(
             `UPDATE inventory_item_stock SET stock_quantity = $1, updated_at = CURRENT_TIMESTAMP
              WHERE item_id = $2 AND location_id = $3`,
             [quantityAfter, params.itemId, locationId]
           );
+          // The clamped delta, so the shop total never drifts from the sum of its branches.
           await client.query(
             `UPDATE inventory_items
              SET stock_quantity = GREATEST(stock_quantity + $1, 0), updated_at = CURRENT_TIMESTAMP
              WHERE id = $2`,
-            [params.quantityChange, params.itemId]
+            [quantityAfter - quantityBefore, params.itemId]
           );
         } else {
           // Legacy path: shop has no primary location — adjust the item total directly.
           quantityBefore = itemResult.rows[0].stock_quantity;
           quantityAfter = quantityBefore + params.quantityChange;
           if (quantityAfter < 0) {
-            throw new Error('Insufficient stock quantity');
+            if (!params.clampToZero) {
+              throw new Error('Insufficient stock quantity');
+            }
+            quantityAfter = 0;
           }
           await client.query(
             `UPDATE inventory_items SET stock_quantity = $1, updated_at = CURRENT_TIMESTAMP
@@ -744,7 +752,7 @@ export class InventoryRepository extends BaseRepository {
             params.shopId,
             locationId,
             params.adjustmentType,
-            params.quantityChange,
+            quantityAfter - quantityBefore,
             quantityBefore,
             quantityAfter,
             params.referenceType || null,

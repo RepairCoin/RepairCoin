@@ -3,8 +3,10 @@ import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { getSharedPool } from '../../../utils/database-pool';
 import { eventBus } from '../../../events/EventBus';
+import { InventoryRepository } from '../../../repositories/InventoryRepository';
 
 const pool = getSharedPool();
+const inventoryRepo = new InventoryRepository();
 
 /**
  * Link inventory items to a service
@@ -200,13 +202,26 @@ export async function checkServiceStockAvailability(req: Request, res: Response)
   }
 }
 
+export interface StockDeductionContext {
+  locationId?: string | null;
+  referenceType?: string;
+  units?: number;
+}
+
 /**
  * Deduct inventory stock when service is completed
  * This is called via event listener when a service order is completed
  */
-export async function deductStockForService(serviceId: string, orderId: string, shopId: string): Promise<void> {
+export async function deductStockForService(
+  serviceId: string,
+  orderId: string,
+  shopId: string,
+  context: StockDeductionContext = {}
+): Promise<void> {
+  const units = context.units && context.units > 0 ? context.units : 1;
+
   try {
-    logger.info(`Deducting stock for completed service: ${serviceId}`, { orderId, shopId });
+    logger.info(`Deducting stock for completed service: ${serviceId}`, { orderId, shopId, units });
 
     // Get linked inventory items
     const query = `
@@ -229,66 +244,28 @@ export async function deductStockForService(serviceId: string, orderId: string, 
       return;
     }
 
-    // Deduct stock for each item
     for (const row of result.rows) {
-      const currentStock = parseInt(row.stock_quantity);
-      const quantityNeeded = parseInt(row.quantity_required);
+      // Selling the same service twice on one line consumes its parts twice.
+      const quantityNeeded = parseInt(row.quantity_required) * units;
 
-      if (currentStock < quantityNeeded && !row.is_optional) {
+      if (parseInt(row.stock_quantity) < quantityNeeded && !row.is_optional) {
         logger.warn(`Insufficient stock for item ${row.name} (${row.inventory_item_id})`, {
-          currentStock,
+          currentStock: parseInt(row.stock_quantity),
           quantityNeeded,
           serviceId,
           orderId
         });
-        // Continue anyway - this should have been checked before order completion
       }
 
-      // Update stock quantity
-      const updateQuery = `
-        UPDATE inventory_items
-        SET stock_quantity = GREATEST(stock_quantity - $1, 0)
-        WHERE id = $2
-        RETURNING stock_quantity, stock_quantity + $1 as previous_quantity
-      `;
-
-      const updateResult = await pool.query(updateQuery, [quantityNeeded, row.inventory_item_id]);
-
-      if (updateResult.rows.length > 0) {
-        const { previous_quantity, stock_quantity: new_quantity } = updateResult.rows[0];
-
-        // Create adjustment record
-        const adjustmentQuery = `
-          INSERT INTO inventory_adjustments (
-            item_id, shop_id, quantity_change,
-            quantity_before, quantity_after,
-            adjustment_type, reason, reference_type, reference_id,
-            adjusted_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        `;
-
-        await pool.query(adjustmentQuery, [
-          row.inventory_item_id,
-          shopId,
-          -quantityNeeded,
-          parseInt(previous_quantity),
-          parseInt(new_quantity),
-          'sale',
-          `Used in service (${serviceId})`,
-          'service_order',
-          orderId,
-          'system'
-        ]);
-
-        logger.info(`Stock deducted for item ${row.name}`, {
-          itemId: row.inventory_item_id,
-          quantityDeducted: quantityNeeded,
-          previousStock: previous_quantity,
-          newStock: new_quantity,
-          serviceId,
-          orderId
-        });
-      }
+      await deductBranchStock({
+        itemId: row.inventory_item_id,
+        shopId,
+        locationId: context.locationId,
+        quantity: quantityNeeded,
+        reason: `Used in service (${serviceId})`,
+        referenceType: context.referenceType || 'service_order',
+        referenceId: orderId
+      });
     }
 
     logger.info(`Stock deduction completed for service ${serviceId}`, { orderId, itemsProcessed: result.rows.length });
@@ -386,6 +363,46 @@ export async function getServicesUsingItem(req: Request, res: Response): Promise
 }
 
 /**
+ * Routes every sale deduction through adjustStock so the branch's own `inventory_item_stock` row
+ * moves alongside the item's shop-wide total. Writing only the total leaves a multi-location
+ * shop's per-branch figures drifting from reality the moment anything sells at a counter.
+ */
+async function deductBranchStock(params: {
+  itemId: string;
+  shopId: string;
+  locationId?: string | null;
+  quantity: number;
+  reason: string;
+  referenceType: string;
+  referenceId: string;
+}): Promise<void> {
+  // Swallowed per item: the money has already changed hands, and one unresolvable item must not
+  // stop the rest of the sale's lines from coming down.
+  try {
+    await inventoryRepo.adjustStock({
+      itemId: params.itemId,
+      shopId: params.shopId,
+      locationId: params.locationId || undefined,
+      adjustmentType: 'sale',
+      quantityChange: -params.quantity,
+      reason: params.reason,
+      referenceType: params.referenceType,
+      referenceId: params.referenceId,
+      adjustedBy: 'system',
+      clampToZero: true
+    });
+  } catch (error) {
+    logger.error('Error deducting stock', {
+      itemId: params.itemId,
+      shopId: params.shopId,
+      referenceType: params.referenceType,
+      referenceId: params.referenceId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
  * Deduct a product sold directly over the counter. Distinct from deductStockForService, which
  * consumes the PARTS linked to a service — a retail line is the item itself.
  */
@@ -393,41 +410,18 @@ export async function deductStockForProduct(
   inventoryItemId: string,
   quantity: number,
   shopId: string,
-  saleId: string
+  saleId: string,
+  locationId?: string | null
 ): Promise<void> {
-  try {
-    const updated = await pool.query(
-      `UPDATE inventory_items
-       SET stock_quantity = GREATEST(stock_quantity - $1, 0)
-       WHERE id = $2 AND shop_id = $3 AND deleted_at IS NULL
-       RETURNING name, stock_quantity, stock_quantity + $1 AS previous_quantity`,
-      [quantity, inventoryItemId, shopId]
-    );
-    const row = updated.rows[0];
-    if (!row) return;
-
-    await pool.query(
-      `INSERT INTO inventory_adjustments (
-         item_id, shop_id, quantity_change, quantity_before, quantity_after,
-         adjustment_type, reason, reference_type, reference_id, adjusted_by
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [
-        inventoryItemId,
-        shopId,
-        -quantity,
-        parseInt(row.previous_quantity),
-        parseInt(row.stock_quantity),
-        'sale',
-        'Sold at point of sale',
-        'pos_sale',
-        saleId,
-        'system',
-      ]
-    );
-  } catch (error) {
-    logger.error('Error deducting stock for POS product:', error);
-    // Never fail a completed sale over bookkeeping — the money has already changed hands.
-  }
+  await deductBranchStock({
+    itemId: inventoryItemId,
+    shopId,
+    locationId,
+    quantity,
+    reason: 'Sold at point of sale',
+    referenceType: 'pos_sale',
+    referenceId: saleId
+  });
 }
 
 export function setupPosSaleListener(): void {
@@ -437,6 +431,7 @@ export function setupPosSaleListener(): void {
       data: {
         saleId: string;
         shopId: string;
+        locationId: string | null;
         items: Array<{
           kind: string;
           serviceId: string | null;
@@ -445,12 +440,16 @@ export function setupPosSaleListener(): void {
         }>;
       };
     }) => {
-      const { saleId, shopId, items } = event.data;
+      const { saleId, shopId, locationId, items } = event.data;
       for (const item of items ?? []) {
         if (item.kind === 'product' && item.inventoryItemId) {
-          await deductStockForProduct(item.inventoryItemId, item.quantity, shopId, saleId);
+          await deductStockForProduct(item.inventoryItemId, item.quantity, shopId, saleId, locationId);
         } else if (item.kind === 'service' && item.serviceId) {
-          await deductStockForService(item.serviceId, saleId, shopId);
+          await deductStockForService(item.serviceId, saleId, shopId, {
+            locationId,
+            referenceType: 'pos_sale',
+            units: item.quantity
+          });
         }
       }
     },

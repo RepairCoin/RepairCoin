@@ -176,8 +176,8 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S1 | **Phase 1** — reader pairing, status, default reader, disconnect, test charge — **built, untested against hardware** | M | S0 |
 | S2 | **Sale model** — `pos_sales` / `pos_sale_items` / `pos_sale_payments` — **shipped (#710)** | L | — |
 | S3 | Tax — rates, taxability, per-line snapshot — **built** | M | S2 |
-| S4 | **Phase 2** — POS UI, tablet web, split tender | L | S1, S2, S3 |
-| S5 | **Phase 5** — inventory wiring (mostly exists), **plus per-branch stock (see 7)** | S | S2 |
+| S4 | **Phase 2** — POS UI, tablet web, split tender — **shipped (#715)** | L | S1, S2, S3 |
+| S5 | **Phase 5** — inventory wiring, per-branch stock, cost/margin — **built** | S | S2 |
 | S6 | **Phase 8** — receipt, warranty, loyalty, review via notification gateway, **plus fiat-ledger reconciliation (see 7a)** | M | S2 |
 | S7 | **Phase 6** — devices & warranty model | M | S2 |
 | S8 | **Phase 4** — repair ticket workflow | L | S2, S7 |
@@ -217,11 +217,36 @@ money in cents. Per-line and order-level discounts.
 then fire unchanged through machinery that already works — rather than teaching
 `ServiceOrder` to be something it is not.
 
-### S5 — Phase 5: inventory wiring
+### S5 — Phase 5: inventory wiring — **built**
 
-Service lines already deduct via `service:completed`. Product lines need a direct
-`adjustStock` path carrying a sale reference. Cost/margin reporting is a read model —
-`cost` already exists on items.
+Both POS deduction paths now go through `InventoryRepository.adjustStock` carrying the sale's
+`locationId`, so the branch's `inventory_item_stock` row and the item's shop-wide total move
+together. That closes the drift described in 7 below.
+
+`adjustStock` gained a `clampToZero` flag, used only by the sale paths: a sale that has already
+taken the customer's money must not be refused because the recorded count was short, so it
+deducts what is there and records the amount actually moved. Manual adjustments still throw.
+The adjustment row now stores the applied delta rather than the requested one, so
+`quantity_before + quantity_change = quantity_after` holds in every case.
+
+Two bugs fixed on the way: a POS line selling the same service twice only consumed one set of
+linked parts, and service parts sold at the counter were recorded against `service_order`
+rather than `pos_sale`.
+
+**Cost/margin** — migration 261 adds `unit_cost_cents` to `pos_sale_items`, snapshotted at
+ring-up because `inventory_items.cost` moves every time a purchase order is received and
+joining at read time would rewrite last month's margin. NULL means *unknown*, deliberately
+distinct from 0. Products take the item's cost; services take the summed cost of their linked
+parts — the same rows the sale deducts, so cost and stock movement agree. Labour cost is not
+modelled, so a service figure is parts-only.
+
+`GET /api/shops/pos/reports/summary?days=&locationId=` reports margin **over costed lines only**
+and returns `uncostedRevenueCents` alongside. Folding unknown-cost lines in at zero cost would
+report them as pure profit, which is the one answer guaranteed to be wrong. The Point of Sale
+tab renders this as a counter-sales recap with 24h/7d/30d ranges.
+
+Windows are rolling hours back from now, not calendar days: shops still have no timezone
+recorded, so "today" would mean UTC midnight and cut a west-coast evening in half.
 
 ---
 
@@ -305,7 +330,7 @@ Options, best first:
 
 Deliberately left as-is for now.
 
-## 7. POS stock deduction is not per-branch (deferred to S5)
+## 7. POS stock deduction is not per-branch — **fixed in S5**
 
 A POS sale now carries a `location_id` — the register binds to a branch on the Point of Sale
 tab, which drives the tax rate and filters readers to that branch. **Stock deduction does not
@@ -319,10 +344,15 @@ the moment a multi-location shop sells anything at the counter.
 
 Single-location shops are unaffected: their totals and their one branch row stay in step.
 
-**Fix in S5**, where the inventory wiring already lives: `pos.sale_completed` already carries
-`locationId`, so the deduction needs to write `inventory_item_stock` for that branch and keep
-the item total consistent — the same pair of writes `adjustStock` already performs. Reserved
-quantity is the related question worth settling at the same time.
+**Fixed in S5** by routing both deduction paths through `adjustStock` with the sale's
+`locationId`. Shops that sold at a counter before this landed still have drifted per-branch
+figures — those need a stock count, not a backfill, since there is no record of which branch
+the earlier sales belonged to beyond `pos_sales.location_id` (which is present, so a backfill
+is possible if anyone wants one).
+
+**Reserved quantity** was the related open question: nothing in the codebase ever writes
+`reserved_quantity` — no reservation flow exists — so the POS has nothing to release and
+needed no handling. It stays open for whoever builds reservations.
 
 ## 7a. POS sales are not properly in the fiat ledger (deferred to S6)
 

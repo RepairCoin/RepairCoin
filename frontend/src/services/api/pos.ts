@@ -24,6 +24,7 @@ export interface PosSaleItem {
   taxRateBps: number;
   taxCents: number;
   totalCents: number;
+  unitCostCents: number | null;
 }
 
 export interface PosSalePayment {
@@ -54,6 +55,19 @@ export interface PosSale {
   payments: PosSalePayment[];
   paidCents: number;
   balanceCents: number;
+}
+
+export interface PosSalesSummary {
+  saleCount: number;
+  netRevenueCents: number;
+  taxCents: number;
+  totalCents: number;
+  costedRevenueCents: number;
+  costCents: number;
+  marginCents: number;
+  marginBps: number | null;
+  uncostedRevenueCents: number;
+  tenders: Partial<Record<PosTenderMethod, number>>;
 }
 
 const unwrap = <T,>(res: { data?: T; error?: string }, fallback: string): T => {
@@ -158,4 +172,18 @@ export async function completeSale(saleId: string): Promise<PosSale> {
 
 export async function voidSale(saleId: string, reason?: string): Promise<void> {
   await apiClient.post(`/shops/pos/sales/${saleId}/void`, { reason });
+}
+
+export async function getPosSummary(options: {
+  days?: number;
+  locationId?: string | null;
+} = {}): Promise<PosSalesSummary> {
+  const params = new URLSearchParams();
+  if (options.days) params.set("days", String(options.days));
+  if (options.locationId) params.set("locationId", options.locationId);
+  const query = params.toString();
+  return unwrap(
+    await apiClient.get(`/shops/pos/reports/summary${query ? `?${query}` : ""}`),
+    "Could not load the register summary"
+  );
 }
