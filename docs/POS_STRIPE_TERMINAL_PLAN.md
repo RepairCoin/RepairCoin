@@ -179,9 +179,11 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S4 | **Phase 2** — POS UI, tablet web, split tender — **shipped (#715)** | L | S1, S2, S3 |
 | S5 | **Phase 5** — inventory wiring, per-branch stock, cost/margin — **built** | S | S2 |
 | S6a | **Fiat-ledger reconciliation** (see 7a) — **built** | M | S2 |
-| S6b | **Phase 8** — receipt, loyalty, review via notification gateway — **see 8a** | M | S2 |
+| S6b | **Customer + loyalty** — attach a customer, earn RCN — **built** | M | S2 |
+| S6c | **Receipt + review** via the notification gateway — **not started** | M | S6b |
 | S7 | **Phase 6** — devices & warranty model | M | S2 |
 | S8 | **Phase 4** — repair ticket workflow | L | S2, S7 |
+| S9 | **Unify revenue reporting** (see 9) — **scoped, not started** | L | S6a |
 | — | **Phases 3 & 7 (AI)** — deferred handoff | — | S2 |
 
 ### S0 — Terminal readiness — **done**
@@ -435,13 +437,116 @@ So for counter sales today there is no RCN issued, no review request, and no ema
 the register's receipt is on-screen only. None of it is broken; it was never wired, and the S2
 section reads as though it was.
 
-The decision S6b has to make first: emit `service:completed` as originally intended and inherit
-the existing consumers, or add POS-specific handlers on `pos.sale_completed`. The first is
-cheaper but pushes a walk-in with no customer address through machinery built around orders and
-customers; the second is more code but honest about a sale that may have no customer at all.
+### Resolved: POS-specific handlers, not the borrowed event
+
+S2's intent was wrong. The consumers of `service.order_completed` are ad attribution, order
+confirmation, campaign-reward redemption and messaging — **every one keys on an `orderId`
+pointing at a `service_orders` row a counter sale does not have**. Republishing a sale as that
+event would feed them something they cannot read and would corrupt ad attribution. So loyalty
+subscribes to `pos.sale_completed` directly, and later consumers should too.
 
 Note also that Phase 8's receipt is specified to show **warranty**, but the device/warranty model
 is S7 and greenfield. Either the receipt ships without warranty, or S7 moves ahead of it.
+
+## 8b. Customer and loyalty at the counter (S6b) — **built**
+
+**A customer must exist before the counter can name one.** `customers.address` is a NOT NULL
+42-char wallet address and IS the identity — there is no way to mint an account for someone
+standing at a till, and no server-side wallet generation anywhere in the codebase. So the
+register offers a **signup QR** for new customers: they register on their own phone and earn from
+their next visit. This sale stays a walk-in. The alternatives considered were an in-app wallet
+created at the counter via thirdweb email OTP (stalls the queue while someone checks their inbox)
+and pending claimable accounts (needs a pending-customer model and touches the identity
+assumptions of the whole system).
+
+The customer is settable **while the sale is open, not only at creation** — at a counter you ring
+up first and find out who you are serving at payment, so requiring it up front would mean voiding
+and restarting. `PUT`/`DELETE /api/shops/pos/sales/:id/customer`, reusing the existing
+`CustomerSearchModal`.
+
+**Earning basis is the whole sale net of tax** — services and products, after discounts, before
+tax. Rewards step at $30/$50/$100, so including tax would let a state's rate decide whether a
+customer crosses a threshold; identical purchases would earn differently by location. The event
+carries `netCents` for this.
+
+Issuance goes through the existing `rewardIssuanceService.issueExact`, which already wraps the
+on-chain transfer/mint and the atomic balance debit, and never throws. The threshold and tier
+maths moved to `utils/repairReward.ts` so the counter and the manual issue-reward route cannot
+drift apart.
+
+**Known quirk, matched deliberately:** the tier bonus does not depend on the base reward, so a
+Gold customer spending $10 earns 5 RCN even though the amount is below the $30 base threshold.
+That is pre-existing behaviour in the manual route; the counter mirrors it rather than quietly
+applying a different rule to the same spend.
+
+**Not surfaced to the register:** a shop with no RCN left has its reward skipped and logged, not
+shown. Making it visible would mean issuing synchronously and letting a loyalty failure block a
+sale that has already taken the customer's money. Worth a shop-facing alert eventually — it is
+silent today.
+
+## 9. Unify revenue reporting (S9) — scoped
+
+**Counter sales are missing from every analytics surface.** Only `PaymentRepository` and
+`PosSaleRepository` read `pos_sales` anywhere in the backend, so nothing that reports revenue can
+see one.
+
+| Surface | Reads | POS included? |
+|---|---|---|
+| Shop → Transactions | `payments` | Yes, since S6a |
+| Admin → Payments + totals | `payments` | Yes, since S6a |
+| POS tab → Counter sales | `pos_sales` | Yes, since S5 |
+| Shop → Analytics | `service_orders` | **No** |
+| Admin → Service Marketplace Analytics | `service_orders` | **No** |
+| Admin platform stats / `MetricsService` | `transactions` | RCN only, not fiat |
+| Shop dashboard "revenue" | `shop.totalTokensIssued` | **Not fiat revenue at all** |
+
+Two consequences worth naming. RCN issued at the counter (S6b) *does* land in `transactions`, so
+platform stats show the token outflow while the sale that caused it appears in no revenue figure.
+And `shop/routes/index.ts:1134` returns `totalRevenue: shop.totalTokensIssued` — RCN issued, under
+a field named revenue. That predates all POS work and has to be decided before anything is added
+to it.
+
+### The obvious fix does not work yet
+
+"Point revenue analytics at `payments`" is the right end state — it is already the unified fiat
+ledger and S6a made it complete for counter sales. But measured against the live database
+(4 Aug 2026), **neither table can produce correct total revenue today**:
+
+| | Rows | Revenue |
+|---|---|---|
+| Paid/completed `service_orders` | 282 | $50,410.95 |
+| …of those, with **no** `payments` row | **57 (20%)** | **$10,587.80 (21%)** |
+| Completed `pos_sales` (invisible to `service_orders`) | 9 | $1,542.19 |
+
+`service_orders` misses POS entirely; `payments` misses a fifth of booking revenue. Switching
+naively would trade one wrong number for a differently wrong number.
+
+The 57 break down as:
+
+- **31 orders / $7,203.92 — no Stripe intent at all.** Money that never went through Stripe:
+  manual bookings, RCN-settled, or free. Structurally the same problem cash tender had, and it
+  wants the same answer S6a gave: write the ledger row rather than infer it from Stripe.
+- **25 orders / $3,328.88 — a payment reference that is not `pi_…`.** `backfill-payments.ts`
+  filters on `stripe_payment_intent_id LIKE 'pi_%'`, so these were skipped. Needs a look at what
+  the references actually are before deciding whether they are backfillable.
+- **1 order / $55.00 — has a `pi_` but no row.** Almost certainly created after the backfill ran,
+  with a webhook that never landed. A straggler, not a class.
+
+### Build order
+
+**S9a — make the ledger complete.** Close the three gaps above, extend the backfill, and add a
+reconciliation check that fails loudly when a paid order has no ledger row. Until this holds,
+nothing downstream can be trusted. This is the slice that carries the risk.
+
+**S9b — move fiat revenue onto the ledger.** `ServiceAnalyticsRepository` currently derives
+`total_revenue` and `avg_order_value` from `service_orders.total_amount` across roughly eight
+report shapes. Those move to `payments`. Service *volume* metrics — order counts, conversion, top
+services, category mix — stay on `service_orders`, because they genuinely are about bookings and
+a counter sale has no service to attribute. Also settle what the shop dashboard's "revenue" means
+and stop returning RCN under that name.
+
+**Do not** aggregate `pos_sales` in parallel alongside `service_orders` in each report. That is
+the cheap-looking option and it guarantees the two keep drifting, in eight places at once.
 
 ## 7b. Known bug, tracked separately
 
