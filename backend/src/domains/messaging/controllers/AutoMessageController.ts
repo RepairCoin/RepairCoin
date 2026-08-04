@@ -137,19 +137,19 @@ function parseAction(
   }
 
   if (actionType === 'run_campaign') {
-    // A campaign id is required and cannot be defaulted — a run_campaign rule with no campaign is a
-    // rule that logs an error every tick and does nothing, which is the failure mode this whole
-    // validator exists to prevent. Ownership is NOT checked here; the handler re-checks it at send
-    // time, because a campaign can be deleted or the rule copied long after this request.
-    const payload = parseRunCampaignPayload(rawPayload);
-    if (!payload.campaignId) {
-      return {
-        actionType,
-        actionPayload: null,
-        error: 'run_campaign needs actionPayload.campaignId — pick the campaign to send',
-      };
-    }
-    return { actionType, actionPayload: payload as unknown as Record<string, unknown> };
+    // The campaign is required to PUBLISH, not to save — see publishAutoMessage.
+    //
+    // The requirement exists so a live rule cannot sit erroring hourly against a campaign it does not
+    // have, which is a property of a PUBLISHED rule. A draft never runs, so it cannot error, and
+    // rejecting the save only destroyed a half-configured workflow: the shop had to leave for
+    // Marketing to build a campaign, and lost the trigger, name and timing on the way out.
+    //
+    // Ownership is not checked in either place; the handler re-checks it at send time, because a
+    // campaign can be deleted or the rule copied long after this request.
+    return {
+      actionType,
+      actionPayload: parseRunCampaignPayload(rawPayload) as unknown as Record<string, unknown>,
+    };
   }
 
   if (actionType === 'ai_step') {
@@ -585,6 +585,22 @@ export class AutoMessageController {
       const shopId = req.user?.shopId;
       if (!shopId) {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      // Publishing is where an incomplete action becomes a problem: a draft is inert, but a live rule
+      // with no campaign would log an error on every tick and send nothing. Checked here rather than
+      // at save so a workflow can be parked while the shop goes and builds the campaign.
+      // getById is not shop-scoped, so ownership is checked here. A rule belonging to another shop
+      // must read as "not found" rather than as a validation failure, which would confirm it exists.
+      const existing = await this.autoMessageRepo.getById(req.params.id);
+      if (!existing || existing.shopId !== shopId) {
+        return res.status(404).json({ success: false, error: 'Auto-message rule not found' });
+      }
+      if (existing.actionType === 'run_campaign' && !(existing.actionPayload as any)?.campaignId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Pick the campaign this workflow should send before publishing it',
+        });
       }
 
       const rule = await this.autoMessageRepo.publish(req.params.id, shopId);
