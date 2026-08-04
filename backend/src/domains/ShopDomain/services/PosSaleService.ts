@@ -92,6 +92,24 @@ export class PosSaleService {
     };
   }
 
+  /**
+   * A service's cost of goods is the parts it consumes — the same rows the sale later deducts from
+   * stock, so cost and stock movement agree. It stays null when nothing is linked rather than
+   * defaulting to zero, because "no parts recorded" and "labour only" are indistinguishable here
+   * and only one of them is free. Labour cost is not modelled, so this is a parts-only figure.
+   */
+  private async serviceCostCents(serviceId: string): Promise<number | null> {
+    const result = await getSharedPool().query(
+      `SELECT SUM(sii.quantity_required * ii.cost) AS cost
+       FROM service_inventory_items sii
+       JOIN inventory_items ii ON ii.id = sii.inventory_item_id
+       WHERE sii.service_id = $1 AND ii.deleted_at IS NULL AND ii.cost IS NOT NULL`,
+      [serviceId]
+    );
+    const cost = result.rows[0]?.cost;
+    return cost === null || cost === undefined ? null : toCents(cost);
+  }
+
   private async resolveItem(shopId: string, req: AddItemRequest): Promise<AddPosSaleItemInput> {
     const pool = getSharedPool();
     const quantity = req.quantity && req.quantity > 0 ? req.quantity : 1;
@@ -114,6 +132,7 @@ export class PosSaleService {
         unitPriceCents: req.unitPriceCents ?? toCents(row.price_usd),
         discountCents,
         taxable: row.taxable !== false,
+        unitCostCents: await this.serviceCostCents(req.serviceId),
       };
     }
 
@@ -122,7 +141,7 @@ export class PosSaleService {
         throw httpError('inventoryItemId is required for a product line.', 400);
       }
       const result = await pool.query(
-        `SELECT name, price, taxable FROM inventory_items
+        `SELECT name, price, cost, taxable FROM inventory_items
          WHERE id = $1 AND shop_id = $2 AND deleted_at IS NULL`,
         [req.inventoryItemId, shopId]
       );
@@ -136,6 +155,7 @@ export class PosSaleService {
         unitPriceCents: req.unitPriceCents ?? toCents(row.price),
         discountCents,
         taxable: row.taxable !== false,
+        unitCostCents: row.cost === null || row.cost === undefined ? null : toCents(row.cost),
       };
     }
 
@@ -356,6 +376,18 @@ export class PosSaleService {
 
   listSales(shopId: string, options: { limit?: number } = {}) {
     return posSaleRepository.listSales(shopId, options);
+  }
+
+  /**
+   * Windows are rolling hours back from now, not calendar days: shops have no timezone recorded,
+   * so "today" would silently mean UTC midnight and cut a west-coast evening's takings in half.
+   */
+  getSummary(shopId: string, options: { days?: number; locationId?: string | null } = {}) {
+    const days = Math.min(Math.max(options.days ?? 1, 1), 365);
+    return posSaleRepository.getSummary(shopId, {
+      since: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
+      locationId: options.locationId ?? null,
+    });
   }
 
   private async requireSale(saleId: string, shopId: string): Promise<PosSaleWithDetails> {

@@ -59,6 +59,16 @@ router.get(
 );
 
 router.get(
+  '/pos/reports/summary',
+  handle('Failed to load POS summary', (shopId, req) =>
+    getPosSaleService().getSummary(shopId, {
+      days: Number(req.query.days) || undefined,
+      locationId: typeof req.query.locationId === 'string' ? req.query.locationId : undefined,
+    })
+  )
+);
+
+router.get(
   '/pos/sales/:id',
   handle('Failed to load sale', (shopId, req) => getPosSaleService().getSale(shopId, req.params.id))
 );

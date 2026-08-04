@@ -54,6 +54,7 @@ export interface PosSaleItem {
   taxRateBps: number;
   taxCents: number;
   totalCents: number;
+  unitCostCents: number | null; // null = cost unknown, which is not the same as free
 }
 
 export interface PosSalePayment {
@@ -81,6 +82,19 @@ export interface PosSaleWithDetails extends PosSale {
   balanceCents: number;
 }
 
+export interface PosSalesSummary {
+  saleCount: number;
+  netRevenueCents: number; // what was sold, after discounts, before tax
+  taxCents: number;
+  totalCents: number;
+  costedRevenueCents: number;
+  costCents: number;
+  marginCents: number;
+  marginBps: number | null;
+  uncostedRevenueCents: number;
+  tenders: Record<string, number>;
+}
+
 export interface CreatePosSaleInput {
   shopId: string;
   locationId?: string | null;
@@ -100,6 +114,7 @@ export interface AddPosSaleItemInput {
   taxable?: boolean;
   taxRateBps?: number;
   taxCents?: number;
+  unitCostCents?: number | null;
 }
 
 export interface AddPosSalePaymentInput {
@@ -154,6 +169,10 @@ export class PosSaleRepository extends BaseRepository {
       taxRateBps: n(row.tax_rate_bps),
       taxCents: n(row.tax_cents),
       totalCents: n(row.total_cents),
+      unitCostCents:
+        row.unit_cost_cents === null || row.unit_cost_cents === undefined
+          ? null
+          : Number(row.unit_cost_cents),
     };
   }
 
@@ -266,8 +285,9 @@ export class PosSaleRepository extends BaseRepository {
       const result = await client.query(
         `INSERT INTO pos_sale_items (
            sale_id, line_number, kind, service_id, inventory_item_id, name,
-           quantity, unit_price_cents, discount_cents, taxable, tax_rate_bps, tax_cents, total_cents
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+           quantity, unit_price_cents, discount_cents, taxable, tax_rate_bps, tax_cents, total_cents,
+           unit_cost_cents
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
          RETURNING *`,
         [
           saleId,
@@ -283,6 +303,7 @@ export class PosSaleRepository extends BaseRepository {
           input.taxRateBps ?? 0,
           tax,
           total,
+          input.unitCostCents ?? null,
         ]
       );
 
@@ -457,6 +478,75 @@ export class PosSaleRepository extends BaseRepository {
         payments.rows.map((r) => this.mapPayment(r))
       );
     });
+  }
+
+  /**
+   * Margin is reported over the lines whose cost is known, and `uncostedRevenueCents` carries the
+   * rest. Folding unknown-cost lines in at zero cost would report them as pure profit, which is
+   * the one answer guaranteed to be wrong — most shops leave `cost` unset on some of the catalogue.
+   */
+  async getSummary(
+    shopId: string,
+    options: { since: Date; locationId?: string | null } = { since: new Date(0) }
+  ): Promise<PosSalesSummary> {
+    const params: unknown[] = [shopId, options.since];
+    let scope = 's.shop_id = $1 AND s.status = \'completed\' AND s.completed_at >= $2';
+    if (options.locationId) {
+      params.push(options.locationId);
+      scope += ` AND s.location_id = $${params.length}`;
+    }
+
+    const [totals, lines, tenders] = await Promise.all([
+      this.pool.query(
+        `SELECT COUNT(*)::int AS sale_count,
+                COALESCE(SUM(s.subtotal_cents - s.discount_cents), 0)::bigint AS net_cents,
+                COALESCE(SUM(s.tax_cents), 0)::bigint   AS tax_cents,
+                COALESCE(SUM(s.total_cents), 0)::bigint AS total_cents
+         FROM pos_sales s WHERE ${scope}`,
+        params
+      ),
+      this.pool.query(
+        `SELECT
+           COALESCE(SUM(CASE WHEN i.unit_cost_cents IS NOT NULL
+                        THEN i.quantity * i.unit_price_cents - i.discount_cents END), 0)::bigint AS costed_revenue,
+           COALESCE(SUM(CASE WHEN i.unit_cost_cents IS NOT NULL
+                        THEN i.quantity * i.unit_cost_cents END), 0)::bigint AS cost_cents,
+           COALESCE(SUM(CASE WHEN i.unit_cost_cents IS NULL
+                        THEN i.quantity * i.unit_price_cents - i.discount_cents END), 0)::bigint AS uncosted_revenue
+         FROM pos_sale_items i JOIN pos_sales s ON s.id = i.sale_id
+         WHERE ${scope}`,
+        params
+      ),
+      this.pool.query(
+        `SELECT p.method, COALESCE(SUM(p.amount_cents), 0)::bigint AS amount_cents
+         FROM pos_sale_payments p JOIN pos_sales s ON s.id = p.sale_id
+         WHERE ${scope} AND p.status = 'succeeded'
+         GROUP BY p.method`,
+        params
+      ),
+    ]);
+
+    const t = totals.rows[0];
+    const l = lines.rows[0];
+    const costedRevenueCents = n(l.costed_revenue);
+    const costCents = n(l.cost_cents);
+    const marginCents = costedRevenueCents - costCents;
+
+    return {
+      saleCount: n(t.sale_count),
+      netRevenueCents: n(t.net_cents),
+      taxCents: n(t.tax_cents),
+      totalCents: n(t.total_cents),
+      costedRevenueCents,
+      costCents,
+      marginCents,
+      marginBps: costedRevenueCents > 0 ? Math.round((marginCents / costedRevenueCents) * 10000) : null,
+      uncostedRevenueCents: n(l.uncosted_revenue),
+      tenders: tenders.rows.reduce<Record<string, number>>(
+        (acc, r) => ({ ...acc, [r.method]: n(r.amount_cents) }),
+        {}
+      ),
+    };
   }
 
   async voidSale(saleId: string, shopId: string, reason?: string): Promise<PosSale | null> {

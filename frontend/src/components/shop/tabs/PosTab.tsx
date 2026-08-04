@@ -7,7 +7,14 @@ import { CreditCard, Loader2, MapPin, Percent, ShoppingCart } from "lucide-react
 import { listReaders, type TerminalReader } from "@/services/api/terminal";
 import { listTaxRates, bpsToPercent, type ShopTaxRate } from "@/services/api/tax";
 import { getLocations, type ShopLocation } from "@/services/api/locations";
+import { getPosSummary, formatCents, type PosSalesSummary } from "@/services/api/pos";
 import { readPosLocation, writePosLocation } from "@/components/shop/pos/posLocation";
+
+const RANGES = [
+  { days: 1, label: "24 hours" },
+  { days: 7, label: "7 days" },
+  { days: 30, label: "30 days" },
+];
 
 const PANEL =
   "rounded-2xl bg-[linear-gradient(90deg,#000000_0%,#1D1D1D_100%)] p-6 md:p-8";
@@ -23,6 +30,9 @@ export function PosTab() {
   const [rates, setRates] = useState<ShopTaxRate[]>([]);
   const [locations, setLocations] = useState<ShopLocation[]>([]);
   const [locationId, setLocationId] = useState<string | null>(null);
+  const [days, setDays] = useState(1);
+  const [summary, setSummary] = useState<PosSalesSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,6 +58,22 @@ export function PosTab() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Scoped to the branch only when there is more than one. A single-location shop that predates
+  // the register binding has sales with no location_id, and filtering would hide them.
+  const scoped = locations.length > 1 ? locationId : null;
+
+  useEffect(() => {
+    let live = true;
+    setSummaryLoading(true);
+    getPosSummary({ days, locationId: scoped })
+      .then((s) => live && setSummary(s))
+      .catch(() => live && setSummary(null))
+      .finally(() => live && setSummaryLoading(false));
+    return () => {
+      live = false;
+    };
+  }, [days, scoped]);
 
   // Mirrors the backend's resolution order: the branch override wins, else the shop default.
   const defaultRate =
@@ -75,6 +101,69 @@ export function PosTab() {
           <ShoppingCart className="h-5 w-5" />
           Start a sale
         </button>
+      </div>
+
+      <div className={PANEL}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-white">
+            Counter sales
+            {locations.length > 1 && scoped
+              ? ` — ${locations.find((l) => l.id === scoped)?.name ?? "this branch"}`
+              : ""}
+          </h2>
+          <div className="flex gap-1 rounded-lg bg-white/[0.04] p-1">
+            {RANGES.map((r) => (
+              <button
+                key={r.days}
+                onClick={() => setDays(r.days)}
+                className={`cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  days === r.days
+                    ? "bg-[#FFCC00] text-black"
+                    : "text-[#999999] hover:text-white"
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {summaryLoading ? (
+          <div className="flex justify-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-[#FFCC00]" />
+          </div>
+        ) : !summary || summary.saleCount === 0 ? (
+          <p className="mt-4 text-sm text-[#999999]">
+            No completed sales in the last {RANGES.find((r) => r.days === days)?.label}.
+          </p>
+        ) : (
+          <>
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Stat label="Sales" value={String(summary.saleCount)} />
+              <Stat label="Net revenue" value={formatCents(summary.netRevenueCents)} />
+              <Stat label="Tax collected" value={formatCents(summary.taxCents)} />
+              <Stat
+                label="Gross margin"
+                value={
+                  summary.marginBps === null
+                    ? "—"
+                    : `${formatCents(summary.marginCents)} · ${(summary.marginBps / 100).toFixed(1)}%`
+                }
+              />
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-[#999999]">
+              <span>Card {formatCents(summary.tenders.card ?? 0)}</span>
+              <span>Cash {formatCents(summary.tenders.cash ?? 0)}</span>
+              {summary.uncostedRevenueCents > 0 && (
+                <span>
+                  Margin excludes {formatCents(summary.uncostedRevenueCents)} with no cost
+                  recorded — set a cost on those items to include them.
+                </span>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       <div className={PANEL}>
@@ -145,6 +234,15 @@ export function PosTab() {
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+      <p className="text-xs text-[#999999]">{label}</p>
+      <p className="mt-1 truncate text-lg font-semibold text-white">{value}</p>
     </div>
   );
 }
