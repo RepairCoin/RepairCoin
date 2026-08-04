@@ -135,6 +135,8 @@ export interface AiStepGenerator {
       targetAudience?: string | null;
       name?: string | null;
       prompt?: string | null;
+      /** Narrowed to what this action can substitute — see AI_STEP_SUPPORTED_VARS. */
+      supportedVariables?: string[];
     }
   ): Promise<{ messageTemplate: string }>;
 }
