@@ -194,6 +194,14 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
    * that quietly arrives without the picture the owner expected reads as broken.
    */
   const [campaignImageSkipped, setCampaignImageSkipped] = useState<string | null>(null);
+  /**
+   * The campaign summary, so a freshly drafted campaign can be scrolled into view.
+   *
+   * The brief and the button sit at the TOP of the panel and the result lands below the fold, so a
+   * success looked like nothing had happened — the shop reported the feature as broken for a
+   * campaign that had been created, written and illustrated.
+   */
+  const campaignSummaryRef = React.useRef<HTMLDivElement | null>(null);
   /** Which campaign the embedded editor is open on, and why. `null` = closed. */
   const [campaignEditor, setCampaignEditor] = useState<
     { mode: "create" | "edit" | "view"; campaign: MarketingCampaign | null } | null
@@ -397,6 +405,12 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       setCampaignId(campaign.id);
       setCampaignImageSkipped(imageSkipped);
       toast.success("Campaign drafted — preview it before you publish");
+      // Bring the result into view. A toast at the top of the screen is not evidence that something
+      // appeared at the bottom of a scrolling form; the shop has to SEE the thing that was made.
+      // Deferred a frame so the summary has rendered before we scroll to it.
+      requestAnimationFrame(() =>
+        campaignSummaryRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+      );
     } catch (e: any) {
       // The API chooses its status for a reason: budget reached, an offer nobody asked for, or
       // unusable output. Relaying its message keeps that reason instead of "something went wrong".
@@ -869,8 +883,23 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 const audience = picked.audienceType
                   ? picked.audienceType.replace(/_/g, " ")
                   : "its own audience";
+                // The banner, straight out of the campaign we are already holding. AI drawing a
+                // picture is the most reassuring part of what just happened, and the summary was
+                // four lines of grey text — so the shop asked where the image was for a campaign
+                // that had one all along.
+                const banner = (picked.designContent as { blocks?: Array<{ type?: string; src?: string }> })
+                  ?.blocks?.find((b) => b.type === "image" && b.src)?.src;
+
                 return (
-                  <div className="mt-2 rounded-lg border border-gray-700 bg-[#0D0D0D] p-3 space-y-1">
+                  <div ref={campaignSummaryRef} className="mt-2 rounded-lg border border-gray-700 bg-[#0D0D0D] p-3 space-y-2">
+                    {banner && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={banner}
+                        alt=""
+                        className="w-full max-h-32 object-cover rounded border border-gray-800"
+                      />
+                    )}
                     <p className="text-sm text-gray-200">
                       {picked.subject || <span className="text-gray-500">No subject line set</span>}
                     </p>
