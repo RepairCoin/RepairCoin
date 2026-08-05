@@ -4,6 +4,7 @@ import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { getStripeService } from '../../../services/StripeService';
 import { getStripeTerminalService } from '../../../services/StripeTerminalService';
 import { computeCommissionCents } from '../../../utils/platformCommission';
+import { apportionTax } from '../../../utils/apportionTax';
 import { getSharedPool } from '../../../utils/database-pool';
 import {
   customerRepository,
@@ -405,26 +406,39 @@ export class PosSaleService {
   }
 
   /**
-   * Writes the sale's settled tenders into the fiat ledger — one row each, cash included.
+   * Writes the sale's settled FIAT tenders into the fiat ledger — one row each, cash included.
    *
    * The ledger cannot be rebuilt from Stripe: a cash leg has no charge for the reconciler to
    * find, so a POS shop's Transactions page silently under-reported revenue by however much it
    * took over the counter. Card legs are written here too, keyed on the PaymentIntent, so the
    * webhook meets a row that already names the sale instead of creating a bare one.
    *
+   * RCN and gift-card legs are deliberately NOT written (S9c-1). Neither is money the shop
+   * received: RCN is a loyalty discount — which is exactly how the booking flow already treats it,
+   * reducing the Stripe charge rather than paying part of it — and a gift card draws down revenue
+   * that was recognised when the card was sold. Writing them would inflate every revenue figure
+   * unless each query remembered to exclude them, and a filter that must be remembered in a dozen
+   * places is the bug S9a spent a slice removing. The consequence to know: a sale's total no longer
+   * equals the sum of its ledger rows whenever a non-fiat tender is involved.
+   *
    * Failures are logged, never thrown: the customer has paid and the sale is complete, and a
    * bookkeeping write must not be able to undo that.
    */
   private async writeToLedger(sale: PosSaleWithDetails): Promise<void> {
-    const stripeAccountId = sale.payments.some((p) => p.stripePaymentIntentId)
+    const fiat = sale.payments.filter(
+      (p) => p.status === 'succeeded' && (p.method === 'cash' || p.method === 'card')
+    );
+    if (!fiat.length) return;
+
+    const stripeAccountId = fiat.some((p) => p.stripePaymentIntentId)
       ? await getStripeTerminalService()
           .requireAccountId(sale.shopId)
           .catch(() => null)
       : null;
 
-    for (const payment of sale.payments) {
-      if (payment.status !== 'succeeded') continue;
+    const taxByPayment = apportionTax(sale.taxCents, fiat);
 
+    for (const payment of fiat) {
       try {
         await paymentRepository.recordPosTender({
           shopId: sale.shopId,
@@ -432,12 +446,14 @@ export class PosSaleService {
           posSalePaymentId: payment.id,
           method: payment.method === 'cash' ? 'cash' : 'card',
           grossCents: payment.amountCents,
+          taxCents: taxByPayment.get(payment.id) ?? 0,
           applicationFeeCents: payment.applicationFeeCents,
           // Cash settles whole; a card leg's fees and net come from the balance transaction the
           // webhook resolves, so leaving it at zero here is a placeholder, not a claim.
           netCents: payment.method === 'cash' ? payment.amountCents : 0,
           currency: sale.currency || 'usd',
           customerAddress: sale.customerAddress,
+          locationId: sale.locationId,
           stripePaymentIntentId: payment.stripePaymentIntentId,
           stripeAccountId,
           capturedAt: payment.capturedAt,

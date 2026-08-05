@@ -185,7 +185,7 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S8 | **Phase 4** — repair ticket workflow | L | S2, S7 |
 | S9a | **Revenue excludes unpaid orders** (see 9a) — **built** | M | — |
 | S9b | **Ledger completeness** (see 9b) — **built** | M | S6a |
-| S9c | **Move revenue reporting onto the ledger** (see 9) | M | S9b |
+| S9c | **Move revenue reporting onto the ledger** (see 9c) — S9c-1 **built**, S9c-2/3 pending | L | S9b |
 | — | **Phases 3 & 7 (AI)** — deferred handoff | — | S2 |
 
 ### S0 — Terminal readiness — **done**
@@ -671,17 +671,167 @@ for the first time.
   `--dry-run`. Re-running after the fact inserted 0 rows.
 - `scripts/check-ledger-completeness.ts` / `npm run db:check-ledger` — exits 1 while any gap remains.
 
-**Not yet run on staging or production.** The migration and backfill above were applied to the
-shared development database only.
+**Applied to staging. Not yet run on production.** `backend/.env` points at
+`db-postgresql-repaircoin-staging-…`, so the "shared development database" this plan refers to
+throughout **is** the staging database — there is no separate dev instance. Earlier sections
+describing measurements as coming from a development database are describing staging data.
+
+### Next
+
+S9c, scoped in full below.
+
+## 9c. Move revenue reporting onto the ledger — scoped
+
+Counter sales are still absent from every analytics surface. Only the dashboard revenue tile (9a)
+and the Transactions screens read `payments`; everything else reads `service_orders`, which
+structurally cannot see a POS sale.
+
+The work is **27 references across 9 methods** in `ServiceAnalyticsRepository`, plus 3 in
+`CustomerRepository`. They do not all move, and two groups of them cannot.
+
+### The structural fact that shapes the slice
+
+`payments` is **one row per money movement, with no line items**. A counter sale is one ledger row
+covering many lines. So the ledger can attribute revenue to a shop, a day, an order or a customer —
+and **cannot** attribute it to a service or a category. That splits the work in two, and it is the
+reason this is not simply "repoint eight queries".
+
+### Group A — moves cleanly to `payments`
+
+`getShopMetrics` (`total_revenue`, `avg_order_value`), `getOrderTrends`, `getPlatformMetrics`,
+`getTopPerformingShops`, `getPlatformOrderTrends`. Shop, day and platform totals; the ledger already
+answers these with POS included.
+
+### Group B — needs line-level attribution
+
+`getServicePerformance`, `getShopCategoryPerformance`, `getPlatformCategoryPerformance`,
+`getGroupPerformanceAnalytics`.
+
+These need a union at the **line** level: bookings via `order_id → service_orders.service_id`,
+counter sales via `pos_sale_items.service_id`. That is not the parallel aggregation warned against
+below — the warning is about summing two revenue *totals* side by side; this is one line-level
+source feeding one total.
+
+**This corrects the earlier sketch**, which said category mix stays on `service_orders` because "a
+counter sale has no service to attribute". It does: `pos_sale_items` carries `service_id` on every
+`kind = 'service'` line. What it lacks is a service on `product` and `custom` lines, which have no
+category either — today those would silently vanish from category reports and the category totals
+would not reconcile with the shop total. They need an explicit bucket.
+
+### Group C — stays on `service_orders`
+
+RCN redeemed/discount columns (token ledger, not fiat), order counts, conversion rates, top services
+by volume. An unpaid booking is still demand signal; a counter sale has no booking funnel.
+
+### Four decisions this is blocked on
+
+**1. RCN and gift-card tenders are written into the fiat ledger as `card`.** `PosSaleService.ts:436`
+does `method: payment.method === 'cash' ? 'cash' : 'card'`, so an `rcn` or `gift_card` tender lands
+in `payments` labelled card. Bookings treat RCN as a **discount** that reduces the Stripe charge;
+the POS treats it as a **tender**. The same customer behaviour, accounted two opposite ways. Until
+this is settled, POS revenue read from the ledger is inflated by every RCN redemption and a gift card
+is booked as new revenue rather than deferred revenue being drawn down. **This is the real blocker**,
+larger than any of the query rewrites.
+
+**2. `payments` has no `location_id`.** Every shop analytics method takes a `locationId`. It is
+reachable by join — `order_id → service_orders.location_id`, `pos_sale_id → pos_sales.location_id` —
+but that is two outer joins on every report. A denormalised column written at insert is probably
+right.
+
+**3. Tax.** `payments.gross_cents` for a counter sale **includes tax** (S3 snapshots it per line);
+booking revenue carries no tax at all. Summing both yields a figure that is tax-inclusive for POS and
+tax-exclusive for bookings, which is not a number anyone can act on. Decide net-of-tax (subtract
+`pos_sales.tax_cents`) or gross, once, before Group A moves.
+
+**4. `shop/routes/index.ts:1134` returns `totalRevenue: shop.totalTokensIssued`** — RCN issued, under
+a field named revenue. Predates all POS work. Settle what that field means before anything else is
+added to it.
+
+### Two things worth folding in
+
+**Refunds.** `payments.refunded_cents` exists and the 9a dashboard tile is already net of refunds;
+the `service_orders` reports are not. Moving to the ledger is the moment to make them agree —
+otherwise two surfaces differ by exactly the refund total and both look defensible.
+
+**Customer spend.** `CustomerRepository` has 3 occurrences (`total_spent`, lines ~1165, ~1248,
+~1418). A customer who buys at the counter has spent money at that shop and is currently invisible
+there.
 
 ### Build order
 
-**S9c — move fiat revenue onto the ledger.** `ServiceAnalyticsRepository` currently derives
-`total_revenue` and `avg_order_value` from `service_orders.total_amount` across roughly eight
-report shapes. Those move to `payments`. Service *volume* metrics — order counts, conversion, top
-services, category mix — stay on `service_orders`, because they genuinely are about bookings and
-a counter sale has no service to attribute. Also settle what the shop dashboard's "revenue" means
-and stop returning RCN under that name.
+- **S9c-1** — settle decisions 1 and 3, add `payments.location_id`, move Group A. M — **built**
+- **S9c-2** — line-level attribution for Group B, including the product/custom bucket. M
+- **S9c-3** — the `totalRevenue` field cleanup and `CustomerRepository`. S
+
+Group B before the RCN tender question is settled means writing the attribution twice.
+
+## 9c-1. Group A on the ledger — **built**
+
+**Decision 1 resolved: non-fiat tenders stay out of the fiat ledger.** `PosSaleService.writeToLedger`
+now writes only `cash` and `card` legs. RCN is a loyalty discount — which is how the booking flow has
+always treated it, reducing the Stripe charge rather than paying part of it — and a gift card draws
+down revenue recognised when the card was sold. The alternative, writing them with honest labels,
+would have made every revenue query correct only if it remembered `method NOT IN ('rcn','gift_card')`,
+and a filter that must be remembered in a dozen places is the exact bug S9a spent a slice removing.
+No such rows existed on staging yet, so nothing needed correcting — this is a guard, not a cleanup.
+
+**Consequence to know:** a sale's total no longer equals the sum of its ledger rows whenever a
+non-fiat tender is involved. Reconciliation between `pos_sales` and `payments` has to account for
+that, deliberately.
+
+**Decision 3 resolved: revenue is net of tax.** Migration 264 adds `tax_cents` to `payments`,
+holding the tax contained *within* `gross_cents` rather than added to it, so revenue is
+`gross - tax - refunded` in one expression for both channels. Bookings carry 0 and are unaffected.
+
+Tax belongs to the sale but the ledger stores one row per tender, so it is apportioned pro rata
+across the fiat legs with the rounding remainder on the largest — `utils/apportionTax.ts`, unit
+tested for exactness across awkward splits. **The whole tax goes on the fiat legs, not a share
+proportional to them:** a $108 sale settled with $50 RCN and $58 card still leaves the shop owing the
+state all $8, so scaling the tax down would report $53.70 of revenue on a sale that earned $50. The
+result is clamped to the tenders' total, because RCN covering more than the pre-tax value of the
+goods would otherwise produce negative revenue.
+
+**`payments.location_id`** (also migration 264) is denormalised on purpose. Every shop report filters
+by location, and reaching it through a join means two outer joins on every report to produce one
+number. Backfilled from `pos_sales` and `service_orders`; 767 of 781 rows resolved. New rows resolve
+it in the INSERT itself — from the order for bookings, from the sale for counter takings — so no
+caller has to remember to supply it.
+
+### A third exclusion the scope missed
+
+`payments` is wider than shop revenue. `rcn_purchase` is a shop buying tokens **from the platform**,
+and `deposit` is a customer no-show deposit that is `held` — a liability, not something earned.
+Pointing revenue at the ledger without filtering source would have counted a shop's own spending as
+its earnings. `ledgerCustomerRevenue()` restricts to `booking | terminal | invoice | link`. On
+staging this excludes $52.50 of `rcn_purchase`; the number is small, the class is not.
+
+### The three shared fragments
+
+`ledgerRecognized()`, `ledgerCustomerRevenue()` and `ledgerRevenueCents()` in `utils/sqlFragments.ts`,
+alongside `revenueRecognized()`. Three questions kept separate on purpose: did the money arrive,
+whose money is it, and how much of it counts. `refunded` status is *included* — a fully refunded
+payment contributes `gross - refunded = 0` through the amount expression, so excluding it would be
+the same answer written twice, while `partially_refunded` genuinely must stay.
+
+### What moved
+
+`getShopMetrics`, `getPlatformMetrics` (revenue + average order value), `getOrderTrends`,
+`getPlatformOrderTrends`, `getTopPerformingShops`. RCN redeemed/discount and every volume metric
+stayed on `service_orders`.
+
+**Both trend queries became a union, not a join.** Bookings bucket on when they were taken, revenue
+on when it was captured, and a day can have either without the other — a day of pure counter trade
+has revenue and no bookings. A `FULL OUTER JOIN` on the date keeps both. On staging,
+`ancient-realm-tech` has 5 such days in the last 90 and `1111` has 2; before this they showed nothing.
+
+`getTopPerformingShops` takes revenue from a correlated subquery rather than another join. Joining
+`payments` alongside `service_orders` multiplies their rows against each other and every SUM inflates
+— the fan-out that a `COUNT(DISTINCT)` hides right up until money is added to the query.
+
+### Verified on staging
+
+Every sale's `tax_cents` equals the sum of its ledger rows' apportioned tax (zero mismatches).
+Counter takings of $1,099.97 now appear in revenue figures that previously could not see them.
 
 **Do not** aggregate `pos_sales` in parallel alongside `service_orders` in each report. That is
 the cheap-looking option and it guarantees the two keep drifting, in eight places at once.
