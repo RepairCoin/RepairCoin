@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { serviceAnalyticsApi, GroupPerformanceAnalytics } from '@/services/api/serviceAnalytics';
 import { useLocationStore } from '@/stores/locationStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Users, Package, Coins, TrendingUp, Gift } from 'lucide-react';
+import { Loader2, Users, Package, Coins, TrendingUp } from 'lucide-react';
 
 export function GroupPerformanceSection() {
   const [analytics, setAnalytics] = useState<GroupPerformanceAnalytics | null>(null);
@@ -56,23 +56,10 @@ export function GroupPerformanceSection() {
 
   const { summary, groupBreakdown, servicesLinked } = analytics;
 
-  // Check if shop has any group activity
+  // A shop with no affiliate groups gets nothing rather than a placeholder pitching them. The
+  // section is only meaningful once there is group activity to report.
   if (summary.totalGroupsActive === 0 && summary.totalServicesLinked === 0) {
-    return (
-      <div className="bg-gradient-to-br from-purple-900/20 to-purple-800/20 border border-purple-500/30 rounded-xl p-8 text-center">
-        <div className="mb-4">
-          <Users className="h-16 w-16 text-purple-400 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-white mb-2">No Group Activity Yet</h3>
-          <p className="text-gray-400 max-w-md mx-auto">
-            Link your services to affiliate groups to start earning group tokens and tracking performance metrics.
-          </p>
-        </div>
-        <div className="flex items-center justify-center gap-2 mt-6">
-          <Gift className="h-5 w-5 text-purple-400" />
-          <span className="text-purple-300 font-semibold">Join affiliate groups to unlock this feature</span>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
