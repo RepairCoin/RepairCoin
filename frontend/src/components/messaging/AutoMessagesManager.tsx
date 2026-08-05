@@ -48,6 +48,7 @@ const EVENT_LABELS: Record<string, string> = {
   payment_failed: "Payment Failed",
   low_stock: "Low Stock",
   new_ad_lead: "New Ad Lead",
+  subscription_lapsed: "Subscription Payment Failed",
 };
 
 export const AutoMessagesManager: React.FC = () => {

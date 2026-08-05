@@ -368,6 +368,16 @@ export class AutoMessageSchedulerService {
 
       for (const rule of rules) {
         try {
+          // Same event twice — a Stripe webhook retry, or a re-delivery — must not alert twice. Only
+          // checked when the caller supplied a reference: `low_stock` has none (each sweep is a fresh
+          // observation of the same shelf), so this is a no-op there rather than a silent new gate.
+          if (data.reference && await this.autoMessageRepo.hasShopScopedSendForReference(rule.id, data.reference)) {
+            logger.debug('Shop-scoped event already handled, skipping', {
+              ruleId: rule.id, eventType, reference: data.reference,
+            });
+            continue;
+          }
+
           const fired = await this.fireShopScopedRule(rule, shopName, {
             triggerDetail: data.summary,
             reference: data.reference,

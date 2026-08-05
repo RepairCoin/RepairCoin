@@ -41,6 +41,7 @@ const EVENT_LABELS: Record<string, string> = {
   payment_failed: "Payment failed",
   low_stock: "Low stock",
   new_ad_lead: "New ad lead",
+  subscription_lapsed: "Subscription payment failed",
 };
 
 function triggerLabel(w: AutoMessage): string {

@@ -30,7 +30,9 @@ const VALID_EVENT_TYPES = [
   // MessagingDomain.setupEventSubscriptions.
   'no_show', 'review_received', 'low_rating', 'payment_failed',
   // Shop-scoped: happens to the SHOP, with no customer involved.
-  'low_stock', 'new_ad_lead',
+  // `subscription_lapsed` is the shop's OWN billing failing — not to be confused with `payment_failed`
+  // above, which is a customer's booking payment. Close names, opposite audiences.
+  'low_stock', 'new_ad_lead', 'subscription_lapsed',
 ];
 
 /**
@@ -38,7 +40,7 @@ const VALID_EVENT_TYPES = [
  * action that needs no recipient — configuring "send a message" would leave the engine with nobody to
  * send to, and the rule would sit there looking active while quietly doing nothing.
  */
-const SHOP_SCOPED_EVENTS = new Set(['low_stock', 'new_ad_lead']);
+const SHOP_SCOPED_EVENTS = new Set(['low_stock', 'new_ad_lead', 'subscription_lapsed']);
 
 /**
  * What each trigger hands the action to work with.
