@@ -2,7 +2,7 @@ import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { CustomerData, TierLevel } from '../contracts/TierManager';
 import { logger } from '../utils/logger';
 import { normalizePhone } from '../utils/phone';
-import { revenueRecognized } from '../utils/sqlFragments';
+import { CUSTOMER_SPEND_FROM_LEDGER } from '../utils/sqlFragments';
 
 export interface CustomerFilters {
   tier?: TierLevel;
@@ -1157,14 +1157,8 @@ export class CustomerRepository extends BaseRepository {
           GROUP BY customer_address
         ) tx ON c.address = tx.customer_address
         LEFT JOIN (
-          SELECT
-            customer_address,
-            SUM(total_amount) as total_spent
-          FROM service_orders
-          WHERE shop_id = $1
-            AND ${revenueRecognized()}
-          GROUP BY customer_address
-        ) orders ON c.address = orders.customer_address
+          ${CUSTOMER_SPEND_FROM_LEDGER}
+        ) orders ON LOWER(c.address) = orders.customer_address
         WHERE c.is_active = true
           AND (c.suspended_at IS NULL)
           AND (tx.customer_address IS NOT NULL OR LOWER(c.home_shop_id) = LOWER($1))
@@ -1236,20 +1230,24 @@ export class CustomerRepository extends BaseRepository {
           c.email,
           c.name,
           c.tier,
-          COALESCE(o.total_spent, c.lifetime_spend_usd, 0) as total_spent,
+          COALESCE(spend.total_spent, c.lifetime_spend_usd, 0) as total_spent,
           COALESCE(o.order_count, c.visit_count, 0) as visit_count,
           COALESCE(o.last_order, c.last_visit_at) as last_visit
         FROM customers c
+        -- Bookings still answer "when did they last come in and how often": this list is about
+        -- lapsed visits, and a booking is the visit. Only the money moved to the ledger (S9c-3).
         LEFT JOIN (
           SELECT
             customer_address,
             MAX(created_at) as last_order,
-            COUNT(*) as order_count,
-            SUM(total_amount) FILTER (WHERE ${revenueRecognized()}) as total_spent
+            COUNT(*) as order_count
           FROM service_orders
           WHERE shop_id = $1 AND customer_address IS NOT NULL
           GROUP BY customer_address
         ) o ON LOWER(c.address) = LOWER(o.customer_address)
+        LEFT JOIN (
+          ${CUSTOMER_SPEND_FROM_LEDGER}
+        ) spend ON LOWER(c.address) = spend.customer_address
         WHERE c.is_active = true
           AND (c.suspended_at IS NULL)
           AND (o.customer_address IS NOT NULL OR LOWER(c.home_shop_id) = LOWER($1))
@@ -1410,14 +1408,8 @@ export class CustomerRepository extends BaseRepository {
           GROUP BY customer_address
         ) tx ON c.address = tx.customer_address
         LEFT JOIN (
-          SELECT
-            customer_address,
-            SUM(total_amount) as total_spent
-          FROM service_orders
-          WHERE shop_id = $1
-            AND ${revenueRecognized()}
-          GROUP BY customer_address
-        ) orders ON c.address = orders.customer_address
+          ${CUSTOMER_SPEND_FROM_LEDGER}
+        ) orders ON LOWER(c.address) = orders.customer_address
         WHERE c.is_active = true
           AND (c.suspended_at IS NULL)
           AND (tx.customer_address IS NOT NULL OR LOWER(c.home_shop_id) = LOWER($1))

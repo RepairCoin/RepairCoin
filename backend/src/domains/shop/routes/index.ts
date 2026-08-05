@@ -1111,9 +1111,10 @@ router.get('/:shopId/dashboard',
         });
       }
 
-      const [analytics, recentTransactions] = await Promise.all([
+      const [analytics, recentTransactions, revenue] = await Promise.all([
         shopRepository.getShopAnalytics(shopId),
-        shopRepository.getShopTransactions(shopId, 10)
+        shopRepository.getShopTransactions(shopId, 10),
+        shopRepository.getFiatRevenueUsd(shopId)
       ]);
 
       const dashboardData = {
@@ -1131,7 +1132,10 @@ router.get('/:shopId/dashboard',
         analytics,
         recentTransactions: recentTransactions.slice(0, 5), // Last 5 transactions
         summary: {
-          totalRevenue: shop.totalTokensIssued || 0,
+          // Fiat revenue from the ledger. This field returned `totalTokensIssued` until S9c-3 —
+          // a count of loyalty tokens, in a field named revenue, so a shop that had issued 500 RCN
+          // read as $500 of takings. The token figure is still available above, under its own name.
+          totalRevenue: revenue,
           totalRedemptions: shop.totalRedemptions || 0,
           activeCustomers: analytics.totalCustomersServed || 0,
           averageRepairValue: analytics.averageTransactionAmount || 0
