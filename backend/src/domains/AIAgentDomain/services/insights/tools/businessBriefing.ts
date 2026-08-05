@@ -23,6 +23,13 @@
 
 import { Pool } from "pg";
 import { BusinessInsightsTool, ToolContext, ToolResult } from "../types";
+import {
+  ledgerRecognized,
+  ledgerCustomerRevenue,
+  ledgerRevenueCents,
+  SERVICE_LINE_REVENUE,
+  CUSTOMER_SPEND_FROM_LEDGER,
+} from "../../../../../utils/sqlFragments";
 
 const NAME = "business_briefing";
 
@@ -64,15 +71,17 @@ async function safe<T>(fn: () => Promise<T>): Promise<T | { error: string }> {
 }
 
 async function revenueTrend(pool: Pool, shopId: string) {
+  // Ledger, not bookings: the briefing's headline revenue number has to include the till, and it
+  // buckets on capture so "last 7 days" means money taken in the last 7 days.
   const r = await pool.query<{ cur: string; prev: string }>(
     `SELECT
-       COALESCE(SUM(total_amount) FILTER (
-         WHERE created_at >= now() - interval '7 days'), 0)::float8::text AS cur,
-       COALESCE(SUM(total_amount) FILTER (
-         WHERE created_at >= now() - interval '14 days'
-           AND created_at <  now() - interval '7 days'), 0)::float8::text AS prev
-     FROM service_orders
-     WHERE shop_id = $1 AND status IN ('paid', 'completed')`,
+       COALESCE(SUM(${ledgerRevenueCents("p")}) FILTER (
+         WHERE COALESCE(p.captured_at, p.created_at) >= now() - interval '7 days'), 0)::float8 / 100.0 AS cur,
+       COALESCE(SUM(${ledgerRevenueCents("p")}) FILTER (
+         WHERE COALESCE(p.captured_at, p.created_at) >= now() - interval '14 days'
+           AND COALESCE(p.captured_at, p.created_at) <  now() - interval '7 days'), 0)::float8 / 100.0 AS prev
+     FROM payments p
+     WHERE p.shop_id = $1 AND ${ledgerRecognized("p")} AND ${ledgerCustomerRevenue("p")}`,
     [shopId]
   );
   const cur = Number(r.rows[0]?.cur ?? 0);
@@ -87,16 +96,21 @@ async function revenueTrend(pool: Pool, shopId: string) {
 }
 
 async function topServiceByRevenue(pool: Pool, shopId: string) {
+  // Per-service revenue cannot come from the ledger — `payments` has no line items — so it reads
+  // the shared line source, which unions booking lines with counter-sale lines. A service the shop
+  // mostly sells over the counter could never win this before (S9c-2).
   const r = await pool.query<{ service_name: string | null; revenue: string; orders: number }>(
-    `SELECT s.service_name,
-            COALESCE(SUM(o.total_amount), 0)::float8::text AS revenue,
-            COUNT(*)::int AS orders
-     FROM service_orders o
-     LEFT JOIN shop_services s ON s.service_id = o.service_id
-     WHERE o.shop_id = $1 AND o.status IN ('paid', 'completed')
-       AND o.created_at >= now() - interval '30 days'
+    `WITH lines AS (${SERVICE_LINE_REVENUE})
+     SELECT s.service_name,
+            (COALESCE(SUM(l.revenue_cents), 0) / 100.0)::float8::text AS revenue,
+            COUNT(DISTINCT l.ref)::int AS orders
+     FROM lines l
+     LEFT JOIN shop_services s ON s.service_id = l.service_id
+     WHERE l.shop_id = $1
+       AND l.service_id IS NOT NULL
+       AND l.occurred_at >= now() - interval '30 days'
      GROUP BY s.service_name
-     ORDER BY SUM(o.total_amount) DESC NULLS LAST
+     ORDER BY SUM(l.revenue_cents) DESC NULLS LAST
      LIMIT 1`,
     [shopId]
   );
@@ -118,22 +132,25 @@ async function lapsedValue(pool: Pool, shopId: string) {
   // owner gets when they act on the recommendation. Guest / orphan orders
   // (no customer record — unreachable, no email) are excluded: counting them
   // here would promise a win-back the campaign can't deliver.
+  // The split mirrors findLapsedBookers after S9c-3: WHO is lapsed still comes from bookings,
+  // because that list is about lapsed visits and a booking is the visit, but WHAT THEY SPENT comes
+  // from the ledger so a regular at the till is not written off as a £0 customer.
   const r = await pool.query<{ n: number; total_spend: string }>(
     `WITH per_customer AS (
-       SELECT o.customer_address,
-              MAX(o.created_at) AS last_at,
-              COALESCE(SUM(o.total_amount) FILTER (
-                WHERE o.status IN ('paid', 'completed')), 0)::float8 AS spend
+       SELECT LOWER(o.customer_address) AS customer_address,
+              MAX(o.created_at) AS last_at
        FROM service_orders o
        JOIN customers c ON LOWER(c.address) = LOWER(o.customer_address)
        WHERE o.shop_id = $1 AND o.customer_address IS NOT NULL
          AND c.is_active = true AND c.suspended_at IS NULL
-       GROUP BY o.customer_address
-     )
+       GROUP BY LOWER(o.customer_address)
+     ),
+     spend AS (${CUSTOMER_SPEND_FROM_LEDGER})
      SELECT COUNT(*)::int AS n,
-            COALESCE(SUM(spend), 0)::float8::text AS total_spend
-     FROM per_customer
-     WHERE last_at <= now() - interval '90 days'`,
+            COALESCE(SUM(s.total_spent), 0)::float8::text AS total_spend
+     FROM per_customer pc
+     LEFT JOIN spend s ON s.customer_address = pc.customer_address
+     WHERE pc.last_at <= now() - interval '90 days'`,
     [shopId]
   );
   return {

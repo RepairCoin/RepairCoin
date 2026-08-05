@@ -105,7 +105,11 @@ export const ledgerRevenueCents = (alias = 'p'): string => {
  *
  * Columns: `shop_id`, `location_id`, `service_id` (null on non-service counter lines), `bucket`
  * (null when `service_id` is set), `revenue_cents`, `ref` (the order or sale the line belongs to,
- * for distinct counts), `channel`.
+ * for distinct counts), `channel`, `occurred_at`.
+ *
+ * `occurred_at` is when the money landed — capture time for a booking, completion time for a
+ * counter sale — so a windowed report ("last 30 days") means the same thing on both channels and
+ * matches how the ledger-based totals bucket.
  */
 export const SERVICE_LINE_REVENUE = `
   SELECT
@@ -115,7 +119,8 @@ export const SERVICE_LINE_REVENUE = `
     NULL::varchar        AS bucket,
     (p.gross_cents - p.tax_cents - p.refunded_cents)::int AS revenue_cents,
     o.order_id::text     AS ref,
-    'booking'::varchar   AS channel
+    'booking'::varchar   AS channel,
+    COALESCE(p.captured_at, p.created_at) AS occurred_at
   FROM payments p
   JOIN service_orders o ON o.order_id = p.order_id
   WHERE ${ledgerRecognized('p')}
@@ -130,7 +135,8 @@ export const SERVICE_LINE_REVENUE = `
     CASE i.kind WHEN 'product' THEN 'Products' WHEN 'custom' THEN 'Other' END::varchar AS bucket,
     (i.total_cents - i.tax_cents)::int AS revenue_cents,
     ps.id::text          AS ref,
-    'pos'::varchar       AS channel
+    'pos'::varchar       AS channel,
+    COALESCE(ps.completed_at, ps.created_at) AS occurred_at
   FROM pos_sale_items i
   JOIN pos_sales ps ON ps.id = i.sale_id
   WHERE ps.status IN ('completed', 'partially_refunded', 'refunded')

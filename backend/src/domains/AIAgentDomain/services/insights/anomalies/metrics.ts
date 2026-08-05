@@ -10,6 +10,11 @@
 
 import { Pool } from "pg";
 import { windowBoundsFor } from "../ranges";
+import {
+  ledgerRecognized,
+  ledgerCustomerRevenue,
+  ledgerRevenueCents,
+} from "../../../../../utils/sqlFragments";
 import { MetricDefinition } from "./types";
 
 /**
@@ -40,15 +45,22 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
     minPriorSignal: 50, // $50 — below this, a swing is statistical noise.
     async compute(pool, shopId) {
       const w = weekBounds();
+      // From the fiat ledger, so a week of strong counter trade is not read as a revenue collapse.
+      // Windowed on capture, because this compares what was taken week to week.
       const sumSql = (from: Date, to: Date | null) => {
-        const conds = [`shop_id = $1`, `status IN ('paid', 'completed')`, `created_at >= $2`];
+        const conds = [
+          `p.shop_id = $1`,
+          ledgerRecognized("p"),
+          ledgerCustomerRevenue("p"),
+          `COALESCE(p.captured_at, p.created_at) >= $2`,
+        ];
         const params: unknown[] = [shopId, from];
         if (to) {
-          conds.push(`created_at < $3`);
+          conds.push(`COALESCE(p.captured_at, p.created_at) < $3`);
           params.push(to);
         }
         return {
-          sql: `SELECT COALESCE(SUM(total_amount), 0)::text AS v FROM service_orders WHERE ${conds.join(" AND ")}`,
+          sql: `SELECT COALESCE(SUM(${ledgerRevenueCents("p")}), 0) / 100.0 AS v FROM payments p WHERE ${conds.join(" AND ")}`,
           params,
         };
       };

@@ -10,6 +10,11 @@
 // a RANGE and is always labeled "rough estimate" — never presented as a promise.
 
 import { Pool } from "pg";
+import {
+  ledgerRecognized,
+  ledgerCustomerRevenue,
+  ledgerRevenueCents,
+} from "../../../../utils/sqlFragments";
 
 // Cautious SMB email/in-app campaign conversion band (share of recipients who
 // book). Intentionally low — refine per-segment once open-tracking lands.
@@ -36,10 +41,16 @@ export async function estimateCampaignRevenue(
 ): Promise<RevenueEstimate> {
   let aov = DEFAULT_AOV_USD;
   try {
+    // Average order value from the ledger, so a shop whose typical sale happens at the counter
+    // gets a campaign estimate based on what it actually sells. Averaged over purchases rather
+    // than ledger rows — a split-tender sale is one purchase, and averaging the tenders would
+    // halve the AOV of any shop that takes part-cash.
     const r = await pool.query<{ aov: string | null }>(
-      `SELECT AVG(COALESCE(final_amount_usd, total_amount))::float8::text AS aov
-         FROM service_orders
-        WHERE shop_id = $1 AND status IN ('paid', 'completed')`,
+      `SELECT (SUM(${ledgerRevenueCents("p")})::float8
+               / NULLIF(COUNT(DISTINCT COALESCE(p.order_id, p.pos_sale_id::text, p.id::text)), 0)
+               / 100.0)::float8::text AS aov
+         FROM payments p
+        WHERE p.shop_id = $1 AND ${ledgerRecognized("p")} AND ${ledgerCustomerRevenue("p")}`,
       [shopId]
     );
     const v = Number(r.rows[0]?.aov);

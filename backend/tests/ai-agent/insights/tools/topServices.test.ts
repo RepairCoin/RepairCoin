@@ -48,15 +48,18 @@ describe("top_services tool", () => {
       expect(display.rows[1]).toEqual([2, "I Robot", "$1,399.98"]);
     });
 
-    it("SQL filters status IN ('paid', 'completed')", async () => {
+    // Per-service revenue cannot come from the ledger — `payments` has no line items — so it
+    // reads the shared line source, which unions booking lines with counter-sale lines. A service
+    // the shop mostly sells over the counter was invisible to this ranking before.
+    it("SQL reads the shared line source, so counter sales are ranked too", async () => {
       const mock = makeMockPool([[]]);
       await topServices.execute(
         { range: "all", by: "revenue", limit: 5 },
         ctx("peanut", mock)
       );
-      expect(mock.captured[0].sql).toMatch(
-        /status IN \(\s*'paid'\s*,\s*'completed'\s*\)/
-      );
+      expect(mock.captured[0].sql).toMatch(/WITH lines AS \(/);
+      expect(mock.captured[0].sql).toMatch(/FROM pos_sale_items i/);
+      expect(mock.captured[0].sql).toMatch(/FROM payments p/);
     });
   });
 
@@ -168,7 +171,7 @@ describe("top_services tool", () => {
         { range: "all", by: "revenue", limit: 5 },
         ctx("shop-abc", mock)
       );
-      expect(mock.captured[0].sql).toMatch(/o\.shop_id = \$1/);
+      expect(mock.captured[0].sql).toMatch(/l\.shop_id = \$1/);
       expect(mock.captured[0].params[0]).toBe("shop-abc");
     });
 

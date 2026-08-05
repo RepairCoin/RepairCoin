@@ -12,6 +12,11 @@
 
 import { Pool } from "pg";
 import { getSharedPool } from "../../../utils/database-pool";
+import {
+  ledgerRecognized,
+  ledgerCustomerRevenue,
+  ledgerRevenueCents,
+} from "../../../utils/sqlFragments";
 import { MIN_SAMPLE_N } from "../constants";
 
 /**
@@ -180,15 +185,22 @@ export class MetricsAggregator {
       bookings: string;
       revenue: string | null;
     }>(
+      // Revenue from the ledger, joined back to the order for the conversation link — attribution
+      // needs `conversation_id`, which only service_orders has. Counter sales have no conversation
+      // and are therefore correctly absent: this measures what the assistant brought in, not what
+      // the shop took. Windowed on the booking's created_at, unchanged, because the window is
+      // "conversations in this period", not "money in this period".
       `SELECT
-         COUNT(*) AS bookings,
-         COALESCE(SUM(total_amount), 0) AS revenue
-       FROM service_orders
-       WHERE shop_id = $1
-         AND ($2::timestamp IS NULL OR created_at >= $2)
-         AND ($3::timestamp IS NULL OR created_at < $3)
-         AND conversation_id IS NOT NULL
-         AND status IN ('paid', 'completed')`,
+         COUNT(DISTINCT o.order_id) AS bookings,
+         COALESCE(SUM(${ledgerRevenueCents("p")}), 0) / 100.0 AS revenue
+       FROM service_orders o
+       JOIN payments p ON p.order_id = o.order_id
+       WHERE o.shop_id = $1
+         AND ($2::timestamp IS NULL OR o.created_at >= $2)
+         AND ($3::timestamp IS NULL OR o.created_at < $3)
+         AND o.conversation_id IS NOT NULL
+         AND ${ledgerRecognized("p")}
+         AND ${ledgerCustomerRevenue("p")}`,
       [shopId, windowStart, windowEnd]
     );
     const row = r.rows[0];
@@ -223,6 +235,8 @@ export class MetricsAggregator {
          AND ($2::timestamp IS NULL OR m.created_at >= $2)
          AND ($3::timestamp IS NULL OR m.created_at < $3)
          AND m.request_payload->>'source' = 'ai_followup'
+         -- Counts recovered customers, not money: the nudge did its job when the customer came
+         -- back and booked. Left on the fulfilment status, unlike the revenue query above.
          AND o.status IN ('paid', 'completed')
          AND o.created_at >= m.created_at
          AND o.created_at <= m.created_at + INTERVAL '7 days'`,

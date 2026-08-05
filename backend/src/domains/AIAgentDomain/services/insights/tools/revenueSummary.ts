@@ -7,7 +7,7 @@
 //   - "What was my revenue this month?"
 //   - "Compare this month's revenue to last month."
 //
-// Sums service_orders.total_amount where status IN ('paid', 'completed')
+// Sums the fiat `payments` ledger — bookings AND counter sales, net of tax and refunds
 // for the requested rolling window, scoped to ctx.shopId. With
 // compare='prior', also computes the previous equivalent window + delta
 // so Claude can phrase a comparison.
@@ -19,6 +19,11 @@
 // 'no_show'. Those are tracked separately by bookings_breakdown.
 
 import { Pool } from "pg";
+import {
+  ledgerRecognized,
+  ledgerCustomerRevenue,
+  ledgerRevenueCents,
+} from "../../../../../utils/sqlFragments";
 import {
   BusinessInsightsTool,
   ToolContext,
@@ -38,7 +43,8 @@ const NAME = "revenue_summary";
 export const revenueSummary: BusinessInsightsTool = {
   name: NAME,
   description:
-    "Look up this shop's revenue (sum of paid + completed order totals) " +
+    "Look up this shop's revenue (money taken across bookings and counter sales, " +
+    "net of tax and refunds) " +
     "for a recent window. Use this when the user asks how much they " +
     "earned, made, or grossed in a period, or how their revenue " +
     "compares to the prior equivalent window. Set compare='prior' only " +
@@ -148,23 +154,35 @@ async function sumWindow(
   fromInclusive: Date | null,
   toExclusive: Date | null
 ): Promise<WindowSum> {
-  // Shop-scoping is hardcoded in this SQL — never sourced from Claude
-  // args. Status filter excludes cancelled/expired/no_show by design.
-  const conds: string[] = [`shop_id = $1`, `status IN ('paid', 'completed')`];
+  // Shop-scoping is hardcoded in this SQL — never sourced from Claude args.
+  //
+  // Reads the fiat ledger, not service_orders: a counter sale has no booking, so a shop asking the
+  // assistant "how much did I make?" used to get an answer blind to everything it took over the
+  // till. The ledger is the union of both channels and is what every dashboard now reports.
+  //
+  // Windowed on when the money was captured rather than when the booking was made — money taken
+  // today for next week's appointment belongs to today, which is the question being asked.
+  const conds: string[] = [
+    `p.shop_id = $1`,
+    ledgerRecognized("p"),
+    ledgerCustomerRevenue("p"),
+  ];
   const params: unknown[] = [shopId];
   if (fromInclusive) {
     params.push(fromInclusive);
-    conds.push(`created_at >= $${params.length}`);
+    conds.push(`COALESCE(p.captured_at, p.created_at) >= $${params.length}`);
   }
   if (toExclusive) {
     params.push(toExclusive);
-    conds.push(`created_at < $${params.length}`);
+    conds.push(`COALESCE(p.captured_at, p.created_at) < $${params.length}`);
   }
   const res = await pool.query<{ total: string; n: string }>(
+    // COUNT(DISTINCT …) over the sale rather than the row: a split-tender counter sale writes one
+    // ledger row per tender, and counting rows would report one sale as two.
     `SELECT
-       COALESCE(SUM(total_amount), 0)::text AS total,
-       COUNT(*)::text AS n
-     FROM service_orders WHERE ${conds.join(" AND ")}`,
+       COALESCE(SUM(${ledgerRevenueCents("p")}), 0) / 100.0 AS total,
+       COUNT(DISTINCT COALESCE(p.order_id, p.pos_sale_id::text, p.id::text))::text AS n
+     FROM payments p WHERE ${conds.join(" AND ")}`,
     params
   );
   return {
@@ -187,7 +205,7 @@ function singleDisplay(range: RangeKey, w: WindowSum): ToolDisplay {
     kind: "number",
     primary: fmtUsd(w.totalUsd),
     label: `Revenue (${RANGE_LABEL[range]})`,
-    sub: `${w.orderCount} paid + completed order${w.orderCount === 1 ? "" : "s"}`,
+    sub: `${w.orderCount} sale${w.orderCount === 1 ? "" : "s"}`,
   };
 }
 
