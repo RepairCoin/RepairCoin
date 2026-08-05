@@ -12,6 +12,7 @@ import {
   DEFAULT_ACTION_TYPE,
 } from './autoMessageActions/registry';
 import { shopHasFeatureEffective } from '../utils/shopTier';
+import { resolveAudience, type AudienceMember } from './audienceResolver';
 
 /** How long an entitlement answer is reused. One tick can ask about the same shop once per customer. */
 const ENTITLEMENT_TTL_MS = 5 * 60 * 1000;
@@ -130,126 +131,22 @@ export class AutoMessageSchedulerService {
         return false;
     }
   }
-
   /**
-   * Get target customers for a rule based on audience type
+   * Get target customers for a rule based on audience type.
+   *
+   * The switch itself now lives in audienceResolver, because a campaign workflow needs the same
+   * answer and cannot express these audiences in the campaign vocabulary. One implementation, so a
+   * new audience type cannot exist for messages and not for campaigns.
    */
-  private async getTargetCustomers(rule: AutoMessage): Promise<Array<{
-    walletAddress: string;
-    name?: string;
-    rcnBalance?: number;
-    lastServiceName?: string;
-    lastVisitDate?: string;
-  }>> {
-    const pool = getSharedPool();
-
-    switch (rule.targetAudience) {
-      case 'all': {
-        // All customers who have interacted with this shop
-        const customers = await this.customerRepo.findByShopInteraction(rule.shopId);
-        return customers.map(c => ({
-          walletAddress: c.walletAddress,
-          name: c.name,
-          lastVisitDate: c.lastVisit ? c.lastVisit.toLocaleDateString() : undefined,
-        }));
-      }
-
-      case 'active': {
-        // Customers who visited in last 30 days
-        const result = await pool.query(`
-          SELECT DISTINCT c.address as wallet_address, c.name,
-            MAX(t.created_at) as last_visit
-          FROM customers c
-          INNER JOIN transactions t ON c.address = t.customer_address
-          WHERE t.shop_id = $1
-            AND t.created_at >= NOW() - INTERVAL '30 days'
-            AND c.is_active = true
-          GROUP BY c.address, c.name
-        `, [rule.shopId]);
-        return result.rows.map((r: any) => ({
-          walletAddress: r.wallet_address,
-          name: r.name || undefined,
-          lastVisitDate: r.last_visit ? new Date(r.last_visit).toLocaleDateString() : undefined,
-        }));
-      }
-
-      case 'inactive_30d': {
-        // Customers who haven't visited in 30+ days
-        const result = await pool.query(`
-          SELECT DISTINCT c.address as wallet_address, c.name,
-            MAX(t.created_at) as last_visit
-          FROM customers c
-          INNER JOIN transactions t ON c.address = t.customer_address
-          WHERE t.shop_id = $1
-            AND c.is_active = true
-          GROUP BY c.address, c.name
-          HAVING MAX(t.created_at) < NOW() - INTERVAL '30 days'
-        `, [rule.shopId]);
-        return result.rows.map((r: any) => ({
-          walletAddress: r.wallet_address,
-          name: r.name || undefined,
-          lastVisitDate: r.last_visit ? new Date(r.last_visit).toLocaleDateString() : undefined,
-        }));
-      }
-
-      case 'has_balance': {
-        // Customers with RCN balance > 0 at this shop
-        const result = await pool.query(`
-          SELECT DISTINCT c.address as wallet_address, c.name, c.current_rcn_balance
-          FROM customers c
-          INNER JOIN transactions t ON c.address = t.customer_address
-          WHERE t.shop_id = $1
-            AND c.is_active = true
-            AND c.current_rcn_balance > 0
-          GROUP BY c.address, c.name, c.current_rcn_balance
-        `, [rule.shopId]);
-        return result.rows.map((r: any) => ({
-          walletAddress: r.wallet_address,
-          name: r.name || undefined,
-          rcnBalance: parseFloat(r.current_rcn_balance) || 0,
-        }));
-      }
-
-      case 'completed_booking': {
-        // Customers who completed a booking at this shop
-        const result = await pool.query(`
-          SELECT DISTINCT c.address as wallet_address, c.name,
-            MAX(so.updated_at) as last_visit,
-            (SELECT ss.service_name FROM shop_services ss
-             JOIN service_orders so2 ON ss.service_id = so2.service_id
-             WHERE so2.customer_address = c.address AND so2.shop_id = $1 AND so2.status = 'completed'
-             ORDER BY so2.updated_at DESC LIMIT 1) as last_service_name
-          FROM customers c
-          INNER JOIN service_orders so ON LOWER(c.address) = LOWER(so.customer_address)
-          WHERE so.shop_id = $1
-            AND so.status = 'completed'
-            AND c.is_active = true
-          GROUP BY c.address, c.name
-        `, [rule.shopId]);
-        return result.rows.map((r: any) => ({
-          walletAddress: r.wallet_address,
-          name: r.name || undefined,
-          lastServiceName: r.last_service_name || undefined,
-          lastVisitDate: r.last_visit ? new Date(r.last_visit).toLocaleDateString() : undefined,
-        }));
-      }
-
-      default:
-        // Returning [] is the right OUTCOME — an audience we cannot resolve must not fall back to
-        // 'all', because guessing the widest possible audience is how a workflow messages a shop's
-        // entire customer list by accident. The defect was the SILENCE: a rule with an unresolvable
-        // audience showed as published and active, updated nothing, and enrolled nobody, forever, with
-        // no error and no failed send to look at. Say so, loudly, and keep the safe behaviour.
-        logger.error('AutoMessageScheduler: rule has an unresolvable target audience — enrolling nobody', {
-          ruleId: rule.id,
-          shopId: rule.shopId,
-          name: rule.name,
-          targetAudience: rule.targetAudience,
-          triggerType: rule.triggerType,
-          eventType: rule.eventType,
-        });
-        return [];
-    }
+  private async getTargetCustomers(rule: AutoMessage): Promise<AudienceMember[]> {
+    return resolveAudience({
+      shopId: rule.shopId,
+      targetAudience: rule.targetAudience,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      triggerType: rule.triggerType,
+      eventType: rule.eventType,
+    });
   }
 
   /**

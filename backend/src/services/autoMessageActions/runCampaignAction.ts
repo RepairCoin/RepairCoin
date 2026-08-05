@@ -31,8 +31,12 @@
 
 import { logger } from '../../utils/logger';
 import { shopRepository } from '../../repositories';
-import { MarketingCampaignRepository } from '../../repositories/MarketingCampaignRepository';
+import {
+  MarketingCampaignRepository,
+  type MarketingCampaign,
+} from '../../repositories/MarketingCampaignRepository';
 import { MarketingService } from '../MarketingService';
+import { resolveAudience } from '../audienceResolver';
 import type {
   AutoMessageActionContext,
   AutoMessageActionHandler,
@@ -50,6 +54,9 @@ export function parseRunCampaignPayload(raw: unknown): RunCampaignPayload {
   return id ? { campaignId: id } : {};
 }
 
+/** The campaign's own vocabulary for who it goes to. */
+type CampaignAudienceType = MarketingCampaign['audienceType'];
+
 /** Suffix so a shop can tell automated sends apart from ones it pressed send on itself. */
 const cloneName = (name: string, ruleName: string) => `${name} — via ${ruleName}`.slice(0, 200);
 
@@ -63,6 +70,44 @@ export class RunCampaignAction implements AutoMessageActionHandler {
     // that can only be exercised against a live database is a handler nobody exercises.
     private readonly shops: { getShop: (id: string) => Promise<any> } = shopRepository
   ) {}
+
+  /**
+   * The audience for one firing, in the shape a campaign understands.
+   *
+   * Falls back to the SOURCE campaign's own audience when the rule resolves nobody — that covers a
+   * campaign built for an audience the workflow cannot describe, and means an empty resolution never
+   * silently turns into "send to everybody".
+   */
+  private async audienceFor(
+    ctx: AutoMessageActionContext,
+    sourceAudienceType: CampaignAudienceType
+  ): Promise<{ audienceType: CampaignAudienceType; audienceFilters: Record<string, unknown> }> {
+    const members = await resolveAudience({
+      shopId: ctx.shopId,
+      targetAudience: ctx.rule.targetAudience,
+      ruleId: ctx.rule.id,
+      ruleName: ctx.rule.name,
+      triggerType: ctx.rule.triggerType,
+      eventType: ctx.rule.eventType,
+    });
+
+    if (members.length === 0) {
+      logger.warn('run_campaign resolved nobody — falling back to the campaign\'s own audience', {
+        ruleId: ctx.rule.id,
+        shopId: ctx.shopId,
+        targetAudience: ctx.rule.targetAudience,
+      });
+      return {
+        audienceType: sourceAudienceType,
+        audienceFilters: {},
+      };
+    }
+
+    return {
+      audienceType: 'select_customers',
+      audienceFilters: { selectedAddresses: members.map((m) => m.walletAddress) },
+    };
+  }
 
   async execute(ctx: AutoMessageActionContext): Promise<AutoMessageActionResult> {
     const { campaignId } = parseRunCampaignPayload(ctx.actionPayload);
@@ -119,8 +164,17 @@ export class RunCampaignAction implements AutoMessageActionHandler {
         previewText: source.previewText ?? undefined,
         designContent: source.designContent,
         templateId: source.templateId ?? undefined,
-        audienceType: source.audienceType,
-        audienceFilters: source.audienceFilters,
+        // THE WORKFLOW decides who, not the campaign.
+        //
+        // Resolved fresh on every firing, then handed to this clone as an explicit list. That looks
+        // like freezing the audience, and for this one send it is — but the clone IS one send. The
+        // rule stays a live rule and is re-evaluated next time, so a win-back reaches whoever has
+        // lapsed by then rather than whoever had lapsed when the campaign was written.
+        //
+        // Resolving here also sidesteps a vocabulary mismatch that has no honest answer: the
+        // campaign has no way to express "inactive 30 days" or "holds an RCN balance", so mapping
+        // the workflow's audience onto its own types would have meant guessing who the shop meant.
+        ...(await this.audienceFor(ctx, source.audienceType)),
         deliveryMethod: source.deliveryMethod,
         serviceId: source.serviceId ?? undefined,
         createdBySource: 'ai_agent',
