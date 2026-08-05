@@ -194,7 +194,15 @@ export class AutoMessageSchedulerService {
   private async sendToCustomer(
     rule: AutoMessage,
     customer: { walletAddress: string; name?: string; rcnBalance?: number; lastServiceName?: string; lastVisitDate?: string },
-    shopName: string
+    shopName: string,
+    /**
+     * What caused this send — an order id, for event triggers. Stored on the send row so
+     * `hasSendForTriggerReference` can recognise a repeat of the SAME event later.
+     *
+     * Optional because the sweeps and schedules have no such reference: nothing "caused" a Monday
+     * message except Monday. Only the event paths pass it.
+     */
+    triggerReference?: string
   ): Promise<{ success: boolean; messageId?: string; conversationId?: string }> {
     try {
       // Entitlement at the engine. Gating HERE covers every send entry point at once — scheduled
@@ -261,6 +269,7 @@ export class AutoMessageSchedulerService {
         messageId: outcome.messageId,
         status: 'sent',
         variant,
+        triggerReference,
       });
 
       return { success: true, messageId: outcome.messageId, conversationId: outcome.conversationId };
@@ -458,13 +467,20 @@ export class AutoMessageSchedulerService {
             const shopName = shop?.name || 'Our Shop';
             const customer = await this.customerRepo.getCustomer(data.customerAddress);
 
+            // The trigger reference has to go in HERE, not afterwards. The comment that used to sit
+            // below said "update the send record with trigger reference" and nothing did it, so every
+            // immediate event send stored NULL — and `hasSendForTriggerReference` above, the guard
+            // meant to stop one order messaging a customer twice, could never match. It looked
+            // present and did nothing for every delayHours: 0 rule, which is most of them.
+            //
+            // The delayed branch below always passed it, which is why this survived: the same feature
+            // demonstrably worked, just never on the path people actually used.
             const sendResult = await this.sendToCustomer(rule, {
               walletAddress: data.customerAddress,
               name: customer?.name || undefined,
-            }, shopName);
+            }, shopName, data.orderId);
 
             if (sendResult.success) {
-              // Update the send record with trigger reference
               scheduledCount++;
             }
           } else {

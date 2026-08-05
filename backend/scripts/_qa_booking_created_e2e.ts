@@ -75,7 +75,10 @@ async function main() {
       messageTemplate: 'Hi {{customerName}}, QA test for booking_created — please ignore.',
       delayHours: 0,
       targetAudience: 'all',
-      maxSendsPerCustomer: 1,
+      // 2, not 1. At 1 the cap blocks the second firing, so the same-order check below passes whether
+      // or not the trigger-reference guard works — which is exactly how a dead guard survived. With
+      // room to send again, only real dedup can hold it to one.
+      maxSendsPerCustomer: 2,
       surface: 'workflow',
       status: 'draft',
     });
@@ -128,21 +131,34 @@ async function main() {
     ok(first.length === 1, `sent exactly once (got ${first.length})`);
 
     line('\n=== 5. the same booking cannot fire it twice ===');
-    // hasSendForTriggerReference — a webhook retry must not message the customer again.
+    // hasSendForTriggerReference — a webhook retry must not message the customer again. This is the
+    // check that was hollow: with a cap of 1 it passed even though every immediate send stored a NULL
+    // reference and the guard could never match.
     await autoMessageSchedulerService.handleEventTrigger('booking_created', {
       shopId: SHOP,
       customerAddress: customer.customer_address,
       orderId: ORDER_REF,
     });
-    ok((await sendsFor(ruleId!)).length === 1, 'still one send after a repeat of the same order');
+    const repeat = await sendsFor(ruleId!);
+    ok(repeat.length === 1, `still one send after a repeat of the same order (got ${repeat.length})`);
+    ok(repeat[0]?.trigger_reference === ORDER_REF, 'the send stored WHICH order caused it');
 
-    line('\n=== 6. a DIFFERENT booking is capped by maxSendsPerCustomer ===');
+    line('\n=== 6. a DIFFERENT booking still sends ===');
+    // Without this, step 5 proves nothing: a rule that never sends at all would also stay at one.
     await autoMessageSchedulerService.handleEventTrigger('booking_created', {
       shopId: SHOP,
       customerAddress: customer.customer_address,
       orderId: `${ORDER_REF}-second`,
     });
-    ok((await sendsFor(ruleId!)).length === 1, 'maxSendsPerCustomer=1 held for a new order');
+    ok((await sendsFor(ruleId!)).length === 2, 'a new order produced a second send');
+
+    line('\n=== 7. maxSendsPerCustomer still caps it ===');
+    await autoMessageSchedulerService.handleEventTrigger('booking_created', {
+      shopId: SHOP,
+      customerAddress: customer.customer_address,
+      orderId: `${ORDER_REF}-third`,
+    });
+    ok((await sendsFor(ruleId!)).length === 2, 'cap of 2 held against a third order');
   } finally {
     if (ruleId) {
       await db.query(`DELETE FROM auto_message_sends WHERE auto_message_id=$1`, [ruleId]);
