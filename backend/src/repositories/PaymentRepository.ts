@@ -61,6 +61,22 @@ export interface RecordPosTenderInput {
   capturedAt?: string | null;
 }
 
+/**
+ * A booking settled outside Stripe — cash at the counter, bank transfer, an existing arrangement.
+ * There is no Stripe object for the reconciler to derive a row from, so the ledger row has to be
+ * written directly or the money is invisible to everything that reads `payments` (POS S9b).
+ */
+export interface RecordManualOrderPaymentInput {
+  shopId: string;
+  orderId: string;
+  grossCents: number;
+  method?: PaymentMethod;
+  currency?: string;
+  customerAddress?: string | null;
+  capturedAt?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
 /** Fields the webhook reconciler upserts, keyed by the Stripe PaymentIntent id. */
 export interface UpsertPaymentInput {
   shopId: string;
@@ -267,6 +283,55 @@ export class PaymentRepository extends BaseRepository {
       values
     );
     return this.mapRow(result.rows[0]);
+  }
+
+  /**
+   * Write the ledger row for a booking that was settled outside Stripe.
+   *
+   * Cash cannot carry a platform commission — there is no charge to attach an application fee to,
+   * the same structural limit POS cash tender has — so the fee is 0 and the shop nets the gross.
+   *
+   * Keyed on `order_id` via uq_payments_manual_order (263). DO NOTHING rather than DO UPDATE: the
+   * first row recorded when the shop said the money arrived is the truthful one, and a re-run of
+   * the backfill must not overwrite it with a re-derived guess. Returns the existing row in that
+   * case, so callers cannot tell a retry from a first write.
+   */
+  async recordManualOrderPayment(input: RecordManualOrderPaymentInput): Promise<Payment> {
+    const values = [
+      input.shopId,
+      input.customerAddress ?? null,
+      input.orderId,
+      input.method ?? 'cash',
+      'booking',
+      input.grossCents,
+      input.grossCents,
+      input.currency ?? 'usd',
+      input.capturedAt ?? new Date().toISOString(),
+      JSON.stringify({ settledOutsideStripe: true, ...(input.metadata ?? {}) }),
+    ];
+
+    const result = await this.pool.query(
+      `INSERT INTO payments (
+         shop_id, customer_address, order_id, method, source,
+         gross_cents, fee_cents, application_fee_cents, net_cents,
+         currency, status, captured_at, metadata
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,0,0,$7,$8,'succeeded',$9,$10)
+       ON CONFLICT (order_id) WHERE order_id IS NOT NULL AND stripe_payment_intent_id IS NULL
+       DO NOTHING
+       RETURNING *`,
+      values
+    );
+
+    if (result.rows[0]) return this.mapRow(result.rows[0]);
+
+    const existing = await this.pool.query(
+      `SELECT * FROM payments
+       WHERE order_id = $1 AND stripe_payment_intent_id IS NULL
+       LIMIT 1`,
+      [input.orderId]
+    );
+    return this.mapRow(existing.rows[0]);
   }
 
   async getByPaymentIntent(stripePaymentIntentId: string): Promise<Payment | null> {
