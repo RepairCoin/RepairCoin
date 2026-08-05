@@ -8,6 +8,8 @@ import {
   DEFAULT_ACTION_TYPE,
   NO_TEMPLATE_ACTIONS,
   SHOP_SCOPED_ACTIONS,
+  ACTION_NEEDS,
+  type ActionNeeds,
 } from '../../../services/autoMessageActions/registry';
 import {
   parseIssueRewardPayload,
@@ -37,6 +39,58 @@ const VALID_EVENT_TYPES = [
  * send to, and the rule would sit there looking active while quietly doing nothing.
  */
 const SHOP_SCOPED_EVENTS = new Set(['low_stock', 'new_ad_lead']);
+
+/**
+ * What each trigger hands the action to work with.
+ *
+ *   audience — the engine resolves a group: a schedule, and the two SWEEP events, which are not
+ *              handed a customer and go looking for one.
+ *   customer — a real event about one person; handleEventTrigger receives a single address.
+ *   nothing  — happened to the SHOP. Nobody is involved.
+ *
+ * Paired with ACTION_NEEDS this decides every valid combination, rather than each bad pairing being
+ * found by a shop. It replaces the shop-scoped special case: those events provide nothing, so
+ * anything needing a customer or an audience is refused by the same rule that refuses everything else.
+ */
+const AUDIENCE_TRIGGER_EVENTS = new Set(['inactive_30_days', 'low_bookings']);
+
+function triggerProvides(triggerType: string, eventType?: string): ActionNeeds | 'nothing' {
+  if (triggerType === 'schedule') return 'audience';
+  if (SHOP_SCOPED_EVENTS.has(eventType || '')) return 'nothing';
+  if (AUDIENCE_TRIGGER_EVENTS.has(eventType || '')) return 'audience';
+  return 'customer';
+}
+
+/** Can this action work with what this trigger gives it? */
+function actionFitsTrigger(actionType: string, triggerType: string, eventType?: string): boolean {
+  const needs = ACTION_NEEDS[actionType] ?? 'customer';
+  if (needs === 'nobody') return true;
+  const provides = triggerProvides(triggerType, eventType);
+  if (provides === 'nothing') return false;
+  // An audience trigger can feed a per-customer action (the engine loops), but a per-customer
+  // trigger cannot feed a one-to-many action — there is no group, only the one person it happened to.
+  return needs === 'customer' ? true : provides === 'audience';
+}
+
+/**
+ * Why a pairing was refused, in the words the form uses.
+ *
+ * Exported so tests assert against the string users actually see. A test that reimplements the
+ * message can drift from it, and the message is the entire value of the guard — a 400 nobody can act
+ * on is barely better than silently storing something broken.
+ */
+export function actionTriggerError(actionType: string, triggerType: string, eventType?: string): string {
+  const label = ACTION_LABELS[actionType] || actionType;
+  const where = triggerType === 'schedule' ? 'a schedule' : `"${eventType}"`;
+  if (triggerProvides(triggerType, eventType) === 'nothing') {
+    return `${where} happens to your shop, not to a customer — so "${label}" has nobody to act on. Use "Notify my team" instead.`;
+  }
+  return (
+    `"${label}" sends to a whole audience at once, and ${where} happens to one customer at a time — ` +
+    `so it would send to everyone each time it fires. Use a schedule, "Inactive 30 Days" or ` +
+    `"Slow Week" instead.`
+  );
+}
 const VALID_TARGET_AUDIENCES = ['all', 'active', 'inactive_30d', 'has_balance', 'completed_booking'];
 const MAX_SEQUENCE_STEPS = 10;
 
@@ -91,12 +145,6 @@ const ACTION_LABELS: Record<string, string> = {
   ai_step: 'Let AI write it',
   draft_reorder: 'Draft a reorder',
 };
-
-/** The error explaining why a shop-scoped trigger can't be paired with a customer-facing action. */
-export function shopScopedActionError(eventType: string, actionType: string): string {
-  const label = ACTION_LABELS[actionType] || actionType;
-  return `"${eventType}" happens to your shop, not to a customer — so "${label}" has nobody to act on. Use "Notify my team" instead.`;
-}
 
 /** Which surface a request is talking about (D7). Anything unrecognised falls back to 'campaign'. */
 function parseSurface(raw: unknown): AutoMessageSurface {
@@ -355,10 +403,10 @@ export class AutoMessageController {
         // which sends no message but still needs somebody to PAY — so it let "low stock → issue 25 RCN"
         // be stored happily, and it could never do anything but fail. That is the exact silent failure
         // this guard exists to prevent.
-        if (SHOP_SCOPED_EVENTS.has(eventType) && !SHOP_SCOPED_ACTIONS.has(actionType)) {
+        if (!actionFitsTrigger(actionType, triggerType, eventType)) {
           return res.status(400).json({
             success: false,
-            error: shopScopedActionError(eventType, actionType),
+            error: actionTriggerError(actionType, triggerType, eventType),
           });
         }
       }
@@ -474,14 +522,14 @@ export class AutoMessageController {
       // changing only one side of the pair.
       const effectiveEventType = eventType !== undefined ? eventType : existing.eventType;
       const effectiveTriggerType = triggerType !== undefined ? triggerType : existing.triggerType;
-      if (
-        effectiveTriggerType === 'event' &&
-        SHOP_SCOPED_EVENTS.has(effectiveEventType || '') &&
-        !SHOP_SCOPED_ACTIONS.has(effectiveActionType)
-      ) {
+      if (!actionFitsTrigger(effectiveActionType, effectiveTriggerType, effectiveEventType || undefined)) {
         return res.status(400).json({
           success: false,
-          error: shopScopedActionError(effectiveEventType || '', effectiveActionType),
+          error: actionTriggerError(
+            effectiveActionType,
+            effectiveTriggerType,
+            effectiveEventType || undefined
+          ),
         });
       }
 
