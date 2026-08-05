@@ -760,7 +760,7 @@ there.
 ### Build order
 
 - **S9c-1** — settle decisions 1 and 3, add `payments.location_id`, move Group A. M — **built**
-- **S9c-2** — line-level attribution for Group B, including the product/custom bucket. M
+- **S9c-2** — line-level attribution for Group B, including the product/custom bucket. M — **built**
 - **S9c-3** — the `totalRevenue` field cleanup and `CustomerRepository`. S
 
 Group B before the RCN tender question is settled means writing the attribution twice.
@@ -832,6 +832,67 @@ has revenue and no bookings. A `FULL OUTER JOIN` on the date keeps both. On stag
 
 Every sale's `tax_cents` equals the sum of its ledger rows' apportioned tax (zero mismatches).
 Counter takings of $1,099.97 now appear in revenue figures that previously could not see them.
+
+## 9c-2. Per-service and per-category revenue — **built**
+
+The four Group B reports — `getServicePerformance`, `getShopCategoryPerformance`,
+`getPlatformCategoryPerformance`, `getGroupPerformanceAnalytics` — now include counter sales. A
+service sold over the counter used to contribute nothing to "your best earners"; the busier a shop's
+till, the more wrong that ranking was.
+
+All four read one shared source, `SERVICE_LINE_REVENUE` in `utils/sqlFragments.ts`. One definition,
+five call sites — the same reason `revenueRecognized` exists.
+
+### The booking half takes its amount from the ledger
+
+The obvious construction — filter `service_orders` by `revenueRecognized` and use `final_amount_usd`
+— was built first and **disagreed with the shop total by 30%**. The ledger counts money that arrived
+regardless of what the booking's status later became; `revenueRecognized` drops paid-then-cancelled
+orders whose money the shop kept. For `ancient-realm-tech` that was $1,207.76 against $566.98, so the
+category chart would have summed to 71% of the revenue printed directly above it on the same screen.
+
+So the booking half reads `payments` joined to `service_orders`, taking the amount from the ledger
+and using the order only to say which service it was for. Categories for that shop now total
+$1,561.98 against a ledger total of $1,447.76, and platform-wide the two are within 0.6%.
+
+**The remaining residual is structural and one-directional.** The counter half must come from the
+lines, because that is the only place the detail exists. Reports therefore exceed the ledger by
+whatever RCN and gift cards covered on counter sales plus counter refunds — and, on staging, mostly
+by counter sales completed before S6a wired the POS into the ledger, which have lines but no ledger
+row and never will. Bounded and explainable, unlike the 30%.
+
+One booking payment on staging has no `order_id` and so cannot be attributed to a service at all —
+a pre-metadata charge, $75.78, absent from these four reports by construction.
+
+### Non-service counter lines get their own rows
+
+`pos_sale_items.kind` is `service`, `product` or `custom`. A part sold on its own or an ad-hoc charge
+has no service and therefore no category. Dropping them would make the categories stop adding up to
+the shop's revenue — two screens visibly contradicting each other, which is worse than the gap it
+would hide. They appear as **Products** and **Other** rows with a service count of 0. On staging that
+is $580 across 7 lines.
+
+Counter lines are net of tax and discounts (`total_cents - tax_cents`, since `total_cents` includes
+tax) and **gross of refunds**: a refund is recorded against the payment, not against a line, so
+attributing one to a service would mean inventing a split. Voided and open sales are excluded;
+refunded ones are not, for that reason.
+
+### Counts stay booking-only
+
+Orders, completions, favourites and the conversion rate they feed are questions about the booking
+funnel, and a walk-in has no funnel. A service sold only over the counter shows 0 orders and real
+revenue, which is the honest answer rather than a gap.
+
+### Two fan-out traps avoided
+
+Revenue joins in **pre-aggregated** in every one of these queries. Adding a second one-to-many join
+alongside `service_orders` and `service_favorites` multiplies their rows and every `SUM` inflates —
+a `COUNT(DISTINCT)` hides it right up until money is added to the query.
+
+The group breakdown sums revenue **per group in its own CTE**. The outer query fans out over both
+linked services and their orders, so a service's revenue repeats across rows: `SUM` would multiply
+it, and `SUM(DISTINCT)` — which was written first — would silently drop a second service that
+happened to earn exactly the same amount.
 
 **Do not** aggregate `pos_sales` in parallel alongside `service_orders` in each report. That is
 the cheap-looking option and it guarantees the two keep drifting, in eight places at once.
