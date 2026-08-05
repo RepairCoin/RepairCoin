@@ -29,6 +29,7 @@ import { AutoMessageResults } from "@/components/messaging/autoMessageResults";
 import { WORKFLOW_TEMPLATES, WorkflowTemplateDraft, WorkflowRelevance } from "./workflowTemplates";
 
 const EVENT_LABELS: Record<string, string> = {
+  booking_created: "Booking made",
   booking_completed: "Booking completed",
   booking_cancelled: "Booking cancelled",
   first_visit: "First visit",

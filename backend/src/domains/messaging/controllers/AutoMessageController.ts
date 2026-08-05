@@ -25,7 +25,7 @@ const VALID_TRIGGER_TYPES = ['schedule', 'event'];
 const VALID_SCHEDULE_TYPES = ['daily', 'weekly', 'monthly'];
 const VALID_EVENT_TYPES = [
   // Marketing / customer-lifecycle moments.
-  'booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days', 'low_bookings',
+  'booking_created', 'booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days', 'low_bookings',
   // Operations triggers (W3). Each is backed by a real event the platform already emits — see
   // MessagingDomain.setupEventSubscriptions.
   'no_show', 'review_received', 'low_rating', 'payment_failed',

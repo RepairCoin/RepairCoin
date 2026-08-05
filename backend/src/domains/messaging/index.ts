@@ -76,6 +76,27 @@ export class MessagingDomain implements DomainModule {
       }
     }, 'MessagingDomain');
 
+    // booking_created → the moment a booking is made, as opposed to completed. Lets a shop send what
+    // the confirmation deliberately doesn't: parking directions, what to bring, an upsell.
+    //
+    // Every creation path publishes this now. It previously came only from the manual-booking and
+    // ad-lead paths, so subscribing before PaymentService was fixed would have produced a rule that
+    // fired for shop-entered bookings and silently ignored the ones customers made themselves — active
+    // on screen, absent in practice, and nothing in the UI could have shown the difference.
+    eventBus.subscribe('service.order_created', async (event) => {
+      try {
+        const { shopId, customerAddress, orderId } = event.data;
+        if (!shopId || !customerAddress) return;
+        await autoMessageSchedulerService.handleEventTrigger('booking_created', {
+          shopId,
+          customerAddress,
+          orderId,
+        });
+      } catch (error) {
+        logger.error('Error handling order_created for auto-messages:', error);
+      }
+    }, 'MessagingDomain');
+
     // booking_cancelled → triggers auto-messages with event_type = 'booking_cancelled'
     eventBus.subscribe('service.order_cancelled', async (event) => {
       try {
