@@ -31,11 +31,13 @@ const controller = stripComments(
     'utf8'
   )
 );
+/**
+ * The audience switch moved out of the scheduler into audienceResolver, so a campaign workflow could
+ * ask the same question. The assertions below are about the RESOLVER now — the behaviour they pin is
+ * unchanged, only its address is.
+ */
 const scheduler = stripComments(
-  fs.readFileSync(
-    path.join(__dirname, '..', '..', 'src', 'services', 'AutoMessageSchedulerService.ts'),
-    'utf8'
-  )
+  fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'services', 'audienceResolver.ts'), 'utf8')
 );
 
 describe('target audience validation', () => {

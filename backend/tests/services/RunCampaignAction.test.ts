@@ -183,3 +183,40 @@ describe('execute', () => {
     expect(created).toHaveLength(1); // it got as far as cloning
   });
 });
+
+// The workflow decides WHO, not the campaign. Resolved fresh each firing and handed to the clone as
+// an explicit list — which is a snapshot for that one send, and the clone IS one send. The rule stays
+// live, so a win-back reaches whoever has lapsed by the next run rather than whoever had lapsed when
+// the campaign was written.
+describe('audience comes from the rule', () => {
+  const withAudience = (members: Array<{ walletAddress: string }>) => {
+    jest.resetModules();
+    jest.doMock('../../src/services/audienceResolver', () => ({
+      resolveAudience: jest.fn(async () => members),
+    }));
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require('../../src/services/autoMessageActions/runCampaignAction').RunCampaignAction;
+  };
+
+  afterEach(() => jest.resetModules());
+
+  it('sends to exactly the people the rule resolved', async () => {
+    const Action = withAudience([{ walletAddress: '0xaaa' }, { walletAddress: '0xbbb' }]);
+    const { campaigns, marketing, created, shops } = makeDeps(SOURCE);
+    await new Action(marketing, campaigns, shops).execute(ctx({ campaignId: 'camp-1' }));
+
+    expect(created[0].audienceType).toBe('select_customers');
+    expect(created[0].audienceFilters.selectedAddresses).toEqual(['0xaaa', '0xbbb']);
+  });
+
+  // An empty resolution must never widen into "everybody" — that is the failure this whole feature
+  // has been avoiding since the first audience bug.
+  it('falls back to the campaign\'s own audience when the rule resolves nobody', async () => {
+    const Action = withAudience([]);
+    const { campaigns, marketing, created, shops } = makeDeps(SOURCE);
+    await new Action(marketing, campaigns, shops).execute(ctx({ campaignId: 'camp-1' }));
+
+    expect(created[0].audienceType).toBe(SOURCE.audienceType);
+    expect(created[0].audienceFilters).toEqual({});
+  });
+});

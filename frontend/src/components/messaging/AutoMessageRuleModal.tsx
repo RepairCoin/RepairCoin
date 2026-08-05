@@ -296,7 +296,11 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
    * never consults the audience — so showing the field there promised a filter that did not exist.
    */
   const audienceApplies =
-    !actionActsOnShop &&
+    // run_campaign is shop-scoped — it fires once, not once per customer — but it DOES consult the
+    // audience now: the engine resolves it on each firing and hands the campaign that exact list.
+    // Hiding it here was right when the campaign chose for itself; it is wrong now, and it left a
+    // recurring campaign quietly going to every customer the shop has.
+    (!actionActsOnShop || actionType === "run_campaign") &&
     (triggerType === "schedule" || AUDIENCE_AWARE_EVENTS.has(eventType));
 
   /**
