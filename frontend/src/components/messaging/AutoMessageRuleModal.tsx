@@ -747,6 +747,161 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             />
           </div>
 
+
+          {/* ORDER: trigger, then action.
+
+              The action used to come first, which contradicted how the form actually behaves — the
+              trigger decides which actions are offered, so being asked to choose an action and then
+              having it silently narrowed reads as the form changing its mind. It also contradicted
+              the product's own language everywhere else: a workflow row reads "Low stock → Notify
+              team", and the feature is described as "when something happens, do this". */}
+
+          {/* Trigger Type */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Trigger Type</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => { setTriggerTouched(true); setTriggerType("schedule"); }}
+                className={`p-3 rounded-lg border text-left transition-colors ${
+                  triggerType === "schedule"
+                    ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                    : "border-gray-700 bg-[#0D0D0D] text-gray-400 hover:border-gray-500"
+                }`}
+              >
+                <Calendar className="w-5 h-5 mb-1" />
+                <p className="text-sm font-medium">Schedule</p>
+                <p className="text-xs text-gray-500">
+                  {notifiesStaff ? "On a clock — not when something happens" : "Daily, weekly, or monthly"}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTriggerTouched(true); setTriggerType("event"); }}
+                className={`p-3 rounded-lg border text-left transition-colors ${
+                  triggerType === "event"
+                    ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                    : "border-gray-700 bg-[#0D0D0D] text-gray-400 hover:border-gray-500"
+                }`}
+              >
+                <Zap className="w-5 h-5 mb-1" />
+                <p className="text-sm font-medium">Event</p>
+                {/* Was "After booking actions", which stopped being true once W3 added reviews, low
+                    ratings, failed payments and low stock — and steered people to Schedule. */}
+                <p className="text-xs text-gray-500">When something happens in your shop</p>
+              </button>
+            </div>
+          </div>
+
+          {/* Schedule Config */}
+          {triggerType === "schedule" && (
+            <div className="space-y-3 p-4 bg-[#0D0D0D] border border-gray-800 rounded-lg">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Frequency</label>
+                <Select value={scheduleType} onValueChange={(value) => setScheduleType(value)}>
+                  <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                    <SelectValue placeholder="Select frequency">
+                      {SCHEDULE_TYPES.find((t) => t.value === scheduleType)?.label}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    {SCHEDULE_TYPES.map((t) => (
+                      <SelectItem variant="dark" key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {scheduleType === "weekly" && (
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Day of Week</label>
+                  <Select value={String(scheduleDayOfWeek)} onValueChange={(value) => setScheduleDayOfWeek(parseInt(value))}>
+                    <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                      <SelectValue placeholder="Select day">{DAYS_OF_WEEK[scheduleDayOfWeek]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent variant="dark">
+                      {DAYS_OF_WEEK.map((day, i) => (
+                        <SelectItem variant="dark" key={i} value={String(i)}>{day}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {scheduleType === "monthly" && (
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Day of Month</label>
+                  <Select value={String(scheduleDayOfMonth)} onValueChange={(value) => setScheduleDayOfMonth(parseInt(value))}>
+                    <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                      <SelectValue placeholder="Select day">{String(scheduleDayOfMonth)}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent variant="dark">
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <SelectItem variant="dark" key={d} value={String(d)}>{String(d)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Send at (UTC Hour)</label>
+                <Select value={String(scheduleHour)} onValueChange={(value) => setScheduleHour(parseInt(value))}>
+                  <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                    <SelectValue placeholder="Select hour">{hourLabel(scheduleHour)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <SelectItem variant="dark" key={i} value={String(i)}>
+                        {hourLabel(i)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* Event Config */}
+          {triggerType === "event" && (
+            <div className="space-y-3 p-4 bg-[#0D0D0D] border border-gray-800 rounded-lg">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Event</label>
+                <Select value={eventType} onValueChange={(value) => setEventType(value)}>
+                  <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                    <SelectValue placeholder="Select event">
+                      {EVENT_TYPES.find((t) => t.value === eventType)?.label}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    {EVENT_TYPES.map((t) => (
+                      <SelectItem variant="dark" key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Hidden where the engine never waits — see delayApplies. A sweep sends the moment it
+                  runs, so offering a delay there promises something nothing implements. */}
+              <div className={delayApplies ? "" : "hidden"}>
+                <label className="block text-xs text-gray-400 mb-1">Delay (hours after event)</label>
+                <input
+                  type="number"
+                  value={delayHours}
+                  onChange={(e) => setDelayHours(Math.max(0, parseInt(e.target.value) || 0))}
+                  min={0}
+                  max={720}
+                  className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
+                />
+              </div>
+              {!delayApplies && (
+                <p className="text-xs text-gray-500">
+                  This one runs on a sweep, so it acts as soon as it finds someone — there is nothing
+                  to delay.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* What the rule DOES (Custom Workflows W2). Everything above/below — triggers, audience,
               timing — applies identically whichever action is chosen. */}
           <div>
@@ -1054,153 +1209,6 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               </div>
             </div>
           )}
-
-          {/* Trigger Type */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">Trigger Type</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => { setTriggerTouched(true); setTriggerType("schedule"); }}
-                className={`p-3 rounded-lg border text-left transition-colors ${
-                  triggerType === "schedule"
-                    ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                    : "border-gray-700 bg-[#0D0D0D] text-gray-400 hover:border-gray-500"
-                }`}
-              >
-                <Calendar className="w-5 h-5 mb-1" />
-                <p className="text-sm font-medium">Schedule</p>
-                <p className="text-xs text-gray-500">
-                  {notifiesStaff ? "On a clock — not when something happens" : "Daily, weekly, or monthly"}
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setTriggerTouched(true); setTriggerType("event"); }}
-                className={`p-3 rounded-lg border text-left transition-colors ${
-                  triggerType === "event"
-                    ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                    : "border-gray-700 bg-[#0D0D0D] text-gray-400 hover:border-gray-500"
-                }`}
-              >
-                <Zap className="w-5 h-5 mb-1" />
-                <p className="text-sm font-medium">Event</p>
-                {/* Was "After booking actions", which stopped being true once W3 added reviews, low
-                    ratings, failed payments and low stock — and steered people to Schedule. */}
-                <p className="text-xs text-gray-500">When something happens in your shop</p>
-              </button>
-            </div>
-          </div>
-
-          {/* Schedule Config */}
-          {triggerType === "schedule" && (
-            <div className="space-y-3 p-4 bg-[#0D0D0D] border border-gray-800 rounded-lg">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Frequency</label>
-                <Select value={scheduleType} onValueChange={(value) => setScheduleType(value)}>
-                  <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                    <SelectValue placeholder="Select frequency">
-                      {SCHEDULE_TYPES.find((t) => t.value === scheduleType)?.label}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent variant="dark">
-                    {SCHEDULE_TYPES.map((t) => (
-                      <SelectItem variant="dark" key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {scheduleType === "weekly" && (
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Day of Week</label>
-                  <Select value={String(scheduleDayOfWeek)} onValueChange={(value) => setScheduleDayOfWeek(parseInt(value))}>
-                    <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                      <SelectValue placeholder="Select day">{DAYS_OF_WEEK[scheduleDayOfWeek]}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent variant="dark">
-                      {DAYS_OF_WEEK.map((day, i) => (
-                        <SelectItem variant="dark" key={i} value={String(i)}>{day}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {scheduleType === "monthly" && (
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Day of Month</label>
-                  <Select value={String(scheduleDayOfMonth)} onValueChange={(value) => setScheduleDayOfMonth(parseInt(value))}>
-                    <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                      <SelectValue placeholder="Select day">{String(scheduleDayOfMonth)}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent variant="dark">
-                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                        <SelectItem variant="dark" key={d} value={String(d)}>{String(d)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Send at (UTC Hour)</label>
-                <Select value={String(scheduleHour)} onValueChange={(value) => setScheduleHour(parseInt(value))}>
-                  <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                    <SelectValue placeholder="Select hour">{hourLabel(scheduleHour)}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent variant="dark">
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <SelectItem variant="dark" key={i} value={String(i)}>
-                        {hourLabel(i)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          {/* Event Config */}
-          {triggerType === "event" && (
-            <div className="space-y-3 p-4 bg-[#0D0D0D] border border-gray-800 rounded-lg">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Event</label>
-                <Select value={eventType} onValueChange={(value) => setEventType(value)}>
-                  <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                    <SelectValue placeholder="Select event">
-                      {EVENT_TYPES.find((t) => t.value === eventType)?.label}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent variant="dark">
-                    {EVENT_TYPES.map((t) => (
-                      <SelectItem variant="dark" key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {/* Hidden where the engine never waits — see delayApplies. A sweep sends the moment it
-                  runs, so offering a delay there promises something nothing implements. */}
-              <div className={delayApplies ? "" : "hidden"}>
-                <label className="block text-xs text-gray-400 mb-1">Delay (hours after event)</label>
-                <input
-                  type="number"
-                  value={delayHours}
-                  onChange={(e) => setDelayHours(Math.max(0, parseInt(e.target.value) || 0))}
-                  min={0}
-                  max={720}
-                  className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
-                />
-              </div>
-              {!delayApplies && (
-                <p className="text-xs text-gray-500">
-                  This one runs on a sweep, so it acts as soon as it finds someone — there is nothing
-                  to delay.
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Target Audience — hidden when the engine won't consult it (see audienceApplies). */}
           <div className={audienceApplies ? "" : "hidden"}>
             <label className="block text-sm text-gray-400 mb-1">Target Audience</label>
