@@ -519,6 +519,28 @@ meant to use costs work they cannot get back and had no warning was at risk.
 **Not covered:** a draft generated and then abandoned by closing the modal without saving. Deleting on
 close would punish an accidental close; the sweeper collects these at 60 days instead.
 
+#### Verified on staging 2026-08-05 — both fixes, end to end
+
+**The sweeper: 8/8, live.** `_qa_stale_draft_sweep_live.ts` invoked the real `sweep()` (not a copy of its
+SQL) after snapshotting all 37 rows. Removed exactly 37 — peanut 28, `1111` 8, `shop-3` 1; total 214 → 177.
+The assertions that matter are the ones about **what survived**: 8 manual drafts, 37 already-sent AI
+campaigns, 74 drafts under 60 days and 0 workflow-referenced drafts all untouched, no `run_campaign` rule
+left pointing at a missing campaign, and a second pass deleted 0. A sweeper that deleted everything would
+pass a "37 gone" check just as happily, which is why the test is written the other way round. Reversible
+via `_qa_stale_draft_restore.ts` + the snapshot JSON.
+
+**The builder: browser + DB, both directions.** Counting rows is what makes this real — the picker
+swapping names only shows a selection changed, not that a row went away.
+
+- *Discards:* two "Create it for me" presses in one session left **one** row (45 → 46). The superseded
+  draft was gone from the table, not merely deselected. Pre-fix that same sequence left two, and every
+  regenerate after it another — which is how peanut reached 73.
+- *Stops discarding once opened:* generate → **Preview** → generate again left **both** (47 → 49). The
+  previewed draft survived the next generation, as intended: looking at it makes it the owner's work.
+
+The second direction is the one worth having. A fix that only deleted would have passed the first test
+and quietly destroyed drafts shops were in the middle of reading.
+
 ### 9.5 Deferred BY DECISION — not gaps
 
 - **Branching (if/else)** — only if linear sequences plus exit conditions prove insufficient. They have
