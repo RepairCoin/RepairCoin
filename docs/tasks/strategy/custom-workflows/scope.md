@@ -483,6 +483,42 @@ real work in `no_show` and `payment_failed`: the state already existed, nothing 
 - **`service_orders.payment_status`** — would let the failed-payment template show a relevance number
   like the others. It is the one template with no line today.
 
+### 9.4.1 Draft-campaign accumulation — BUILT 2026-08-05 (uncommitted)
+
+Making campaign creation AI-driven created a cost nobody budgeted for: the assistant persists a draft on
+**every** proposal (deliberately — the id has to outlive the chat session so the shop can go and edit it),
+and nothing ever removed the ones they scrolled past. Measured platform-wide 2026-08-05:
+
+- **111 `ai_agent` drafts against 37 `ai_agent` sends** — roughly three quarters are never used.
+- **Manual is the opposite: 8 drafts to 58 sends.** That asymmetry is the whole argument. A hand-built
+  draft is somebody's unfinished work; an ignored AI proposal is a suggestion nobody took.
+- Concentrated in `peanut` (73) and `1111` (34) — i.e. the shops that used the feature most are the ones
+  whose campaign list became least usable.
+
+Two fixes, chosen over a third (a "drafts" filter in the list) because that one hides the mess rather than
+removing it:
+
+1. **Stop creating the debt.** `AutoMessageRuleModal` now tracks the draft it just generated
+   (`disposableDraftId`) and deletes it when the owner regenerates — best-effort and unawaited, so tidying
+   up can never turn a successful generation into an error. It stops being disposable the moment the owner
+   opens Preview or Edit: **once they have looked at it, it is their work, not ours.**
+2. **Expire what already accumulated.** `StaleCampaignDraftSweeper` runs on the existing nightly pass in
+   `InsightsAnomalyScheduler`, alongside anomaly detection and the recommendation feed. Four conditions,
+   every one load-bearing: `created_by_source='ai_agent'` · `status='draft' AND sent_at IS NULL` · older
+   than `STALE_DRAFT_DAYS = 60` · **not referenced by any `run_campaign` rule** (delete a template a live
+   workflow points at and the shop keeps a published workflow that quietly does nothing on every firing).
+
+**Verified by a read-only dry-run against staging** (`backend/scripts/_qa_stale_draft_dryrun.ts`), which
+also prices each guard by what it protects: the first nightly pass would remove **37**, while the guards
+hold back 7 manual drafts, 15 already-sent AI campaigns, and 74 drafts newer than 60 days. 7 unit tests
+pin each clause; they can only inspect the statement, which is why the dry-run exists.
+
+**60 days is deliberately generous.** Keeping one too long costs a row in a list. Deleting one a shop
+meant to use costs work they cannot get back and had no warning was at risk.
+
+**Not covered:** a draft generated and then abandoned by closing the modal without saving. Deleting on
+close would punish an accidental close; the sweeper collects these at 60 days instead.
+
 ### 9.5 Deferred BY DECISION — not gaps
 
 - **Branching (if/else)** — only if linear sequences plus exit conditions prove insufficient. They have

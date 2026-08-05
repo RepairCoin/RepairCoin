@@ -6,7 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { AutoMessage, CreateAutoMessageRequest, UpdateAutoMessageRequest } from "@/services/api/messaging";
 import { generateAutoMessageContent, getAutoMessageAbResults, type AbResults } from "@/services/api/messaging";
 import dynamic from "next/dynamic";
-import { getCampaigns, aiDraftCampaign, type MarketingCampaign } from "@/services/api/marketing";
+import {
+  getCampaigns,
+  aiDraftCampaign,
+  deleteCampaign,
+  type MarketingCampaign,
+} from "@/services/api/marketing";
 import { useAuthStore } from "@/stores/authStore";
 
 /**
@@ -201,6 +206,17 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
    * that quietly arrives without the picture the owner expected reads as broken.
    */
   const [campaignImageSkipped, setCampaignImageSkipped] = useState<string | null>(null);
+  /**
+   * The campaign this panel drafted and the owner has NOT touched since.
+   *
+   * Every press of "Create it for me" persists a campaign, so regenerating three times left two
+   * orphans behind — and across the platform three quarters of AI-generated campaigns are never sent.
+   * The superseded one is discarded when a new one replaces it.
+   *
+   * Cleared the moment the owner edits or previews it in the designer: once they have opened it, it is
+   * their work and not ours to throw away, even if they then regenerate.
+   */
+  const [disposableDraftId, setDisposableDraftId] = useState<string | null>(null);
   /**
    * The campaign summary, so a freshly drafted campaign can be scrolled into view.
    *
@@ -440,8 +456,18 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       });
       // Selected immediately — the point of drafting it here is that the owner does not then have to
       // go and find it in a list they never left.
-      setCampaigns((prev) => [campaign, ...prev.filter((c) => c.id !== campaign.id)]);
+      // Discard the one this replaces. Best-effort and deliberately unawaited: failing to tidy up must
+      // never turn a successful generation into an error the owner sees.
+      const superseded = disposableDraftId;
+      if (superseded && superseded !== campaign.id) {
+        void deleteCampaign(superseded).catch(() => undefined);
+      }
+
+      setCampaigns((prev) =>
+        [campaign, ...prev.filter((c) => c.id !== campaign.id && c.id !== superseded)]
+      );
       setCampaignId(campaign.id);
+      setDisposableDraftId(campaign.id);
       setCampaignImageSkipped(imageSkipped);
       toast.success("Campaign drafted — preview it before you publish");
       // Bring the result into view. A toast at the top of the screen is not evidence that something
@@ -1134,7 +1160,11 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                     <>
                       <button
                         type="button"
-                        onClick={() => setCampaignEditor({ mode: "view", campaign: picked })}
+                        onClick={() => {
+                          // Opened by the owner — no longer ours to discard on the next regenerate.
+                          setDisposableDraftId(null);
+                          setCampaignEditor({ mode: "view", campaign: picked });
+                        }}
                         className="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 text-xs hover:border-gray-600"
                       >
                         Preview
@@ -1144,7 +1174,10 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                       {picked.status !== "sent" && (
                         <button
                           type="button"
-                          onClick={() => setCampaignEditor({ mode: "edit", campaign: picked })}
+                          onClick={() => {
+                            setDisposableDraftId(null);
+                            setCampaignEditor({ mode: "edit", campaign: picked });
+                          }}
                           className="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 text-xs hover:border-gray-600"
                         >
                           Edit

@@ -28,6 +28,7 @@
 
 import cron from "node-cron";
 import { logger } from "../utils/logger";
+import { staleCampaignDraftSweeper } from "./StaleCampaignDraftSweeper";
 import { AnomalyDetector } from "../domains/AIAgentDomain/services/insights/anomalies/AnomalyDetector";
 import { AnomalyPhraser } from "../domains/AIAgentDomain/services/insights/anomalies/AnomalyPhraser";
 import { getAiMemoryService } from "../domains/AIAgentDomain/services/AiMemoryService";
@@ -113,6 +114,12 @@ export class InsightsAnomalyScheduler {
           error: err instanceof Error ? err.message : String(err),
         });
       }
+
+      // Housekeeping on the same nightly pass: drop AI-proposed campaign drafts nobody took. The
+      // assistant persists one per proposal on purpose, and three quarters are never sent — so
+      // without this the campaign list fills with suggestions the shop already scrolled past.
+      // Self-contained and non-throwing; it must not cost the batch anything if it fails.
+      await staleCampaignDraftSweeper.sweep();
 
       // AI Memory aging (Phase 6 slice): soft-delete auto + unpinned, never-
       // referenced memories past the window (AI_MEMORY_STALE_DAYS). No-op when
