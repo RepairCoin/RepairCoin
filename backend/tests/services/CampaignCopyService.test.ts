@@ -100,3 +100,22 @@ describe('offers it will not invent', () => {
     expect(statesUnaskedOffer('feel free to call', undefined)).toBeNull();
   });
 });
+
+// A banner reading "30% OFF" commits the shop exactly as firmly as a sentence does — and it slips
+// past a guard that only reads the copy. That is not hypothetical: a campaign whose text promised no
+// discount arrived with one painted across the image.
+describe('offers hidden in the image brief', () => {
+  it('rejects an image brief that asks for a discount the shop never mentioned', async () => {
+    const { svc } = make(
+      JSON.stringify({ ...GOOD, imagePrompt: 'A bright banner announcing 30% off all repairs' })
+    );
+    await expect(svc.generate('peanut', { brief: 'friendly nudge' })).rejects.toThrow(/percentage/i);
+  });
+
+  it('allows it when the shop asked for that offer', async () => {
+    const { svc } = make(
+      JSON.stringify({ ...GOOD, imagePrompt: 'A workshop scene celebrating 30% off week' })
+    );
+    await expect(svc.generate('peanut', { brief: 'run 30% off this week' })).resolves.toBeTruthy();
+  });
+});

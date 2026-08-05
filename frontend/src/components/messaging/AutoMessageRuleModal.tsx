@@ -894,10 +894,14 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   <div ref={campaignSummaryRef} className="mt-2 rounded-lg border border-gray-700 bg-[#0D0D0D] p-3 space-y-2">
                     {banner && (
                       // eslint-disable-next-line @next/next/no-img-element
+                      // Full width, natural height — NOT object-cover. Cropping a banner to a fixed
+                      // height cut the middle out of it, which is the one thing a preview must not
+                      // do: the owner is deciding whether to send this, so they have to see what
+                      // the customer sees, not a slice of it.
                       <img
                         src={banner}
                         alt=""
-                        className="w-full max-h-32 object-cover rounded border border-gray-800"
+                        className="w-full h-auto rounded border border-gray-800"
                       />
                     )}
                     <p className="text-sm text-gray-200">

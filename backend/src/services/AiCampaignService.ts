@@ -63,7 +63,16 @@ export class AiCampaignService {
     if (copy.imagePrompt) {
       try {
         const outcome = await this.images.generate(shopId, {
-          prompt: copy.imagePrompt,
+          // The no-text rule is repeated HERE, at the image model, not left to the brief.
+          //
+          // A generated banner arrived with "30%" across it on a campaign whose copy promised no
+          // discount at all. The text guard cannot see a picture, so an offer painted into the
+          // image commits the shop just as firmly and slips straight past it. Image models drift
+          // toward adding promotional lettering whenever a scene reads as marketing, so the
+          // constraint has to travel with the prompt that reaches them.
+          prompt:
+            `${copy.imagePrompt}. Photographic scene only. Absolutely no text, letters, numbers, ` +
+            `percentages, price tags, posters, signage, watermarks or logos anywhere in the image.`,
           useCase: 'campaign_banner',
         });
         if (outcome.ok && outcome.imageUrl) {
