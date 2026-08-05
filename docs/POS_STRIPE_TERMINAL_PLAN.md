@@ -991,17 +991,31 @@ reports they spent.
 that is how a till works — so the sum of customer spend is always less than shop revenue. On staging
 that is 10 of 12 completed sales, $1,747.85. Not a gap to close.
 
-## 7b. Known bug, tracked separately
+## 7b. Half-built feature, deliberately left alone — **not the live bug this said it was**
 
-`InventoryDomain` subscribes to **`service:completed`** (`serviceIntegrationController.ts`),
-but the event `OrderController` publishes on completion is **`service.order_completed`**.
-`EventBus` does exact-match lookups with no normalisation, so `deductStockForService` has
-**never run** — any shop that linked parts to a service has been expecting stock to come
-down on booking completion, and it never has.
+`InventoryDomain` subscribes to **`service:completed`** (`serviceIntegrationController.ts:464`),
+but the event `OrderController` publishes on completion is **`service.order_completed`**
+(`OrderController.ts:408`). `EventBus` does exact-match lookups with no normalisation, so
+`deductStockForService` has **never run**.
 
-The payload is already compatible, so the fix is a one-word change. It is deliberately NOT
-in the POS branches: flipping it starts moving stock for every shop with linked parts,
-which is a live behavioural change that wants its own commit and its own decision.
+**This section previously called that a live defect corrupting inventory, and it is not.** Checked
+2026-08-05: the only UI that links parts to a service is `ServiceInventoryPickerModal.tsx`, and
+**nothing imports or renders it** — the component name appears nowhere else in the frontend. Three
+of the five `service-integration` endpoints have no caller at all (availability, unlink,
+services-using-item). With no reachable way to create a link, `deductStockForService` returns at its
+`No inventory items linked` guard and deducts nothing.
+
+So the typo and the unmounted modal have been hiding each other: two halves of one unfinished
+feature, not a bug with a one-word fix. Fixing the event name alone accomplishes nothing.
+
+**Decision: leave it.** Not fixed, not removed. The options if it is ever picked up are to finish it
+(mount the modal, wire the three unused endpoints, then correct the event name) or to delete the
+modal, endpoints, listener and table.
+
+**The trap to avoid:** correcting the event name in good faith without checking
+`SELECT count(*) FROM service_inventory_items` first. If links exist — created through the API or an
+earlier build — flipping it starts moving real stock for those shops. That query settles it and has
+not been run.
 
 ---
 
