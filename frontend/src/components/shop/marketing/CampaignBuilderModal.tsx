@@ -138,6 +138,19 @@ interface CampaignBuilderModalProps {
   template?: MarketingTemplate | null;
   /** Opens in preview mode. The shop can still switch to editing unless the campaign has been sent. */
   viewOnly?: boolean;
+  /**
+   * Content only — no audience, no delivery, no sending.
+   *
+   * Set when the designer is opened from a WORKFLOW. A workflow decides who and when: it fires on a
+   * trigger and sends a fresh copy each time. Leaving the campaign own audience picker, delivery
+   * choice and "Send Now" in place gave two things a claim on both questions, and the send button was
+   * live — one press would have emailed the list immediately, bypassed the workflow entirely, and
+   * marked the campaign sent, which makes it permanently read-only.
+   *
+   * It also removes the audience trap: saving from the Audience step rewrites a live audience into a
+   * frozen list of addresses, so a recurring workflow would email the same people forever.
+   */
+  designOnly?: boolean;
 }
 
 interface DesignBlock {
@@ -257,6 +270,7 @@ export function CampaignBuilderModal({
   existingCampaign,
   template,
   viewOnly = false,
+  designOnly = false,
 }: CampaignBuilderModalProps) {
   /**
    * Preview or edit, as STATE rather than a fixed prop.
@@ -281,7 +295,19 @@ export function CampaignBuilderModal({
 
   /** A sent campaign is read-only for real: the API rejects updates to one. */
   const permanentlyReadOnly = existingCampaign?.status === 'sent';
+
   const [step, setStep] = useState<'design' | 'audience' | 'delivery'>('design');
+
+  /**
+   * Hiding the navigation is not the same as being unable to get there.
+   *
+   * Every route to Audience and Delivery is gated, but this pins the step regardless — those panels
+   * are still mounted, and one missed control would put a live "Send Now" back on screen inside an
+   * automation. Cheap insurance against a guard that exists only in the UI.
+   */
+  useEffect(() => {
+    if (designOnly && step !== 'design') setStep('design');
+  }, [designOnly, step]);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('blocks');
@@ -1558,7 +1584,9 @@ export function CampaignBuilderModal({
                   <Save className="w-4 h-4 sm:mr-2" />
                   <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save Draft'}</span>
                 </Button>
-                {(() => {
+                {/* No step action at all in design-only mode: every one of them leads toward
+                    sending, which is the workflow's job. Save Draft above is the whole story. */}
+                {!designOnly && (() => {
                   type StepAction = { label: string; onClick: () => void; disabled?: boolean; send?: boolean; scheduled?: boolean };
                   const actions: Record<typeof step, StepAction> = {
                     design: { label: 'Select Audience', onClick: () => setStep('audience') },
@@ -1585,8 +1613,9 @@ export function CampaignBuilderModal({
           </div>
         </div>
 
-        {/* Steps indicator */}
-        <div className="flex items-center justify-center gap-3 sm:gap-8 py-2 sm:py-3 border-b border-gray-800 bg-[#141414]">
+        {/* Steps indicator — hidden in design-only mode, where Audience and Delivery are not this
+            screen's decisions to make. */}
+        <div className={`flex items-center justify-center gap-3 sm:gap-8 py-2 sm:py-3 border-b border-gray-800 bg-[#141414] ${designOnly ? 'hidden' : ''}`}>
           {['design', 'audience', 'delivery'].map((s, i) => (
             <button
               key={s}
@@ -2494,13 +2523,16 @@ export function CampaignBuilderModal({
                   <Save className="w-4 h-4 mr-2" />
                   {saving ? 'Saving…' : 'Save Draft'}
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setStep('audience')}
-                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black"
-                >
-                  Next
-                </Button>
+                {/* Mobile footer: same reasoning as the header — "Next" only leads to Audience. */}
+                {!designOnly && (
+                  <Button
+                    size="sm"
+                    onClick={() => setStep('audience')}
+                    className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black"
+                  >
+                    Next
+                  </Button>
+                )}
               </>
             )}
             {step === 'audience' && (
