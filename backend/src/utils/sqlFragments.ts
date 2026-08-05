@@ -74,6 +74,69 @@ export const ledgerRevenueCents = (alias = 'p'): string => {
 };
 
 /**
+ * Every line of trade a shop did, from both channels, at the grain a per-service or per-category
+ * report needs (POS S9c-2).
+ *
+ * The fiat ledger cannot answer these: `payments` is one row per money movement with no line items,
+ * so a $340 counter sale is a single row that does not know it was a screen repair plus two
+ * batteries. The detail only exists on the lines, so these reports read the lines.
+ *
+ * **The booking half takes its amount from the ledger and uses the order only to say which service
+ * it was for.** The obvious alternative — filter `service_orders` by {@link revenueRecognized} and
+ * use `final_amount_usd` — disagrees with the shop total badly, because the ledger counts money that
+ * arrived regardless of what the booking's status later became, while `revenueRecognized` drops
+ * paid-then-cancelled orders whose money the shop kept. On staging that was the difference between
+ * $1,207.76 and $566.98 for one shop: categories would have summed to 71% of the revenue shown
+ * directly above them on the same screen.
+ *
+ * The counter half has to come from the lines, because that is the only place the detail exists, so
+ * a residual against the ledger total remains. Structurally it is whatever RCN and gift cards
+ * covered plus counter refunds; on staging it is mostly counter sales completed before S6a wired
+ * the POS into the ledger at all, which have lines but no ledger row and never will. That residual
+ * is bounded and explainable. The 30% one was neither.
+ *
+ * Counter lines are net of tax and of discounts, **gross of refunds**: a refund is recorded against
+ * the payment, not against a line, so there is no honest way to attribute one to a service without
+ * inventing a split. Voided and still-open sales are excluded; refunded ones are not, for that
+ * reason.
+ *
+ * Booking payments that never linked to an order cannot be attributed to a service and are absent
+ * here — one row on staging, from before the charge metadata carried an orderId.
+ *
+ * Columns: `shop_id`, `location_id`, `service_id` (null on non-service counter lines), `bucket`
+ * (null when `service_id` is set), `revenue_cents`, `ref` (the order or sale the line belongs to,
+ * for distinct counts), `channel`.
+ */
+export const SERVICE_LINE_REVENUE = `
+  SELECT
+    o.shop_id,
+    o.location_id,
+    o.service_id,
+    NULL::varchar        AS bucket,
+    (p.gross_cents - p.tax_cents - p.refunded_cents)::int AS revenue_cents,
+    o.order_id::text     AS ref,
+    'booking'::varchar   AS channel
+  FROM payments p
+  JOIN service_orders o ON o.order_id = p.order_id
+  WHERE ${ledgerRecognized('p')}
+    AND p.source IN ('booking', 'invoice', 'link')
+
+  UNION ALL
+
+  SELECT
+    ps.shop_id,
+    ps.location_id,
+    i.service_id,
+    CASE i.kind WHEN 'product' THEN 'Products' WHEN 'custom' THEN 'Other' END::varchar AS bucket,
+    (i.total_cents - i.tax_cents)::int AS revenue_cents,
+    ps.id::text          AS ref,
+    'pos'::varchar       AS channel
+  FROM pos_sale_items i
+  JOIN pos_sales ps ON ps.id = i.sale_id
+  WHERE ps.status IN ('completed', 'partially_refunded', 'refunded')
+`;
+
+/**
  * Subquery to fetch all affiliate groups linked to a service
  * Returns a JSON array of group objects or NULL if no groups linked
  *
