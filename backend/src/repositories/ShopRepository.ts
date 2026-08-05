@@ -4,6 +4,11 @@ import { logger } from '../utils/logger';
 import { getShopStatus, ShopStatus } from '../utils/shopStatus';
 import { ShopTeamRepository } from './ShopTeamRepository';
 import { ShopLocationRepository } from './ShopLocationRepository';
+import {
+  ledgerRecognized,
+  ledgerRevenueCents,
+  ledgerCustomerRevenue,
+} from '../utils/sqlFragments';
 
 interface ShopData {
   shopId: string;
@@ -1641,6 +1646,25 @@ export class ShopRepository extends BaseRepository {
       logger.error('Error getting shop purchase history:', error);
       throw new Error('Failed to get purchase history');
     }
+  }
+
+  /**
+   * Fiat revenue the shop has taken, in DOLLARS, across every channel (POS S9c-3).
+   *
+   * Reads the ledger, so a counter sale counts, and net of tax and refunds like every other revenue
+   * figure since S9c-1. Distinct from `totalTokensIssued`, which counts loyalty tokens and is not
+   * money — the two were conflated on the dashboard until this existed.
+   */
+  async getFiatRevenueUsd(shopId: string): Promise<number> {
+    const result = await this.pool.query(
+      `SELECT COALESCE(SUM(${ledgerRevenueCents('p')}), 0) / 100.0 AS revenue
+       FROM payments p
+       WHERE p.shop_id = $1
+         AND ${ledgerRecognized('p')}
+         AND ${ledgerCustomerRevenue('p')}`,
+      [shopId]
+    );
+    return parseFloat(result.rows[0]?.revenue ?? '0') || 0;
   }
 
   async getShopAnalytics(shopId: string): Promise<{

@@ -761,7 +761,7 @@ there.
 
 - **S9c-1** — settle decisions 1 and 3, add `payments.location_id`, move Group A. M — **built**
 - **S9c-2** — line-level attribution for Group B, including the product/custom bucket. M — **built**
-- **S9c-3** — the `totalRevenue` field cleanup and `CustomerRepository`. S
+- **S9c-3** — the `totalRevenue` field cleanup and `CustomerRepository`. S — **built**
 
 Group B before the RCN tender question is settled means writing the attribution twice.
 
@@ -896,6 +896,46 @@ happened to earn exactly the same amount.
 
 **Do not** aggregate `pos_sales` in parallel alongside `service_orders` in each report. That is
 the cheap-looking option and it guarantees the two keep drifting, in eight places at once.
+
+## 9c-3. The last two wrong money numbers — **built**
+
+Two unrelated loose ends, both of the same kind: a money figure that is not what its name says.
+S9c is complete with these.
+
+### A field called `totalRevenue` that returned loyalty tokens
+
+`shop/routes/index.ts` built the shop dashboard's `summary.totalRevenue` from
+`shop.totalTokensIssued` — a count of RCN, in a field named revenue, rendered by any client as
+dollars. Not stale, a different unit entirely. On staging, shop `1111` was reporting **4,044,996**
+as its revenue; the real figure is **$59,685.47**.
+
+Now `ShopRepository.getFiatRevenueUsd()`, reading the ledger like every other revenue figure since
+S9c-1 — counter sales included, net of tax and refunds. The token count is untouched and still
+present in the same payload under `shop.totalTokensIssued`, which is its honest name.
+
+Changed in place rather than added alongside. `/shops/:shopId/dashboard` has no consumer in the web
+app or in `mobile/`, so the risk of correcting it is close to nil, and adding
+`totalFiatRevenue` next to a `totalRevenue` that stays wrong preserves the bug for whoever reads the
+obvious field name.
+
+### Customer spend could not see the counter
+
+Three queries in `CustomerRepository` — `findByShopInteraction`, `findLapsedBookers`,
+`findByShopInteractionPaginated` — computed `total_spent` from `service_orders`, so a regular who
+buys at the till every week showed as having spent nothing. They now share
+`CUSTOMER_SPEND_FROM_LEDGER`, since `payments` carries `customer_address` on both channels.
+
+At one staging shop a customer went from $541.98 to $1,076.98, and a second who had shown $0
+appeared at $105.00.
+
+**Only the money moved.** `findLapsedBookers` still takes last-visit and visit-count from
+`service_orders`: that list is about lapsed *visits*, and a booking is the visit. Mixing the two
+would have changed which customers the list returns, which is a different decision from what it
+reports they spent.
+
+**Walk-ins are not attributable and never will be.** A counter sale does not require a customer —
+that is how a till works — so the sum of customer spend is always less than shop revenue. On staging
+that is 10 of 12 completed sales, $1,747.85. Not a gap to close.
 
 ## 7b. Known bug, tracked separately
 

@@ -137,6 +137,32 @@ export const SERVICE_LINE_REVENUE = `
 `;
 
 /**
+ * What each customer has spent at one shop, from the fiat ledger (POS S9c-3).
+ *
+ * Derived from `service_orders` this missed counter sales entirely, so a regular who buys at the
+ * till every week showed as having spent nothing. The ledger already carries `customer_address` on
+ * both channels, so one source answers it for both.
+ *
+ * **Walk-ins are not attributable and never will be.** A counter sale does not require a customer —
+ * that is deliberate, it is how a till works — so the sum of customer spend is always less than the
+ * shop's revenue. On staging that is 10 of 12 completed sales. Do not treat the difference as a bug.
+ *
+ * Takes the shop id as `$1`. Produces `customer_address` (lower-cased for joining against
+ * `customers.address`) and `total_spent` in DOLLARS, matching the legacy column it replaces.
+ */
+export const CUSTOMER_SPEND_FROM_LEDGER = `
+  SELECT
+    LOWER(customer_address) AS customer_address,
+    (SUM(${ledgerRevenueCents('')}) / 100.0) AS total_spent
+  FROM payments
+  WHERE shop_id = $1
+    AND customer_address IS NOT NULL
+    AND ${ledgerRecognized('')}
+    AND ${ledgerCustomerRevenue('')}
+  GROUP BY LOWER(customer_address)
+`;
+
+/**
  * Subquery to fetch all affiliate groups linked to a service
  * Returns a JSON array of group objects or NULL if no groups linked
  *
