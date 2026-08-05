@@ -246,7 +246,11 @@ describe("MetricsAggregator.aggregate — structural SQL guards", () => {
       baselineMinutes: 240,
     });
     const orderSql = pool.queries[1]; // second query is queryOrderStats
-    expect(orderSql).toContain("status IN ('paid', 'completed')");
+    // Revenue comes from the ledger and the order supplies the conversation link — attribution
+    // needs conversation_id, which only service_orders has. Counter sales have no conversation
+    // and stay out: this measures what the assistant brought in, not what the shop took.
+    expect(orderSql).toContain("JOIN payments p ON p.order_id = o.order_id");
+    expect(orderSql).toContain("status IN ('succeeded', 'partially_refunded', 'refunded')");
     expect(orderSql).toContain("conversation_id IS NOT NULL");
   });
 

@@ -43,11 +43,11 @@ describe("revenue_summary tool", () => {
         kind: "number",
         primary: "$2,117.00",
         label: "Revenue (last 7 days)",
-        sub: "7 paid + completed orders",
+        sub: "7 sales",
       });
     });
 
-    it("returns $0.00 + '0 paid + completed orders' on empty result", async () => {
+    it("returns $0.00 + '0 sales' on empty result", async () => {
       const mock = makeMockPool([[{ total: "0", n: "0" }]]);
       const result = await revenueSummary.execute(
         { range: "30d" },
@@ -57,34 +57,38 @@ describe("revenue_summary tool", () => {
       expect(result.data.totalUsd).toBe(0);
       const display = result.display as Extract<typeof result.display, { kind: "number" }>;
       expect(display?.primary).toBe("$0.00");
-      expect(display?.sub).toBe("0 paid + completed orders");
+      expect(display?.sub).toBe("0 sales");
     });
 
-    it("pluralizes 'order' correctly for n=1", async () => {
+    it("pluralizes 'sale' correctly for n=1", async () => {
       const mock = makeMockPool([[{ total: "50.00", n: "1" }]]);
       const result = await revenueSummary.execute(
         { range: "7d" },
         ctx("peanut", mock)
       );
       const display = result.display as Extract<typeof result.display, { kind: "number" }>;
-      expect(display?.sub).toBe("1 paid + completed order");
+      expect(display?.sub).toBe("1 sale");
     });
 
     it("range='all' omits the lower-bound filter (only 1 param)", async () => {
       const mock = makeMockPool([[{ total: "7783.02", n: "23" }]]);
       await revenueSummary.execute({ range: "all" }, ctx("peanut", mock));
-      // SQL should have shop_id condition but no created_at lower bound.
+      // SQL should have shop_id condition but no lower bound on time.
       expect(mock.captured[0].params).toEqual(["peanut"]);
-      expect(mock.captured[0].sql).not.toMatch(/created_at >=/);
+      expect(mock.captured[0].sql).not.toMatch(/>= \$2/);
     });
 
-    it("range='7d' includes created_at lower-bound filter (2 params)", async () => {
+    it("range='7d' windows on CAPTURE time, not booking time (2 params)", async () => {
       const mock = makeMockPool([[{ total: "2117.00", n: "7" }]]);
       await revenueSummary.execute({ range: "7d" }, ctx("peanut", mock));
       expect(mock.captured[0].params.length).toBe(2);
       expect(mock.captured[0].params[0]).toBe("peanut");
       expect(mock.captured[0].params[1]).toBeInstanceOf(Date);
-      expect(mock.captured[0].sql).toMatch(/created_at >= \$2/);
+      // "Revenue in the last 7 days" is a question about when money arrived. Bucketing on the
+      // booking date would put money taken today for next week's appointment in next week.
+      expect(mock.captured[0].sql).toMatch(
+        /COALESCE\(p\.captured_at, p\.created_at\) >= \$2/
+      );
     });
   });
 
@@ -234,18 +238,36 @@ describe("revenue_summary tool", () => {
       expect(mock.captured[0].params[0]).toBe("shop-xyz");
     });
 
-    it("SQL filters status IN ('paid', 'completed')", async () => {
+    // The canonical revenue source moved from service_orders to the fiat ledger: a counter sale
+    // has no booking, so anything reading service_orders is blind to the till. These guards moved
+    // with it rather than being deleted — the point is still that this tool must not quietly
+    // start reading somewhere else.
+    it("SQL queries the payments ledger, not service_orders", async () => {
       const mock = makeMockPool([[{ total: "0", n: "0" }]]);
       await revenueSummary.execute({ range: "all" }, ctx("peanut", mock));
-      expect(mock.captured[0].sql).toMatch(
-        /status IN \(\s*'paid'\s*,\s*'completed'\s*\)/
-      );
+      expect(mock.captured[0].sql).toMatch(/FROM payments p/);
+      expect(mock.captured[0].sql).not.toMatch(/FROM service_orders/);
     });
 
-    it("SQL queries service_orders (the canonical revenue source)", async () => {
+    it("SQL counts only money that arrived, from customers", async () => {
       const mock = makeMockPool([[{ total: "0", n: "0" }]]);
       await revenueSummary.execute({ range: "all" }, ctx("peanut", mock));
-      expect(mock.captured[0].sql).toMatch(/FROM service_orders/);
+      expect(mock.captured[0].sql).toMatch(/status IN \('succeeded', 'partially_refunded', 'refunded'\)/);
+      // rcn_purchase is a shop buying tokens FROM the platform and deposit is a held no-show
+      // deposit; counting either as shop revenue is the bug this excludes.
+      expect(mock.captured[0].sql).toMatch(/source IN \('booking', 'terminal', 'invoice', 'link'\)/);
+    });
+
+    it("SQL reports revenue net of tax and refunds", async () => {
+      const mock = makeMockPool([[{ total: "0", n: "0" }]]);
+      await revenueSummary.execute({ range: "all" }, ctx("peanut", mock));
+      expect(mock.captured[0].sql).toMatch(/gross_cents - p\.tax_cents - p\.refunded_cents/);
+    });
+
+    it("counts sales, not ledger rows — a split-tender sale is one sale", async () => {
+      const mock = makeMockPool([[{ total: "0", n: "0" }]]);
+      await revenueSummary.execute({ range: "all" }, ctx("peanut", mock));
+      expect(mock.captured[0].sql).toMatch(/COUNT\(DISTINCT COALESCE\(p\.order_id, p\.pos_sale_id/);
     });
   });
 

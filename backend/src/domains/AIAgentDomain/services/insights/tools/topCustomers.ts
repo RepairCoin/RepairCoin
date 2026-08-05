@@ -14,8 +14,9 @@
 //   - rcn_earned   → transactions WHERE type IN ('mint', 'tier_bonus')
 //                    (sum of amount = total RCN issued to the customer
 //                    at this shop, including tier bonuses)
-//   - spend        → service_orders WHERE status IN ('paid','completed')
-//   - order_count  → service_orders WHERE status IN ('paid','completed')
+//   - spend        → the fiat `payments` ledger (bookings AND counter sales)
+//   - order_count  → distinct purchases in the same ledger, so ranking by
+//                    spend and by purchases agree on what a purchase is
 //
 // Customer name resolution: COALESCE the customers table's `name`,
 // trimmed `first_name + last_name`, `email`, and finally a truncated
@@ -24,6 +25,11 @@
 // and lets us tune the privacy/truncation logic in one place.
 
 import { Pool } from "pg";
+import {
+  ledgerRecognized,
+  ledgerCustomerRevenue,
+  ledgerRevenueCents,
+} from "../../../../../utils/sqlFragments";
 import {
   BusinessInsightsTool,
   ToolContext,
@@ -157,24 +163,31 @@ async function querySpendOrCount(
   parsed: ParsedArgs
 ): Promise<RawRow[]> {
   // Shop-scoping hardcoded — $1 always = ctx.shopId, never from Claude.
+  //
+  // Reads the ledger so a customer who spends at the till is ranked on what they actually spend.
+  // Walk-in counter sales carry no customer and drop out here by definition — that is how a till
+  // works, and it is why this total will not match the shop's revenue.
   const conds: string[] = [
-    `o.shop_id = $1`,
-    `o.status IN ('paid', 'completed')`,
+    `p.shop_id = $1`,
+    `p.customer_address IS NOT NULL`,
+    ledgerRecognized("p"),
+    ledgerCustomerRevenue("p"),
   ];
   const params: unknown[] = [shopId];
   const bounds = windowBoundsFor(parsed.range);
   if (bounds.from) {
     params.push(bounds.from);
-    conds.push(`o.created_at >= $${params.length}`);
+    conds.push(`COALESCE(p.captured_at, p.created_at) >= $${params.length}`);
   }
   if (bounds.to) {
     params.push(bounds.to);
-    conds.push(`o.created_at < $${params.length}`);
+    conds.push(`COALESCE(p.captured_at, p.created_at) < $${params.length}`);
   }
+  // Purchases, not ledger rows: a split-tender counter sale is one purchase written as two rows.
+  const purchases = `COUNT(DISTINCT COALESCE(p.order_id, p.pos_sale_id::text, p.id::text))`;
+  const spend = `SUM(${ledgerRevenueCents("p")})`;
   const orderBy =
-    parsed.by === "spend"
-      ? "SUM(o.total_amount) DESC"
-      : "COUNT(*) DESC, SUM(o.total_amount) DESC";
+    parsed.by === "spend" ? `${spend} DESC` : `${purchases} DESC, ${spend} DESC`;
   params.push(parsed.limit);
   const limitParam = `$${params.length}`;
 
@@ -187,14 +200,14 @@ async function querySpendOrCount(
     n: string;
     total: string;
   }>(
-    `SELECT o.customer_address,
+    `SELECT LOWER(p.customer_address) AS customer_address,
             c.name, c.first_name, c.last_name, c.email,
-            COUNT(*)::text AS n,
-            COALESCE(SUM(o.total_amount), 0)::text AS total
-     FROM service_orders o
-     LEFT JOIN customers c ON c.address = o.customer_address
+            ${purchases}::text AS n,
+            (COALESCE(${spend}, 0) / 100.0)::text AS total
+     FROM payments p
+     LEFT JOIN customers c ON LOWER(c.address) = LOWER(p.customer_address)
      WHERE ${conds.join(" AND ")}
-     GROUP BY o.customer_address, c.name, c.first_name, c.last_name, c.email
+     GROUP BY LOWER(p.customer_address), c.name, c.first_name, c.last_name, c.email
      ORDER BY ${orderBy}
      LIMIT ${limitParam}`,
     params

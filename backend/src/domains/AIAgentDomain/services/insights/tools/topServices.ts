@@ -10,8 +10,7 @@
 // Ranks the shop's services by one of three metrics within the
 // requested window:
 //
-//   - revenue    → SUM(service_orders.total_amount)
-//                  WHERE status IN ('paid','completed')
+//   - revenue    → SERVICE_LINE_REVENUE (bookings AND counter-sale lines)
 //   - bookings   → COUNT(service_orders.*) — ALL statuses, so this
 //                  reflects intent-to-book, not just completed money.
 //                  Mirrors how a shop owner thinks: "X people clicked
@@ -27,6 +26,7 @@
 // hardcode `shop_id = $1` with ctx.shopId — never sourced from Claude.
 
 import { Pool } from "pg";
+import { SERVICE_LINE_REVENUE } from "../../../../../utils/sqlFragments";
 import {
   BusinessInsightsTool,
   ToolContext,
@@ -166,19 +166,19 @@ async function queryRevenue(
   shopId: string,
   parsed: ParsedArgs
 ): Promise<RawRow[]> {
-  const conds: string[] = [
-    `o.shop_id = $1`,
-    `o.status IN ('paid', 'completed')`,
-  ];
+  // Ranks services by what was sold through BOTH channels. `payments` has no line items, so this
+  // reads the shared line source rather than the ledger directly — a service the shop mostly sells
+  // over the counter used to be invisible to this ranking however well it did (S9c-2).
+  const conds: string[] = [`l.shop_id = $1`, `l.service_id IS NOT NULL`];
   const params: unknown[] = [shopId];
   const bounds = windowBoundsFor(parsed.range);
   if (bounds.from) {
     params.push(bounds.from);
-    conds.push(`o.created_at >= $${params.length}`);
+    conds.push(`l.occurred_at >= $${params.length}`);
   }
   if (bounds.to) {
     params.push(bounds.to);
-    conds.push(`o.created_at < $${params.length}`);
+    conds.push(`l.occurred_at < $${params.length}`);
   }
   params.push(parsed.limit);
   const limitParam = `$${params.length}`;
@@ -189,14 +189,15 @@ async function queryRevenue(
     total: string;
     n: string;
   }>(
-    `SELECT o.service_id, s.service_name,
-            COALESCE(SUM(o.total_amount), 0)::text AS total,
-            COUNT(*)::text AS n
-     FROM service_orders o
-     LEFT JOIN shop_services s ON s.service_id = o.service_id
+    `WITH lines AS (${SERVICE_LINE_REVENUE})
+     SELECT l.service_id, s.service_name,
+            (COALESCE(SUM(l.revenue_cents), 0) / 100.0)::text AS total,
+            COUNT(DISTINCT l.ref)::text AS n
+     FROM lines l
+     LEFT JOIN shop_services s ON s.service_id = l.service_id
      WHERE ${conds.join(" AND ")}
-     GROUP BY o.service_id, s.service_name
-     ORDER BY SUM(o.total_amount) DESC
+     GROUP BY l.service_id, s.service_name
+     ORDER BY SUM(l.revenue_cents) DESC
      LIMIT ${limitParam}`,
     params
   );
@@ -301,6 +302,9 @@ async function queryConversion(
 
   const sql = `
     WITH orders AS (
+      -- A count, not money: this is the denominator of a conversation-to-booking conversion rate,
+      -- and a booking that was made is a conversion however the payment ended up. Left on the
+      -- fulfilment status on purpose, unlike queryRevenue above.
       SELECT o.service_id, COUNT(*) AS paid_n
       FROM service_orders o
       WHERE o.shop_id = $1

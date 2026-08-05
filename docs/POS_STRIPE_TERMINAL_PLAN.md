@@ -585,7 +585,61 @@ aggregation still stands for the remaining reports.
 was booked, so historical days will not match what the tile showed before. The S9b gap also applies
 — a booking whose payment never reached the ledger contributes nothing here until S9b closes it.
 
-### Handoff — 13 occurrences remain in AI-owned files
+### Handoff — closed 2026-08-05, at the owner's request
+
+The section below is kept for the reasoning; the work is done. `AIAgentDomain` belongs to another
+developer and the standing rule is not to edit it, so this was written as a handoff — then done
+directly when asked.
+
+**9 of the 13 sites took the predicate.** What the AI reported for revenue against what it reports
+now, on staging:
+
+| Shop | Was | Now | Never paid |
+|---|---|---|---|
+| `1111` | $31,656.41 | $27,906.41 | $3,750.00 |
+| `7777` | $4,507.00 | $3,449.00 | $1,058.00 |
+| `ancient-realm-tech` | $553.96 | $541.98 | $11.98 |
+| Platform | $50,510.95 | $45,401.00 | 17 orders |
+
+**4 sites were deliberately left on the fulfilment status**, and each now carries a comment saying
+why — the earlier claim that "each is a money figure" was wrong. `repeatCustomerAnalysis` counts
+orders to bucket customers as new or repeat; `topServices`' `paid_n` is the denominator of a
+conversation-to-booking conversion rate; `MetricsAggregator`'s recovered-customer count asks whether
+a nudge brought someone back. A booking that happened is a visit, a conversion and a recovery
+whatever the payment did afterwards — that is S9a's own rule, and tightening these would change
+which customers the AI describes rather than what it says they spent.
+
+Four header comments documenting the old predicate were corrected too, so the files no longer
+describe behaviour they do not have.
+
+**Then S9c was applied to this domain too**, so the AI is no longer blind to the till. Each money
+question went to whichever source can answer it, exactly as the dashboards did:
+
+| Tool | Reads |
+|---|---|
+| `revenue_summary`, `weekly_revenue` anomaly, briefing revenue | the ledger, windowed on capture |
+| `top_services`, briefing top service | `SERVICE_LINE_REVENUE` — the ledger has no line items |
+| `top_customers`, briefing lapsed spend | the ledger by `customer_address` |
+| `estimateCampaignRevenue` AOV | the ledger, averaged over purchases |
+| `MetricsAggregator` AI-attributed revenue | ledger joined to the order for `conversation_id` |
+
+Three details that are easy to get wrong and were checked on staging. A split-tender counter sale
+writes one ledger row per tender, so every count is `COUNT(DISTINCT …)` over the sale — counting
+rows would report one sale as two and halve a shop's average order value. AI attribution stays
+joined to `service_orders` because `conversation_id` lives there and a counter sale has no
+conversation; it measures what the assistant brought in, not what the shop took. And the lapsed
+figure in the briefing mirrors `findLapsedBookers` after S9c-3 — who is lapsed still comes from
+bookings, what they spent comes from the ledger.
+
+`SERVICE_LINE_REVENUE` gained an `occurred_at` column for this: the briefing's top service is a
+30-day window and the fragment had no date to filter on. Capture time for a booking, completion time
+for a counter sale, so a window means the same thing on both channels.
+
+Four unit-test suites asserted the old source (`FROM service_orders`, the bare status predicate).
+They were updated rather than deleted — the guards still say "this tool must not quietly read
+somewhere else", they just point at the ledger now.
+
+### The original handoff note
 
 `AIAgentDomain` belongs to another developer, so these were left alone. Each is a money figure and
 each still counts unpaid orders:
