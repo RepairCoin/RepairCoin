@@ -184,7 +184,7 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S7 | **Phase 6** — devices & warranty model | M | S2 |
 | S8 | **Phase 4** — repair ticket workflow | L | S2, S7 |
 | S9a | **Revenue excludes unpaid orders** (see 9a) — **built** | M | — |
-| S9b | **Ledger completeness** (see 9b) — **not started** | M | S6a |
+| S9b | **Ledger completeness** (see 9b) — **built** | M | S6a |
 | S9c | **Move revenue reporting onto the ledger** (see 9) | M | S9b |
 | — | **Phases 3 & 7 (AI)** — deferred handoff | — | S2 |
 
@@ -605,11 +605,74 @@ The change is mechanical: import `revenueRecognized` from `utils/sqlFragments` a
 where the bare predicate sits, matching the table alias. Until then AI-reported revenue reads
 higher than the dashboards.
 
-## 9b. Ledger completeness — not started
+## 9b. Ledger completeness — **built**
 
-Close the remaining three classes above, extend the backfill (including resolving `cs_…` sessions
-to their PaymentIntents), and add a reconciliation check that fails loudly when a paid order has
-no ledger row. Until this holds, nothing that reads the ledger for totals can be trusted.
+Measured again on the dev database before starting: **42 of 269 revenue-recognized bookings had no
+ledger row, $6,149.45**. Lower than the 57 in section 9 because S9a had already removed the orders
+whose `status` and `payment_status` disagreed. After the work: **0 missing, and the check exits 0.**
+
+**The backfill only ever fixed history — the hole was still open.** `POST /orders/:id/mark-paid`
+(`OrderController.markOrderPaid`) flipped `payment_status` and wrote nothing to `payments`, so every
+cash booking a shop recorded re-opened the gap the moment it was closed. That endpoint now writes the
+ledger row, and it is the half of this slice that matters going forward. The write is wrapped: the
+shop has the cash whether or not the ledger accepts the row, so a ledger failure logs rather than
+failing a booking that is genuinely paid.
+
+`payments.method` is recorded as `cash`. Nothing stores *how* an off-Stripe booking was settled —
+`cash` follows the endpoint's own documentation ("cash collected for a manual booking") and is an
+assumption, not a fact from the data.
+
+**Recovering the Checkout Sessions.** 25 of 27 resolved to a real PaymentIntent through the Stripe
+API. The session is retrieved on the shop's connected account first and the platform second, because
+nothing on the order records which one it was created on — direct-charge bookings live on the
+connected account and platform-era ones do not. Gross comes from the PaymentIntent's
+`amount_received`, not the order's amount: Stripe is authoritative on what was actually collected,
+and the two differ once an RCN discount or partial capture is involved.
+
+`service_orders` is deliberately **not** rewritten to move the `cs_…` out of
+`stripe_payment_intent_id`. It would be tidier, but `PaymentService.handlePaymentSuccess` looks an
+order up by whatever id it was given, and changing the stored id under it risks a re-confirmed
+session creating a duplicate order. The ledger row carries the resolved `pi_` and records the session
+it came from in `metadata.resolvedFrom`.
+
+**Two orders were not a ledger problem at all.** `8ddf0654…` (`1111`, $600.00) and `7049b0d1…`
+(`7777`, $89.00) were marked paid in our database while Stripe reported their session `unpaid`.
+Writing a `succeeded` row for either would have fabricated revenue, so the backfill skips that case
+with a logged reason rather than guessing. Both were seeded test bookings force-marked paid; their
+`payment_status` has been corrected to `unpaid` on the dev database, which drops them out of
+recognised revenue. `status` was left at `completed` — whether the work happened is a different
+question from whether it was paid for, and that separation is the whole point of 9a.
+
+The corrected orders were identified by re-reading Stripe at the time of the fix, not from a stored
+verdict. Any future occurrence surfaces the same way: the backfill logs it and the check keeps
+failing until someone decides what actually happened.
+
+**Fees are zero on every backfilled row**, matching the three pre-existing sources. `net_cents` is
+set equal to gross only for the off-Stripe rows, where it is true — cash carries no processing fee
+and no platform commission, since there is no charge to attach an application fee to. Card rows
+backfilled from a PaymentIntent leave net at 0 like the rows already in the table; resolving real
+fees for historical charges is a separate exercise and would make `getTotals`' net column meaningful
+for the first time.
+
+### What was added
+
+- `migrations/263_add_payments_manual_order_key.sql` — `uq_payments_manual_order`, a partial unique
+  index on `order_id` where there is no PaymentIntent. Neither existing index covers an off-Stripe
+  booking, so without it a double-tapped mark-paid doubles the shop's revenue.
+- `PaymentRepository.recordManualOrderPayment` — DO NOTHING on conflict, not DO UPDATE: the row
+  written when the shop said the money arrived is the truthful one, and a re-run must not overwrite
+  it with a re-derived guess. Verified: a retry passing a deliberately wrong amount returned the
+  existing row unchanged.
+- `src/utils/ledgerCompleteness.ts` — the gap defined once, shared by the backfill and the check, so
+  the check cannot bless a backfill that missed rows. Coverage matches on `order_id` **or** the
+  PaymentIntent; pre-metadata checkout charges produced ledger rows with a null `order_id` and would
+  otherwise be backfilled a second time.
+- `scripts/backfill-payments.ts` — two new passes (session resolution, off-Stripe rows) plus
+  `--dry-run`. Re-running after the fact inserted 0 rows.
+- `scripts/check-ledger-completeness.ts` / `npm run db:check-ledger` — exits 1 while any gap remains.
+
+**Not yet run on staging or production.** The migration and backfill above were applied to the
+shared development database only.
 
 ### Build order
 

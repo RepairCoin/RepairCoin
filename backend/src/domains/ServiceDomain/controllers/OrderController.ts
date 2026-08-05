@@ -5,6 +5,7 @@ import { OrderRepository, OrderStatus } from '../../../repositories/OrderReposit
 import { NotificationService } from '../../notification/services/NotificationService';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { shopRepository } from '../../../repositories';
+import { paymentRepository } from '../../../repositories';
 import { shopTeamRepository } from '../../../repositories';
 import { customerRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
@@ -1199,6 +1200,28 @@ export class OrderController {
       }
 
       const updated = await this.orderRepository.markAsPaid(id);
+
+      // Money taken outside Stripe reaches the ledger only if we write it. Nothing here produces a
+      // Stripe object for the reconciler to pick up, so without this the payment exists on the
+      // order and nowhere else, and every revenue surface that reads `payments` under-counts the
+      // shop (POS S9b). Not fatal: the shop has the cash either way, so a ledger failure must not
+      // turn into an error on a booking that is genuinely paid.
+      try {
+        await paymentRepository.recordManualOrderPayment({
+          shopId: updated.shopId,
+          orderId: updated.orderId,
+          customerAddress: updated.customerAddress,
+          grossCents: Math.round((updated.finalAmountUsd ?? updated.totalAmount) * 100),
+          method: 'cash',
+          metadata: { recordedBy: 'mark-paid', markedByShop: shopId },
+        });
+      } catch (ledgerError) {
+        logger.error('Order marked paid but the ledger row failed to write', {
+          orderId: updated.orderId,
+          shopId,
+          error: ledgerError instanceof Error ? ledgerError.message : ledgerError,
+        });
+      }
 
       res.json({ success: true, data: updated });
     } catch (error: unknown) {
