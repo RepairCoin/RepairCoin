@@ -37,6 +37,7 @@ const SCHEDULE_TYPES = [
 ];
 
 const EVENT_TYPES = [
+  { value: "booking_created", label: "Booking Made" },
   { value: "booking_completed", label: "Booking Completed" },
   { value: "booking_cancelled", label: "Booking Cancelled" },
   { value: "first_visit", label: "First Visit" },

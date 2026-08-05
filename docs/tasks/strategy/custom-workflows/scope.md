@@ -400,11 +400,52 @@ drift apart.
 
 ---
 
-## 9. Remaining work (2026-07-31)
+## 9. Remaining work (updated 2026-08-05)
 
-**Shipped and live:** 11 triggers · 3 actions · 10 templates · multi-step sequences · A/B · Draft→Publish ·
-team alerts · template relevance numbers · AI recommendations that point at a workflow · per-workflow
-outcome metrics. Everything in §7 (W0–W3) and §8 (A1–A4) is built and merged.
+**Shipped and live on staging:** **11 event triggers** + schedules · **6 actions** · 10 templates ·
+multi-step sequences · A/B · Draft→Publish · team alerts · template relevance numbers · AI
+recommendations that deep-link into a workflow · per-workflow outcome metrics · AI-written campaigns
+inside the builder. Everything in §7 (W0–W3) and §8 (A1–A4) is built and merged.
+
+### 9.0 WHAT IS LEFT — read this first
+
+Two different lists, and conflating them is what made this section unreadable. **Feature work is not what
+stands between this and production.**
+
+**A. Blocks production (4) — decisions and checks, mostly not code**
+
+1. **Prod has never been measured.** Staging was measured before the flag flip and found 0 breaks. The
+   same "which shops have automations, at what tier" query has never been run on prod. Do this first.
+2. **Campaign rewards on automated sends — an open decision.** A workflow firing a reward campaign
+   weekly is a standing order against the shop's RCN balance that nobody re-approves. `issue_reward`
+   caps at 100 RCN; `run_campaign` currently drops rewards from the clone rather than carry them
+   uncapped. Someone has to choose a cap or a per-run budget. See §9.2.3.
+3. **The stale-draft sweep is not flag-gated.** It runs on the first nightly pass wherever it deploys.
+   Run `backend/scripts/_qa_stale_draft_dryrun.ts` (read-only) against prod to see the number before
+   that merge. See §9.4.1.
+4. **The actions/triggers QA checklist was written but never walked end-to-end** in a browser
+   (publish → fire → verify) — `docs/tasks/test/qa-workflow-actions-triggers-staging-checklist.md`.
+   Parts are covered ad hoc: `ai_step` live-verified, `draft_reorder` 8/8 automated, the campaign path
+   browser-verified 2026-08-05. `run_campaign` firing on a real trigger is the untested one.
+
+**B. Scoped feature work not yet built (4) — the feature is usable without all of it**
+
+1. **1 action of the 4 in §9.2:** *create a task / flag*. The other three shipped.
+2. **3 triggers of the 4 in §9.3:** *booking created*, *repair ready for pickup*, *subscription lapsed*.
+   *new ad lead* shipped. These are the larger items — each needs an event **emitted** from wherever it
+   happens, which was the real work in `no_show` and `payment_failed`.
+
+**Implementation plan for all four: `remaining-actions-triggers-implementation.md`.** Read it before
+estimating — **only one of the four is small.** §9.2's "a new action costs one `register()` call" held
+because the thing each shipped action acts on already existed; it does not hold here. Headlines: there is
+**no task table anywhere** on the platform (so that action needs a surface or it writes into a void);
+`service.order_created` exists but **the main customer booking path never publishes it**, so a naive
+`booking_created` would fire only for manual/ad-lead bookings; the engine **skips shops that are not
+entitled**, which is exactly what a lapsed subscription makes a shop, so `subscription_lapsed` is dead on
+arrival without a carve-out; and **`repair_ready` has no status to fire on** — it is an order-lifecycle
+change wearing a trigger's clothes, and should be handed back for scoping as one.
+
+Plus §9.4 (M4 benchmarks, blocked on data) and §9.5 (deferred by decision — not gaps).
 
 ### 9.1 To ship the CURRENT scope — verification only, no code
 
@@ -436,15 +477,23 @@ silent by construction —
 **Next is prod.** D3 measured staging before flipping and found 0 breaks; **prod is still unmeasured** —
 run the same "which shops have automations, at what tier" query there first.
 
-### 9.2 Remaining ACTIONS — 4 of the 7 scoped in §4
+### 9.2 ACTIONS — 3 of 4 now built, 1 left
 
-Each is **small**: W1's dispatcher was built so a new action costs one `register()` call plus its config
-UI. A test asserts exactly that.
+Registry is now 6: `send_message` · `issue_reward` · `notify_staff` · `run_campaign` · `ai_step` ·
+`draft_reorder` (`backend/src/services/autoMessageActions/registry.ts`).
 
-1. **Create a task / flag** — put an item on the shop's to-do list, or flag a customer/booking for
-   follow-up. Turns "tell me" into "remind me until it's done".
-2. **Draft a reorder (purchase order)** — on low stock, draft a PO to the supplier rather than only
-   alerting. Closes the loop `low_stock` opens; `reorderNeeded`/`POSuggestionsCard` already exist to build on.
+Each was **small**, as designed: W1's dispatcher was built so a new action costs one `register()` call
+plus its config UI, and a test asserts exactly that.
+
+1. **Create a task / flag** — ⬜ **THE ONLY ACTION LEFT.** Put an item on the shop's to-do list, or flag a
+   customer/booking for follow-up. Turns "tell me" into "remind me until it's done".
+2. ~~**Draft a reorder (purchase order)**~~ **BUILT 2026-08-05.** On low stock, drafts a PO to approve
+   rather than only alerting — closing the loop `low_stock` opens. Shop-scoped, and it **drafts, it does
+   not order**: the suggestion goes to `purchase_order_suggestions` for a human to approve, never to a
+   supplier. Deduped, so repeated `low_stock` firings cannot stack suggestions for the same item.
+   **Verified 8/8 by an automated end-to-end run** (`backend/scripts/_qa_draft_reorder_e2e.ts`) against
+   the deployed API and the real engine entry point — including that a draft workflow stays inert, that
+   a second firing does not duplicate, and that the guard refuses `low_stock` + `send_message`.
 3. ~~**Run a campaign**~~ **BUILT + MERGED 2026-08-03 (`566b80bf9`, PR #717).** The Campaigns-Advanced
    bridge from §3, and the first action that can send **email** — every other action writes an in-app
    message, which only reaches customers who open the app.
@@ -458,22 +507,51 @@ UI. A test asserts exactly that.
    **Open decision: the clone drops campaign rewards.** A workflow firing a reward campaign weekly is a
    standing order against the shop's RCN balance that nobody re-approves. It needs a cap or a per-run
    budget (compare `issue_reward`'s 100 RCN limit) before rewards should carry through.
-   Backend verified against the deployed API 2026-08-03; **the picker is not browser-verified yet** —
-   test with a DRAFT campaign on peanut first.
-4. **AI step** — compose the message at send time from live context, instead of a fixed template with
-   `{{variables}}`. Reuses the marketing AI + brand kit.
+   Backend verified against the deployed API 2026-08-03. The **picker and preview are browser-verified
+   as of 2026-08-05**; what is still untested is `run_campaign` actually **firing on a live trigger** —
+   see §9.0 A4.
+   **Since built, the picker became AI-first** (§9.2.5): the manual designer is still there for editing,
+   but the default path is a one-line brief.
+4. ~~**AI step**~~ **BUILT 2026-08-05.** Composes the message at send time from live context instead of a
+   fixed template with `{{variables}}`, reusing the marketing AI + brand kit.
+   **Generated once per firing, not once per recipient.** It only fans out across an audience when the
+   trigger provides one, and the generated copy is memoised for that run — otherwise a 200-person
+   audience would mean 200 model calls and 200 different messages, which is both a bill and a
+   support problem. Output is validated before it can be sent, and only `{{customerName}}` /
+   `{{shopName}}` survive as variables.
+   **Live-verified on staging** (a "Friday Freebies" rule: one generation, three sends, names correctly
+   swapped per recipient).
+   **Limit:** in-app only — no email, no push. `run_campaign` is the action that reaches inboxes.
+5. **AI-written campaigns in the builder** — **BUILT 2026-08-05**, not originally scoped. Management's
+   note was that building a campaign by hand inside a workflow "is a chaos". The builder now takes a
+   one-line brief and generates subject, body and a banner image, with a preview before anything
+   publishes; the designer is gated to **design-only** inside a workflow so its "Send now" button cannot
+   contradict the workflow that is supposed to own the send. See `ai-campaign-in-workflow.md` and
+   `campaign-action-editor-embed.md`. Its side effect — draft accumulation — is §9.4.1.
 
-**Highest impact: 3 and 4.** They change what the feature can *do*; 1 and 2 are conveniences.
+**Highest impact was 3 and 4**, and both shipped. The one left (1) is a convenience.
 
-### 9.3 Remaining TRIGGERS — 4
+### 9.3 TRIGGERS — 1 of 4 built, 3 left
 
-Larger than the actions, because each needs an event **emitted** from wherever it happens. That was the
-real work in `no_show` and `payment_failed`: the state already existed, nothing published it.
+Currently accepted (`VALID_EVENT_TYPES` in `AutoMessageController.ts`): `booking_completed` ·
+`booking_cancelled` · `first_visit` · `inactive_30_days` · `low_bookings` · `no_show` · `review_received`
+· `low_rating` · `payment_failed` · `low_stock` · `new_ad_lead`.
 
-1. **Booking created** (today: completed / cancelled / no-show only)
-2. **Repair ready for pickup**
-3. **New ad lead**
-4. **Subscription lapsed**
+These are **larger than the actions**, because each needs an event **emitted** from wherever it happens.
+That was the real work in `no_show` and `payment_failed`: the state already existed, nothing published it.
+
+1. ⬜ **Booking created** (today: completed / cancelled / no-show only)
+2. ⬜ **Repair ready for pickup**
+3. ~~**New ad lead**~~ **BUILT 2026-08-05.** Emitted from `MessagingDomain`. Shop-scoped — it happens to
+   the shop with no customer attached — so it is in `SHOP_SCOPED_EVENTS` and only pairs with actions that
+   need no recipient.
+4. ⬜ **Subscription lapsed**
+
+**Every action/trigger pairing is now validated** (`actionTriggerError` in `AutoMessageController.ts`,
+mirrored in the builder UI so the action list filters by the chosen trigger). Before this, a shop-scoped
+trigger like `low_stock` could be paired with `send_message`, and the rule would sit there looking active
+while the engine had nobody to send to. The form was also reordered — **trigger first, then action** —
+because the action list is what narrows.
 
 ### 9.4 Supporting work
 
@@ -483,7 +561,7 @@ real work in `no_show` and `payment_failed`: the state already existed, nothing 
 - **`service_orders.payment_status`** — would let the failed-payment template show a relevance number
   like the others. It is the one template with no line today.
 
-### 9.4.1 Draft-campaign accumulation — BUILT 2026-08-05 (uncommitted)
+### 9.4.1 Draft-campaign accumulation — BUILT + VERIFIED 2026-08-05 (`ad0637c64`, `bc0c8e0ca`)
 
 Making campaign creation AI-driven created a cost nobody budgeted for: the assistant persists a draft on
 **every** proposal (deliberately — the id has to outlive the chat session so the shop can go and edit it),
@@ -519,6 +597,28 @@ meant to use costs work they cannot get back and had no warning was at risk.
 **Not covered:** a draft generated and then abandoned by closing the modal without saving. Deleting on
 close would punish an accidental close; the sweeper collects these at 60 days instead.
 
+#### Verified on staging 2026-08-05 — both fixes, end to end
+
+**The sweeper: 8/8, live.** `_qa_stale_draft_sweep_live.ts` invoked the real `sweep()` (not a copy of its
+SQL) after snapshotting all 37 rows. Removed exactly 37 — peanut 28, `1111` 8, `shop-3` 1; total 214 → 177.
+The assertions that matter are the ones about **what survived**: 8 manual drafts, 37 already-sent AI
+campaigns, 74 drafts under 60 days and 0 workflow-referenced drafts all untouched, no `run_campaign` rule
+left pointing at a missing campaign, and a second pass deleted 0. A sweeper that deleted everything would
+pass a "37 gone" check just as happily, which is why the test is written the other way round. Reversible
+via `_qa_stale_draft_restore.ts` + the snapshot JSON.
+
+**The builder: browser + DB, both directions.** Counting rows is what makes this real — the picker
+swapping names only shows a selection changed, not that a row went away.
+
+- *Discards:* two "Create it for me" presses in one session left **one** row (45 → 46). The superseded
+  draft was gone from the table, not merely deselected. Pre-fix that same sequence left two, and every
+  regenerate after it another — which is how peanut reached 73.
+- *Stops discarding once opened:* generate → **Preview** → generate again left **both** (47 → 49). The
+  previewed draft survived the next generation, as intended: looking at it makes it the owner's work.
+
+The second direction is the one worth having. A fix that only deleted would have passed the first test
+and quietly destroyed drafts shops were in the middle of reading.
+
 ### 9.5 Deferred BY DECISION — not gaps
 
 - **Branching (if/else)** — only if linear sequences plus exit conditions prove insufficient. They have
@@ -538,10 +638,13 @@ close would punish an accidental close; the sweeper collects these at 60 days in
 
 ---
 
-**Key files:** `backend/src/services/AutoMessageSchedulerService.ts` (the engine, 848 lines) ·
+**Key files:** `backend/src/services/AutoMessageSchedulerService.ts` (the engine, 1,021 lines) ·
+`backend/src/services/autoMessageActions/registry.ts` (the 6 actions + what each one NEEDS) ·
+`backend/src/domains/messaging/controllers/AutoMessageController.ts:26` (`VALID_EVENT_TYPES`,
+`SHOP_SCOPED_EVENTS`, `actionTriggerError` — the pairing guard) ·
 `backend/src/domains/messaging/routes.ts:22` (`autoMessageGuard` — gated, dark) ·
 `backend/src/config/featureTiers.ts:26,56` (`aiCampaignsAdvanced` + its rollout flag) ·
-`frontend/src/components/messaging/AutoMessageRuleModal.tsx` (the builder, 640 lines) ·
+`frontend/src/components/messaging/AutoMessageRuleModal.tsx` (the builder, 1,593 lines) ·
 `frontend/src/components/messaging/AutoMessagesManager.tsx` ·
 `frontend/src/components/shop/tabs/MarketingTab.tsx:732` (where it's mounted) ·
 `backend/src/middleware/tierGuard.ts` (`requireTierRollout`).

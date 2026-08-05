@@ -200,6 +200,33 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     },
   },
   {
+    id: "new-booking-prep",
+    name: "Get them ready for the visit",
+    description: "An hour after someone books, tell them what to bring and where to park.",
+    shape: "Booking made → +1h: message",
+    // Deliberately NOT a confirmation. The platform already sends `booking_confirmed` the moment a
+    // booking is made, and a second "you're booked!" an hour later reads as a system with two mouths.
+    // The copy earns its place only by carrying what the confirmation can't: the practical details.
+    benefit: "Cuts the questions and the no-shows that come from not knowing what to expect.",
+    relevance: (r) =>
+      r.bookingsLast7 && r.bookingsLast7 >= 3
+        ? `${n(r.bookingsLast7, "booking")} in the last 7 days.`
+        : null,
+    draft: {
+      name: "Get them ready for the visit",
+      triggerType: "event",
+      eventType: "booking_created",
+      delayHours: 1,
+      targetAudience: "all",
+      maxSendsPerCustomer: 1,
+      actionType: "send_message",
+      messageTemplate:
+        "Hi {{customerName}}, you're all set with {{shopName}}. A couple of things that help: bring your device and any case or charger it came with, and there's parking right outside. Anything you're unsure about, just reply here.",
+      stopOnBooking: false,
+      steps: null,
+    },
+  },
+  {
     id: "no-show-recovery",
     name: "Recover a no-show",
     description: "Reach out after a missed appointment and make it easy to rebook.",
