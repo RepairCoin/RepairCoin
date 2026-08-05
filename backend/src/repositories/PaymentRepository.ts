@@ -36,6 +36,9 @@ export interface Payment {
   stripeAccountId: string | null;
   posSaleId: string | null;
   posSalePaymentId: string | null;
+  locationId: string | null;
+  /** Sales tax contained WITHIN grossCents, not added to it. Revenue is gross - tax - refunded. */
+  taxCents: number;
   capturedAt: string | null;
   metadata: Record<string, unknown>;
   createdAt: string;
@@ -45,6 +48,9 @@ export interface Payment {
 /**
  * One tender of a counter sale, written by the POS rather than inferred from Stripe. Cash never
  * produces a Stripe object, so a ledger derived only from webhooks cannot see it at all.
+ *
+ * Fiat tenders only. RCN and gift cards are settled here but are not money the shop received —
+ * see the note on `PosSaleService.writeToLedger`.
  */
 export interface RecordPosTenderInput {
   shopId: string;
@@ -52,10 +58,13 @@ export interface RecordPosTenderInput {
   posSalePaymentId: string;
   method: PaymentMethod;
   grossCents: number;
+  /** This tender's apportioned share of the sale's tax, already included in grossCents. */
+  taxCents?: number;
   applicationFeeCents?: number;
   netCents?: number;
   currency?: string;
   customerAddress?: string | null;
+  locationId?: string | null;
   stripePaymentIntentId?: string | null;
   stripeAccountId?: string | null;
   capturedAt?: string | null;
@@ -171,6 +180,8 @@ export class PaymentRepository extends BaseRepository {
       stripeAccountId: row.stripe_account_id,
       posSaleId: row.pos_sale_id ?? null,
       posSalePaymentId: row.pos_sale_payment_id ?? null,
+      locationId: row.location_id ?? null,
+      taxCents: Number(row.tax_cents ?? 0),
       capturedAt: row.captured_at,
       metadata: row.metadata ?? {},
       createdAt: row.created_at,
@@ -186,13 +197,17 @@ export class PaymentRepository extends BaseRepository {
    */
   async upsertByPaymentIntent(input: UpsertPaymentInput): Promise<Payment> {
     const result = await this.pool.query(
+      // location_id is resolved from the order rather than passed in: the reconciler only ever
+      // sees a charge, and every caller would otherwise have to look the booking up to tell the
+      // ledger which branch took the money (S9c-1).
       `INSERT INTO payments (
          shop_id, customer_address, order_id, invoice_id, method, source,
          gross_cents, fee_cents, application_fee_cents, net_cents,
          currency, status, stripe_payment_intent_id, stripe_charge_id, stripe_account_id,
-         captured_at, metadata
+         captured_at, metadata, location_id
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+               (SELECT location_id FROM service_orders WHERE order_id = $3))
        ON CONFLICT (stripe_payment_intent_id) WHERE stripe_payment_intent_id IS NOT NULL
        DO UPDATE SET
          status                = EXCLUDED.status,
@@ -201,6 +216,7 @@ export class PaymentRepository extends BaseRepository {
          net_cents             = EXCLUDED.net_cents,
          stripe_charge_id      = COALESCE(EXCLUDED.stripe_charge_id, payments.stripe_charge_id),
          stripe_account_id     = COALESCE(EXCLUDED.stripe_account_id, payments.stripe_account_id),
+         location_id           = COALESCE(payments.location_id, EXCLUDED.location_id),
          captured_at           = COALESCE(EXCLUDED.captured_at, payments.captured_at),
          metadata              = payments.metadata || EXCLUDED.metadata,
          updated_at            = now()
@@ -245,7 +261,8 @@ export class PaymentRepository extends BaseRepository {
     const columns = `
       shop_id, customer_address, method, source, gross_cents, fee_cents,
       application_fee_cents, net_cents, currency, status,
-      stripe_payment_intent_id, stripe_account_id, pos_sale_id, pos_sale_payment_id, captured_at`;
+      stripe_payment_intent_id, stripe_account_id, pos_sale_id, pos_sale_payment_id, captured_at,
+      location_id, tax_cents`;
     const values = [
       input.shopId,
       input.customerAddress ?? null,
@@ -262,14 +279,21 @@ export class PaymentRepository extends BaseRepository {
       input.posSaleId,
       input.posSalePaymentId,
       input.capturedAt ?? new Date().toISOString(),
+      input.locationId ?? null,
+      input.taxCents ?? 0,
     ];
 
+    // On a card leg the webhook may have written the row first, knowing nothing about the sale —
+    // so location and tax are set here even on conflict. They are facts about the sale, not about
+    // the charge, and the reconciler can never supply them.
     const conflict = input.stripePaymentIntentId
       ? `(stripe_payment_intent_id) WHERE stripe_payment_intent_id IS NOT NULL
          DO UPDATE SET
            pos_sale_id         = EXCLUDED.pos_sale_id,
            pos_sale_payment_id = EXCLUDED.pos_sale_payment_id,
            customer_address    = COALESCE(payments.customer_address, EXCLUDED.customer_address),
+           location_id         = COALESCE(EXCLUDED.location_id, payments.location_id),
+           tax_cents           = EXCLUDED.tax_cents,
            source              = EXCLUDED.source,
            updated_at          = now()`
       : `(pos_sale_payment_id) WHERE pos_sale_payment_id IS NOT NULL
@@ -277,7 +301,7 @@ export class PaymentRepository extends BaseRepository {
 
     const result = await this.pool.query(
       `INSERT INTO payments (${columns})
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        ON CONFLICT ${conflict}
        RETURNING *`,
       values
@@ -314,9 +338,10 @@ export class PaymentRepository extends BaseRepository {
       `INSERT INTO payments (
          shop_id, customer_address, order_id, method, source,
          gross_cents, fee_cents, application_fee_cents, net_cents,
-         currency, status, captured_at, metadata
+         currency, status, captured_at, metadata, location_id
        )
-       VALUES ($1,$2,$3,$4,$5,$6,0,0,$7,$8,'succeeded',$9,$10)
+       VALUES ($1,$2,$3,$4,$5,$6,0,0,$7,$8,'succeeded',$9,$10,
+               (SELECT location_id FROM service_orders WHERE order_id = $3))
        ON CONFLICT (order_id) WHERE order_id IS NOT NULL AND stripe_payment_intent_id IS NULL
        DO NOTHING
        RETURNING *`,

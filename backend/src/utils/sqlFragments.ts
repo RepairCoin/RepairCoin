@@ -26,6 +26,54 @@ export const revenueRecognized = (alias = ''): string => {
 };
 
 /**
+ * Which rows of the fiat `payments` ledger count as revenue (POS S9c-1).
+ *
+ * `refunded` is included, not excluded: a fully refunded payment contributes gross - refunded = 0
+ * through {@link ledgerRevenueCents}, so excluding it would be the same answer written twice, and
+ * `partially_refunded` genuinely must stay. What this keeps out is money that never arrived —
+ * `failed`, `processing`, `requires_payment`.
+ *
+ * @param alias table alias used in the query. Omit for an unaliased table.
+ */
+export const ledgerRecognized = (alias = 'p'): string => {
+  const p = alias ? `${alias}.` : '';
+  return `${p}status IN ('succeeded', 'partially_refunded', 'refunded')`;
+};
+
+/**
+ * Which ledger sources are money a CUSTOMER paid a SHOP — the only kind that is shop revenue.
+ *
+ * The ledger is deliberately wider than that. `rcn_purchase` is a shop buying tokens from the
+ * platform, which is platform revenue and would double-count the shop's own spending as its
+ * earnings. `deposit` is a customer no-show deposit, which is `held` until it is refunded or
+ * forfeited — a liability, not something earned. Both live in `payments` and both must stay out of
+ * a revenue figure.
+ *
+ * Always pair with {@link ledgerRecognized}; this answers "whose money", that answers "did it
+ * arrive".
+ */
+export const ledgerCustomerRevenue = (alias = 'p'): string => {
+  const p = alias ? `${alias}.` : '';
+  return `${p}source IN ('booking', 'terminal', 'invoice', 'link')`;
+};
+
+/**
+ * What a ledger row contributed to revenue, in CENTS.
+ *
+ * Net of tax and net of refunds. Sales tax sits inside `gross_cents` but was collected for the
+ * state and was never the shop's money, and a counter sale would otherwise read higher than an
+ * identical booking purely because of the local rate. Bookings carry `tax_cents = 0`, so the same
+ * expression is correct for both channels — which is the point of moving revenue here.
+ *
+ * Divide by 100 at the edge; the ledger is integer cents throughout and the legacy
+ * `service_orders` columns are DECIMAL dollars, so mixing them without converting is a real risk.
+ */
+export const ledgerRevenueCents = (alias = 'p'): string => {
+  const p = alias ? `${alias}.` : '';
+  return `(${p}gross_cents - ${p}tax_cents - ${p}refunded_cents)`;
+};
+
+/**
  * Subquery to fetch all affiliate groups linked to a service
  * Returns a JSON array of group objects or NULL if no groups linked
  *
