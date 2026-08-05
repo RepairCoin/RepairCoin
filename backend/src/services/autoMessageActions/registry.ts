@@ -62,6 +62,32 @@ export const NO_TEMPLATE_ACTIONS: ReadonlySet<string> = new Set([
  * runs an action once per customer in the target audience, which for a staff alert would page the team
  * once per customer rather than once. Anything listed here fires exactly once per rule per run.
  */
+/**
+ * What each action NEEDS to have somebody to act on.
+ *
+ * Paired with what each trigger PROVIDES (see TRIGGER_PROVIDES in the controller), this is the whole
+ * rule for which combinations are coherent — stated once rather than discovered one bad pairing at a
+ * time. It subsumes the older "shop-scoped trigger needs a shop-scoped action" special case, which
+ * was the only guard that existed and therefore the only mistake that got caught.
+ *
+ *   customer — needs one person to act on. Fine on a per-customer event, and fine on an audience
+ *              trigger, where the engine runs it once per member.
+ *   audience — needs a GROUP. `run_campaign` sends one-to-many and fires once per rule, so on a
+ *              per-customer event it would email the whole list every time one customer did
+ *              anything: five completed bookings on a busy day, five blasts.
+ *   nobody   — acts on the shop itself, so any trigger will do.
+ */
+export type ActionNeeds = 'customer' | 'audience' | 'nobody';
+
+export const ACTION_NEEDS: Readonly<Record<string, ActionNeeds>> = {
+  send_message: 'customer',
+  issue_reward: 'customer',
+  ai_step: 'customer',
+  run_campaign: 'audience',
+  notify_staff: 'nobody',
+  draft_reorder: 'nobody',
+};
+
 export const SHOP_SCOPED_ACTIONS: ReadonlySet<string> = new Set([
   'notify_staff',
   // A campaign resolves its OWN audience and sends one-to-many. Run per customer it would fire fifty

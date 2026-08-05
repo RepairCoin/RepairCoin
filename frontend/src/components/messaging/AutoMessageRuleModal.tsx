@@ -72,13 +72,20 @@ const AUDIENCE_AWARE_EVENTS = new Set(["inactive_30_days", "low_bookings"]);
  * `shopScoped` mirrors SHOP_SCOPED_ACTIONS in the backend registry; the two must agree, because the
  * API rejects a shop-scoped trigger paired with a customer-facing action.
  */
-const ACTIONS: ReadonlyArray<{ value: string; label: string; hint: string; shopScoped: boolean }> = [
-  { value: "send_message", label: "Send a message", hint: "To the customer", shopScoped: false },
-  { value: "issue_reward", label: "Issue an RCN reward", hint: "Credits the customer", shopScoped: false },
-  { value: "ai_step", label: "Let AI write it", hint: "Fresh copy each run", shopScoped: false },
-  { value: "notify_staff", label: "Notify my team", hint: "Alerts you, not the customer", shopScoped: true },
-  { value: "run_campaign", label: "Send a campaign", hint: "One send to a whole audience", shopScoped: true },
-  { value: "draft_reorder", label: "Draft a reorder", hint: "A purchase order to approve", shopScoped: true },
+const ACTIONS: ReadonlyArray<{
+  value: string;
+  label: string;
+  hint: string;
+  shopScoped: boolean;
+  /** What it needs to act on — mirrors ACTION_NEEDS in the backend registry. */
+  needs: "customer" | "audience" | "nobody";
+}> = [
+  { value: "send_message", label: "Send a message", hint: "To the customer", shopScoped: false, needs: "customer" },
+  { value: "issue_reward", label: "Issue an RCN reward", hint: "Credits the customer", shopScoped: false, needs: "customer" },
+  { value: "ai_step", label: "Let AI write it", hint: "Fresh copy each run", shopScoped: false, needs: "customer" },
+  { value: "notify_staff", label: "Notify my team", hint: "Alerts you, not the customer", shopScoped: true, needs: "nobody" },
+  { value: "run_campaign", label: "Send a campaign", hint: "One send to a whole audience", shopScoped: true, needs: "audience" },
+  { value: "draft_reorder", label: "Draft a reorder", hint: "A purchase order to approve", shopScoped: true, needs: "nobody" },
 ];
 
 const SHOP_SCOPED_ACTIONS = new Set(ACTIONS.filter((a) => a.shopScoped).map((a) => a.value));
@@ -286,6 +293,34 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
    * customer is involved, so a target audience and a per-customer send cap are both meaningless.
    */
   const actionActsOnShop = SHOP_SCOPED_ACTIONS.has(actionType);
+
+  /**
+   * What this trigger hands the action to work with — mirrors triggerProvides on the API.
+   *
+   * A schedule and the two sweeps resolve a GROUP. Every other event is about one person. Shop-scoped
+   * events are about nobody.
+   */
+  const triggerProvides: "audience" | "customer" | "nothing" =
+    triggerType === "schedule"
+      ? "audience"
+      : SHOP_SCOPED_EVENTS.has(eventType)
+      ? "nothing"
+      : AUDIENCE_AWARE_EVENTS.has(eventType)
+      ? "audience"
+      : "customer";
+
+  /**
+   * Only offer actions this trigger can actually feed.
+   *
+   * The API rejects the rest, but a form that offers a choice and then refuses it teaches the owner
+   * that the product is broken. The one that mattered: "Send a campaign" on a per-customer event
+   * would email the whole list every time one customer did anything.
+   */
+  const availableActions = ACTIONS.filter((a) => {
+    if (a.needs === "nobody") return true;
+    if (triggerProvides === "nothing") return false;
+    return a.needs === "customer" ? true : triggerProvides === "audience";
+  });
 
   /**
    * Does Target Audience actually do anything for this configuration?
@@ -552,21 +587,21 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       .catch(() => setCampaigns([]));
   }, [actionType, campaignsLoaded]);
 
-  // Picking a shop-scoped trigger forces the shop-facing action, so the form can't produce a rule the
-  // API will reject.
+  /**
+   * Changing the trigger can invalidate the action already chosen.
+   *
+   * Pick "Send a campaign", then switch to Booking Completed: the picker stops offering it, but the
+   * selection would survive and the form would submit a pairing the API refuses — a hidden choice
+   * still driving the request, which is the failure this form keeps producing in different shapes.
+   *
+   * Corrects to the first action the trigger can actually feed, rather than a fixed fallback, so it
+   * lands somewhere sensible for whichever kind of trigger it is.
+   */
   useEffect(() => {
-    // Any SHOP-scoped action is legitimate here, not just the staff alert — a campaign resolves its
-    // own audience, so "stock is low → send the clearance campaign" is coherent. Only a
-    // customer-facing action needs correcting, and notify_staff is the safe landing spot.
-    if (
-      shopScoped &&
-      actionType !== "notify_staff" &&
-      actionType !== "run_campaign" &&
-      actionType !== "draft_reorder"
-    ) {
-      setActionType("notify_staff");
-    }
-  }, [shopScoped, actionType]);
+    if (availableActions.some((a) => a.value === actionType)) return;
+    const fallback = availableActions[0]?.value;
+    if (fallback) setActionType(fallback as typeof actionType);
+  }, [availableActions, actionType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -727,7 +762,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               </p>
             )}
             <div className="grid grid-cols-2 gap-3">
-              {ACTIONS.filter((a) => !shopScoped || a.shopScoped).map((a) => (
+              {availableActions.map((a) => (
                 <button
                   key={a.value}
                   type="button"
