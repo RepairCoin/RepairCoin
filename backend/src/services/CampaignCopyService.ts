@@ -34,7 +34,7 @@ Rules:
 - body: 2–4 short paragraphs separated by BLANK LINES. Plain text. Warm and direct.
 - Do NOT write an unsubscribe footer, a sign-off block, or a "[Click here]" placeholder — the template adds the footer and the shop adds real buttons.
 - NEVER state a discount, price, percentage or offer the shop did not ask for. If tempted, describe the benefit in words instead.
-- imagePrompt: describe a photographic banner image for this campaign in one sentence. No text, words or logos in the image — the template overlays branding. Describe a scene, not a poster.
+- imagePrompt: describe a photographic banner image in one sentence. Describe a SCENE — a place, objects, light. Never a poster, sign, label, price tag or anything with writing on it, and never a discount or offer.
 - Match the shop's brand voice if given.`;
 
 export interface CampaignCopyInput {
@@ -141,7 +141,10 @@ export class CampaignCopyService {
 
     // Same rule as an automated in-app message, and the exposure is larger: this goes by email to a
     // whole audience. Refusing costs a regeneration; sending a discount nobody approved costs more.
-    const offer = statesUnaskedOffer(`${subject}\n${body}`, input.brief ?? undefined);
+    // The IMAGE brief is checked too, not just the words. A banner reading "30% OFF" commits the
+    // shop exactly as firmly as a sentence does, and it slips past a guard that only reads the copy —
+    // which is how a campaign whose text mentioned no discount arrived with one painted across it.
+    const offer = statesUnaskedOffer(`${subject}\n${body}\n${imagePrompt}`, input.brief ?? undefined);
     if (offer) {
       logger.warn('CampaignCopyService rejected its own copy', { shopId, reason: offer });
       throw Object.assign(
