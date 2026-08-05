@@ -1487,6 +1487,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           campaignType={campaignEditor.campaign?.campaignType || "custom"}
           existingCampaign={campaignEditor.campaign}
           viewOnly={campaignEditor.mode === "view"}
+          // Opened from a workflow: the workflow decides who and when, so the designer is content only.
+          designOnly
           onClose={(saved, campaign) => {
             setCampaignEditor(null);
             if (!saved) return;
