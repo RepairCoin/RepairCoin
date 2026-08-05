@@ -46,11 +46,27 @@ describe('no money query counts fulfilment status alone', () => {
     expect(read(rel)).not.toContain("status IN ('paid', 'completed')");
   });
 
+  // Which shared fragment a file should be importing moved as revenue moved to the ledger.
+  // ServiceAnalyticsRepository still needs `revenueRecognized` for the RCN and volume halves that
+  // stayed on service_orders; CustomerRepository's money is now entirely ledger-derived (S9c-3),
+  // so requiring `revenueRecognized` there would force back a predicate it no longer has any use
+  // for. The invariant being protected is unchanged: import the fragment, never inline a copy.
+  it.each([
+    ['src/repositories/ServiceAnalyticsRepository.ts', 'revenueRecognized'],
+    ['src/repositories/CustomerRepository.ts', 'CUSTOMER_SPEND_FROM_LEDGER'],
+    ['src/repositories/ShopRepository.ts', 'ledgerRevenueCents'],
+  ])('%s imports its money predicate instead of inlining one', (rel, fragment) => {
+    expect(read(rel)).toContain(fragment);
+  });
+
+  // The ledger arithmetic is as copyable as the predicate was, and a hand-written variant that
+  // forgets `- tax_cents` reports sales tax as revenue. It belongs in sqlFragments only.
   it.each([
     'src/repositories/ServiceAnalyticsRepository.ts',
     'src/repositories/CustomerRepository.ts',
-  ])('%s uses the shared predicate', (rel) => {
-    expect(read(rel)).toContain('revenueRecognized');
+    'src/repositories/ShopRepository.ts',
+  ])('%s does not inline the ledger revenue expression', (rel) => {
+    expect(read(rel)).not.toContain('gross_cents - tax_cents');
   });
 
   it('the dashboard tile reads the ledger, not service_orders', () => {
