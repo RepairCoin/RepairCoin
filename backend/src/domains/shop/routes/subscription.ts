@@ -667,11 +667,16 @@ router.post('/subscription/subscribe', requireShopPermission('billing:manage'), 
       });
     }
 
-    // Check if shop already has an active Stripe subscription
+    // Asked of Stripe, not of our mirror of it: the mirror is only written once the webhook lands,
+    // so a second checkout opened in that window used to pass this check and bill in parallel.
     const subscriptionService = getSubscriptionService();
-    const existingSubscription = await subscriptionService.getActiveSubscription(shopId);
-    
-    if (existingSubscription) {
+    const liveSubscriptionIds = await subscriptionService.getLiveStripeSubscriptionIds(shopId);
+
+    if (liveSubscriptionIds.length > 0) {
+      logger.info('Subscribe refused: shop already has live Stripe cover', {
+        shopId,
+        liveSubscriptionIds,
+      });
       return res.status(400).json({
         success: false,
         error: 'Shop already has an active subscription'
@@ -1082,9 +1087,14 @@ router.post('/subscription/checkout-mobile', async (req: Request, res: Response)
       return res.status(400).json({ success: false, error: 'Invalid subscription tier. Must be one of: starter, growth, business' });
     }
 
+    // Same Stripe-authoritative check as /subscription/subscribe — see the note there.
     const subscriptionService = getSubscriptionService();
-    const existingSubscription = await subscriptionService.getActiveSubscription(shopId);
-    if (existingSubscription) {
+    const liveSubscriptionIds = await subscriptionService.getLiveStripeSubscriptionIds(shopId);
+    if (liveSubscriptionIds.length > 0) {
+      logger.info('Mobile checkout refused: shop already has live Stripe cover', {
+        shopId,
+        liveSubscriptionIds,
+      });
       return res.status(400).json({ success: false, error: 'Shop already has an active subscription' });
     }
 

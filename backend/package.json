@@ -39,6 +39,7 @@
     "db:create-migration": "node scripts/create-migration.js",
     "db:backfill-payments": "npx ts-node scripts/backfill-payments.ts",
     "db:check-ledger": "npx ts-node scripts/check-ledger-completeness.ts",
+    "db:check-subs": "npx ts-node scripts/check-subscription-integrity.ts",
     "db:check-migrations": "node scripts/check-migration-numbers.js",
     "_predev_disabled": "npm run db:check",
     "docs": "echo 'API Documentation available at: http://localhost:3000/api-docs'",
