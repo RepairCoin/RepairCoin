@@ -8,8 +8,14 @@
 -- customer/booking"). A flag is a task that points at a record — nullable customer_address / order_id —
 -- so the record view can later list tasks attached to it without a second table or a second concept.
 --
--- Numbered 265 because 254–264 are taken on other branches even though this branch's migrations stop
--- at 253. Duplicate integers silently skip the SQL.
+-- Numbered 267 although this branch's migrations stop at 253: 254–266 are taken on other branches, and
+-- a duplicate integer silently skips the SQL rather than failing, so the table would simply never
+-- exist.
+--
+-- Two traps here, both hit while writing this file. `npm run db:create-migration` reads local files and
+-- schema_migrations only, so it proposes 254 — it cannot see other branches. And a `git ls-tree` scan
+-- across branches is only as fresh as your last fetch: this was first numbered 265, which CI rejected
+-- because 265 had landed elsewhere in the meantime. **Fetch, then scan every ref.**
 
 CREATE TABLE IF NOT EXISTS shop_tasks (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
