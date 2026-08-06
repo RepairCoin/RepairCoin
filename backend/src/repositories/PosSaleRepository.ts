@@ -32,6 +32,8 @@ export interface PosSale {
   totalCents: number;
   currency: string;
   note: string | null;
+  receiptEmail: string | null;
+  receiptSentAt: string | null;
   completedAt: string | null;
   voidedAt: string | null;
   voidReason: string | null;
@@ -145,6 +147,8 @@ export class PosSaleRepository extends BaseRepository {
       totalCents: n(row.total_cents),
       currency: row.currency,
       note: row.note,
+      receiptEmail: row.receipt_email ?? null,
+      receiptSentAt: row.receipt_sent_at ?? null,
       completedAt: row.completed_at,
       voidedAt: row.voided_at,
       voidReason: row.void_reason,
@@ -228,6 +232,28 @@ export class PosSaleRepository extends BaseRepository {
       [saleId, shopId, customerAddress]
     );
     return (result.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * Where the customer's copy of the receipt goes. Settable only while the sale is open, for the
+   * same reason as the customer: it is asked for at payment, not at ring-up.
+   */
+  async setReceiptEmail(
+    saleId: string,
+    shopId: string,
+    receiptEmail: string | null
+  ): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE pos_sales SET receipt_email = $3, updated_at = now()
+       WHERE id = $1 AND shop_id = $2 AND status = 'open'`,
+      [saleId, shopId, receiptEmail]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  /** Records that the receipt email left the building. Never gates anything at the register. */
+  async markReceiptSent(saleId: string): Promise<void> {
+    await this.pool.query(`UPDATE pos_sales SET receipt_sent_at = now() WHERE id = $1`, [saleId]);
   }
 
   async getSale(saleId: string, shopId: string): Promise<PosSaleWithDetails | null> {

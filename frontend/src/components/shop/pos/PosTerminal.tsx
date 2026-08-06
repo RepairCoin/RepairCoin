@@ -6,8 +6,10 @@ import {
   Banknote,
   CreditCard,
   Loader2,
+  Mail,
   Package,
   Plus,
+  Printer,
   Search,
   Trash2,
   UserPlus,
@@ -37,6 +39,7 @@ import { inventoryApi } from "@/services/api/inventory";
 import { listReaders, type TerminalReader } from "@/services/api/terminal";
 import { getLocations, type ShopLocation } from "@/services/api/locations";
 import { readPosLocation } from "./posLocation";
+import { printPosReceipt } from "./printReceipt";
 import type { InventoryItem } from "@/types/inventory";
 
 const CARD =
@@ -48,6 +51,8 @@ type CatalogTab = "services" | "products";
 
 export default function PosTerminal({ onExit }: { onExit?: () => void }) {
   const shopId = useAuthStore((s) => s.userProfile?.shopId);
+  // The shop's own name, not the signed-in team member's — a printed receipt is the shop's.
+  const shopName = useAuthStore((s) => s.userProfile?.name);
 
   const [sale, setSale] = useState<PosSale | null>(null);
   const [busy, setBusy] = useState(false);
@@ -76,6 +81,7 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
   const [cashOpen, setCashOpen] = useState(false);
   const [tendered, setTendered] = useState("");
   const [receipt, setReceipt] = useState<PosSale | null>(null);
+  const [receiptEmail, setReceiptEmail] = useState("");
 
   // A sale row is only created once something is actually being sold. Creating one on mount
   // would leave an abandoned `open` row behind every time the register is opened and walked
@@ -201,8 +207,9 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const done = await completeSale(sale.id);
+      const done = await completeSale(sale.id, receiptEmail.trim() || undefined);
       setReceipt(done);
+      setReceiptEmail("");
       setSale(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not complete the sale");
@@ -244,12 +251,25 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
             )}
             <Row label="Tax" value={formatCents(receipt.taxCents)} />
           </div>
+          {receipt.receiptEmail && (
+            <p className="mt-4 flex items-center gap-2 text-sm text-[#22C55E]">
+              <Mail className="h-4 w-4 shrink-0" />
+              <span className="truncate">Receipt sent to {receipt.receiptEmail}</span>
+            </p>
+          )}
+          <button
+            onClick={() => printPosReceipt({ sale: receipt, shopName, locationName })}
+            className="mt-6 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-[#303236] text-base font-medium text-white transition-colors hover:border-[#FFCC00] hover:text-[#FFCC00]"
+          >
+            <Printer className="h-4 w-4" />
+            Print receipt
+          </button>
           <button
             onClick={() => {
               setReceipt(null);
               openSale();
             }}
-            className="mt-6 h-12 w-full cursor-pointer rounded-md bg-[#FFCC00] text-base font-medium text-black transition-colors hover:bg-[#E5BB00]"
+            className="mt-3 h-12 w-full cursor-pointer rounded-md bg-[#FFCC00] text-base font-medium text-black transition-colors hover:bg-[#E5BB00]"
           >
             New sale
           </button>
@@ -470,13 +490,38 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
               </div>
 
               {sale.balanceCents <= 0 ? (
-                <button
-                  onClick={finish}
-                  disabled={busy}
-                  className="mt-4 h-12 w-full cursor-pointer rounded-md bg-[#22C55E] text-base font-medium text-black transition-colors hover:bg-[#16A34A] disabled:opacity-50"
-                >
-                  {busy ? <Loader2 className="mx-auto h-5 w-5 animate-spin" /> : "Complete sale"}
-                </button>
+                <>
+                  <div className="mt-4">
+                    <label
+                      htmlFor="pos-receipt-email"
+                      className="text-xs font-medium text-[#999999]"
+                    >
+                      Email receipt (optional)
+                    </label>
+                    <input
+                      id="pos-receipt-email"
+                      type="email"
+                      inputMode="email"
+                      autoComplete="off"
+                      value={receiptEmail}
+                      onChange={(e) => setReceiptEmail(e.target.value)}
+                      placeholder="customer@email.com"
+                      className="mt-1.5 h-11 w-full rounded-md border border-[#303236] bg-transparent px-3 text-sm text-white placeholder:text-[#6B6B6B] focus:border-[#FFCC00] focus:outline-none"
+                    />
+                    {sale.customerAddress && (
+                      <p className="mt-1.5 text-xs text-[#6B6B6B]">
+                        Leave blank to use their account email.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={finish}
+                    disabled={busy}
+                    className="mt-4 h-12 w-full cursor-pointer rounded-md bg-[#22C55E] text-base font-medium text-black transition-colors hover:bg-[#16A34A] disabled:opacity-50"
+                  >
+                    {busy ? <Loader2 className="mx-auto h-5 w-5 animate-spin" /> : "Complete sale"}
+                  </button>
+                </>
               ) : cardLeg ? (
                 <div className="mt-4 rounded-lg border border-[#FFCC00]/30 bg-[#FFCC00]/[0.08] p-3">
                   <p className="flex items-center gap-2 text-sm text-white">

@@ -306,6 +306,26 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
     },
   },
 
+  // ── Customer's copy of a counter-sale receipt ────────────────────────────────
+  // Only reaches a sale with a customer attached; a walk-in gets the emailed receipt instead
+  // (see PosReceiptListener). Transactional: this is the record of money the customer just
+  // handed over, and preferences have no business suppressing it.
+  pos_sale_receipt: {
+    channels: ['persist', 'ws', 'push'],
+    transactional: true,
+    display: {
+      title: (m) => `Receipt from ${m.shopName || 'the shop'}`,
+      icon: 'receipt',
+      color: '#10B981',
+    },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'default',
+      title: (m) => `Receipt from ${m.shopName || 'the shop'}`,
+      body: (m) => `You paid ${m.totalLabel || 'at the counter'}. Tap to see the details.`,
+    },
+  },
+
   // ── Appointment reminders (migrated from AppointmentReminderService) ──────
   booking_confirmed: {
     channels: ['persist', 'ws', 'push', 'sms'],
