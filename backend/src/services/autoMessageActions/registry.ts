@@ -18,6 +18,7 @@ import { NotifyStaffAction } from './notifyStaffAction';
 import { RunCampaignAction } from './runCampaignAction';
 import { AiStepAction } from './aiStepAction';
 import { DraftReorderAction } from './draftReorderAction';
+import { CreateTaskAction } from './createTaskAction';
 
 export const DEFAULT_ACTION_TYPE = 'send_message';
 
@@ -29,6 +30,7 @@ export const AUTO_MESSAGE_ACTION_TYPES = [
   'run_campaign',
   'ai_step',
   'draft_reorder',
+  'create_task',
 ] as const;
 export type AutoMessageActionType = (typeof AUTO_MESSAGE_ACTION_TYPES)[number];
 
@@ -52,6 +54,8 @@ export const NO_TEMPLATE_ACTIONS: ReadonlySet<string> = new Set([
   'ai_step',
   // Drafts a purchase order; nobody is being messaged.
   'draft_reorder',
+  // Files a to-do item; the title is not a customer-facing body.
+  'create_task',
 ]);
 
 /**
@@ -86,6 +90,7 @@ export const ACTION_NEEDS: Readonly<Record<string, ActionNeeds>> = {
   run_campaign: 'audience',
   notify_staff: 'nobody',
   draft_reorder: 'nobody',
+  create_task: 'nobody',
 };
 
 export const SHOP_SCOPED_ACTIONS: ReadonlySet<string> = new Set([
@@ -95,6 +100,8 @@ export const SHOP_SCOPED_ACTIONS: ReadonlySet<string> = new Set([
   'run_campaign',
   // Reordering happens to the shop's inventory — there is no customer in it at all.
   'draft_reorder',
+  // The task belongs to the shop. One firing, one task — even when the audience holds 200 people.
+  'create_task',
 ]);
 
 export class AutoMessageActionRegistry {
@@ -147,6 +154,7 @@ export function getAutoMessageActionRegistry(messages: SendMessageDeps): AutoMes
     new RunCampaignAction(),
     new AiStepAction(sendMessage),
     new DraftReorderAction(),
+    new CreateTaskAction(),
   ]));
 }
 

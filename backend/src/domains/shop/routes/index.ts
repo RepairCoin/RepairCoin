@@ -70,6 +70,7 @@ import depositRoutes from './deposit';
 import purchaseSyncRoutes from './purchase-sync';
 import paymentMethodsRoutes from './paymentMethods';
 import moderationRoutes from './moderation';
+import tasksRoutes from './tasks';
 import welcomeRcnRoutes from './welcomeRcn';
 import teamRoutes from './team';
 import commissionsRoutes from './commissions';
@@ -89,6 +90,9 @@ router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSync
 router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
 router.use('/reports', authMiddleware, requireRole(['shop']), requireShopPermission('analytics:view'), reportsRoutes); // Reports routes
 router.use('/moderation', authMiddleware, requireRole(['shop']), requireShopPermission('customers:view'), moderationRoutes); // Moderation routes
+// Shop to-do list (Custom Workflows §9.2.1). Deliberately NOT behind requireActiveSubscription: a task
+// filed while the shop was active is theirs, and hiding it during a billing lapse loses work.
+router.use('/tasks', authMiddleware, requireRole(['shop']), tasksRoutes);
 router.use('/team', teamRoutes); // Team management (auth handled per-route: accept is public)
 router.use('/locations', locationsRoutes); // Multi-location management (Business tier; auth + gate per-route)
 router.use('/feature-access', authMiddleware, requireRole(['shop']), featureAccessRoutes); // Tier-based feature access map

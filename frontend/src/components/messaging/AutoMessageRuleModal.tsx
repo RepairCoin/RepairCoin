@@ -93,6 +93,7 @@ const ACTIONS: ReadonlyArray<{
   { value: "notify_staff", label: "Notify my team", hint: "Alerts you, not the customer", shopScoped: true, needs: "nobody" },
   { value: "run_campaign", label: "Send a campaign", hint: "One send to a whole audience", shopScoped: true, needs: "audience" },
   { value: "draft_reorder", label: "Draft a reorder", hint: "A purchase order to approve", shopScoped: true, needs: "nobody" },
+  { value: "create_task", label: "Add a task", hint: "Stays on your list until done", shopScoped: true, needs: "nobody" },
 ];
 
 const SHOP_SCOPED_ACTIONS = new Set(ACTIONS.filter((a) => a.shopScoped).map((a) => a.value));
@@ -184,7 +185,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   // What the rule DOES when it fires (Custom Workflows W2). 'send_message' is everything that existed
   // before actions; 'issue_reward' sends nothing and needs no template.
   const [actionType, setActionType] = useState<
-    "send_message" | "issue_reward" | "notify_staff" | "run_campaign" | "ai_step" | "draft_reorder"
+    "send_message" | "issue_reward" | "notify_staff" | "run_campaign" | "ai_step" | "draft_reorder" | "create_task"
   >("send_message");
   /** run_campaign: the campaign used as a template. Each firing clones and sends a copy. */
   const [campaignId, setCampaignId] = useState("");
@@ -240,6 +241,11 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [alertText, setAlertText] = useState("");
   /** ai_step: the owner's brief. Optional — the generator also has the trigger, audience and name. */
   const [aiBrief, setAiBrief] = useState("");
+  /**
+   * create_task: what the to-do item says. Optional — the action falls back to the workflow's name, so
+   * a half-configured rule still files something readable rather than a blank row in a list.
+   */
+  const [taskTitle, setTaskTitle] = useState("");
   /**
    * A one-off sample of what this workflow might send.
    *
@@ -395,6 +401,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       // doesn't trim a value set programmatically.
       setRewardReason(typeof rule.actionPayload?.reason === "string" ? rule.actionPayload.reason : "");
       setAlertText(typeof rule.actionPayload?.message === "string" ? rule.actionPayload.message : "");
+      setTaskTitle(typeof rule.actionPayload?.title === "string" ? rule.actionPayload.title : "");
       setAiBrief(
         typeof rule.actionPayload?.prompt === "string" ? rule.actionPayload.prompt : ""
       );
@@ -645,7 +652,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     // Marketing to build one. The requirement is enforced at Publish, where it actually matters.
 
     let cleanSteps: WorkflowStep[] = [];
-    if (rewardMode || actionType === "notify_staff" || actionType === "run_campaign" || actionType === "ai_step" || actionType === "draft_reorder") {
+    if (rewardMode || actionType === "notify_staff" || actionType === "run_campaign" || actionType === "ai_step" || actionType === "draft_reorder" || actionType === "create_task") {
       // None of these sends a customer message, so there is no body to validate.
     } else if (sequenceMode) {
       // Keep a step if it's a non-messaging step (nothing to compose) OR a message step with a body.
@@ -689,9 +696,10 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       const isCampaign = actionType === "run_campaign";
       const isAiStep = actionType === "ai_step";
       const isReorder = actionType === "draft_reorder";
+      const isTask = actionType === "create_task";
       // None of these stores a message_template: a campaign carries its own body, and an AI step
       // writes one when it runs — a stored template is the thing it exists to replace.
-      const sendsNoMessage = isReward || isNotify || isCampaign || isAiStep || isReorder;
+      const sendsNoMessage = isReward || isNotify || isCampaign || isAiStep || isReorder || isTask;
       const data: CreateAutoMessageRequest = {
         name: name.trim(),
         // An action that sends nothing carries no template. In a sequence the rule-level template
@@ -711,6 +719,8 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           ? { campaignId }
           : isAiStep
           ? (aiBrief.trim() ? { prompt: aiBrief.trim() } : {})
+          : isTask
+          ? (taskTitle.trim() ? { title: taskTitle.trim() } : {})
           : null,
         triggerType,
         ...(triggerType === "schedule" && {
@@ -1211,6 +1221,25 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
               />
               <p className="text-xs text-gray-500 mt-1">
                 Goes to you and your team. Leave blank to use the workflow name.
+              </p>
+            </div>
+          )}
+
+          {actionType === "create_task" && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Task (optional)</label>
+              <input
+                type="text"
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                placeholder="e.g. Call the customer back"
+                maxLength={200}
+                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Lands on your Tasks list and stays there until you tick it off — unlike an alert, which
+                you read once. Leave blank to use the workflow name. One task per run, and it won&apos;t
+                add another while the last one is still open.
               </p>
             </div>
           )}
