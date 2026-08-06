@@ -23,6 +23,39 @@ import type {
 
 /** Matches the column; a longer title is truncated rather than failing the whole run. */
 const MAX_TITLE = 200;
+const MAX_BODY = 2000;
+
+export interface CreateTaskPayload {
+  title?: string;
+  body?: string;
+  dueInDays?: number;
+}
+
+/**
+ * Normalise what the shop configured, at the API boundary.
+ *
+ * Everything is optional: the action falls back to the rule's name, so "when this happens, remind me"
+ * works without composing anything. Returning `{}` rather than null keeps a saved rule distinguishable
+ * from one whose payload was never parsed — which is exactly the bug this function exists to close.
+ */
+export function parseCreateTaskPayload(raw: unknown): CreateTaskPayload {
+  if (!raw || typeof raw !== 'object') return {};
+  const p = raw as Record<string, unknown>;
+  const out: CreateTaskPayload = {};
+
+  const title = typeof p.title === 'string' ? p.title.trim().slice(0, MAX_TITLE) : '';
+  if (title) out.title = title;
+
+  const body = typeof p.body === 'string' ? p.body.trim().slice(0, MAX_BODY) : '';
+  if (body) out.body = body;
+
+  // A due date is a promise to the shop, so only a sane one is kept. 365 is arbitrary but finite:
+  // beyond it the reminder is noise rather than a deadline.
+  const due = Number(p.dueInDays);
+  if (Number.isFinite(due) && due > 0 && due <= 365) out.dueInDays = Math.round(due);
+
+  return out;
+}
 
 export class CreateTaskAction implements AutoMessageActionHandler {
   readonly type = 'create_task';

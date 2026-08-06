@@ -147,12 +147,16 @@ export class ShopTaskRepository extends BaseRepository {
     memberId?: string | null
   ): Promise<ShopTask | null> {
     try {
+      // Both casts are load-bearing. $3 is used as an assigned value AND compared to a literal inside
+      // the CASE, and without ::varchar Postgres deduces conflicting types for the same parameter and
+      // rejects the whole statement ("inconsistent types deduced for parameter $3"). $4 is always NULL
+      // on the reopen path, which leaves it with no inferable type at all.
       const res = await this.pool.query(
         `UPDATE shop_tasks
-            SET status = $3,
-                completed_at = CASE WHEN $3 = 'open' THEN NULL ELSE NOW() END,
-                completed_by_member_id = CASE WHEN $3 = 'open' THEN NULL ELSE $4 END
-          WHERE id = $2 AND shop_id = $1
+            SET status = $3::varchar,
+                completed_at = CASE WHEN $3::varchar = 'open' THEN NULL ELSE NOW() END,
+                completed_by_member_id = CASE WHEN $3::varchar = 'open' THEN NULL ELSE $4::uuid END
+          WHERE id = $2::uuid AND shop_id = $1
           RETURNING *`,
         [shopId, taskId, status, memberId ?? null]
       );

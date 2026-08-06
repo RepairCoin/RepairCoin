@@ -31,7 +31,9 @@ jest.mock('../../src/repositories/ShopTaskRepository', () => ({
   }),
 }));
 
-import { CreateTaskAction } from '../../src/services/autoMessageActions/createTaskAction';
+import * as fs from 'fs';
+import * as path from 'path';
+import { CreateTaskAction, parseCreateTaskPayload } from '../../src/services/autoMessageActions/createTaskAction';
 import { ACTION_NEEDS, SHOP_SCOPED_ACTIONS, NO_TEMPLATE_ACTIONS, AUTO_MESSAGE_ACTION_TYPES } from '../../src/services/autoMessageActions/registry';
 
 const ctx = (over: any = {}) => ({
@@ -139,5 +141,64 @@ describe('it is registered as shop-scoped', () => {
 
   it('carries no message template', () => {
     expect(NO_TEMPLATE_ACTIONS.has('create_task')).toBe(true);
+  });
+});
+
+// Two bugs the unit tests above could not see, both found by running the thing end to end on staging.
+// Registering an action in the engine is not enough to make it work.
+describe('the configured payload survives the API', () => {
+  const controller = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'src', 'domains', 'messaging', 'controllers', 'AutoMessageController.ts'),
+    'utf8'
+  );
+
+  it('parseAction has a branch for create_task', () => {
+    // It shipped without one. parseAction returns `actionPayload: null` for anything it does not
+    // recognise, so the configured title was silently dropped and every task fell back to the rule
+    // name — a workflow that looked configured and ignored what you typed.
+    expect(controller).toContain("if (actionType === 'create_task')");
+    expect(controller).toContain('parseCreateTaskPayload');
+  });
+
+  it('keeps a title', () => {
+    expect(parseCreateTaskPayload({ title: '  Call them back  ' })).toEqual({ title: 'Call them back' });
+  });
+
+  it('returns {} rather than null for an empty payload', () => {
+    // Distinguishable from "never parsed", which is the state that caused the bug.
+    expect(parseCreateTaskPayload(undefined)).toEqual({});
+    expect(parseCreateTaskPayload({ title: '   ' })).toEqual({});
+  });
+
+  it('drops a due date that is not a real deadline', () => {
+    expect(parseCreateTaskPayload({ title: 'x', dueInDays: 0 }).dueInDays).toBeUndefined();
+    expect(parseCreateTaskPayload({ title: 'x', dueInDays: -3 }).dueInDays).toBeUndefined();
+    expect(parseCreateTaskPayload({ title: 'x', dueInDays: 10000 }).dueInDays).toBeUndefined();
+    expect(parseCreateTaskPayload({ title: 'x', dueInDays: 7 }).dueInDays).toBe(7);
+  });
+
+  it('truncates rather than failing the run', () => {
+    const long = 'a'.repeat(500);
+    expect(parseCreateTaskPayload({ title: long }).title).toHaveLength(200);
+  });
+});
+
+describe('the status update is castable SQL', () => {
+  const repo = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'src', 'repositories', 'ShopTaskRepository.ts'),
+    'utf8'
+  );
+
+  it('casts the status parameter explicitly', () => {
+    // $3 is both assigned and compared to a literal inside a CASE. Without ::varchar Postgres deduces
+    // conflicting types for one parameter and rejects the statement — every complete/dismiss/reopen
+    // returned 500. Not reachable from a mocked repository, which is why it reached staging.
+    const fn = repo.slice(repo.indexOf('async setStatus'));
+    expect(fn.slice(0, 900)).toContain('$3::varchar');
+  });
+
+  it('casts the member id, which is NULL on the reopen path', () => {
+    const fn = repo.slice(repo.indexOf('async setStatus'));
+    expect(fn.slice(0, 900)).toContain('$4::uuid');
   });
 });
