@@ -25,6 +25,17 @@ export interface PosSaleItem {
   taxCents: number;
   totalCents: number;
   unitCostCents: number | null;
+  warrantyDays: number | null;
+}
+
+export interface ActiveWarranty {
+  source: "pos_sale" | "booking";
+  reference: string;
+  serviceName: string;
+  completedAt: string;
+  expiresAt: string;
+  daysRemaining: number;
+  warrantyDays: number;
 }
 
 export interface PosSalePayment {
@@ -52,6 +63,7 @@ export interface PosSale {
   totalCents: number;
   currency: string;
   receiptEmail: string | null;
+  completedAt: string | null;
   items: PosSaleItem[];
   payments: PosSalePayment[];
   paidCents: number;
@@ -179,6 +191,16 @@ export async function setSaleCustomer(saleId: string, customerAddress: string): 
   return unwrap(
     await apiClient.put(`/shops/pos/sales/${saleId}/customer`, { customerAddress }),
     "Could not attach that customer"
+  );
+}
+
+/** What this shop still covers for this customer, soonest to expire first. */
+export async function getCustomerWarranties(customerAddress: string): Promise<ActiveWarranty[]> {
+  return unwrap(
+    await apiClient.get(
+      `/shops/pos/warranties?customerAddress=${encodeURIComponent(customerAddress)}`
+    ),
+    "Could not load warranties"
   );
 }
 

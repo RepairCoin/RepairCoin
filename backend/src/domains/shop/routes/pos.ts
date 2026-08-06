@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getPosSaleService, assertSupportedTender } from '../../ShopDomain/services/PosSaleService';
 import { logger } from '../../../utils/logger';
 import { authMiddleware, requireRole } from '../../../middleware/auth';
+import { warrantyRepository } from '../../../repositories';
 import type { PosTenderMethod } from '../../../repositories/PosSaleRepository';
 
 const router = Router();
@@ -66,6 +67,18 @@ router.get(
       locationId: typeof req.query.locationId === 'string' ? req.query.locationId : undefined,
     })
   )
+);
+
+// What this shop still owes this customer, for the conversation that starts "it's doing it again".
+router.get(
+  '/pos/warranties',
+  handle('Failed to load warranties', (shopId, req) => {
+    const customerAddress = String(req.query.customerAddress ?? '').trim();
+    if (!customerAddress) {
+      throw Object.assign(new Error('customerAddress is required.'), { status: 400 });
+    }
+    return warrantyRepository.listActiveForCustomer(shopId, customerAddress);
+  })
 );
 
 router.get(

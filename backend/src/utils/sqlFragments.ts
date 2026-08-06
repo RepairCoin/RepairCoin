@@ -26,6 +26,32 @@ export const revenueRecognized = (alias = ''): string => {
 };
 
 /**
+ * Which of a shop's `stripe_subscriptions` rows speaks for the shop.
+ *
+ * A shop accumulates rows — resubscribes, plan changes, superseded checkout sessions — and they are
+ * NOT in chronological order of relevance: a row created seconds LATER can be the one that got
+ * cancelled. `ORDER BY created_at DESC LIMIT 1` therefore reads a dead subscription as the shop's
+ * current one, and every consumer inherits its expired period end. That is how a shop paid up to
+ * 21 August was reported expired since 21 July, in the admin list and on its own dashboard, while
+ * `shop_subscriptions` said active the whole time.
+ *
+ * A live row always beats a cancelled one; among equals the furthest-reaching billing period wins,
+ * because that is the cover actually paid for. `created_at` only breaks the remaining ties.
+ *
+ * Use as the ORDER BY tail — after `shop_id` in a `DISTINCT ON (shop_id)`, or on its own with
+ * `LIMIT 1` for a single shop. The TypeScript twin is `pickLiveSubscription` in
+ * middleware/subscriptionGuard, for the places that hold the rows in memory.
+ *
+ * @param alias table alias used in the query. Omit for an unaliased table.
+ */
+export const liveSubscriptionFirst = (alias = ''): string => {
+  const p = alias ? `${alias}.` : '';
+  return `(${p}status IN ('active', 'trialing', 'past_due')) DESC,
+          ${p}current_period_end DESC NULLS LAST,
+          ${p}created_at DESC`;
+};
+
+/**
  * Which rows of the fiat `payments` ledger count as revenue (POS S9c-1).
  *
  * `refunded` is included, not excluded: a fully refunded payment contributes gross - refunded = 0

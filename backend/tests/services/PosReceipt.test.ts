@@ -21,7 +21,7 @@ describe('POS receipt listener', () => {
     totalCents: 10825,
     receiptEmail: null,
     completedAt: '2026-08-06T10:00:00.000Z',
-    items: [{ name: 'Screen repair', quantity: 1, totalCents: 10825 }],
+    items: [{ name: 'Screen repair', quantity: 1, totalCents: 10825, warrantyDays: null }],
     payments: [
       { method: 'cash', amountCents: 10825, changeCents: 175, status: 'succeeded' },
     ],
@@ -139,6 +139,25 @@ describe('POS receipt listener', () => {
       { label: 'Cash', amountCents: 5825 },
     ]);
     expect(arg.changeCents).toBe(175);
+  });
+
+  it('tells the customer what is covered and until when', async () => {
+    const run = await load();
+    getSale.mockResolvedValue(
+      sale({
+        receiptEmail: 'walkin@example.com',
+        items: [
+          { name: 'Screen repair', quantity: 1, totalCents: 10000, warrantyDays: 90 },
+          { name: 'Phone case', quantity: 1, totalCents: 825, warrantyDays: null },
+        ],
+      })
+    );
+    await run(event());
+
+    const items = (sendPosReceipt.mock.calls[0][0] as any).items;
+    expect(items[0].warrantyLabel).toBe('90-day warranty — covered to Nov 4, 2026');
+    // The uncovered line carries no label at all, rather than one announcing no cover.
+    expect(items[1].warrantyLabel).toBeUndefined();
   });
 
   it('does not record a send the mailer refused', async () => {

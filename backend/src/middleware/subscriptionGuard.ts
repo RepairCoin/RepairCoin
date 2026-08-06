@@ -32,6 +32,46 @@ const DEFAULT_OPTIONS: SubscriptionGuardOptions = {
   allowFree: false
 };
 
+export interface StripeSubscriptionRow {
+  status?: string | null;
+  current_period_end?: Date | string | null;
+  cancel_at_period_end?: boolean | null;
+  created_at?: Date | string | null;
+}
+
+const LIVE_STATUSES = new Set(['active', 'trialing', 'past_due']);
+
+const time = (value: Date | string | null | undefined): number => {
+  if (!value) return -Infinity;
+  const ms = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isNaN(ms) ? -Infinity : ms;
+};
+
+/**
+ * Which of a shop's Stripe subscription rows speaks for the shop.
+ *
+ * A shop accumulates rows — resubscribes, plan changes, checkout sessions that were superseded —
+ * and they are NOT in chronological order of relevance: a row created seconds later can be the one
+ * that got cancelled. Picking the newest by `created_at` is how a paying shop ends up judged by a
+ * dead subscription, demoted to `not_qualified`, and shown the free-plan upgrade prompt.
+ *
+ * A live row always beats a cancelled one, and among equals the furthest-reaching billing period
+ * wins — that is the cover the shop has actually paid for.
+ */
+export function pickLiveSubscription<T extends StripeSubscriptionRow>(rows: T[]): T | null {
+  if (!rows.length) return null;
+  return rows.reduce((best, row) => {
+    const bestLive = LIVE_STATUSES.has(String(best.status ?? ''));
+    const rowLive = LIVE_STATUSES.has(String(row.status ?? ''));
+    if (rowLive !== bestLive) return rowLive ? row : best;
+
+    const byPeriod = time(row.current_period_end) - time(best.current_period_end);
+    if (byPeriod !== 0) return byPeriod > 0 ? row : best;
+
+    return time(row.created_at) > time(best.created_at) ? row : best;
+  });
+}
+
 /**
  * Get a user-friendly message for blocked status
  */
@@ -166,17 +206,17 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
       // Check subscription expiration date directly from stripe_subscriptions table
       try {
         const pool = getSharedPool();
+        // Every row, not the newest — which one counts is decided by pickLiveSubscription, and a
+        // shop has only a handful. See the note there for what reading the wrong one costs.
         const subscriptionResult = await pool.query(
-          `SELECT current_period_end, status, cancel_at_period_end
+          `SELECT current_period_end, status, cancel_at_period_end, created_at
            FROM stripe_subscriptions
-           WHERE shop_id = $1
-           ORDER BY created_at DESC
-           LIMIT 1`,
+           WHERE shop_id = $1`,
           [shopId]
         );
 
-        if (subscriptionResult.rows.length > 0) {
-          const subscription = subscriptionResult.rows[0];
+        const subscription = pickLiveSubscription(subscriptionResult.rows);
+        if (subscription) {
           const periodEnd = subscription.current_period_end;
 
           // Check if subscription period has ended (current_period_end is in the past)

@@ -8,6 +8,7 @@ import { logger } from '../../../utils/logger';
 import { EmailService } from '../../../services/EmailService';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { isValidTier } from '../../../config/subscriptionPlans';
+import { liveSubscriptionFirst } from '../../../utils/sqlFragments';
 
 const router = Router();
 const subscriptionService = new SubscriptionService();
@@ -30,7 +31,7 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
           cancel_at_period_end,
           status as stripe_status
         FROM stripe_subscriptions
-        ORDER BY shop_id, created_at DESC
+        ORDER BY shop_id, ${liveSubscriptionFirst()}
       )
       SELECT
         subs.*,

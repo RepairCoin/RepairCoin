@@ -11,6 +11,7 @@ import {
   Plus,
   Printer,
   Search,
+  ShieldCheck,
   Trash2,
   UserPlus,
   UserRound,
@@ -25,12 +26,14 @@ import {
   completeSale,
   createSale,
   formatCents,
+  getCustomerWarranties,
   removeItem,
   setSaleCustomer,
   startCardPayment,
   syncCardPayment,
   takeCash,
   voidSale,
+  type ActiveWarranty,
   type PosSale,
 } from "@/services/api/pos";
 import CustomerSearchModal from "@/components/shop/customers/CustomerSearchModal";
@@ -82,6 +85,7 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
   const [tendered, setTendered] = useState("");
   const [receipt, setReceipt] = useState<PosSale | null>(null);
   const [receiptEmail, setReceiptEmail] = useState("");
+  const [warranties, setWarranties] = useState<ActiveWarranty[]>([]);
 
   // A sale row is only created once something is actually being sold. Creating one on mount
   // would leave an abandoned `open` row behind every time the register is opened and walked
@@ -184,6 +188,24 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
     setCustomerName(null);
     await run(() => clearSaleCustomer(sale.id));
   };
+
+  // Loaded whenever a customer is on the sale, because the claim conversation starts before
+  // anything is rung up — someone walks in saying it broke again, and the cashier needs to know
+  // whether the shop is still covering it before quoting a price.
+  useEffect(() => {
+    const address = sale?.customerAddress;
+    if (!address) {
+      setWarranties([]);
+      return;
+    }
+    let cancelled = false;
+    getCustomerWarranties(address)
+      .then((rows) => !cancelled && setWarranties(rows))
+      .catch(() => !cancelled && setWarranties([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [sale?.customerAddress]);
 
   const filteredServices = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -467,6 +489,28 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
                   </div>
                 )}
               </div>
+
+              {warranties.length > 0 && (
+                <div className="mt-3 rounded-lg border border-[#22C55E]/30 bg-[#22C55E]/[0.06] p-3">
+                  <p className="flex items-center gap-2 text-xs font-medium text-[#22C55E]">
+                    <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                    Still under warranty
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {warranties.map((w) => (
+                      <li
+                        key={`${w.source}-${w.reference}`}
+                        className="flex items-baseline justify-between gap-3 text-xs"
+                      >
+                        <span className="truncate text-white">{w.serviceName}</span>
+                        <span className="shrink-0 text-[#999999]">
+                          {w.daysRemaining === 1 ? "1 day left" : `${w.daysRemaining} days left`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <div className="mt-4 space-y-1 border-t border-white/10 pt-4 text-sm">
                 <Row label="Subtotal" value={formatCents(sale.subtotalCents)} />

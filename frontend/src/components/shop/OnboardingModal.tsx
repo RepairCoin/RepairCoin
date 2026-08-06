@@ -6,6 +6,7 @@ import { Info, ExternalLink, CreditCard, Shield, AlertCircle, X } from 'lucide-r
 import { RCGPurchaseModal } from './RCGPurchaseModal';
 import { useBlockchainEnabled } from '@/contexts/AppConfigContext';
 import { SUBSCRIPTION_PLANS } from '@/config/subscriptionPlans';
+import { hasPaidPlanStatus, isQualifiedStatus } from '@/utils/operationalStatus';
 import Link from 'next/link';
 
 interface OnboardingModalProps {
@@ -25,12 +26,11 @@ export function OnboardingModal({ shopData, open, onClose }: OnboardingModalProp
   // Buying RCG is on-chain; hide the prompt in database-only mode (RCG is admin-set)
   const blockchainEnabled = useBlockchainEnabled();
   
-  const isOperational = shopData.operational_status === 'rcg_qualified' || 
-                       shopData.operational_status === 'subscription_qualified';
+  const isOperational = isQualifiedStatus(shopData.operational_status);
 
   const rcgBalance = shopData.rcg_balance || 0;
   const hasEnoughRCG = rcgBalance >= 10000;
-  const hasSubscription = shopData.operational_status === 'subscription_qualified';
+  const hasSubscription = hasPaidPlanStatus(shopData.operational_status);
   const lowestPlanPrice = Math.min(...SUBSCRIPTION_PLANS.map((p) => p.price));
 
   return (

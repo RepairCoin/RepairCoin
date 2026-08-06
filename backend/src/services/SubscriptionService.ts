@@ -1,5 +1,6 @@
 import { getStripeService, StripeService } from './StripeService';
 import { logger } from '../utils/logger';
+import { liveSubscriptionFirst } from '../utils/sqlFragments';
 import { BaseRepository } from '../repositories/BaseRepository';
 import { eventBus } from '../events/EventBus';
 import { ShopSubscriptionRepository } from '../repositories/ShopSubscriptionRepository';
@@ -342,7 +343,7 @@ export class SubscriptionService extends BaseRepository {
       WHERE shop_id = $1
         AND status IN ('active', 'past_due', 'unpaid')
         AND current_period_end > NOW()
-      ORDER BY created_at DESC LIMIT 1
+      ORDER BY ${liveSubscriptionFirst()} LIMIT 1
     `;
     const result = await this.pool.query(query, [shopId]);
 

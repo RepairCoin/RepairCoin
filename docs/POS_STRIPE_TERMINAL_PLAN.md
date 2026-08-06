@@ -182,7 +182,8 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S6b | **Customer + loyalty** — attach a customer, earn RCN — **built** | M | S2 |
 | S6c-1 | **Customer's receipt** — email captured at the register, in-app for an attached customer — **built** | M | S6b |
 | S6c-2 | **Review request** for a counter sale — needs the review path to accept one — **not started** | M | S6c-1 |
-| S7 | **Phase 6** — devices & warranty model | M | S2 |
+| S7a | **Warranty terms** — per-service term, snapshotted on sales and bookings — **built** | M | S2 |
+| S7b | **Phase 6** — devices owned, per-device warranty | M | S2 |
 | S8 | **Phase 4** — repair ticket workflow | L | S2, S7 |
 | S9a | **Revenue excludes unpaid orders** (see 9a) — **built** | M | — |
 | S9b | **Ledger completeness** (see 9b) — **built** | M | S6a |
@@ -450,6 +451,10 @@ subscribes to `pos.sale_completed` directly, and later consumers should too.
 
 Note also that Phase 8's receipt is specified to show **warranty**, but the device/warranty model
 is S7 and greenfield. Either the receipt ships without warranty, or S7 moves ahead of it.
+
+**Resolved.** The receipt shipped first without it (S6c-1), and the warranty half of S7 followed
+immediately after (S7a, section 11) — both receipt copies now carry the term per line. What is still
+missing is the device it was performed on, which is S7b.
 
 ## 8b. Customer and loyalty at the counter (S6b) — **built**
 
@@ -1040,6 +1045,54 @@ order through `orderRepository.getOrderById` and 404s on anything that is not a 
 create path needs to learn about POS sales before a review request means anything. There are no FK
 constraints on `service_reviews`, so nothing stops a sale id being stored; the controller is the
 real barrier, not the schema.
+
+---
+
+## 11. Warranty terms, without the device model (S7a) — **built**
+
+S7 was scoped as "devices owned, warranty". Splitting it turned out to be the better trade: the
+warranty half carries almost all of the value and none of the greenfield device modelling, and a
+shop can state its terms before the system knows what a device is.
+
+**Why it was worth doing before anything else in S7.** A shop's warranty on its own labour is its
+liability, and nothing held it. When a customer came back with the same fault there was no way to
+tell a warranty claim from a new sale — not from the order, not from the sale, not from their
+history. That is money in both directions, and it was being settled by whoever remembered harder.
+
+**Bookings, not just the counter.** 877 service orders exist against 42 POS lines, and 278 of those
+orders are completed. A warranty that only existed at the counter would have missed nearly all
+completed repairs and produced a rule nobody could explain — cover depending on whether the customer
+booked online. Migration 266 puts `warranty_days` on `shop_services` (the shop's current terms) and
+snapshot copies on both `pos_sale_items` and `service_orders`.
+
+**The snapshot is the point.** Terms move; a promise doesn't. Copying the term at the moment the
+work is delivered — ring-up for a counter line, completion for a booking — means a shop that
+shortens its warranty next month cannot shorten one it already gave. Same reasoning as
+`unit_cost_cents` in S5. The booking snapshot is inlined into both completion writes rather than
+done as a follow-up query: an order completed without its term recorded is a claim nobody can
+settle. `COALESCE` keeps the first value, so re-completing an order can never move an expiry the
+customer has already been told about — verified against staging inside a rolled-back transaction.
+
+**No expiry column.** Cover is `completed_at + warranty_days`, derived wherever both are already in
+hand. Storing the expiry as well would allow a completion date that gets corrected and an expiry
+that silently doesn't. `utils/warranty.ts` owns the arithmetic so the receipt, the register panel and
+any later claim check cannot disagree.
+
+**NULL, 0 and negative all mean not covered**, collapsed to NULL on write. The "unknown vs zero"
+distinction `unit_cost_cents` needs has no analogue: a warranty nobody stated and one of no days are
+the same promise. An uncovered line prints no warranty row at all rather than "0-day warranty", which
+reads as a broken feature rather than an absence of cover.
+
+**Where a claim gets checked.** Attaching a customer at the register loads what the shop still covers
+for them, soonest to expire first — the order the conversation wants, since the claim in question is
+usually the one about to run out. It loads on attach rather than on completion, because the question
+comes up before anything is rung up. Scoped to the shop: one shop has no business reading another's
+liabilities. Days remaining round *up*, so the last day of cover reads as 1 rather than 0 — a
+register showing 0 invites the shop to refuse a claim it still owes.
+
+**Not covered:** what the work was performed on. That is still S7b, still greenfield. This records
+the term, not the device, so a customer with two phones has one list of covered repairs and no way to
+tell which phone each belongs to.
 
 ---
 

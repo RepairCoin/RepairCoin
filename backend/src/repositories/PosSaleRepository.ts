@@ -57,6 +57,7 @@ export interface PosSaleItem {
   taxCents: number;
   totalCents: number;
   unitCostCents: number | null; // null = cost unknown, which is not the same as free
+  warrantyDays: number | null; // term promised at ring-up; runs from the sale's completed_at
 }
 
 export interface PosSalePayment {
@@ -117,6 +118,7 @@ export interface AddPosSaleItemInput {
   taxRateBps?: number;
   taxCents?: number;
   unitCostCents?: number | null;
+  warrantyDays?: number | null;
 }
 
 export interface AddPosSalePaymentInput {
@@ -177,6 +179,10 @@ export class PosSaleRepository extends BaseRepository {
         row.unit_cost_cents === null || row.unit_cost_cents === undefined
           ? null
           : Number(row.unit_cost_cents),
+      warrantyDays:
+        row.warranty_days === null || row.warranty_days === undefined
+          ? null
+          : Number(row.warranty_days),
     };
   }
 
@@ -330,8 +336,8 @@ export class PosSaleRepository extends BaseRepository {
         `INSERT INTO pos_sale_items (
            sale_id, line_number, kind, service_id, inventory_item_id, name,
            quantity, unit_price_cents, discount_cents, taxable, tax_rate_bps, tax_cents, total_cents,
-           unit_cost_cents
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+           unit_cost_cents, warranty_days
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING *`,
         [
           saleId,
@@ -348,6 +354,7 @@ export class PosSaleRepository extends BaseRepository {
           tax,
           total,
           input.unitCostCents ?? null,
+          input.warrantyDays ?? null,
         ]
       );
 

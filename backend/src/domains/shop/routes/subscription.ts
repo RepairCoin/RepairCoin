@@ -9,6 +9,7 @@ import { shopRepository } from '../../../repositories';
 import { eventBus } from '../../../events/EventBus';
 import { EmailService } from '../../../services/EmailService';
 import { DEFAULT_TIER, getMonthlyAmountForPriceId, getPlanByPriceId, isValidTier, resolveCheckoutPriceId, TRIAL_PERIOD_DAYS } from '../../../config/subscriptionPlans';
+import { liveSubscriptionFirst } from '../../../utils/sqlFragments';
 
 const router = Router();
 
@@ -124,7 +125,7 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
             `SELECT id, stripe_subscription_id, stripe_price_id, status, current_period_end
              FROM stripe_subscriptions
              WHERE shop_id = $1 AND status IN ('active', 'past_due', 'unpaid') AND current_period_end > NOW()
-             ORDER BY created_at DESC LIMIT 1`,
+             ORDER BY ${liveSubscriptionFirst()} LIMIT 1`,
             [shopId]
           );
 
@@ -161,7 +162,8 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
             let currentPeriodEnd = null;
             let cancelAtPeriodEnd = false;
             const stripeSubQuery = await db.query(
-              'SELECT current_period_end, cancel_at_period_end, status FROM stripe_subscriptions WHERE shop_id = $1 ORDER BY created_at DESC LIMIT 1',
+              `SELECT current_period_end, cancel_at_period_end, status FROM stripe_subscriptions
+               WHERE shop_id = $1 ORDER BY ${liveSubscriptionFirst()} LIMIT 1`,
               [shopId]
             );
             if (stripeSubQuery.rows.length > 0) {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { getApiBaseUrl } from "@/utils/apiUrl";
+import { hasPaidPlanStatus, type OperationalStatus } from "@/utils/operationalStatus";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import { FadeSlideIn } from "@/components/ui/motion";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
@@ -207,12 +208,7 @@ export interface ShopData {
   purchasedRcnBalance: number;
   totalRcnPurchased: number;
   lastPurchaseDate?: string;
-  operational_status?:
-    | "pending"
-    | "rcg_qualified"
-    | "subscription_qualified"
-    | "not_qualified"
-    | "paused";
+  operational_status?: OperationalStatus;
   rcg_tier?: string;
   rcg_balance?: number;
   facebook?: string;
@@ -627,7 +623,7 @@ export default function ShopDashboardClient() {
   const isOperational =
     shopData &&
     (shopData.operational_status === "rcg_qualified" ||
-      (shopData.operational_status === "subscription_qualified" && !isSubscriptionExpired) ||
+      (hasPaidPlanStatus(shopData.operational_status) && !isSubscriptionExpired) ||
       // Fallback: If operational_status is missing but shop is active and verified, assume operational
       (!shopData.operational_status && shopData.active && shopData.verified));
 

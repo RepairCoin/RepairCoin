@@ -3,6 +3,18 @@ import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
 import { formatLocalDate } from '../utils/dateUtils';
 
+/**
+ * The warranty term promised on this job, copied from the service at the moment the work is
+ * delivered. Inlined into both completion writes rather than done as a second query: an order that
+ * completed without its term recorded is a claim nobody can settle, and a separate UPDATE could
+ * fail on its own. COALESCE keeps the first snapshot, so re-completing an order can never move an
+ * expiry the customer has already been told about.
+ */
+const WARRANTY_SNAPSHOT = `COALESCE(
+  service_orders.warranty_days,
+  (SELECT s.warranty_days FROM shop_services s WHERE s.service_id = service_orders.service_id)
+)`;
+
 export type OrderStatus =
   | 'pending'
   | 'paid'
@@ -30,6 +42,8 @@ export interface ServiceOrder {
   bookingDate?: Date;
   bookingTime?: string;
   completedAt?: Date;
+  /** Warranty term promised on completion. Coverage runs from completedAt. */
+  warrantyDays?: number | null;
   notes?: string;
   // Approval fields
   shopApproved: boolean;
@@ -507,7 +521,8 @@ export class OrderRepository extends BaseRepository {
       if (status === 'completed') {
         query = `
           UPDATE service_orders
-          SET status = $1, completed_at = NOW(), updated_at = NOW()
+          SET status = $1, completed_at = NOW(), updated_at = NOW(),
+              warranty_days = ${WARRANTY_SNAPSHOT}
           WHERE order_id = $2
           RETURNING *
         `;
@@ -549,7 +564,8 @@ export class OrderRepository extends BaseRepository {
       const updateResult = await client.query(
         `UPDATE service_orders
          SET status = 'completed', completed_at = NOW(), updated_at = NOW(),
-             completed_by_member_id = COALESCE($2, completed_by_member_id)
+             completed_by_member_id = COALESCE($2, completed_by_member_id),
+             warranty_days = ${WARRANTY_SNAPSHOT}
          WHERE order_id = $1
          RETURNING *`,
         [orderId, completedByMemberId ?? null]
@@ -884,6 +900,7 @@ export class OrderRepository extends BaseRepository {
       bookingDate: row.booking_date,
       bookingTime: row.booking_time || row.booking_time_slot,
       completedAt: row.completed_at,
+      warrantyDays: row.warranty_days ?? null,
       notes: row.notes,
       // Approval fields
       shopApproved: row.shop_approved || false,

@@ -48,6 +48,8 @@ export interface ShopService {
   tags?: string[];
   active: boolean;
   taxable?: boolean;
+  /** Warranty term in days. 0 or absent = not covered. */
+  warrantyDays?: number | null;
   createdAt: string;
   updatedAt: string;
   avgRating?: number;
@@ -185,6 +187,8 @@ export interface CreateServiceData {
   tags?: string[];
   active?: boolean;
   taxable?: boolean;
+  /** Warranty term in days. 0 or absent = not covered. */
+  warrantyDays?: number | null;
   // AI Sales Assistant
   aiSalesEnabled?: boolean;
   aiTone?: AITone;
@@ -208,6 +212,8 @@ export interface UpdateServiceData {
   tags?: string[];
   active?: boolean;
   taxable?: boolean;
+  /** Warranty term in days. 0 or absent = not covered. */
+  warrantyDays?: number | null;
   // AI Sales Assistant
   aiSalesEnabled?: boolean;
   aiTone?: AITone;

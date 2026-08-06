@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info, ExternalLink, CreditCard, Shield, AlertCircle } from 'lucide-react';
 import { RCGPurchaseModal } from './RCGPurchaseModal';
 import { useBlockchainEnabled } from '@/contexts/AppConfigContext';
+import { hasPaidPlanStatus, isQualifiedStatus } from '@/utils/operationalStatus';
 import Link from 'next/link';
 
 interface OnboardingBannerProps {
@@ -22,16 +23,15 @@ export function OnboardingBanner({ shopData }: OnboardingBannerProps) {
   // Buying RCG is on-chain; hide the prompt in database-only mode (RCG is admin-set)
   const blockchainEnabled = useBlockchainEnabled();
   
-  const isOperational = shopData.operational_status === 'rcg_qualified' || 
-                       shopData.operational_status === 'subscription_qualified';
-  
+  const isOperational = isQualifiedStatus(shopData.operational_status);
+
   if (isOperational) {
     return null;
   }
 
   const rcgBalance = shopData.rcg_balance || 0;
   const hasEnoughRCG = rcgBalance >= 10000;
-  const hasSubscription = shopData.operational_status === 'subscription_qualified';
+  const hasSubscription = hasPaidPlanStatus(shopData.operational_status);
 
   return (
     <>

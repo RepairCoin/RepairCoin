@@ -24,9 +24,10 @@ import { useSubscriptionStatus, SubscriptionStatus } from "@/hooks/useSubscripti
 // Re-export the hook for convenience
 export { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 export type { SubscriptionStatus } from "@/hooks/useSubscriptionStatus";
+import type { OperationalStatus } from "@/utils/operationalStatus";
 
 interface ShopData {
-  operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified' | 'paused';
+  operational_status?: OperationalStatus;
   subscriptionActive?: boolean;
   subscriptionEndsAt?: string | null;
   subscriptionCancelledAt?: string | null;

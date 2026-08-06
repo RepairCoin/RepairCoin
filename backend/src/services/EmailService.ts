@@ -78,7 +78,13 @@ export interface PosReceiptData {
   shopName: string;
   saleNumber: number | null;
   completedAt: Date;
-  items: Array<{ name: string; quantity: number; totalCents: number }>;
+  items: Array<{
+    name: string;
+    quantity: number;
+    totalCents: number;
+    /** Pre-formatted, e.g. "90-day warranty — covered to 4 Nov 2026". Absent when not covered. */
+    warrantyLabel?: string;
+  }>;
   subtotalCents: number;
   discountCents: number;
   taxCents: number;
@@ -836,12 +842,20 @@ export class EmailService {
       </tr>`;
 
     const itemRows = data.items
-      .map((item) =>
-        row(
+      .map((item) => {
+        const line = row(
           `${escapeHtml(item.name)}${item.quantity > 1 ? ` × ${item.quantity}` : ''}`,
           money(item.totalCents)
-        )
-      )
+        );
+        // Under the line it belongs to, not in a block of its own — a customer checking a claim
+        // needs to see which repair is covered, not that some repair on this receipt was.
+        const warranty = item.warrantyLabel
+          ? `<tr><td colspan="2" style="padding: 0 0 6px 0; color: #0F7B4F; font-size: 12px;">${escapeHtml(
+              item.warrantyLabel
+            )}</td></tr>`
+          : '';
+        return `${line}${warranty}`;
+      })
       .join('');
 
     const tenderRows = data.tenders
