@@ -46,6 +46,7 @@ const EVENT_LABELS: Record<string, string> = {
   review_received: "Review Received",
   low_rating: "Low Rating",
   payment_failed: "Payment Failed",
+  order_ready: "Ready for Pickup",
   low_stock: "Low Stock",
   new_ad_lead: "New Ad Lead",
   subscription_lapsed: "Subscription Payment Failed",
