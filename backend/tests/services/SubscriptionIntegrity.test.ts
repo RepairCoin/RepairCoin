@@ -55,6 +55,30 @@ describe('live Stripe subscription lookup', () => {
     expect(await svc.getLiveStripeSubscriptionIds('shop-1')).toEqual([]);
   });
 
+  it('does not mistake the Agency Program for the shop\'s own plan', async () => {
+    const svc = await load();
+    list.mockResolvedValue({
+      data: [{ id: 'sub_agency', status: 'active', metadata: { type: 'agency_activation' } }],
+    });
+
+    // The Agency Program bills on the owner shop's same Stripe customer. Counting it would tell an
+    // agency owner who has no plan that they already have one — a paying customer locked out of
+    // buying. The subscription.created webhook skips it for the same reason.
+    expect(await svc.getLiveStripeSubscriptionIds('shop-1')).toEqual([]);
+  });
+
+  it('still sees the plan when an agency subscription sits beside it', async () => {
+    const svc = await load();
+    list.mockResolvedValue({
+      data: [
+        { id: 'sub_agency', status: 'active', metadata: { type: 'agency_activation' } },
+        { id: 'sub_plan', status: 'active', metadata: { shopId: 'shop-1' } },
+      ],
+    });
+
+    expect(await svc.getLiveStripeSubscriptionIds('shop-1')).toEqual(['sub_plan']);
+  });
+
   it('asks Stripe rather than the mirror — that gap is how duplicates got created', async () => {
     const svc = await load();
     list.mockResolvedValue({ data: [{ id: 'sub_live', status: 'active' }] });

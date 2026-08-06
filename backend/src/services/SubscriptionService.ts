@@ -357,6 +357,11 @@ export class SubscriptionService extends BaseRepository {
       });
       return list.data
         .filter((s) => ['active', 'trialing', 'past_due'].includes(s.status))
+        // The Agency Program bills on the owner shop's SAME Stripe customer but is a separate
+        // product, not the shop's plan — the subscription.created webhook skips it for the same
+        // reason. Counting it here would tell an agency owner with no plan that they already have
+        // one, which locks a paying customer out of buying.
+        .filter((s) => s.metadata?.type !== 'agency_activation')
         .map((s) => s.id);
     } catch (error) {
       logger.warn('Could not ask Stripe for live subscriptions; falling back to the local mirror', {
