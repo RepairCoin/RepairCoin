@@ -70,6 +70,8 @@ function actionLabel(actionType: string | undefined, payload: any, short: boolea
       return short ? "AI message" : "Let AI write it";
     case "draft_reorder":
       return short ? "Reorder" : "Draft a reorder";
+    case "create_task":
+      return short ? "Task" : "Add a task";
     default:
       return short ? "Message" : "Send a message";
   }

@@ -45,6 +45,7 @@ import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTa
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { WorkflowsList } from "@/components/shop/automation/WorkflowsList";
+import { TasksCard } from "@/components/shop/automation/TasksCard";
 import { TeamTab } from "@/components/shop/tabs/TeamTab";
 import { CommissionsTab } from "@/components/shop/tabs/CommissionsTab";
 import { TransactionsTab } from "@/components/shop/tabs/TransactionsTab";
@@ -1783,7 +1784,12 @@ export default function ShopDashboardClient() {
           {activeTab === "automation" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <TierGate feature="customWorkflows">
-                <WorkflowsList />
+                <div className="space-y-6">
+                  <WorkflowsList />
+                  {/* The to-do list workflows file into. Below the list rather than beside it: the
+                      workflows are what you come here to build, the tasks are what they produce. */}
+                  <TasksCard />
+                </div>
               </TierGate>
             </SubscriptionGuard>
           )}

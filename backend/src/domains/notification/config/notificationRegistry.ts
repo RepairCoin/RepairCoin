@@ -234,6 +234,24 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeConfig> = {
     },
   },
 
+  // A workflow filed a to-do item. Separate from workflow_staff_alert because it means something
+  // different: the alert IS the message, whereas this one points at a task that outlives it and is
+  // still waiting. Without a notification the task is only found by whoever happens to open the card.
+  workflow_task_created: {
+    channels: ['persist', 'ws', 'push'],
+    display: {
+      title: () => 'New task',
+      icon: 'campaign',
+      color: '#FFCC00',
+    },
+    push: {
+      channelId: NotificationChannels.DEFAULT,
+      priority: 'default',
+      title: (m) => m.ruleName || 'New task',
+      body: (m) => m.message || 'An automation added a task to your list.',
+    },
+  },
+
   ai_overage_payment_failed: {
     channels: ['persist', 'ws', 'push'],
     transactional: true,
