@@ -1115,6 +1115,17 @@ export function initializeRoutes(stripe: StripeService): Router {
     orderController.markNoShow
   );
 
+  // "Tell the customer it's ready to collect." Not a status change — see OrderController.notifyReady.
+  // No requireStripeConnected(): sending a message costs nothing and takes no payment, and a shop
+  // mid-onboarding still has customers waiting on work.
+  router.post(
+    '/orders/:id/notify-ready',
+    authMiddleware,
+    requireRole(['shop']),
+    requireShopPermission('bookings:manage'),
+    orderController.notifyReady
+  );
+
   router.post(
     '/orders/:id/mark-paid',
     authMiddleware,

@@ -25,6 +25,7 @@ import {
   updateOrderStatus,
   approveBooking,
   markOrderAsPaid,
+  notifyOrderReady,
   ServiceOrderWithDetails,
   OrderStatus,
 } from "@/services/api/services";
@@ -52,13 +53,16 @@ const BookingCardList: React.FC<{
   onCancel: (id: string) => void;
   onMarkNoShow: (booking: MockBooking) => void;
   onMarkPaid: (id: string) => void;
+  onNotifyReady: (id: string) => void;
+  /** Bookings whose customer has already been told, so the button reads as done. */
+  notifiedReady: Set<string>;
   isBlocked?: boolean;
   blockReason?: string;
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
   loading?: boolean;
-}> = ({ bookings, searchQuery, selectedBookingId, onSelect, onApprove, onReschedule, onSchedule, onComplete, onCancel, onMarkNoShow, onMarkPaid, isBlocked, blockReason, currentPage, totalPages, onPageChange, loading }) => {
+}> = ({ bookings, searchQuery, selectedBookingId, onSelect, onApprove, onReschedule, onSchedule, onComplete, onCancel, onMarkNoShow, onMarkPaid, onNotifyReady, notifiedReady, isBlocked, blockReason, currentPage, totalPages, onPageChange, loading }) => {
   if (bookings.length === 0) {
     return (
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-8 text-center">
@@ -88,6 +92,8 @@ const BookingCardList: React.FC<{
           onCancel={() => onCancel(booking.bookingId)}
           onMarkNoShow={() => onMarkNoShow(booking)}
           onMarkPaid={() => onMarkPaid(booking.bookingId)}
+          onNotifyReady={() => onNotifyReady(booking.bookingId)}
+          readyNotified={notifiedReady.has(booking.bookingId)}
           isBlocked={isBlocked}
           blockReason={blockReason}
         />
@@ -319,6 +325,30 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       toast.error(`Failed to approve booking: ${errorMessage}`);
+    }
+  };
+
+  /**
+   * Local only — the API is the real guard (ready_notified_at is set in the WHERE clause, so a second
+   * press cannot fire the workflow twice). This just stops the button inviting a press that would do
+   * nothing, without plumbing a new field through the whole bookings list for it.
+   */
+  const [notifiedReady, setNotifiedReady] = useState<Set<string>>(new Set());
+
+  const handleNotifyReady = async (bookingId: string) => {
+    const booking = bookings.find((b) => b.bookingId === bookingId);
+    if (!booking) return;
+    try {
+      const { alreadyNotified } = await notifyOrderReady(booking.orderId);
+      setNotifiedReady((prev) => new Set(prev).add(bookingId));
+      toast.success(
+        alreadyNotified
+          ? "They've already been told this is ready"
+          : "Customer told it's ready to collect"
+      );
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      toast.error(`Could not notify the customer: ${msg}`);
     }
   };
 
@@ -643,6 +673,8 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
                 onCancel={handleCancel}
                 onMarkNoShow={(booking) => setNoShowModalBooking(booking)}
                 onMarkPaid={handleMarkPaid}
+                onNotifyReady={handleNotifyReady}
+                notifiedReady={notifiedReady}
                 isBlocked={isBlocked}
                 blockReason={blockReason}
                 currentPage={currentPage}

@@ -33,6 +33,8 @@ export interface ServiceOrder {
   rescheduleReason?: string;
   rescheduleCount: number;
   noShow?: boolean;
+  /** When the shop told the customer it was ready to collect. Not a status — see migration 269. */
+  readyNotifiedAt?: Date;
   markedNoShowAt?: Date;
   noShowNotes?: string;
   // Expired fields (24h past appointment without completion)
@@ -688,6 +690,24 @@ export class OrderRepository extends BaseRepository {
   /**
    * Mark order as no-show
    */
+  /**
+   * Stamp "we told the customer it's ready", once.
+   *
+   * Returns the timestamp on the FIRST call and null on any later one. The guard lives in the WHERE
+   * clause rather than a read-then-write, so two clicks landing together cannot both win and fire the
+   * workflow twice — which for the customer means being told twice that the same thing is ready.
+   */
+  async markReadyNotified(orderId: string): Promise<Date | null> {
+    const res = await this.pool.query(
+      `UPDATE service_orders
+          SET ready_notified_at = NOW(), updated_at = NOW()
+        WHERE order_id = $1 AND ready_notified_at IS NULL
+        RETURNING ready_notified_at`,
+      [orderId]
+    );
+    return res.rows[0]?.ready_notified_at ?? null;
+  }
+
   async markAsNoShow(orderId: string, notes?: string): Promise<ServiceOrder> {
     try {
       const query = `
@@ -803,6 +823,7 @@ export class OrderRepository extends BaseRepository {
       noShow: row.no_show || false,
       markedNoShowAt: row.marked_no_show_at,
       noShowNotes: row.no_show_notes,
+      readyNotifiedAt: row.ready_notified_at,
       // Expired fields
       expiredAt: row.expired_at,
       expiredBy: row.expired_by,

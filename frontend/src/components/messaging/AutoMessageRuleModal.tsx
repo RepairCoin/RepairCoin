@@ -48,6 +48,7 @@ const EVENT_TYPES = [
   { value: "review_received", label: "Review Received" },
   { value: "low_rating", label: "Low Rating (1–2 stars)" },
   { value: "payment_failed", label: "Payment Failed" },
+  { value: "order_ready", label: "Ready for Pickup" },
   { value: "low_stock", label: "Low Stock (shop alert)" },
   { value: "new_ad_lead", label: "New Ad Lead (shop alert)" },
   { value: "subscription_lapsed", label: "Subscription Payment Failed (shop alert)" },

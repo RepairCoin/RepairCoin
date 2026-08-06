@@ -16,6 +16,8 @@ interface BookingCardProps {
   onCancel: () => void;
   onMarkNoShow: () => void;
   onMarkPaid: () => void;
+  onNotifyReady: () => void;
+  readyNotified?: boolean;
   isBlocked?: boolean;
   blockReason?: string;
 }
@@ -34,6 +36,8 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   onCancel,
   onMarkNoShow,
   onMarkPaid,
+  onNotifyReady,
+  readyNotified = false,
   isBlocked = false,
   blockReason = "Action blocked"
 }) => {
@@ -225,6 +229,39 @@ export const BookingCard: React.FC<BookingCardProps> = ({
       </button>
     );
 
+    /**
+     * "Ready" — for shops that HOLD something for the customer: repairs, automotive, pet care, a
+     * custom order. A barber or a gym class has nothing to collect, so this is offered on the statuses
+     * where work is underway and simply ignored by the shops it does not apply to. It changes no
+     * status; it tells the customer and fires the `order_ready` workflow trigger.
+     *
+     * Secondary styling on purpose: Complete is the action that closes the booking, and this must not
+     * compete with it.
+     */
+    const notifyReadyButton = (
+      <button
+        onClick={onNotifyReady}
+        disabled={isBlocked || readyNotified}
+        title={
+          isBlocked
+            ? blockReason
+            : readyNotified
+            ? "Already told them"
+            : "Tell the customer it's ready to collect"
+        }
+        className={`${baseButtonClass} ${
+          readyNotified
+            ? "text-gray-500 bg-[#0D0D0D] border border-gray-800 cursor-default"
+            : `text-[#FFCC00] bg-[#0D0D0D] border border-[#FFCC00]/50 ${
+                isBlocked ? disabledClass : "hover:bg-[#FFCC00]/10 hover:border-[#FFCC00]"
+              }`
+        }`}
+      >
+        <Package className="w-4 h-4 flex-shrink-0" />
+        <span className="truncate">{readyNotified ? "Told them" : "Ready"}</span>
+      </button>
+    );
+
     const markPaidButton = (
       <button
         onClick={onMarkPaid}
@@ -269,6 +306,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
           <>
             {cancelButton}
             {rescheduleButton}
+            {notifyReadyButton}
             <button
               onClick={onSchedule}
               disabled={isBlocked}
@@ -298,6 +336,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
               <span className="truncate">No-Show</span>
             </button>
             {rescheduleButton}
+            {notifyReadyButton}
             <button
               onClick={onComplete}
               disabled={isBlocked}

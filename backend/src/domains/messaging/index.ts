@@ -97,6 +97,27 @@ export class MessagingDomain implements DomainModule {
       }
     }, 'MessagingDomain');
 
+    // order_ready → "your order is ready to collect".
+    //
+    // Customer-scoped: there is exactly one person waiting on this order, so it pairs with any
+    // customer-facing action — a message, an AI-written note, even a small reward for coming in.
+    //
+    // Published by the shop pressing a button rather than by a status change, and that endpoint is
+    // idempotent, so a double-click cannot tell the same customer twice that the same thing is ready.
+    eventBus.subscribe('service.order_ready', async (event) => {
+      try {
+        const { shopId, customerAddress, orderId } = event.data;
+        if (!shopId || !customerAddress) return;
+        await autoMessageSchedulerService.handleEventTrigger('order_ready', {
+          shopId,
+          customerAddress,
+          orderId,
+        });
+      } catch (error) {
+        logger.error('Error handling order_ready for auto-messages:', error);
+      }
+    }, 'MessagingDomain');
+
     // booking_cancelled → triggers auto-messages with event_type = 'booking_cancelled'
     eventBus.subscribe('service.order_cancelled', async (event) => {
       try {

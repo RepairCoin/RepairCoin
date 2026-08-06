@@ -922,6 +922,82 @@ export class OrderController {
    * POST /api/services/orders/:id/mark-no-show
    * Body: { notes?: string }
    */
+  /**
+   * "Tell the customer it's ready to collect."
+   *
+   * Deliberately an ACTION the shop takes, not a status the order moves through. Repairs are ~21% of
+   * services on this platform; for a barber or a gym class there is nothing to collect and "ready" and
+   * "completed" are the same instant. Making it a lifecycle stage would put a step in every shop's
+   * booking flow to serve a minority — and would force an audit of every query that filters on status,
+   * including the revenue/booked split where a new value landing in the wrong bucket is precisely the
+   * bug that took a week to spot.
+   *
+   * So the order's status is untouched. All that is recorded is that the notification was sent, which
+   * is a fact about a message rather than about the order.
+   */
+  notifyReady = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { id } = req.params;
+      const order = await this.orderRepository.getOrderById(id);
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+      if (order.shopId !== shopId) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to update this order' });
+      }
+
+      // Nothing is ready on an order that was cancelled, refunded or never turned up. Allowing it would
+      // let a shop tell a customer to come and collect something that is not waiting for them.
+      const COLLECTABLE = ['paid', 'approved', 'scheduled', 'completed'];
+      if (!COLLECTABLE.includes(order.status)) {
+        return res.status(400).json({
+          success: false,
+          error: `An order that is ${order.status} cannot be marked ready for pickup.`,
+        });
+      }
+
+      // Idempotent by design. The button is the kind a shop double-clicks, and each press would
+      // otherwise fire the workflow again and message the customer twice.
+      const marked = await this.orderRepository.markReadyNotified(id);
+      if (!marked) {
+        return res.json({
+          success: true,
+          data: { alreadyNotified: true, readyNotifiedAt: order.readyNotifiedAt },
+          message: 'The customer has already been told this is ready.',
+        });
+      }
+
+      // Custom Workflows §9.3.2 — customer-scoped, so it pairs with any customer-facing action.
+      // On the bus rather than called directly, so a failure here cannot fail the shop's action.
+      try {
+        await eventBus.publish(createDomainEvent(
+          'service.order_ready',
+          id,
+          {
+            shopId,
+            customerAddress: order.customerAddress,
+            orderId: id,
+            serviceId: order.serviceId,
+          },
+          'ServiceDomain'
+        ));
+      } catch (busError) {
+        logger.error('Failed to publish service.order_ready:', busError);
+      }
+
+      logger.info('Order marked ready for pickup', { orderId: id, shopId });
+      return res.json({ success: true, data: { alreadyNotified: false, readyNotifiedAt: marked } });
+    } catch (error) {
+      logger.error('Error in notifyReady controller:', error);
+      return res.status(500).json({ success: false, error: 'Failed to mark the order ready' });
+    }
+  };
+
   markNoShow = async (req: Request, res: Response) => {
     try {
       const shopId = req.user?.shopId;

@@ -636,6 +636,21 @@ export const markOrderAsNoShow = async (
 };
 
 /**
+ * Tell the customer their order is ready to collect (Shop only).
+ *
+ * Not a status change — the order's lifecycle is untouched. It fires the `order_ready` workflow
+ * trigger and stamps `ready_notified_at` so a second press is a no-op rather than a second message.
+ * `alreadyNotified` reports which of those happened, so the UI can say so instead of implying it
+ * sent something twice.
+ */
+export const notifyOrderReady = async (
+  orderId: string
+): Promise<{ alreadyNotified: boolean }> => {
+  const res = await apiClient.post(`/services/orders/${orderId}/notify-ready`);
+  return { alreadyNotified: Boolean((res as any)?.data?.alreadyNotified) };
+};
+
+/**
  * Mark a pending order as paid (Shop only)
  */
 export const markOrderAsPaid = async (orderId: string): Promise<boolean> => {

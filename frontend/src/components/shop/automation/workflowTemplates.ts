@@ -227,6 +227,31 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     },
   },
   {
+    id: "ready-for-pickup",
+    name: "Tell them it's ready",
+    description: "The moment you mark an order ready, the customer hears about it.",
+    shape: "Ready for pickup → message",
+    // Only useful to shops that hold something for the customer — repairs, automotive, pet care, a
+    // custom order. For a barber or a gym class there is nothing to collect, so this card is honest
+    // about being for some shops rather than all.
+    benefit: "Gets things collected sooner, so finished work isn't sitting on your shelf.",
+    // No relevance line: nothing has been marked ready yet on any shop, because the button is new.
+    // A card claiming a number it cannot have is worse than a card with no number.
+    draft: {
+      name: "Ready for pickup",
+      triggerType: "event",
+      eventType: "order_ready",
+      delayHours: 0,
+      targetAudience: "all",
+      maxSendsPerCustomer: 1,
+      actionType: "send_message",
+      messageTemplate:
+        "Hi {{customerName}}, good news — your order at {{shopName}} is ready to collect. Reply here if you'd like to arrange a time.",
+      stopOnBooking: false,
+      steps: null,
+    },
+  },
+  {
     id: "no-show-recovery",
     name: "Recover a no-show",
     description: "Reach out after a missed appointment and make it easy to rebook.",

@@ -30,6 +30,10 @@ const VALID_EVENT_TYPES = [
   // Operations triggers (W3). Each is backed by a real event the platform already emits — see
   // MessagingDomain.setupEventSubscriptions.
   'no_show', 'review_received', 'low_rating', 'payment_failed',
+  // "Ready for pickup", generalised — repairs are ~21% of services here, and for a barber or a gym
+  // class there is nothing to collect. Fired when the shop presses the button on the order, not by a
+  // status change; see OrderController.notifyReady.
+  'order_ready',
   // Shop-scoped: happens to the SHOP, with no customer involved.
   // `subscription_lapsed` is the shop's OWN billing failing — not to be confused with `payment_failed`
   // above, which is a customer's booking payment. Close names, opposite audiences.
