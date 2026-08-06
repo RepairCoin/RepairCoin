@@ -16,6 +16,7 @@ import {
   MAX_AUTOMATED_RCN,
 } from '../../../services/autoMessageActions/issueRewardAction';
 import { parseNotifyStaffPayload } from '../../../services/autoMessageActions/notifyStaffAction';
+import { parseCreateTaskPayload } from '../../../services/autoMessageActions/createTaskAction';
 import { parseRunCampaignPayload } from '../../../services/autoMessageActions/runCampaignAction';
 import { parseAiStepPayload } from '../../../services/autoMessageActions/aiStepAction';
 import { workflowRelevanceService } from '../services/WorkflowRelevanceService';
@@ -146,6 +147,7 @@ const ACTION_LABELS: Record<string, string> = {
   run_campaign: 'Send a campaign',
   ai_step: 'Let AI write it',
   draft_reorder: 'Draft a reorder',
+  create_task: 'Add a task',
 };
 
 /** Which surface a request is talking about (D7). Anything unrecognised falls back to 'campaign'. */
@@ -220,6 +222,19 @@ function parseAction(
     };
   }
 
+  if (actionType === 'create_task') {
+    // Everything is optional — the action falls back to the rule name, so "when this happens, remind
+    // me" works without composing anything.
+    return {
+      actionType,
+      actionPayload: parseCreateTaskPayload(rawPayload) as unknown as Record<string, unknown>,
+    };
+  }
+
+  // Anything without a branch above stores NO payload. That is correct for send_message, and a trap
+  // for every action that carries config: create_task shipped registered in the engine but missing
+  // here, so its title was silently dropped and every task fell back to the rule name. If you add an
+  // action with an actionPayload, it needs a branch — the registry alone is not enough.
   return { actionType, actionPayload: null };
 }
 
