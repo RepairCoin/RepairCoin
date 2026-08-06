@@ -6,8 +6,42 @@ const path = require('path');
 // max(files)+1 would then collide with it (the drift behind the original "164" bug).
 // Folding DB versions into the "used" set makes the next number free in BOTH places.
 // Best-effort: if the DB is unreachable we fall back to file-only numbering.
+/**
+ * Every migration number ever committed on ANY ref — local branches, remotes, and history.
+ *
+ * `git log --all --name-only` over the migrations path catches files that were added and later
+ * renamed or deleted, which is what we want: a number that briefly existed on someone's branch may
+ * already be recorded on a shared database, and reusing it means silent skipping.
+ *
+ * Deliberately over-reserves. Treating a number as taken when it might be free costs a gap in the
+ * sequence, which nothing depends on. Treating a taken number as free costs a migration that never
+ * runs and a bug that surfaces later as a missing relation.
+ *
+ * Best-effort: returns [] outside a git checkout, or if git is slow enough to hit the timeout. The
+ * caller still has files and the DB.
+ */
+function getVersionsAcrossRefs() {
+    try {
+        const { execSync } = require('child_process');
+        const out = execSync(
+            // ':(top)' makes the pathspec repo-root-relative. Without it git resolves it against cwd —
+            // backend/scripts — and silently matches nothing, which looks identical to "no other
+            // branches have migrations".
+            'git log --all --pretty=format: --name-only -- ":(top)*migrations/*.sql"',
+            { cwd: __dirname, encoding: 'utf8', timeout: 20000, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }
+        );
+        const nums = new Set();
+        for (const m of out.matchAll(/migrations\/(\d+)_/g)) nums.add(parseInt(m[1], 10));
+        return [...nums].filter((n) => !isNaN(n));
+    } catch (_) {
+        return [];
+    }
+}
+
 async function getDbVersions() {
     try { require('dotenv').config(); } catch (_) { /* optional */ }
+
+
     let Pool;
     try { ({ Pool } = require('pg')); } catch (_) { return null; }
 
@@ -69,7 +103,22 @@ async function createMigration() {
     const dbVersions = await getDbVersions();
     if (dbVersions) {
         for (const v of dbVersions) usedNumbers.add(v);
-        console.log(`🔢 Numbering against ${usedNumbers.size} known numbers (files + DB)`);
+    }
+
+    // ...and numbers claimed by files on OTHER branches, which is the third place a number can be
+    // taken and the one nothing used to check. A branch open for a few days will have its local
+    // migrations directory left far behind: when this was added, local files stopped at 253 while
+    // 254-267 were already claimed elsewhere. Picking max(local)+1 would have collided fourteen times.
+    const refVersions = getVersionsAcrossRefs();
+    for (const v of refVersions) usedNumbers.add(v);
+
+    console.log(
+        `🔢 Numbering against ${usedNumbers.size} known numbers ` +
+        `(files${dbVersions ? ' + DB' : ''}${refVersions.length ? ' + all git refs' : ''})`
+    );
+    if (!dbVersions) {
+        console.log('   ⚠️  No database reached — a number free in the repo can still be taken on the');
+        console.log('      target DB, where a duplicate is SKIPPED silently rather than failing.');
     }
 
     // Numbers >= 1000 are a separate legacy/parallel track (e.g. 1000, 1016-1021) that
