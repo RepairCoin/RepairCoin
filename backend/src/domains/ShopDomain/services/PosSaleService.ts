@@ -27,6 +27,14 @@ function httpError(message: string, status: number): Error {
 
 const toCents = (dollars: unknown): number => Math.round(Number(dollars ?? 0) * 100);
 
+/** Trimmed and lowercased, or null when it isn't an address we could send to. */
+function normalizeEmail(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const email = value.trim().toLowerCase();
+  if (!email) return null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
+}
+
 export interface AddItemRequest {
   kind: PosSaleItemKind;
   serviceId?: string;
@@ -364,7 +372,22 @@ export class PosSaleService {
    * rather than being called here, so a failure in any of them can never fail the sale that
    * has already taken the customer's money.
    */
-  async completeSale(shopId: string, saleId: string): Promise<PosSaleWithDetails> {
+  async completeSale(
+    shopId: string,
+    saleId: string,
+    options: { receiptEmail?: string | null } = {}
+  ): Promise<PosSaleWithDetails> {
+    if (options.receiptEmail !== undefined) {
+      // A malformed address is dropped rather than raised. The card has already been run by the
+      // time this is called, so refusing the completion over a typo would leave the shop holding a
+      // paid sale it cannot close — the receipt is the part that's allowed to fail here.
+      const receiptEmail = normalizeEmail(options.receiptEmail);
+      if (options.receiptEmail && !receiptEmail) {
+        logger.warn('POS receipt: ignoring an unusable email address', { saleId, shopId });
+      }
+      await posSaleRepository.setReceiptEmail(saleId, shopId, receiptEmail);
+    }
+
     const sale = await posSaleRepository.completeSale(saleId, shopId);
 
     await this.writeToLedger(sale);

@@ -157,7 +157,9 @@ router.post(
 router.post(
   '/pos/sales/:id/complete',
   handle('Failed to complete sale', (shopId, req) =>
-    getPosSaleService().completeSale(shopId, req.params.id)
+    getPosSaleService().completeSale(shopId, req.params.id, {
+      receiptEmail: req.body?.receiptEmail,
+    })
   )
 );
 

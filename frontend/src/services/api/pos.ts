@@ -51,6 +51,7 @@ export interface PosSale {
   taxCents: number;
   totalCents: number;
   currency: string;
+  receiptEmail: string | null;
   items: PosSaleItem[];
   payments: PosSalePayment[];
   paidCents: number;
@@ -163,9 +164,9 @@ export async function cancelCardPayment(saleId: string, paymentId: string): Prom
   );
 }
 
-export async function completeSale(saleId: string): Promise<PosSale> {
+export async function completeSale(saleId: string, receiptEmail?: string): Promise<PosSale> {
   return unwrap(
-    await apiClient.post(`/shops/pos/sales/${saleId}/complete`),
+    await apiClient.post(`/shops/pos/sales/${saleId}/complete`, { receiptEmail }),
     "Could not complete the sale"
   );
 }

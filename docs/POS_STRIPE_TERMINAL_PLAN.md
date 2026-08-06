@@ -180,12 +180,13 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S5 | **Phase 5** — inventory wiring, per-branch stock, cost/margin — **built** | S | S2 |
 | S6a | **Fiat-ledger reconciliation** (see 7a) — **built** | M | S2 |
 | S6b | **Customer + loyalty** — attach a customer, earn RCN — **built** | M | S2 |
-| S6c | **Receipt + review** via the notification gateway — **not started** | M | S6b |
+| S6c-1 | **Customer's receipt** — email captured at the register, in-app for an attached customer — **built** | M | S6b |
+| S6c-2 | **Review request** for a counter sale — needs the review path to accept one — **not started** | M | S6c-1 |
 | S7 | **Phase 6** — devices & warranty model | M | S2 |
 | S8 | **Phase 4** — repair ticket workflow | L | S2, S7 |
 | S9a | **Revenue excludes unpaid orders** (see 9a) — **built** | M | — |
 | S9b | **Ledger completeness** (see 9b) — **built** | M | S6a |
-| S9c | **Move revenue reporting onto the ledger** (see 9c) — S9c-1 **built**, S9c-2/3 pending | L | S9b |
+| S9c | **Move revenue reporting onto the ledger** (see 9c) — S9c-1/2/3 all **built** | L | S9b |
 | — | **Phases 3 & 7 (AI)** — deferred handoff | — | S2 |
 
 ### S0 — Terminal readiness — **done**
@@ -991,6 +992,57 @@ reports they spent.
 that is how a till works — so the sum of customer spend is always less than shop revenue. On staging
 that is 10 of 12 completed sales, $1,747.85. Not a gap to close.
 
+## 10. The customer's receipt (S6c-1) — **built**
+
+The register has always shown the cashier a receipt after checkout. The customer got nothing.
+
+**Where it goes.** Migration 265 adds `pos_sales.receipt_email` and `receipt_sent_at`, and the
+register asks for an address on the completion step. A wallet was the only contact detail a sale
+carried before this, and on staging only 3 of 20 sales name a customer — gating the receipt on
+having an account would have reached roughly one sale in seven. The address typed at the counter
+wins over the one on the customer's account: it is the one the person standing there just gave, and
+may not be theirs at all.
+
+**Two deliveries, two audiences.** An attached customer gets `pos_sale_receipt` through the
+notification gateway (persist + WS + push, marked transactional — a record of money taken is not
+something a preference toggle should be able to mute). Anyone who gave an email gets the emailed
+copy, account or not. Give neither and nothing is sent, which is the ordinary case at a counter.
+
+**Nothing here can fail a sale.** `PosReceiptListener` hangs off `pos.sale_completed`, like loyalty
+and stock before it, so it runs after the money is taken. Every failure is logged and swallowed —
+the customer has already left, so there is nothing a retry rescues and nothing the register could
+usefully be told. A malformed address is dropped the same way rather than raised: refusing to close
+a paid sale over a typo would leave the shop holding an open till.
+
+`receipt_sent_at` is how "did they get it?" gets answered later, since the send is invisible at the
+register by design.
+
+Only settled tenders appear on either copy. A declined attempt is register noise, and including it
+would make the tenders fail to sum to the total.
+
+**Paper.** *Print receipt* on the completion screen renders an 80mm roll layout — `@page { size:
+80mm auto }` so the roll cuts at the end of the receipt instead of feeding a blank page — and prints
+through a hidden iframe rather than a popup window, because a till behind a popup blocker would fail
+to produce a receipt with nothing on screen to explain why. On an ordinary A4 printer it just prints
+narrow. This is the only copy that needs no contact detail at all, which makes it the fallback for
+the cash customer who wants something in hand.
+
+**Not covered:** the web notification bell maps the new `receipt` icon token; mobile's own map does
+not, so it falls back to its default icon there until whoever owns mobile adds it. Reprinting an
+earlier sale is also absent — `listSales` has no frontend caller at all, so there is no sales history
+screen to hang a reprint off, and building one is its own slice.
+
+### Next
+
+S6c-2, the review request, which is the harder half. `ReviewController.createReview` resolves the
+order through `orderRepository.getOrderById` and 404s on anything that is not a `service_order`, and
+`service_reviews.service_id` is NOT NULL — so only service lines are reviewable at all, and the
+create path needs to learn about POS sales before a review request means anything. There are no FK
+constraints on `service_reviews`, so nothing stops a sale id being stored; the controller is the
+real barrier, not the schema.
+
+---
+
 ## 7b. Half-built feature, deliberately left alone — **not the live bug this said it was**
 
 `InventoryDomain` subscribes to **`service:completed`** (`serviceIntegrationController.ts:464`),
@@ -1014,8 +1066,11 @@ modal, endpoints, listener and table.
 
 **The trap to avoid:** correcting the event name in good faith without checking
 `SELECT count(*) FROM service_inventory_items` first. If links exist — created through the API or an
-earlier build — flipping it starts moving real stock for those shops. That query settles it and has
-not been run.
+earlier build — flipping it starts moving real stock for those shops.
+
+**Run on staging 2026-08-06: 0 rows.** Nothing is linked, so no shop's stock is at risk either way
+and the decision can be made on the feature's merits rather than under a deadline. Production has
+not been checked; run the same query there before touching the event name.
 
 ---
 
