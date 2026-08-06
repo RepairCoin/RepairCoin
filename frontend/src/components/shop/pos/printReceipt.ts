@@ -8,6 +8,19 @@ const TENDER_LABELS: Record<string, string> = {
   other: "Payment",
 };
 
+/**
+ * "90-day warranty, covered to Nov 4, 2026". Mirrors the emailed receipt's wording, and returns
+ * null when nothing was promised so an uncovered line prints no warranty row at all.
+ */
+const warrantyLabel = (warrantyDays: number | null, completedAt: string | null): string | null => {
+  if (!warrantyDays || warrantyDays <= 0) return null;
+  const start = completedAt ? new Date(completedAt) : new Date();
+  const expiry = new Date(start.getTime() + warrantyDays * 86_400_000);
+  return `${warrantyDays}-day warranty, covered to ${expiry.toLocaleDateString(undefined, {
+    dateStyle: "medium",
+  })}`;
+};
+
 const escapeHtml = (value: string): string =>
   value
     .replace(/&/g, "&amp;")
@@ -39,9 +52,12 @@ function receiptHtml({ sale, shopName, locationName }: PrintOptions): string {
         item.quantity > 1
           ? `<div class="qty">${item.quantity} × ${formatCents(item.unitPriceCents)}</div>`
           : "";
+      // Under its own line: the customer holding this needs to know which repair is covered.
+      const warranty = warrantyLabel(item.warrantyDays, sale.completedAt);
       return `<div class="item">
         ${row(escapeHtml(item.name), formatCents(item.totalCents))}
         ${qty}
+        ${warranty ? `<div class="qty">${escapeHtml(warranty)}</div>` : ""}
       </div>`;
     })
     .join("");
@@ -82,7 +98,7 @@ function receiptHtml({ sale, shopName, locationName }: PrintOptions): string {
     <div class="shop">${escapeHtml(shopName || "Receipt")}</div>
     ${locationName ? `<div class="muted">${escapeHtml(locationName)}</div>` : ""}
     <div class="muted">${sale.saleNumber ? `Sale #${sale.saleNumber}` : ""}</div>
-    <div class="muted">${new Date().toLocaleString()}</div>
+    <div class="muted">${new Date(sale.completedAt ?? Date.now()).toLocaleString()}</div>
   </div>
 
   <div class="rule"></div>

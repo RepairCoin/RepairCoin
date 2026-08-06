@@ -3,6 +3,7 @@ import { logger } from '../../../utils/logger';
 import { customerRepository, posSaleRepository, shopRepository } from '../../../repositories';
 import { getNotificationGateway } from '../../notification/services/NotificationGateway';
 import { EmailService } from '../../../services/EmailService';
+import { warrantyLabel } from '../../../utils/warranty';
 import type { PosTenderMethod, PosSaleWithDetails } from '../../../repositories/PosSaleRepository';
 
 /**
@@ -115,6 +116,7 @@ async function sendEmail(
       name: item.name,
       quantity: item.quantity,
       totalCents: item.totalCents,
+      warrantyLabel: warrantyLabel(sale.completedAt, item.warrantyDays) ?? undefined,
     })),
     subtotalCents: sale.subtotalCents,
     discountCents: sale.discountCents,

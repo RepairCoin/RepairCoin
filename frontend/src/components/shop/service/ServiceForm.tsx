@@ -127,6 +127,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({
     tags: initialData?.tags || [],
     active: initialData?.active !== undefined ? initialData.active : true,
     taxable: initialData?.taxable !== undefined ? initialData.taxable : true,
+    warrantyDays: initialData?.warrantyDays ?? null,
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof CreateServiceData, string>>>({});
@@ -181,7 +182,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({
 
   const handleChange = (
     field: keyof CreateServiceData,
-    value: string | number | boolean | string[] | undefined
+    value: string | number | boolean | string[] | null | undefined
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -325,6 +326,28 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({
               <span className="block text-xs text-gray-500">
                 Turn this off where labour isn&apos;t taxed. Only affects counter sales.
               </span>
+            </span>
+          </label>
+
+          <label className="mt-4 block">
+            <span className="block text-sm font-semibold text-white mb-2">Warranty (days)</span>
+            <input
+              type="number"
+              min="0"
+              max="1825"
+              step="1"
+              value={formData.warrantyDays ?? ""}
+              onChange={(e) => {
+                const days = parseInt(e.target.value, 10);
+                handleChange("warrantyDays", Number.isFinite(days) && days > 0 ? days : null);
+              }}
+              className="w-full bg-[#1A1A1A] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors"
+              placeholder="e.g. 90"
+            />
+            <span className="mt-1 block text-xs text-gray-500">
+              How long you cover this work after it&apos;s done. Leave blank for no warranty. The
+              term is recorded on each job as it&apos;s completed, so changing it here never
+              shortens a warranty you&apos;ve already given.
             </span>
           </label>
         </div>

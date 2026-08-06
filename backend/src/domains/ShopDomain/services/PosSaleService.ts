@@ -129,7 +129,7 @@ export class PosSaleService {
     if (req.kind === 'service') {
       if (!req.serviceId) throw httpError('serviceId is required for a service line.', 400);
       const result = await pool.query(
-        `SELECT service_name, price_usd, taxable FROM shop_services
+        `SELECT service_name, price_usd, taxable, warranty_days FROM shop_services
          WHERE service_id = $1 AND shop_id = $2`,
         [req.serviceId, shopId]
       );
@@ -144,6 +144,9 @@ export class PosSaleService {
         discountCents,
         taxable: row.taxable !== false,
         unitCostCents: await this.serviceCostCents(req.serviceId),
+        // Snapshotted here rather than joined at read time: a shop that shortens its warranty next
+        // month must not shorten the one it already promised on this line.
+        warrantyDays: row.warranty_days ?? null,
       };
     }
 
