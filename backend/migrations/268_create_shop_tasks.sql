@@ -8,14 +8,23 @@
 -- customer/booking"). A flag is a task that points at a record — nullable customer_address / order_id —
 -- so the record view can later list tasks attached to it without a second table or a second concept.
 --
--- Numbered 267 although this branch's migrations stop at 253: 254–266 are taken on other branches, and
--- a duplicate integer silently skips the SQL rather than failing, so the table would simply never
--- exist.
+-- Numbered 268 although this branch's migrations stop at 253. Getting here took three attempts, and
+-- each failure was a different authority nobody checks together:
 --
--- Two traps here, both hit while writing this file. `npm run db:create-migration` reads local files and
--- schema_migrations only, so it proposes 254 — it cannot see other branches. And a `git ls-tree` scan
--- across branches is only as fresh as your last fetch: this was first numbered 265, which CI rejected
--- because 265 had landed elsewhere in the meantime. **Fetch, then scan every ref.**
+--   265 — rejected by CI. A FILE on another branch already claimed it.
+--   267 — passed CI, deployed, and silently did nothing. No file claimed it, but staging's
+--         schema_migrations already had 267 = fix_subscription_status_trigger, so the runner saw the
+--         version as applied and skipped this SQL entirely. The table was never created and every task
+--         write would have failed against a missing relation.
+--   268 — free in BOTH.
+--
+-- So a free number must be free in three places, and no single tool checks all of them:
+--   * local files              — `npm run db:create-migration` sees only these (it proposed 254)
+--   * files on every other ref — `git ls-tree` across refs, and only as fresh as your last fetch
+--   * schema_migrations on the target database — the one that actually decides whether SQL runs
+--
+-- CI's `db:check-migrations` covers the first two and cannot see the third. That is why 267 went green
+-- and still did nothing: a duplicate version does not fail, it is skipped.
 
 CREATE TABLE IF NOT EXISTS shop_tasks (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
