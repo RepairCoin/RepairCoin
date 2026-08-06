@@ -190,6 +190,43 @@ export class MessagingDomain implements DomainModule {
       }
     });
 
+    /**
+     * subscription_lapsed → the shop's OWN subscription payment failed.
+     *
+     * Deliberately scoped to the payment FAILING, not to the subscription being cancelled. After a
+     * cancellation the shop is no longer entitled to automations at all — `isShopEntitled` skips it —
+     * so a workflow is structurally the wrong channel for "you have been cut off"; that belongs in a
+     * billing email. Firing while they are still `past_due` is both deliverable and more useful: it is
+     * a warning with time left to act on it.
+     *
+     * Rides on `payment.webhook.failed`, which the Stripe webhook already publishes with the shopId
+     * resolved. No new publish — the event existed and nothing consumed it for automations.
+     *
+     * Fires once per INVOICE, not once per attempt, via the reference dedup in handleShopEvent. Stripe
+     * retries a failed invoice over several days and re-delivers webhooks on any non-2xx, so without
+     * that the team would be paged repeatedly about one unpaid bill.
+     */
+    eventBus.subscribe('payment.webhook.failed', async (event) => {
+      try {
+        const { shopId, invoiceId, attemptCount } = event.data;
+        if (!shopId) return;
+
+        const n = Number(attemptCount) || 1;
+        await autoMessageSchedulerService.handleShopEvent('subscription_lapsed', {
+          shopId,
+          // The invoice, not the attempt — so retry number 2 for the same bill is recognised as the
+          // same problem rather than a new one.
+          reference: invoiceId ? String(invoiceId) : undefined,
+          summary:
+            n > 1
+              ? `Your subscription payment failed again (attempt ${n}). Update your card to avoid losing access.`
+              : 'Your subscription payment failed. Update your card to avoid losing access.',
+        });
+      } catch (error) {
+        logger.error('Error handling payment.webhook.failed for automations:', error);
+      }
+    }, 'MessagingDomain');
+
     eventBus.subscribe('inventory:low_stock_alert', async (event) => {
       try {
         const { shopId, items, itemsCount } = event.data;

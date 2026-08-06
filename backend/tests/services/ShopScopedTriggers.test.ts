@@ -74,17 +74,33 @@ describe('low_stock — shop-scoped trigger', () => {
     expect(shopScopedPath()).toContain('customerAddress: null');
   });
 
-  // De-duplication is deliberately absent from the EVENT path: the emitter (LowStockAlertService)
-  // already throttles per item and honours the shop's digest preference, and a second notion of "have
-  // we already said this" would eventually produce duplicates or silence depending on which won.
+  // TIME-BASED de-duplication is deliberately absent from the EVENT path: the emitter
+  // (LowStockAlertService) already throttles per item and honours the shop's digest preference, and a
+  // second notion of "have we already said this recently" would eventually produce duplicates or
+  // silence depending on which won.
   //
   // Note this is specifically about the event path. A shop-scoped action on a SCHEDULE has no emitter
   // throttling it, so that path does cap itself at one alert per day (hasSentTodayShopScoped) — which
   // is why this assertion is scoped to the region above rather than the whole file.
-  it('does not re-implement de-duplication on the event path', () => {
+  it('does not re-implement time-based de-duplication on the event path', () => {
     const body = shopScopedPath();
     expect(body).not.toContain('countSendsForCustomer');
     expect(body).not.toContain('hasSentToday');
+  });
+
+  // REFERENCE de-duplication is a different thing and was added for `subscription_lapsed`: Stripe
+  // retries one unpaid invoice over several days and re-delivers webhooks on any non-2xx, so without
+  // it the team is paged again and again about a single bill. It answers "is this the same THING",
+  // not "was it recently", so it does not compete with the emitter's throttle.
+  it('skips a repeat of the same reference', () => {
+    expect(shopScopedPath()).toContain('hasShopScopedSendForReference');
+  });
+
+  it('only dedups when the caller gave a reference — low_stock must be unaffected', () => {
+    // The guard is conditional on purpose. low_stock supplies no reference (each sweep is a fresh look
+    // at the same shelf), so an unconditional check would either no-op confusingly or, if it ever
+    // matched on NULL, silence the alert entirely.
+    expect(shopScopedPath()).toContain('data.reference && await this.autoMessageRepo.hasShopScopedSendForReference');
   });
 
   it('still respects the Business entitlement gate', () => {

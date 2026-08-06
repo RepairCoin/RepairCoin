@@ -428,12 +428,15 @@ stands between this and production.**
    Parts are covered ad hoc: `ai_step` live-verified, `draft_reorder` 8/8 automated, the campaign path
    browser-verified 2026-08-05. `run_campaign` firing on a real trigger is the untested one.
 
-**B. Scoped feature work not yet built (4) — the feature is usable without all of it**
+**B. Scoped feature work not yet built (3) — the feature is usable without all of it**
 
 1. **1 action of the 4 in §9.2:** *create a task / flag*. The other three shipped.
-2. **3 triggers of the 4 in §9.3:** *booking created*, *repair ready for pickup*, *subscription lapsed*.
-   *new ad lead* shipped. These are the larger items — each needs an event **emitted** from wherever it
-   happens, which was the real work in `no_show` and `payment_failed`.
+2. **2 triggers of the 4 in §9.3:** *repair ready for pickup*, *subscription lapsed*. *new ad lead* and
+   *booking created* shipped. Each needs an event **emitted** from wherever it happens, which was the
+   real work in `no_show` and `payment_failed` — and, as `booking_created` showed, emitted from
+   **every** path, not just the convenient one.
+   **Recommendation: hand `repair_ready` back** rather than build it here. It has no status to fire on;
+   it is an order-lifecycle change wearing a trigger's clothes. See §9.3.2.
 
 **Implementation plan for all four: `remaining-actions-triggers-implementation.md`.** Read it before
 estimating — **only one of the four is small.** §9.2's "a new action costs one `register()` call" held
@@ -531,17 +534,37 @@ plus its config UI, and a test asserts exactly that.
 
 **Highest impact was 3 and 4**, and both shipped. The one left (1) is a convenience.
 
-### 9.3 TRIGGERS — 1 of 4 built, 3 left
+### 9.3 TRIGGERS — 2 of 4 built, 2 left
 
-Currently accepted (`VALID_EVENT_TYPES` in `AutoMessageController.ts`): `booking_completed` ·
-`booking_cancelled` · `first_visit` · `inactive_30_days` · `low_bookings` · `no_show` · `review_received`
-· `low_rating` · `payment_failed` · `low_stock` · `new_ad_lead`.
+Currently accepted (`VALID_EVENT_TYPES` in `AutoMessageController.ts`): **`booking_created`** ·
+`booking_completed` · `booking_cancelled` · `first_visit` · `inactive_30_days` · `low_bookings` ·
+`no_show` · `review_received` · `low_rating` · `payment_failed` · `low_stock` · `new_ad_lead`.
 
 These are **larger than the actions**, because each needs an event **emitted** from wherever it happens.
 That was the real work in `no_show` and `payment_failed`: the state already existed, nothing published it.
 
-1. ⬜ **Booking created** (today: completed / cancelled / no-show only)
-2. ⬜ **Repair ready for pickup**
+1. ~~**Booking created**~~ **BUILT + VERIFIED ON STAGING 2026-08-05** (`f0a70bb32`, `67584cdc1`).
+   Customer-scoped, so no guard-table edits were needed — `triggerProvides` already defaults to
+   `'customer'` on both sides. Ships with a template, *Get them ready for the visit* (Booking made →
+   +1h), deliberately **not** a confirmation: `booking_confirmed` already fires the instant someone
+   books, and a second "you're booked!" an hour later reads as a system with two mouths. The copy earns
+   its place by carrying what the confirmation cannot — what to bring, where to park.
+
+   **The trigger was the small half.** `service.order_created` was published from the manual-booking
+   and ad-lead paths but **never from the path customers actually book through** — `PaymentService`
+   created the order and said nothing. Subscribing as-is would have produced a rule that fires for
+   shop-entered bookings and silently ignores the majority: active on screen, absent in practice, and
+   nothing in the UI could have shown the difference. This was never only a workflows gap — AdsDomain
+   subscribes to the same event, so bookings customers made themselves never advanced the lead Kanban.
+
+   **Verified by driving a real booking through the deployed server**, not by reading the source:
+   Stripe runs in test mode on staging, so a test-mode PaymentIntent confirmed with a test card and
+   handed to `/api/services/orders/confirm` reaches the exact code that was broken — no card, no real
+   money, and it exercises what is actually running rather than this laptop.
+   `backend/scripts/_qa_booking_created_stripe_test.ts`. The trigger fired 83ms after the order.
+   The API-level e2e is `_qa_booking_created_e2e.ts` (9/9).
+
+2. ⬜ **Repair ready for pickup** — **recommend handing back**, see §4 of the implementation plan.
 3. ~~**New ad lead**~~ **BUILT 2026-08-05.** Emitted from `MessagingDomain`. Shop-scoped — it happens to
    the shop with no customer attached — so it is in `SHOP_SCOPED_EVENTS` and only pairs with actions that
    need no recipient.
@@ -635,6 +658,48 @@ and quietly destroyed drafts shops were in the middle of reading.
   UTC day changes and the day checks stop matching. Pinned in `AutoMessageCatchUp.test.ts`.
 - **Attribution is correlation.** Booked/revenue count orders within 14 days of a message; the UI says so
   on hover. Do not let it be reported as caused.
+
+### 9.7 The dedup guard that never ran — FIXED 2026-08-05 (`67584cdc1`)
+
+Engine-wide, not specific to any one trigger. Recorded here because of **how** it was found and how it
+hid, both of which apply to the triggers still to build.
+
+`handleEventTrigger` opens with a duplicate check — `hasSendForTriggerReference(rule, customer, orderId)`
+— so a repeat of the same event about the same order is ignored. **It could never match.** The immediate
+branch recorded its send with no trigger reference at all, under a comment claiming otherwise:
+
+```ts
+if (sendResult.success) {
+  // Update the send record with trigger reference
+  scheduledCount++;
+}
+```
+
+The comment describes the work and nothing does it. Every `delayHours: 0` event rule stored NULL, so the
+guard read as present, cost a query per firing, and protected nothing. **This affected every immediate
+event rule** — `booking_completed`, `no_show`, `review_received`, `payment_failed`, `first_visit` — any of
+which could message a customer twice if its event fired twice for one order.
+
+**Why it survived review:** the DELAYED branch always passed the reference correctly. The feature
+demonstrably worked; it just never worked on the path most rules take. A reviewer checking "is dedup
+implemented" would find it, working, in the file.
+
+**Why the tests missed it:** they asserted the guard was *called*. What the guard needs is what the send
+ROW stores, and no test looked there. The replacement (`EventTriggerReference.test.ts`) asserts against
+the recorded row, and was checked by reverting the fix — exactly the two tests targeting the bug fail,
+the other three keep passing.
+
+**Two QA scripts reported the wrong answer that day, in opposite directions**, and this is the durable
+lesson:
+
+- The e2e's "a webhook retry cannot double-send" step **passed** because `maxSendsPerCustomer` was 1 —
+  the cap blocked the second send, not the dedup. A green produced by the wrong mechanism.
+- The Stripe script **failed** because it matched sends by `trigger_reference`, so a NULL reference
+  reported "the trigger never fired" when it had fired 83ms after the order. One query answering two
+  questions.
+
+Both are now split so each assertion can only pass for its own reason. **For the remaining triggers:
+assert on what gets written, not on what gets called, and never let a cap stand in for a guard.**
 
 ---
 

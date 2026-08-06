@@ -368,6 +368,35 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     },
   },
   {
+    id: "subscription-payment-failed",
+    name: "Tell me if my subscription payment fails",
+    description: "Get an alert when the card on file is declined, while there's still time to fix it.",
+    shape: "Subscription payment failed → notify my team",
+    // The point is the timing. Stripe retries over several days before access is cut off, and this
+    // fires on the first failure — early enough that updating a card is all it takes. Nothing fires
+    // after cancellation: by then automations are switched off with everything else, so the alert
+    // could not reach you even if it existed.
+    benefit: "Catches a declined card while it's still just a declined card.",
+    // No relevance line by design. The honest number would be "your payment has failed N times", and a
+    // template card is the wrong place for a shop to learn that about their own account.
+    draft: {
+      name: "Subscription payment failed",
+      triggerType: "event",
+      eventType: "subscription_lapsed",
+      delayHours: 0,
+      targetAudience: "all",
+      maxSendsPerCustomer: 1,
+      // Shop-scoped: this happens to the shop's own billing, so there is no customer and no message.
+      actionType: "notify_staff",
+      actionPayload: {
+        message: "Your subscription payment didn't go through — update the card on file to keep access.",
+      },
+      messageTemplate: null,
+      stopOnBooking: false,
+      steps: null,
+    },
+  },
+  {
     id: "slow-week-promo",
     name: "Fill a slow week",
     description: "When bookings dip, nudge active customers with an offer.",

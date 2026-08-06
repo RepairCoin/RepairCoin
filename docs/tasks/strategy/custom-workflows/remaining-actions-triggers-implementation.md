@@ -18,18 +18,25 @@ three of the four are blocked on something that does not exist yet:
 
 | Item | The part nobody costed | Real size |
 |---|---|---|
+| ✅ **Booking created** | The event exists but **the main booking path never publishes it.** | **S** — done 2026-08-05 |
 | **Create a task / flag** | **No task table exists anywhere in the platform.** And a task list nobody can see is worse than no task list. | **L** — migration + repo + action + a UI surface |
-| **Booking created** | The event exists but **the main booking path never publishes it.** | **S** — one publish + subscribe |
-| **Repair ready for pickup** | **No such status exists** on `service_orders`. It is a new lifecycle state, not a trigger. | **XL** — order lifecycle + shop UI |
 | **Subscription lapsed** | The engine **skips shops that are not entitled** — i.e. exactly the shops this fires for. Dead on arrival without a deliberate carve-out. | **M** — event + an entitlement exception |
+| **Repair ready for pickup** | **No such status exists** on `service_orders`. It is a new lifecycle state, not a trigger. | **XL** — hand back, see §4 |
 
-**Recommended order: Booking created → Create a task → Subscription lapsed → Repair ready.**
+**Recommended order: ~~Booking created~~ → Create a task → Subscription lapsed → Repair ready.**
 That is cheapest-first *and* value-first, which is unusual and worth taking advantage of. Repair-ready is
 last because it is not really a workflow feature at all; see §4.
 
+**Before starting the next one:** the two blockers named below are questions for a person, not code.
+`create_task` needs **task list or flag?** answered, and `subscription_lapsed` needs the **entitlement
+carve-out** decided. Both change what gets built, so neither should be started on an assumption.
+
 ---
 
-## 1. Trigger: `booking_created` — S
+## 1. Trigger: `booking_created` — S — ✅ **DONE 2026-08-05** (`f0a70bb32`, `67584cdc1`)
+
+Shipped and verified on staging. The plan below was right about the trap, and building it surfaced a
+second one nobody had predicted — see the note at the end of this section and §9.7 of `scope.md`.
 
 ### What exists
 
@@ -83,6 +90,25 @@ shape as `d95feeb07` and BUG-010: not an error, an absence.
 Unit: the pairing guard accepts `booking_created` with every action. Integration: publish the event and
 assert one send. Manual: a real Stripe-paid booking on peanut fires it — **that is the one that matters**,
 because it is the path that is currently silent.
+
+### What actually happened
+
+Both concerns above were real. The confirmation **does** already exist (`booking_confirmed` in the
+notification registry), so the template was written to carry what it can't — what to bring, where to
+park — rather than to repeat it.
+
+**The "manual" test did not need a real card.** Stripe runs in test mode on staging, so a test-mode
+PaymentIntent confirmed with `pm_card_visa` and POSTed to `/api/services/orders/confirm` reaches
+`handlePaymentSuccess` by exactly the production route, on the **deployed** server rather than a laptop.
+That is `_qa_booking_created_stripe_test.ts`, and it is the technique to reuse for any
+payment-adjacent trigger. The trigger fired 83ms after the order.
+
+**It found a second bug the plan did not predict**, and a better one: `hasSendForTriggerReference` — the
+"same order shouldn't trigger twice" guard — had never worked for immediate sends, engine-wide, because
+the reference was never recorded. Written up in `scope.md` §9.7. The relevant lesson for the triggers
+still to build is there too: **assert on what gets written to the row, not on what gets called**, and
+never let a send cap stand in for a dedup guard — a green produced by the wrong mechanism is worse than
+a red.
 
 ---
 
@@ -226,9 +252,8 @@ builds a status column.
 
 ## Sequencing and what each unlocks
 
-1. **`booking_created`** — small, and it fixes a real silent gap in `service.order_created` that other
-   consumers (ads attribution) are also missing today. Ship first; the publish is worth doing regardless
-   of whether the trigger ever ships.
+1. ~~**`booking_created`**~~ ✅ **shipped.** It did fix the silent gap in `service.order_created` that ads
+   attribution was also missing — self-service bookings never advanced the lead Kanban, and now do.
 2. **`create_task`** — the only item that adds a genuinely new capability, but do not start it until
    the task-vs-flag question is answered and the surface is agreed.
 3. **`subscription_lapsed`** — needs the entitlement decision first. Cheap after that.
@@ -246,3 +271,10 @@ builds a status column.
 - Dedup anything a recurring trigger can produce more than one of.
 - **Verify in a browser and against real data**, not just `npm run test:unit`. Every bug found in the
   2026-08-03 pass was invisible to 2,656 passing tests and a clean typecheck.
+- **Assert on what gets written, not on what gets called.** The dedup guard (`scope.md` §9.7) was tested
+  by checking it ran; what it needed was the value on the send row, and nothing looked there for months.
+- **Never let one mechanism cover for another in a test.** A dedup check with a send cap of 1 passes on
+  the cap alone. Pair every "it didn't happen twice" assertion with an "it still happens for a genuinely
+  new input" one, or a rule that never fires at all will look like a working guard.
+- **Prove a new test fails without the fix.** Two of this batch's five did; the other three were meant to
+  keep passing, and confirming which is which is the whole value of the exercise.
