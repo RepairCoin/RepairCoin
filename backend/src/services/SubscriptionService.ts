@@ -334,6 +334,46 @@ export class SubscriptionService extends BaseRepository {
   }
 
   /**
+   * Subscriptions Stripe itself considers live for this shop, asked of Stripe rather than of our
+   * mirror of it.
+   *
+   * The mirror is filled by the webhook AFTER checkout completes, so a shop that opens a second
+   * checkout before the first webhook lands passes a mirror-based check and ends up with two live
+   * subscriptions billing in parallel. Three shops on staging reached three, two and two — the
+   * money one of them would be charged is triple its plan.
+   *
+   * Falls back to the mirror when Stripe cannot be reached: a check that throws would block every
+   * new subscription during a Stripe outage, which is a worse failure than the one it prevents.
+   */
+  async getLiveStripeSubscriptionIds(shopId: string): Promise<string[]> {
+    const customer = await this.getCustomerByShopId(shopId);
+    if (!customer) return [];
+
+    try {
+      const list = await this.stripeService.getStripe().subscriptions.list({
+        customer: customer.stripeCustomerId,
+        status: 'all',
+        limit: 20,
+      });
+      return list.data
+        .filter((s) => ['active', 'trialing', 'past_due'].includes(s.status))
+        // The Agency Program bills on the owner shop's SAME Stripe customer but is a separate
+        // product, not the shop's plan — the subscription.created webhook skips it for the same
+        // reason. Counting it here would tell an agency owner with no plan that they already have
+        // one, which locks a paying customer out of buying.
+        .filter((s) => s.metadata?.type !== 'agency_activation')
+        .map((s) => s.id);
+    } catch (error) {
+      logger.warn('Could not ask Stripe for live subscriptions; falling back to the local mirror', {
+        shopId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      const mirrored = await this.getActiveSubscription(shopId);
+      return mirrored?.stripeSubscriptionId ? [mirrored.stripeSubscriptionId] : [];
+    }
+  }
+
+  /**
    * Get active subscription for shop
    * Checks both status AND period expiry to prevent stale records from blocking resubscription
    */

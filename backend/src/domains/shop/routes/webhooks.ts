@@ -1459,6 +1459,25 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
       const activeStatuses = ['active', 'past_due', 'unpaid'];
       const isActive = activeStatuses.includes(subscription.status);
 
+      // A shop can hold more than one Stripe subscription — that is how the duplicate billing this
+      // webhook helped clean up arose in the first place. Cancelling ONE of them says nothing about
+      // whether the shop is still covered, so the shop's own status is decided by what remains, not
+      // by the subscription that happened to arrive in this event. Without this, deduplicating a
+      // double-billed shop locks it out of the product it is still paying for.
+      const stillCovered =
+        isActive ||
+        (
+          await db.query(
+            `SELECT 1 FROM stripe_subscriptions
+             WHERE shop_id = $1
+               AND stripe_subscription_id <> $2
+               AND status IN ('active', 'trialing', 'past_due')
+               AND current_period_end > NOW()
+             LIMIT 1`,
+            [shopId, subscription.id]
+          )
+        ).rows.length > 0;
+
       // Get shop's RCG balance to determine operational status
       const shopQuery = `SELECT rcg_balance FROM shops WHERE shop_id = $1`;
       const shopResult = await db.query(shopQuery, [shopId]);
@@ -1467,7 +1486,7 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
         const rcgBalance = shopResult.rows[0].rcg_balance || 0;
         let operationalStatus: string;
 
-        if (isActive) {
+        if (stillCovered) {
           operationalStatus = 'subscription_qualified';
         } else if (rcgBalance >= 10000) {
           operationalStatus = 'rcg_qualified';
@@ -1500,9 +1519,12 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
         });
       }
 
-      // Sync shop_subscriptions with stripe subscription (creates or updates record)
+      // Sync shop_subscriptions with stripe subscription (creates or updates record).
+      // Skipped when a cancelled subscription leaves the shop covered by another: shop_subscriptions
+      // holds ONE row per shop, so writing this cancellation into it would close the shop's plan
+      // record and point billing_reference at a dead subscription while a live one is still paying.
       const { currentPeriodEnd: periodEndTs } = extractSubscriptionPeriodDates(subscription);
-      if (periodEndTs) {
+      if (periodEndTs && (isActive || !stillCovered)) {
         const shopSubRepo = new ShopSubscriptionRepository();
         await shopSubRepo.syncFromStripeSubscription(
           shopId,
