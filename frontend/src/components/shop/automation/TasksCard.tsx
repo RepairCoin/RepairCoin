@@ -33,10 +33,13 @@ export function TasksCard() {
   const load = useCallback(async () => {
     try {
       const r = await getTasks(filter);
-      setTasks(r.tasks);
+      // Tolerant reads. This card renders on every visit to Automation, so a shape surprise here used
+      // to mean an error toast on every page load and refresh — far more alarming than the empty list
+      // it was describing. An unexpected payload now shows "no tasks" instead of shouting.
+      setTasks(r?.tasks ?? []);
       // Always the OPEN count, whichever tab is showing — the number in the header answers "how much
       // is waiting on me", which does not change because you looked at the Done list.
-      setOpenCount(r.openCount);
+      setOpenCount(r?.openCount ?? 0);
     } catch {
       toast.error("Could not load tasks");
     } finally {

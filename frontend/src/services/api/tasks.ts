@@ -1,7 +1,9 @@
 // Shop to-do list — the read/write half of the `create_task` workflow action.
 //
-// Note the response shape: the shared axios interceptor already unwraps `response.data`, so the API's
-// `{ success, data: {...} }` arrives as `response.data`, and the payload is `response.data.data`.
+// Response shape, which this file originally got wrong and shipped: the shared axios interceptor
+// returns the HTTP BODY, so what you await is already `{ success, data }` — the payload is
+// `res.data`, never `res.data.data`. Reading one level too deep yields undefined, and destructuring
+// it throws, which surfaced as a "Could not load tasks" toast on every visit to the Automation page.
 
 import apiClient from "./client";
 
@@ -27,7 +29,7 @@ export async function getTasks(
   status?: ShopTaskStatus
 ): Promise<{ tasks: ShopTask[]; total: number; openCount: number }> {
   const res = await apiClient.get("/shops/tasks", { params: status ? { status } : {} });
-  return res.data.data;
+  return res.data;
 }
 
 export async function createTask(input: {
@@ -38,12 +40,12 @@ export async function createTask(input: {
   dueAt?: string;
 }): Promise<ShopTask> {
   const res = await apiClient.post("/shops/tasks", input);
-  return res.data.data;
+  return res.data;
 }
 
 export async function setTaskStatus(id: string, status: ShopTaskStatus): Promise<ShopTask> {
   const res = await apiClient.patch(`/shops/tasks/${id}`, { status });
-  return res.data.data;
+  return res.data;
 }
 
 export async function deleteTask(id: string): Promise<void> {
