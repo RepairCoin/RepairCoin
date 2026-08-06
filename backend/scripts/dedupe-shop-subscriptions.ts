@@ -31,6 +31,9 @@ import { Pool } from 'pg';
 import Stripe from 'stripe';
 import * as dotenv from 'dotenv';
 import { DUPLICATE_LIVE_SUBS_SQL } from '../src/utils/subscriptionIntegrity';
+// Same rule the subscription.created webhook applies, so a duplicate caught live and one cleaned up
+// afterwards can never disagree about which subscription the shop keeps.
+import { chooseSubscriptionToKeep } from '../src/utils/subscriptionSurvivor';
 
 dotenv.config();
 
@@ -74,17 +77,6 @@ interface Candidate {
 const money = (cents: number): string => `$${(cents / 100).toFixed(2)}`;
 const day = (unix: number): string =>
   unix ? new Date(unix * 1000).toISOString().slice(0, 10) : '—';
-
-/**
- * Most valuable plan, then furthest-reaching period, then newest. Value comes first because a shop
- * paying for two tiers should keep the one it chose most recently to pay more for — cancelling that
- * and leaving the cheaper one would quietly downgrade a customer.
- */
-function pickSurvivor(subs: Candidate[]): Candidate {
-  return [...subs].sort(
-    (a, b) => b.amountCents - a.amountCents || b.periodEnd - a.periodEnd || b.created - a.created
-  )[0];
-}
 
 async function main(): Promise<void> {
   if (!stripeKey) {
@@ -150,7 +142,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const survivor = pickSurvivor(candidates);
+    const survivor = chooseSubscriptionToKeep(candidates)!;
     const doomed = candidates.filter((c) => c.id !== survivor.id);
 
     console.log(`\n${shop.shop_name} (${shop.shop_id}) — billed ${candidates.length}×`);

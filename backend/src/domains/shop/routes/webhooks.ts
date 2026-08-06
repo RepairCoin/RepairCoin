@@ -11,6 +11,7 @@ import { shopPurchaseService } from '../services/ShopPurchaseService';
 import { leadBookingService } from '../../AdsDomain/services/LeadBookingService';
 import { ShopSubscriptionRepository } from '../../../repositories/ShopSubscriptionRepository';
 import { setMultiLocationActive } from '../../../utils/multiLocationEntitlement';
+import { chooseSubscriptionToKeep } from '../../../utils/subscriptionSurvivor';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { EmailService } from '../../../services/EmailService';
 import { generalNotificationPreferencesRepository } from '../../../repositories/GeneralNotificationPreferencesRepository';
@@ -726,6 +727,13 @@ async function handleSubscriptionCreated(event: Stripe.Event, subscriptionServic
     return;
   }
 
+  await cancelDuplicateSubscriptions(subscription).catch((e) =>
+    logger.error('Duplicate subscription check failed', {
+      subscriptionId: subscription.id,
+      error: e instanceof Error ? e.message : 'Unknown error',
+    })
+  );
+
   // Update subscription in database if needed
   // This might already be handled by the API endpoint, but webhook ensures consistency
   eventBus.publish({
@@ -740,6 +748,78 @@ async function handleSubscriptionCreated(event: Stripe.Event, subscriptionServic
       webhookEventId: event.id
     }
   });
+}
+
+/**
+ * The last place a duplicate can be caught.
+ *
+ * Checkout refuses a shop that already has live cover, but it checks when the SESSION opens and the
+ * subscription is not created until checkout completes — so two sessions opened before either
+ * completes both pass, and the shop ends up billed twice. Here the subscription exists and Stripe
+ * is authoritative, so there is no race left to lose.
+ *
+ * Both webhooks may run at once, so which subscription survives is decided by a rule that does not
+ * depend on who asks or when: chooseSubscriptionToKeep, the same rule the dedupe script uses. Each
+ * handler cancels every non-survivor it can see, which makes a concurrent second run a no-op rather
+ * than a fight.
+ *
+ * Cancelling is safe because a plan change updates the existing subscription in place
+ * (SubscriptionService.changeTier) — a shop is never legitimately paying for two plans at once.
+ * DUPLICATE_SUBSCRIPTION_AUTOCANCEL=false reduces this to a loud log for anyone who would rather
+ * settle it by hand.
+ */
+async function cancelDuplicateSubscriptions(created: Stripe.Subscription): Promise<void> {
+  const stripe = getStripeService().getStripe();
+  const customerId = typeof created.customer === 'string' ? created.customer : created.customer?.id;
+  if (!customerId) return;
+
+  const list = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 20 });
+  const live = list.data.filter(
+    (s) =>
+      ['active', 'trialing', 'past_due'].includes(s.status) &&
+      s.metadata?.type !== 'agency_activation'
+  );
+  if (live.length <= 1) return;
+
+  const keep = chooseSubscriptionToKeep(
+    live.map((s) => ({
+      id: s.id,
+      amountCents: s.items?.data?.[0]?.price?.unit_amount ?? 0,
+      periodEnd: (s as any).current_period_end ?? s.items?.data?.[0]?.current_period_end ?? 0,
+      created: s.created,
+    }))
+  );
+
+  const redundant = live.filter((s) => s.id !== keep?.id);
+  logger.error('Duplicate subscriptions detected for one customer', {
+    customerId,
+    shopId: created.metadata?.shopId,
+    keeping: keep?.id,
+    redundant: redundant.map((s) => s.id),
+  });
+
+  if (process.env.DUPLICATE_SUBSCRIPTION_AUTOCANCEL === 'false') {
+    logger.warn('Auto-cancel disabled; duplicates left in place for manual resolution', { customerId });
+    return;
+  }
+
+  for (const sub of redundant) {
+    try {
+      await stripe.subscriptions.cancel(sub.id);
+      // The money already taken on a cancelled duplicate is a refund decision, not something this
+      // handler should make — the invoice is logged so it can be settled separately.
+      logger.warn('Cancelled duplicate subscription', {
+        subscriptionId: sub.id,
+        customerId,
+        latestInvoice: typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice?.id,
+      });
+    } catch (error) {
+      logger.error('Failed to cancel duplicate subscription', {
+        subscriptionId: sub.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
 }
 
 /**
