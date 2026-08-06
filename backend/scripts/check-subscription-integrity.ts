@@ -133,16 +133,21 @@ async function main(): Promise<void> {
   } else {
     failed = true;
     console.log(`❌ ${uncovered.length} shop(s) treated as paying with no live Stripe cover:`);
-    uncovered.forEach((r) =>
+    uncovered.forEach((r) => {
+      // "Never paid" and "stopped paying" look identical in operational_status and need opposite
+      // conversations, so the payment history is on the line rather than a click away.
+      const paid = Number(r.payments_made ?? 0) > 0 || Number(r.total_paid ?? 0) > 0;
       console.log(
         `      ${r.shop_name} (${r.shop_id})  status=${r.operational_status}` +
           `  plan=${r.subscription_type ?? '—'}  stripe=${r.stripe_status ?? 'no row'}` +
-          `  cover_ended=${day(r.stripe_period_end)}`
-      )
-    );
+          `  cover_ended=${day(r.stripe_period_end)}` +
+          `  ${paid ? `paid=${r.payments_made ?? 0}×/$${Number(r.total_paid ?? 0).toFixed(2)}` : 'NEVER PAID'}`
+      );
+    });
     console.log(
-      '\n   These shops have full access on cover that has lapsed. Either the subscription needs\n' +
-        '   reinstating or our row needs closing — the answer is a billing decision, not a data fix.'
+      '\n   These shops have full access without cover. One that never paid is an enrolment that\n' +
+        '   was never completed; one that stopped is a lapsed customer. Reinstating or closing the\n' +
+        '   row is a billing decision, not a data fix.'
     );
   }
 

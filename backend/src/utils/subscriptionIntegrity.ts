@@ -30,8 +30,12 @@ export const DUPLICATE_LIVE_SUBS_SQL = `
 /**
  * Shops we treat as paying that have no live Stripe cover behind them.
  *
- * Commitment plans are excluded, not overlooked: they are billed outside Stripe, so having no
- * Stripe row is their normal state rather than a gap.
+ * Nothing is excluded. An earlier version skipped `commitment_qualified` on the assumption that it
+ * meant a plan billed outside Stripe — it did not. That status was written by a database trigger
+ * left over from the removed commitment system (migration 267), and keying off it hid a shop that
+ * had enrolled on Business, never activated, never paid a cent, and held full access for three
+ * weeks. An exclusion that rests on a label rather than on evidence of payment will hide exactly
+ * the case worth finding.
  */
 export const ACTIVE_WITHOUT_COVER_SQL = `
   WITH live AS (
@@ -44,6 +48,10 @@ export const ACTIVE_WITHOUT_COVER_SQL = `
          sh.operational_status,
          s.subscription_type,
          s.next_payment_date,
+         -- Whether the shop ever paid separates "cover lapsed" from "never had any", and the two
+         -- need different conversations.
+         s.payments_made,
+         s.total_paid,
          l.status AS stripe_status,
          l.current_period_end AS stripe_period_end
   FROM shop_subscriptions s
@@ -51,7 +59,6 @@ export const ACTIVE_WITHOUT_COVER_SQL = `
   LEFT JOIN live l ON l.shop_id = s.shop_id
   WHERE s.status = 'active'
     AND s.is_active = true
-    AND sh.operational_status IS DISTINCT FROM 'commitment_qualified'
     AND (
       l.shop_id IS NULL
       OR l.current_period_end < NOW()

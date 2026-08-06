@@ -114,10 +114,14 @@ describe('subscription integrity queries', () => {
     expect(DUPLICATE_LIVE_SUBS_SQL).toContain('current_period_end > NOW()');
   });
 
-  it('does not accuse commitment plans of having no cover', async () => {
+  it('excludes nothing by status label', async () => {
     const { ACTIVE_WITHOUT_COVER_SQL } = await import('../../src/utils/subscriptionIntegrity');
-    // Commitment plans are billed outside Stripe; no Stripe row is their normal state.
-    expect(ACTIVE_WITHOUT_COVER_SQL).toContain("IS DISTINCT FROM 'commitment_qualified'");
+    // An earlier version skipped 'commitment_qualified', believing it meant billing outside Stripe.
+    // A database trigger was writing that label to ordinary shops (migration 267), so the exclusion
+    // hid a shop on Business that had never paid a cent. Evidence of payment is reported instead.
+    expect(ACTIVE_WITHOUT_COVER_SQL).not.toContain('commitment_qualified');
+    expect(ACTIVE_WITHOUT_COVER_SQL).toContain('payments_made');
+    expect(ACTIVE_WITHOUT_COVER_SQL).toContain('total_paid');
   });
 
   it('picks each shop\'s cover with the shared live-subscription rule', async () => {
