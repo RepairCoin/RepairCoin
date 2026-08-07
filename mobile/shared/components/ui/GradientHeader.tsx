@@ -4,6 +4,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+// Frozen tuples: expo-linear-gradient types `colors` as a readonly tuple, and an inline
+// array inside a ternary widens to string[] and fails typecheck.
+const CUSTOMER_COLORS = ["#E0A800", "#181203", "#0A0A0A"] as const;
+/** Matches the shop dashboard header in feature/home/screens/shop/ShopHomeScreen.tsx. */
+const SHOP_COLORS = ["#E0A800", "#4A3B00", "#0A0A0A"] as const;
+
 interface GradientHeaderProps {
   /** Centered title text (title mode). Omit when passing custom `children`. */
   title?: string;
@@ -16,6 +22,12 @@ interface GradientHeaderProps {
   children?: React.ReactNode;
   /** Extra bottom padding inside the gradient. */
   className?: string;
+  /**
+   * Palette and shape. "customer" (default) is the V2 look used by Home, My Account,
+   * Per Industry and Notifications. "shop" matches the shop dashboard header: brighter
+   * mid-stop and rounded bottom corners.
+   */
+  variant?: "customer" | "shop";
 }
 
 /**
@@ -29,18 +41,28 @@ export default function GradientHeader({
   right,
   children,
   className,
+  variant = "customer",
 }: GradientHeaderProps) {
   const insets = useSafeAreaInsets();
+  const isShop = variant === "shop";
 
   return (
     <LinearGradient
-      colors={["#E0A800", "#181203", "#0A0A0A"]}
-      locations={[0, 0.75, 1]}
+      colors={isShop ? SHOP_COLORS : CUSTOMER_COLORS}
+      locations={isShop ? undefined : [0, 0.75, 1]}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
-      style={{ paddingTop: insets.top + 6 }}
+      style={
+        isShop
+          ? {
+              paddingTop: insets.top + 16,
+              borderBottomLeftRadius: 24,
+              borderBottomRightRadius: 24,
+            }
+          : { paddingTop: insets.top + 6 }
+      }
     >
-      <View className={`px-4 pb-4 ${className ?? ""}`}>
+      <View className={`px-4 ${isShop ? "pb-[22px]" : "pb-4"} ${className ?? ""}`}>
         {(title || showBack || right) && (
           <View className="flex-row items-center justify-center min-h-[40px]">
             {showBack && (
