@@ -4,16 +4,26 @@
 // tier and no account behind it, which means none of the existing protection applies: canSpend(),
 // tier gates and per-shop budgets all key on shopId, and there is no shopId here.
 //
-// P1 calls NO MODEL. Answers come from `backend/help-prospect/` via ProspectCorpusMatcher, so the
-// worst case on launch day is a static site rather than a bill. The guards below are in place from the
-// start anyway, because the moment a model is added in P3 they are what stands between the homepage
-// and an unbounded spend.
+// P3: a model answers, grounded in `backend/help-prospect/`. P1 matched keywords against those
+// articles instead, and the first three real questions showed why that could not work — "normally we
+// only get few customer during monday" is not a question, it is someone describing their business,
+// and there is nothing to match on. The corpus is now what the model may SAY, not how it is chosen.
+//
+// Three degradations, each still a useful reply:
+//   model over budget / unusable / ungrounded → corpus match (right topic, canned wording)
+//   corpus miss                               → the static fallback
+//   off-topic                                 → refusal, and no model call at all
+//
+// The spend guard is the one thing standing between this and an unbounded bill, because there is no
+// shop to attribute a cost to. See HomepageAiSpendGuard.
 
 import { Router, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
 import { verifyCaptcha } from '../../../middleware/captcha';
 import { getProspectCorpusMatcher } from '../services/ProspectCorpusMatcher';
+import { getHomepageAiAnswerer } from '../services/HomepageAiAnswerer';
+import { getHomepageAiSpendGuard } from '../services/HomepageAiSpendGuard';
 import { getSharedPool } from '../../../utils/database-pool';
 import { logger } from '../../../utils/logger';
 
@@ -118,7 +128,8 @@ async function record(
   answeredBy: 'corpus' | 'model' | 'fallback' | 'refused',
   matched: string | null,
   score: number | null,
-  latencyMs: number
+  latencyMs: number,
+  costUsd: number | null = null
 ): Promise<number> {
   const pool = getSharedPool();
   try {
@@ -133,9 +144,9 @@ async function record(
     );
     await pool.query(
       `INSERT INTO homepage_ai_messages
-         (session_id, question, answered_by, matched_article, match_score, latency_ms)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [sessionIdValue, stripPii(question), answeredBy, matched, score, latencyMs]
+         (session_id, question, answered_by, matched_article, match_score, latency_ms, cost_usd)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [sessionIdValue, stripPii(question), answeredBy, matched, score, latencyMs, costUsd]
     );
     return convo.rows[0].message_count as number;
   } catch (err) {
@@ -185,11 +196,45 @@ router.post('/ask', askDailyLimiter, askLimiter, verifyCaptcha('homepage_ai'), a
       });
     }
 
-    const hit = getProspectCorpusMatcher().match(question);
-    const answeredBy = hit ? 'corpus' : 'fallback';
+    // P3 — the model answers, grounded in the corpus. It runs FIRST, not as a fallback: a homepage
+    // visitor describing their business ("Mondays are quiet") has no keywords to match, and that is
+    // most of the real traffic. The corpus is what the model is allowed to say, not how it is chosen.
+    //
+    // The order of the two degradations matters. Over budget or a bad answer falls back to the corpus
+    // match, which is a real answer about the right topic; only when that misses too do we say we do
+    // not know. Every step down is still a useful reply.
+    const answerer = getHomepageAiAnswerer();
+    let answeredBy: 'model' | 'corpus' | 'fallback' = 'fallback';
+    let answer = FALLBACK.answer;
+    let nextStep = FALLBACK.nextStep;
+    let matched: string | null = null;
+    let score: number | null = null;
+    let costUsd: number | null = null;
+
+    const spend = await getHomepageAiSpendGuard().check();
+    if (spend.allowed) {
+      const modelled = await answerer.answer(question);
+      if (modelled) {
+        answeredBy = 'model';
+        answer = modelled.answer;
+        nextStep = modelled.nextStep;
+        costUsd = modelled.costUsd;
+      }
+    }
+
+    if (answeredBy !== 'model') {
+      const hit = getProspectCorpusMatcher().match(question);
+      if (hit) {
+        answeredBy = 'corpus';
+        answer = hit.article.answer;
+        nextStep = hit.article.nextStep;
+        matched = hit.article.filename;
+        score = hit.score;
+      }
+    }
+
     const count = await record(
-      sid, ipHash, question, answeredBy,
-      hit?.article.filename ?? null, hit?.score ?? null, Date.now() - started
+      sid, ipHash, question, answeredBy, matched, score, Date.now() - started, costUsd
     );
     const remaining = Math.max(0, FREE_ANSWERS - count);
 
@@ -197,8 +242,8 @@ router.post('/ask', askDailyLimiter, askLimiter, verifyCaptcha('homepage_ai'), a
       success: true,
       data: {
         answeredBy,
-        answer: hit ? hit.article.answer : FALLBACK.answer,
-        nextStep: hit ? hit.article.nextStep : FALLBACK.nextStep,
+        answer,
+        nextStep,
         remaining,
         // The signal the UI needs to show the account card as the LAST answer rather than after it.
         gated: remaining === 0,
