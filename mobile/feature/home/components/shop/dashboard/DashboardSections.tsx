@@ -199,6 +199,75 @@ export function FilterChips({
   );
 }
 
+/* ── Wallet card (gold operational balance panel + token totals) ─────────── */
+export function WalletCard({
+  operational,
+  totalPurchased,
+  tokensIssued,
+}: {
+  operational?: number;
+  totalPurchased?: number;
+  tokensIssued?: number;
+}) {
+  const fmt = (n?: number) => (n ?? 0).toLocaleString("en-US");
+  const rows: {
+    label: string;
+    value: string;
+    icon: keyof typeof Ionicons.glyphMap;
+  }[] = [
+    { label: "Total Purchased", value: fmt(totalPurchased), icon: "cart" },
+    { label: "Tokens Issued", value: fmt(tokensIssued), icon: "disc" },
+  ];
+
+  return (
+    <View className="bg-[#121212] rounded-2xl p-3.5 border border-[#222]">
+      <Text className="text-white text-sm font-semibold mb-3.5">
+        My FixFlow Wallet
+      </Text>
+
+      <View className="h-20 rounded-xl bg-[#FFCC00] px-4 justify-center overflow-hidden">
+        {/* Embossed coin watermark, bled off the right edge like the web card */}
+        <RNImage
+          source={require("@/assets/images/repaircoin-logo-mini.png")}
+          style={{
+            position: "absolute",
+            right: -18,
+            width: 120,
+            height: 120,
+            opacity: 0.22,
+            tintColor: "#6B5200",
+          }}
+          resizeMode="contain"
+        />
+        <Text className="text-[#4a3200] text-xs font-semibold">
+          Operational RCN
+        </Text>
+        <Text className="text-[#211500] text-3xl font-extrabold">
+          {fmt(operational)}
+        </Text>
+      </View>
+
+      <View className="mt-3.5">
+        {rows.map((row, i) => (
+          <View
+            key={row.label}
+            className={`flex-row items-center ${i > 0 ? "mt-2.5" : ""}`}
+          >
+            <View
+              className="w-7 h-7 rounded-full items-center justify-center mr-2"
+              style={{ backgroundColor: "#FFCC0026" }}
+            >
+              <Ionicons name={row.icon} size={15} color="#FFCC00" />
+            </View>
+            <Text className="text-gray-400 text-sm flex-1">{row.label}</Text>
+            <Text className="text-white text-lg font-bold">{row.value}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 /* ── Recommendation / list row card ──────────────────────────────────────── */
 export function ListRowCard({
   icon,

@@ -16,6 +16,7 @@ import { messageApi } from "@/feature/messages/services/message.services";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
+import GradientHeader from "@/shared/components/ui/GradientHeader";
 import { useCustomerListUI } from "../hooks";
 import { CustomerData } from "@/feature/customer/profile/services/customer.interface";
 import { SORT_OPTIONS, TIER_OPTIONS } from "@/shared/constants/shopCustomers";
@@ -222,11 +223,16 @@ export default function CustomerListScreen() {
     />
   );
 
-  const renderEmptyMyCustomers = () => (
+  const renderEmptyMyCustomers = () => {
+    // Skeletons stand in for real cards, so they render in the list's own layout —
+    // not inside the centered/padded wrapper the empty and error states use.
+    if (isLoadingMyCustomers) {
+      return <SkeletonList count={5} variant="customer" />;
+    }
+
+    return (
     <View className="items-center justify-center py-10">
-      {isLoadingMyCustomers ? (
-        <SkeletonList count={5} variant="list" />
-      ) : myCustomersError ? (
+      {myCustomersError ? (
         <>
           <View className="w-16 h-16 rounded-full bg-red-500/10 items-center justify-center mb-4">
             <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
@@ -262,13 +268,17 @@ export default function CustomerListScreen() {
         </>
       )}
     </View>
-  );
+    );
+  };
 
-  const renderEmptySearchAll = () => (
+  const renderEmptySearchAll = () => {
+    if (isSearchingAll) {
+      return <SkeletonList count={5} variant="customer" />;
+    }
+
+    return (
     <View className="items-center justify-center py-10">
-      {isSearchingAll ? (
-        <SkeletonList count={5} variant="list" />
-      ) : searchAllError ? (
+      {searchAllError ? (
         <>
           <View className="w-16 h-16 rounded-full bg-red-500/10 items-center justify-center mb-4">
             <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
@@ -312,16 +322,14 @@ export default function CustomerListScreen() {
         </>
       )}
     </View>
-  );
+    );
+  };
 
   return (
     <ThemedView className="w-full h-full">
-      <View className="pt-20 px-4 gap-4 mb-4">
-        {/* Header */}
-        <Text className="text-white text-xl font-semibold">
-          Customers
-        </Text>
+      <GradientHeader title="Customers" variant="shop" />
 
+      <View className="pt-4 px-4 gap-4 mb-4">
         {/* Tab Buttons */}
         <View className="bg-[#1a1a1a] rounded-2xl p-1 flex-row">
           <TabButton
