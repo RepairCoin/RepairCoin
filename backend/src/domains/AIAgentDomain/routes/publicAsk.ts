@@ -29,8 +29,14 @@ import { logger } from '../../../utils/logger';
 
 const router = Router();
 
-/** Free answers before an account is required. The limit IS the call to action. */
-export const FREE_ANSWERS = 3;
+/**
+ * Free answers before an account is required. The limit IS the call to action.
+ *
+ * Five rather than three. At ~0.2c an answer the cost argument is nothing — five answers is a cent —
+ * and the limit exists to create a signup moment, not to save money. Three arrived before a visitor
+ * had seen the assistant do anything impressive, which spends the wall on the wrong moment.
+ */
+export const FREE_ANSWERS = 5;
 /** Long enough for a real question, short enough that nobody pastes a document into it. */
 export const MAX_QUESTION_CHARS = 300;
 const SESSION_COOKIE = 'ff_ai_sid';
@@ -129,7 +135,9 @@ async function record(
   matched: string | null,
   score: number | null,
   latencyMs: number,
-  costUsd: number | null = null
+  costUsd: number | null = null,
+  answerText: string | null = null,
+  nextStepText: string | null = null
 ): Promise<number> {
   const pool = getSharedPool();
   try {
@@ -144,9 +152,11 @@ async function record(
     );
     await pool.query(
       `INSERT INTO homepage_ai_messages
-         (session_id, question, answered_by, matched_article, match_score, latency_ms, cost_usd)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [sessionIdValue, stripPii(question), answeredBy, matched, score, latencyMs, costUsd]
+         (session_id, question, answered_by, matched_article, match_score, latency_ms, cost_usd,
+          answer, next_step)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [sessionIdValue, stripPii(question), answeredBy, matched, score, latencyMs, costUsd,
+       answerText, nextStepText]
     );
     return convo.rows[0].message_count as number;
   } catch (err) {
@@ -154,6 +164,59 @@ async function record(
     return 0;
   }
 }
+
+/**
+ * GET /api/public/ai/session
+ *
+ * Rebuilds the thread and the allowance after a refresh.
+ *
+ * Without it the browser was the only thing that knew a conversation had happened: a refresh emptied
+ * the thread and re-enabled the input, while the server still (correctly) refused to answer. The
+ * visitor was invited to type something that would then be declined — the UI contradicting the server
+ * rather than reflecting it.
+ *
+ * Read-only and cheap. No captcha and no session is minted: a visitor who has never asked anything
+ * gets an empty thread and a full allowance, which is exactly what a first-time load should see.
+ */
+router.get('/session', async (req: Request, res: Response) => {
+  try {
+    const sid = req.cookies?.[SESSION_COOKIE];
+    if (typeof sid !== 'string' || !/^[a-f0-9]{32}$/.test(sid)) {
+      return res.json({ success: true, data: { turns: [], remaining: FREE_ANSWERS, gated: false } });
+    }
+
+    const { rows } = await getSharedPool().query(
+      `SELECT question, answer, next_step, answered_by
+         FROM homepage_ai_messages
+        WHERE session_id = $1
+        ORDER BY created_at
+        LIMIT 20`,
+      [sid]
+    );
+
+    const spent = rows.filter((r: any) => r.answered_by === 'model' || r.answered_by === 'corpus').length;
+    const remaining = Math.max(0, FREE_ANSWERS - spent);
+
+    return res.json({
+      success: true,
+      data: {
+        turns: rows.map((r: any) => ({
+          question: r.question,
+          answer: r.answer ?? '',
+          nextStep: r.next_step ?? '',
+          answeredBy: r.answered_by,
+        })),
+        remaining,
+        gated: remaining === 0,
+      },
+    });
+  } catch (error) {
+    // An empty thread is a fine degradation — the visitor loses their history, not their allowance,
+    // because /ask re-checks the count server-side regardless of what this returned.
+    logger.error('homepage AI: session restore failed', { error: (error as Error)?.message });
+    return res.json({ success: true, data: { turns: [], remaining: FREE_ANSWERS, gated: false } });
+  }
+});
 
 /**
  * POST /api/public/ai/ask   { question, captchaToken? }
@@ -233,10 +296,17 @@ router.post('/ask', askDailyLimiter, askLimiter, verifyCaptcha('homepage_ai'), a
       }
     }
 
-    const count = await record(
-      sid, ipHash, question, answeredBy, matched, score, Date.now() - started, costUsd
+    await record(
+      sid, ipHash, question, answeredBy, matched, score, Date.now() - started, costUsd,
+      answer, nextStep
     );
-    const remaining = Math.max(0, FREE_ANSWERS - count);
+
+    // Computed from `used` (read before answering) rather than from record()'s return, which is the
+    // TOTAL message count including fallbacks. Only a real answer spends an allowance — a fallback is
+    // our corpus failing them, and charging for it moves someone closer to a paywall for asking
+    // something we could not handle.
+    const spent = used + (answeredBy === 'model' || answeredBy === 'corpus' ? 1 : 0);
+    const remaining = Math.max(0, FREE_ANSWERS - spent);
 
     return res.json({
       success: true,
@@ -259,13 +329,24 @@ router.post('/ask', askDailyLimiter, askLimiter, verifyCaptcha('homepage_ai'), a
   }
 });
 
+/**
+ * How many answers this visitor has actually HAD.
+ *
+ * Counts only 'model' and 'corpus'. A fallback ("I'm not sure that's covered") or a refusal is our
+ * corpus failing them, and charging it against their free allowance punishes someone for our gap —
+ * they get closer to a paywall by asking something we could not handle.
+ *
+ * Deliberately counted from the message rows rather than conversations.message_count, which stays a
+ * true total so the two numbers can be compared: the difference IS the failure rate per session.
+ */
 async function currentCount(sid: string): Promise<number> {
   try {
     const r = await getSharedPool().query(
-      `SELECT message_count FROM homepage_ai_conversations WHERE session_id = $1`,
+      `SELECT COUNT(*)::int n FROM homepage_ai_messages
+        WHERE session_id = $1 AND answered_by IN ('model', 'corpus')`,
       [sid]
     );
-    return r.rows[0]?.message_count ?? 0;
+    return r.rows[0]?.n ?? 0;
   } catch {
     // Unknown count → let them through. Failing open costs one corpus lookup; failing closed makes the
     // homepage look broken during a database blip.

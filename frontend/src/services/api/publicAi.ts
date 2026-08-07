@@ -26,6 +26,37 @@ export interface AskResponse {
   gated: boolean;
 }
 
+export interface SessionState {
+  turns: Array<{ question: string; answer: string; nextStep: string; answeredBy: AnsweredBy }>;
+  remaining: number;
+  gated: boolean;
+}
+
+/**
+ * Rebuild the conversation after a refresh.
+ *
+ * The allowance lives server-side against an httpOnly cookie, so a refresh never reset it — but the
+ * React state was the only record of the THREAD, so the page came back empty with the input enabled
+ * while the server would still refuse to answer. This makes the UI reflect the server rather than
+ * contradict it.
+ *
+ * Failure is silent and returns an empty thread: losing history is a small cost, and /ask re-checks
+ * the allowance server-side regardless of what this said.
+ */
+export async function getHomepageAiSession(): Promise<SessionState> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/public/ai/session`, {
+      method: "GET",
+      credentials: "include",
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.success) return { turns: [], remaining: 5, gated: false };
+    return body.data as SessionState;
+  } catch {
+    return { turns: [], remaining: 5, gated: false };
+  }
+}
+
 export async function askHomepageAi(
   question: string,
   captchaToken?: string
