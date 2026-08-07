@@ -14,8 +14,6 @@
 
 import { AnthropicClient } from './AnthropicClient';
 import { getProspectCorpusMatcher } from './ProspectCorpusMatcher';
-import { HelpCorpusLoader } from './HelpCorpusLoader';
-import { PROSPECT_CORPUS_DIR } from './ProspectCorpusMatcher';
 import { cheapModel, modelFor } from '../../../config/aiModels';
 import { logger } from '../../../utils/logger';
 
@@ -33,13 +31,19 @@ const SYSTEM = `You are the assistant on FixFlow's marketing homepage, talking t
 business owner who has never used FixFlow — a barber, gym owner, phone repair shop, pet groomer.
 
 WHAT YOU KNOW
-Everything you may say about FixFlow is in the reference material below. It is the complete and only
-source of truth about the product.
+The reference material below is the ONLY thing you may say about FixFlow — but it does not describe the
+whole product. Treat it as the limit of your knowledge, not as the limit of what FixFlow does.
 
 HARD RULES
 - Never state a price, percentage or figure that is not in the reference material.
 - Never claim a feature, integration or capability that is not in the reference material. If you are
   not sure FixFlow does something, say you are not sure and offer what it does do.
+- The reference material is INCOMPLETE. It does not cover everything about FixFlow, so if the answer
+  to a question is not in it, say plainly that you do not know and suggest they ask the team. Do not
+  reason your way to a likely answer — a confident guess about how the product behaves is worse than
+  "I'm not sure", because the person cannot tell the difference and will act on it.
+- This applies especially to what happens to someone's ACCOUNT, MONEY or DATA — billing, cancellation,
+  what is kept or lost. Never guess at those. Getting one wrong loses trust you cannot win back.
 - Never promise anything ("we can build...", "we'll integrate with..."). You do not speak for the team.
 - You have no access to their account or data. Do not imply you can see anything about their business.
 - If asked about something unrelated to running a service business, say that is not what you are for.
@@ -69,7 +73,13 @@ export function violatesGrounding(answer: string, corpus: string): string | null
   const corpusLower = corpus.toLowerCase();
 
   // Any money figure must appear verbatim in the corpus.
-  for (const m of answer.matchAll(/\$\s?\d[\d,]*(?:\.\d+)?/g)) {
+  //
+  // A comma only counts as a thousands separator when three digits follow it. The first version used
+  // `[\d,]*`, which swallowed ordinary sentence punctuation: "Starter AI at $80, Growth AI at $299"
+  // captured "$80," — not in the corpus — and a completely correct pricing answer was discarded. That
+  // hit every list of prices, i.e. the single most-asked question on the site, and it looked from
+  // outside like the model simply preferring the canned corpus reply.
+  for (const m of answer.matchAll(/\$\s?\d+(?:,\d{3})*(?:\.\d+)?/g)) {
     const figure = m[0].replace(/\s/g, '');
     if (!corpusLower.includes(figure.toLowerCase())) return `invented figure ${figure}`;
   }
@@ -89,10 +99,27 @@ export class HomepageAiAnswerer {
 
   constructor(private readonly anthropic?: AnthropicClient) {}
 
-  /** Lazy: the loader reads the filesystem, and the client throws when no API key is configured. */
+  /**
+   * The facts the model may use — titles and bodies ONLY.
+   *
+   * Built from the matcher's parsed articles rather than the raw files, because the raw files carry a
+   * "People ask this as" list under every heading. Those are P1 matcher input, and feeding them to a
+   * model is actively harmful: it reads a list of questions the article claims to answer and infers
+   * it should answer them, whether or not the body actually does.
+   *
+   * That is not hypothetical. `getting-started.md` listed "What happens after the trial?" and never
+   * answered it, so the model invented "your account will stop working" — false (a lapsed trial drops
+   * to the Free plan) and the worst possible thing to tell someone deciding whether to sign up.
+   *
+   * Stripping them means a gap in the corpus now looks like a gap, which is what the prompt's "say you
+   * are not sure" rule needs in order to fire.
+   */
   private corpus(): string {
     if (this.corpusBlock === null) {
-      this.corpusBlock = new HelpCorpusLoader(PROSPECT_CORPUS_DIR).getCorpusBlock();
+      this.corpusBlock = getProspectCorpusMatcher()
+        .listArticles()
+        .map((a) => `## ${a.title}\n\n${a.answer}`)
+        .join('\n\n---\n\n');
     }
     return this.corpusBlock;
   }

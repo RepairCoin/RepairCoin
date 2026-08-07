@@ -13,6 +13,11 @@ Every paid plan begins with a **14-day free trial**.
 - Is it hard to set up?
 - Do I need to install anything?
 - What happens after the trial?
+- What happens if I don't pay?
+- Do I lose my data if I stop paying?
+- Will my account be closed after the trial?
+- Do I have to cancel to avoid being charged?
+- Can I go back to the free plan?
 - Can I import my customers?
 - Can I cancel?
 
@@ -26,6 +31,21 @@ Every paid plan begins with a **14-day free trial**.
 Everything else — rewards, marketing, AI, automations — can wait until bookings
 are landing. Turning it all on at once is the most common way to make a first
 week harder than it needs to be.
+
+## What happens when the trial ends
+
+Nothing bad, and nothing sudden. If you don't pick a paid plan, you move to the
+**Free** plan and carry on — your booking page still works, your bookings still
+come in, and your customer list stays exactly as it is.
+
+You keep the core of it for free, for as long as you like. What pauses is what the
+paid plans add: the AI assistant, customer rewards, and the marketing and
+automation features. Nothing is deleted, and choosing a plan later switches it all
+back on where you left off.
+
+No card is needed to start the trial, so nothing is charged when it ends. There is
+no cancelling to remember and no lock-out to plan around — which is the point:
+trying FixFlow shouldn't be a decision you have to be sure about first.
 
 ## Bringing your existing customers
 
