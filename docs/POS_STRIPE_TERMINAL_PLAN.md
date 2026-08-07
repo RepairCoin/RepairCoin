@@ -1241,6 +1241,21 @@ what it gave back has to be on screen now; the ledger figure is what actually se
 is not knowable yet. Revenue therefore corrects when the webhook lands, exactly as it does for a
 booking refund today.
 
+**Both refunded totals are claimed in the UPDATE, never read-then-written.** Two refunds issued at
+the same moment — two tabs, two tills, a double-tapped button that outran its own disabled state —
+would otherwise both read the figure as it stood before either of them, and the second write would
+erase the first: the drawer pays out twice and the ledger records one. `applyOffStripeRefund` and
+`applyTenderRefund` both increment with the guard in the same statement, so Postgres holds the row
+lock across the check and the write and the loser matches no row. The loser is told, and its refund
+row is closed as `failed` rather than left pending.
+
+The two legs guard differently because they lag differently, and that is worth keeping straight: a
+card leg's ledger figure trails the webhook, so `issueRefund` has to count its own pending rows to
+know what is outstanding; nothing lags for cash, so the ledger row itself is the authority.
+
+Verified against Postgres on a throwaway table: successive increments accumulate, an overdraw
+matches no row, and the status flips to `refunded` exactly when the total reaches gross.
+
 Note that `pos_sale_payments.payment_id` exists and has **never been written** — the link runs
 through `payments.pos_sale_payment_id` instead, which `recordPosTender` does populate. The unused
 column is left alone.

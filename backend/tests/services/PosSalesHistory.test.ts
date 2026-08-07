@@ -99,6 +99,34 @@ describe('PosSaleRepository.listSales', () => {
 });
 
 /**
+ * Refunded totals are claimed in the statement, never read-then-written. Two refunds issued at the
+ * same moment would otherwise both read the figure as it was before either of them, and the second
+ * write would erase the first — the shop pays out twice and the record shows one.
+ */
+describe('refund totals are incremented, not set', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockQuery.mockResolvedValue({ rows: [{ id: 'x' }] });
+  });
+
+  const sqlOf = () => String(mockQuery.mock.calls[0][0]);
+
+  it('adds to the tender rather than overwriting it', async () => {
+    await new PosSaleRepository().applyTenderRefund('tender-1', 500);
+
+    expect(sqlOf()).toContain('refunded_cents = LEAST(refunded_cents + $2, amount_cents)');
+    // The bug shape this replaced: an absolute value computed by the caller beforehand.
+    expect(sqlOf()).not.toMatch(/refunded_cents\s*=\s*LEAST\(\$2/);
+  });
+
+  it('closes the tender once the increment covers it', async () => {
+    await new PosSaleRepository().applyTenderRefund('tender-1', 500);
+
+    expect(sqlOf()).toContain("WHEN refunded_cents + $2 >= amount_cents THEN 'refunded'");
+  });
+});
+
+/**
  * A void throws away a cart. Run against a sale that has taken money it produces two different
  * unrecoverable states — cash never reaches the ledger, a card leg reaches it and then belongs to a
  * sale marked voided — so the statement itself has to refuse.

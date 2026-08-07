@@ -14,8 +14,10 @@ describe('POS refunds', () => {
   const getByPosSalePayment = jest.fn<(...a: any[]) => Promise<any>>();
   const getByPaymentIntent = jest.fn<(...a: any[]) => Promise<any>>();
   const markRefunded = jest.fn<(...a: any[]) => Promise<any>>();
+  const applyOffStripeRefund = jest.fn<(...a: any[]) => Promise<any>>();
   const createPending = jest.fn<(...a: any[]) => Promise<any>>();
   const markSettledOffStripe = jest.fn<(...a: any[]) => Promise<any>>();
+  const markFailed = jest.fn<(...a: any[]) => Promise<any>>();
   const issueRefund = jest.fn<(...a: any[]) => Promise<any>>();
   const publish = jest.fn<(...a: any[]) => Promise<any>>();
   const voidSale = jest.fn<(...a: any[]) => Promise<any>>();
@@ -60,8 +62,10 @@ describe('POS refunds', () => {
       getByPosSalePayment,
       getByPaymentIntent,
       markRefunded,
+      applyOffStripeRefund,
       createPending,
       markSettledOffStripe,
+      markFailed,
       issueRefund,
       publish,
       voidSale,
@@ -81,8 +85,11 @@ describe('POS refunds', () => {
     }));
     getByPaymentIntent.mockResolvedValue(null);
     markRefunded.mockResolvedValue(null);
+    // The guarded increment succeeds unless a test makes it lose the race.
+    applyOffStripeRefund.mockResolvedValue({ id: 'pay-1', refundedCents: 0 });
     createPending.mockResolvedValue({ id: 'refund-1' });
     markSettledOffStripe.mockResolvedValue(null);
+    markFailed.mockResolvedValue(undefined);
     issueRefund.mockResolvedValue({ outcome: 'issued', refund: { id: 'refund-1' } });
     publish.mockResolvedValue(undefined);
 
@@ -92,8 +99,13 @@ describe('POS refunds', () => {
 
     jest.doMock('../../src/repositories', () => ({
       posSaleRepository: { getSale, applyTenderRefund, setRefundStatus, voidSale },
-      paymentRepository: { getByPosSalePayment, getByPaymentIntent, markRefunded },
-      refundRepository: { createPending, markSettledOffStripe },
+      paymentRepository: {
+        getByPosSalePayment,
+        getByPaymentIntent,
+        markRefunded,
+        applyOffStripeRefund,
+      },
+      refundRepository: { createPending, markSettledOffStripe, markFailed },
       customerRepository: {},
       shopRepository: {},
       shopTaxRepository: {},
@@ -172,8 +184,40 @@ describe('POS refunds', () => {
     await service.refundSale('shop-1', 'sale-1');
 
     expect(createPending).toHaveBeenCalled();
-    expect(markRefunded).toHaveBeenCalledWith('pay-cash-1', 5000, 'refunded');
+    // A guarded increment, not an absolute set derived from a value read a moment ago.
+    expect(applyOffStripeRefund).toHaveBeenCalledWith('pay-cash-1', 5000);
+    expect(markRefunded).not.toHaveBeenCalled();
     expect(markSettledOffStripe).toHaveBeenCalledWith('refund-1');
+  });
+
+  it('backs out of a cash refund another request claimed first', async () => {
+    const service = await load(
+      sale({
+        payments: [
+          tender({ id: 'cash-1', method: 'cash', amountCents: 5000, stripePaymentIntentId: null }),
+        ],
+      })
+    );
+    // What the guarded UPDATE returns when it would overdraw: no row.
+    applyOffStripeRefund.mockResolvedValue(null);
+
+    await expect(service.refundSale('shop-1', 'sale-1')).rejects.toThrow(/refunded by someone else/);
+
+    // The refund row is closed as failed and the tender is untouched, so nothing claims the drawer
+    // paid out twice.
+    expect(markFailed).toHaveBeenCalledWith('refund-1', expect.stringContaining('claimed'));
+    expect(markSettledOffStripe).not.toHaveBeenCalled();
+    expect(applyTenderRefund).not.toHaveBeenCalled();
+  });
+
+  it('adds to the tender total rather than overwriting it', async () => {
+    const service = await load(sale({ payments: [tender({ refundedCents: 2000 })] }));
+
+    await service.refundSale('shop-1', 'sale-1', { amountCents: 1000 });
+
+    // The delta. A precomputed total would have to be read first, and two refunds racing would
+    // both read 2000 and the second would erase the first.
+    expect(applyTenderRefund).toHaveBeenCalledWith('tender-1', 1000);
   });
 
   it('leaves the ledger to the reconciler on a card leg', async () => {
@@ -220,7 +264,8 @@ describe('POS refunds', () => {
     await service.refundSale('shop-1', 'sale-1');
 
     expect(setRefundStatus).toHaveBeenCalledWith('sale-1', 'shop-1', 'refunded');
-    expect(applyTenderRefund).toHaveBeenCalledWith('tender-1', 5000);
+    // 3000 of the 5000 was already refunded, so the delta is the 2000 that was left.
+    expect(applyTenderRefund).toHaveBeenCalledWith('tender-1', 2000);
   });
 
   it('withholds restock on a partial refund, where nothing says which lines came back', async () => {

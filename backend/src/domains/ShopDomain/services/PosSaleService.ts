@@ -650,7 +650,7 @@ export class PosSaleService {
           if (result.outcome === 'rejected') throw httpError(result.error, result.status);
         }
 
-        await posSaleRepository.applyTenderRefund(leg.id, leg.refundedCents + allocCents);
+        await posSaleRepository.applyTenderRefund(leg.id, allocCents);
         refundedLegs.push({ method: leg.method, amountCents: allocCents });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -686,6 +686,12 @@ export class PosSaleService {
    * ledger's `refunded_cents` is written by us rather than by the `charge.refunded` webhook — the
    * same reasoning S9b used to write the ledger row for an off-Stripe booking instead of waiting
    * for a reconciliation that is never coming.
+   *
+   * **The two legs guard against a double refund differently, because they lag differently.** A
+   * card leg's ledger figure trails the webhook, so `issueRefund` has to count its own pending
+   * rows to know what is really outstanding. Nothing lags for cash — this side is the only writer —
+   * so the authority is the ledger row itself, claimed with a guarded increment that two
+   * simultaneous requests cannot both win.
    */
   private async refundCashLeg(
     ledger: Payment,
@@ -697,8 +703,7 @@ export class PosSaleService {
       : 'requested_by_customer';
     const note = typeof input.note === 'string' && input.note.trim() ? input.note.trim().slice(0, 1000) : null;
 
-    const alreadyRefunded = ledger.refundedCents;
-    if (amountCents > ledger.grossCents - alreadyRefunded) {
+    if (amountCents > ledger.grossCents - ledger.refundedCents) {
       throw httpError('That is more than this cash tender has left to refund.', 400);
     }
 
@@ -715,12 +720,18 @@ export class PosSaleService {
       createdByRole: 'shop',
     });
 
-    const total = alreadyRefunded + amountCents;
-    await paymentRepository.markRefunded(
-      ledger.id,
-      total,
-      total >= ledger.grossCents ? 'refunded' : 'partially_refunded'
-    );
+    // The check above is for a good error message; this is the one that decides. It matches no row
+    // if another refund claimed the balance in between, and that has to fail rather than log —
+    // nothing has left the drawer yet, and the caller is what tells the cashier to open it.
+    const applied = await paymentRepository.applyOffStripeRefund(ledger.id, amountCents);
+    if (!applied) {
+      await refundRepository.markFailed(refund.id, 'Another refund claimed this balance first');
+      throw httpError(
+        'This tender was refunded by someone else a moment ago. Reload the sale to see what is left.',
+        409
+      );
+    }
+
     await refundRepository.markSettledOffStripe(refund.id);
   }
 

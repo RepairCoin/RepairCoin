@@ -712,24 +712,26 @@ export class PosSaleRepository extends BaseRepository {
   }
 
   /**
-   * Records how much of one tender has been handed back.
+   * Adds to how much of one tender has been handed back.
    *
    * Written immediately, unlike `payments.refunded_cents`, which stays the webhook reconciler's to
-   * own. The two answer different questions: this is the register's record of what it gave back and
-   * the cashier needs it on screen now, while the ledger figure is what actually settled at Stripe
-   * and is not known until `charge.refunded` lands. They converge; only one of them can be certain
-   * straight away.
+   * own for anything carrying a charge. The two answer different questions: this is the register's
+   * record of what it gave back and the cashier needs it on screen now, while the ledger figure is
+   * what actually settled at Stripe and is not known until `charge.refunded` lands. They converge;
+   * only one of them can be certain straight away.
    *
-   * Clamped at the tender's own amount so a double-tapped refund can never report more given back
-   * than was ever taken.
+   * Takes the **delta**, and increments in the statement. Passing a precomputed total would mean
+   * reading the current figure first, and two refunds racing would both read the same starting
+   * point and the second would overwrite rather than add — losing one of them from the register's
+   * own record even where the money genuinely moved twice.
    */
-  async applyTenderRefund(salePaymentId: string, refundedCents: number): Promise<void> {
+  async applyTenderRefund(salePaymentId: string, addCents: number): Promise<void> {
     await this.pool.query(
       `UPDATE pos_sale_payments
-          SET refunded_cents = LEAST($2, amount_cents),
-              status = CASE WHEN $2 >= amount_cents THEN 'refunded' ELSE status END
+          SET refunded_cents = LEAST(refunded_cents + $2, amount_cents),
+              status = CASE WHEN refunded_cents + $2 >= amount_cents THEN 'refunded' ELSE status END
         WHERE id = $1`,
-      [salePaymentId, refundedCents]
+      [salePaymentId, addCents]
     );
   }
 

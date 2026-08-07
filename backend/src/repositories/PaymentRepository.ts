@@ -381,7 +381,13 @@ export class PaymentRepository extends BaseRepository {
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
-  /** Record a (partial or full) refund total against a payment and set its status. */
+  /**
+   * Record a (partial or full) refund total against a payment and set its status.
+   *
+   * An absolute set, because the caller is the `charge.refunded` reconciler and the figure comes
+   * from Stripe, which is authoritative for anything carrying a charge. Do not reach for this to
+   * record an off-Stripe refund — see {@link applyOffStripeRefund}.
+   */
   async markRefunded(id: string, refundedCents: number, status: PaymentStatus): Promise<Payment | null> {
     const result = await this.pool.query(
       `UPDATE payments
@@ -389,6 +395,36 @@ export class PaymentRepository extends BaseRepository {
         WHERE id = $1
         RETURNING *`,
       [id, refundedCents, status]
+    );
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
+  /**
+   * Add to a payment's refunded total, refusing to exceed what was taken. For cash, where no
+   * Stripe object exists and this side is the only writer.
+   *
+   * An **increment guarded in the statement**, not a read-then-set. Two refunds issued at the same
+   * moment would both read `refunded_cents` as it was before either of them, and an absolute write
+   * would let the second silently overwrite the first — the shop pays out twice and the ledger
+   * records one. Postgres locks the row for the duration of the UPDATE, so the increment and the
+   * `<= gross_cents` check happen together and the loser simply matches no row.
+   *
+   * Returns null when it would overdraw, which the caller must treat as "this refund did not
+   * happen" rather than as an error to log and continue past.
+   */
+  async applyOffStripeRefund(id: string, amountCents: number): Promise<Payment | null> {
+    const result = await this.pool.query(
+      `UPDATE payments
+          SET refunded_cents = refunded_cents + $2,
+              status = CASE
+                WHEN refunded_cents + $2 >= gross_cents THEN 'refunded'
+                ELSE 'partially_refunded'
+              END,
+              updated_at = now()
+        WHERE id = $1
+          AND refunded_cents + $2 <= gross_cents
+        RETURNING *`,
+      [id, amountCents]
     );
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
