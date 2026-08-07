@@ -102,7 +102,10 @@ export default function PaymentSuccess() {
         try {
           // Call the appropriate confirm endpoint based on payment type
           if (session.type === "service_booking") {
-            const result = await serviceApi.confirmCheckoutPayment(session.sessionId);
+            const result = await serviceApi.confirmCheckoutPayment(
+              session.sessionId,
+              session.connectedAccountId,
+            );
             if (!result.success) {
               setConfirmError(result.error || "Failed to confirm payment");
             } else {

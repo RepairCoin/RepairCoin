@@ -141,6 +141,9 @@ export interface CreateStripeCheckoutResponse {
   rcnDiscountUsd?: number;
   finalAmount?: number;
   customerRcnBalance?: number;
+  // Direct charge: the session lives on this connected account, so the client must send it
+  // back to /orders/confirm — a session on a connected account is invisible to the platform.
+  connectedAccountId?: string;
 }
 
 export interface ConfirmPaymentRequest {
@@ -700,7 +703,8 @@ export class PaymentService {
         rcnRedeemed,
         rcnDiscountUsd,
         finalAmount: finalAmountUsd,
-        customerRcnBalance
+        customerRcnBalance,
+        connectedAccountId
       };
     } catch (error) {
       logger.error('Error creating Stripe checkout session:', error);
