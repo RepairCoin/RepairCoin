@@ -35,6 +35,26 @@ describe('the corpus answers the questions people actually ask', () => {
   });
 });
 
+// Questions typed by a real person into the real box, exactly as they typed them — typos, grammar and
+// all. Every one of these was a miss or a wrong match when first tried, which is the point.
+//
+// The original test set was written from the CORPUS outward ("what does this article answer?"), so it
+// agreed with itself. Three real questions found two gaps and a confidently wrong match in under a
+// minute. Anything the logs surface as unanswered belongs here, and then in a markdown file.
+describe('questions from actual use', () => {
+  it.each([
+    // The PLACEHOLDER TEXT — the one question the box literally invites — matched nothing at all.
+    ['How can i grow my business faster?', 'grow-my-business.md'],
+    ['how do i get more customers', 'grow-my-business.md'],
+    // Went to switching-from-another-tool: not a fallback, a confident wrong answer.
+    ['what mode of payment can be use in booking?', 'payments.md'],
+    ['do you take card payments', 'payments.md'],
+    ['what do you offer my business is salon?', 'is-it-right-for-my-business.md'],
+  ])('%s → %s', (question, expected) => {
+    expect(answers(question)).toBe(expected);
+  });
+});
+
 describe('it refuses rather than guessing', () => {
   // A confidently wrong answer is worse than "I don't know that one": the visitor cannot tell it is
   // wrong, and we spend their trust while they find out.

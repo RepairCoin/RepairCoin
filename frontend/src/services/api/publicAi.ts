@@ -8,7 +8,11 @@
 // `credentials: 'include'` is required: the free-answer count lives in an httpOnly session cookie set
 // by the server, which is what stops the limit being editable in devtools.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+// Use the SAME host resolution as everything else. The first version read NEXT_PUBLIC_API_URL
+// directly, which is undefined in the browser — so every request went to staging.repaircoin.ai
+// (Vercel) instead of the API host, 404'd, and surfaced as the client's catch message on every
+// question. Note the helper's return value already ends in `/api`, so paths here must not repeat it.
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 export type AnsweredBy = "corpus" | "model" | "fallback" | "refused" | "gated";
 
@@ -26,7 +30,7 @@ export async function askHomepageAi(
   question: string,
   captchaToken?: string
 ): Promise<AskResponse> {
-  const res = await fetch(`${API_BASE}/api/public/ai/ask`, {
+  const res = await fetch(`${getApiBaseUrl()}/public/ai/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
