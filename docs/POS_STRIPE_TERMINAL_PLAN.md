@@ -885,8 +885,17 @@ non-fiat tender is involved. Reconciliation between `pos_sales` and `payments` h
 that, deliberately.
 
 **Decision 3 resolved: revenue is net of tax.** Migration 264 adds `tax_cents` to `payments`,
-holding the tax contained *within* `gross_cents` rather than added to it, so revenue is
-`gross - tax - refunded` in one expression for both channels. Bookings carry 0 and are unaffected.
+holding the tax contained *within* `gross_cents` rather than added to it, so one expression serves
+both channels. Bookings carry 0 and are unaffected.
+
+> **Corrected in S6d.** That expression was `gross - tax - refunded`, and it is wrong the moment a
+> row carrying tax is refunded: a $100 sale with $8.25 tax is `gross 10825, tax 825`, and refunding
+> all of it gave `10825 - 825 - 10825 = -825`. A full refund cost the shop more revenue than the
+> sale ever earned. It survived review here because nothing could refund a taxed row yet — bookings
+> carry no tax and cancel to exactly zero — so the defect was dormant until S6d made counter sales
+> refundable. A refund takes tax back with it, so the tax has to scale with what is left:
+> `(gross - refunded) × (gross - tax) / gross`. Verified against Postgres across full, partial and
+> zero-gross rows.
 
 Tax belongs to the sale but the ledger stores one row per tender, so it is apportioned pro rata
 across the fiat legs with the rounding remainder on the largest — `utils/apportionTax.ts`, unit

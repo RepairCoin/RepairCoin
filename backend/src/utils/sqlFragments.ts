@@ -91,12 +91,29 @@ export const ledgerCustomerRevenue = (alias = 'p'): string => {
  * identical booking purely because of the local rate. Bookings carry `tax_cents = 0`, so the same
  * expression is correct for both channels — which is the point of moving revenue here.
  *
+ * **A refund takes tax back with it, so the tax has to scale with what is left.** This was
+ * `gross - tax - refunded` until S6d made counter sales refundable, at which point it started
+ * returning NEGATIVE revenue: a $100 sale with $8.25 tax is `gross 10825, tax 825`, and refunding
+ * all of it gave `10825 - 825 - 10825 = -825`. The shop's revenue fell by more than the sale ever
+ * added. Nothing caught it earlier because the only refundable rows were bookings, which carry no
+ * tax and so cancel to exactly zero.
+ *
+ * The unrefunded fraction of the row now scales its net-of-tax value: fully refunded is 0, never
+ * refunded is `gross - tax`, and half refunded is half of `gross - tax` — which is what returning
+ * half the goods and half their tax actually leaves behind.
+ *
  * Divide by 100 at the edge; the ledger is integer cents throughout and the legacy
  * `service_orders` columns are DECIMAL dollars, so mixing them without converting is a real risk.
  */
 export const ledgerRevenueCents = (alias = 'p'): string => {
   const p = alias ? `${alias}.` : '';
-  return `(${p}gross_cents - ${p}tax_cents - ${p}refunded_cents)`;
+  // NULLIF guards a zero-gross row — a $0 payment has no fraction to take, and dividing would
+  // make the whole SUM null rather than skipping the one row.
+  return `COALESCE(ROUND(
+    (${p}gross_cents - ${p}refunded_cents)::numeric
+    * (${p}gross_cents - ${p}tax_cents)
+    / NULLIF(${p}gross_cents, 0)
+  ), 0)`;
 };
 
 /**
@@ -136,6 +153,11 @@ export const ledgerRevenueCents = (alias = 'p'): string => {
  * `occurred_at` is when the money landed — capture time for a booking, completion time for a
  * counter sale — so a windowed report ("last 30 days") means the same thing on both channels and
  * matches how the ledger-based totals bucket.
+ *
+ * The booking half calls {@link ledgerRevenueCents} rather than spelling the arithmetic out. It had
+ * a copy, which was harmless only because bookings carry `tax_cents = 0` — the moment tax reaches
+ * the booking channel (open question 1 in the POS plan) a copy would have started reporting
+ * negative revenue on refunded bookings, exactly as it did for counter sales before S6d.
  */
 export const SERVICE_LINE_REVENUE = `
   SELECT
@@ -143,7 +165,7 @@ export const SERVICE_LINE_REVENUE = `
     o.location_id,
     o.service_id,
     NULL::varchar        AS bucket,
-    (p.gross_cents - p.tax_cents - p.refunded_cents)::int AS revenue_cents,
+    ${ledgerRevenueCents('p')}::int AS revenue_cents,
     o.order_id::text     AS ref,
     'booking'::varchar   AS channel,
     COALESCE(p.captured_at, p.created_at) AS occurred_at

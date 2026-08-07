@@ -1,7 +1,56 @@
 import { describe, it, expect } from '@jest/globals';
-import { revenueRecognized } from '../../src/utils/sqlFragments';
+import { revenueRecognized, ledgerRevenueCents } from '../../src/utils/sqlFragments';
 import * as fs from 'fs';
 import * as path from 'path';
+
+/**
+ * The arithmetic evaluated by hand, in the same order Postgres does it. Not a substitute for
+ * running the SQL — it is a statement of what the expression is supposed to mean, so a future
+ * edit that changes the meaning has to change this too and say why.
+ */
+const revenueOf = (grossCents: number, taxCents: number, refundedCents: number): number =>
+  grossCents === 0
+    ? 0
+    : Math.round(((grossCents - refundedCents) * (grossCents - taxCents)) / grossCents);
+
+describe('ledgerRevenueCents', () => {
+  it('scales tax down with a refund instead of subtracting all of it', () => {
+    // The bug this replaced: `gross - tax - refunded` on a fully refunded counter sale gave
+    // 10825 - 825 - 10825 = -825, so a refund cost the shop more revenue than the sale ever
+    // earned. Invisible until S6d, because only bookings could be refunded and they carry no tax.
+    expect(10825 - 825 - 10825).toBe(-825);
+    expect(revenueOf(10825, 825, 10825)).toBe(0);
+  });
+
+  it('is unchanged for a sale nobody refunded', () => {
+    expect(revenueOf(10825, 825, 0)).toBe(10000);
+  });
+
+  it('leaves the untouched share of a partial refund', () => {
+    // $50 off a $108.25 sale returns goods and their tax together, so $53.81 of goods remain.
+    expect(revenueOf(10825, 825, 5000)).toBe(5381);
+  });
+
+  it('still answers correctly for a booking, which carries no tax', () => {
+    expect(revenueOf(12000, 0, 0)).toBe(12000);
+    expect(revenueOf(12000, 0, 12000)).toBe(0);
+    expect(revenueOf(12000, 0, 6000)).toBe(6000);
+  });
+
+  it('survives a zero-gross row rather than nulling the whole SUM', () => {
+    expect(ledgerRevenueCents('p')).toContain('NULLIF(p.gross_cents, 0)');
+    expect(ledgerRevenueCents('p')).toContain('COALESCE');
+    expect(revenueOf(0, 0, 0)).toBe(0);
+  });
+
+  it('qualifies every column with the alias, and none without one', () => {
+    const aliased = ledgerRevenueCents('x');
+    expect(aliased).toContain('x.gross_cents');
+    expect(aliased).toContain('x.tax_cents');
+    expect(aliased).toContain('x.refunded_cents');
+    expect(ledgerRevenueCents('')).not.toContain('.gross_cents');
+  });
+});
 
 describe('revenueRecognized', () => {
   it('requires the money to have arrived, not just the work to be done', () => {

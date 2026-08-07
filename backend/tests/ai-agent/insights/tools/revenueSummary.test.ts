@@ -6,6 +6,7 @@
 
 import { revenueSummary } from "../../../../src/domains/AIAgentDomain/services/insights/tools/revenueSummary";
 import type { Pool } from "pg";
+import { ledgerRevenueCents } from "../../../../src/utils/sqlFragments";
 
 // Inline mock-pool helper (duplicated across tool tests rather than
 // shared in a helpers.ts — keeps tests self-contained and avoids
@@ -261,7 +262,10 @@ describe("revenue_summary tool", () => {
     it("SQL reports revenue net of tax and refunds", async () => {
       const mock = makeMockPool([[{ total: "0", n: "0" }]]);
       await revenueSummary.execute({ range: "all" }, ctx("peanut", mock));
-      expect(mock.captured[0].sql).toMatch(/gross_cents - p\.tax_cents - p\.refunded_cents/);
+      // Compared against the shared definition rather than a copy of its text. The guard is that
+      // this tool reads the one expression, not that the expression is spelled a certain way —
+      // pinning the spelling is what made this test fail when the arithmetic was corrected.
+      expect(mock.captured[0].sql).toContain(ledgerRevenueCents("p"));
     });
 
     it("counts sales, not ledger rows — a split-tender sale is one sale", async () => {

@@ -5,6 +5,7 @@
 
 import { topCustomers } from "../../../../src/domains/AIAgentDomain/services/insights/tools/topCustomers";
 import type { Pool } from "pg";
+import { ledgerRevenueCents } from "../../../../src/utils/sqlFragments";
 
 const makeMockPool = (rowsByQuery: Array<Array<any>>) => {
   const captured: Array<{ sql: string; params: unknown[] }> = [];
@@ -76,8 +77,8 @@ describe("top_customers tool", () => {
       );
       // Spend now comes from the fiat ledger, net of tax and refunds, so a customer who buys at
       // the till is ranked on what they actually spend.
-      expect(mock.captured[0].sql).toMatch(
-        /ORDER BY SUM\(\(p\.gross_cents - p\.tax_cents - p\.refunded_cents\)\) DESC/
+      expect(mock.captured[0].sql).toContain(
+        `ORDER BY SUM(${ledgerRevenueCents("p")}) DESC`
       );
     });
   });
