@@ -400,12 +400,31 @@ drift apart.
 
 ---
 
-## 9. Remaining work (updated 2026-08-05)
+## 9. Remaining work (updated 2026-08-07)
 
-**Shipped and live on staging:** **11 event triggers** + schedules · **6 actions** · 10 templates ·
-multi-step sequences · A/B · Draft→Publish · team alerts · template relevance numbers · AI
-recommendations that deep-link into a workflow · per-workflow outcome metrics · AI-written campaigns
-inside the builder. Everything in §7 (W0–W3) and §8 (A1–A4) is built and merged.
+**The scoped feature is COMPLETE and verified on staging.** **14 event triggers** + schedules ·
+**7 actions** · 13 templates · multi-step sequences · A/B · Draft→Publish · team alerts · template
+relevance numbers · AI recommendations that deep-link into a workflow · per-workflow outcome metrics ·
+AI-written campaigns inside the builder · a shop to-do list. Everything in §7 (W0–W3), §8 (A1–A4) and
+every action and trigger in §4 is built and merged.
+
+What remains (§9.0 A) is **production readiness and one browser pass** — not features.
+
+**How this was verified matters more than the count.** Every item was exercised against the DEPLOYED
+staging system, not just a green build, and that is where all of it was found:
+
+- `booking_created` — a real Stripe **test-mode** payment posted to the live confirm endpoint. Test
+  mode means no card and no money, and it reaches the production code path exactly. Reusable for
+  anything payment-adjacent: `backend/scripts/_qa_booking_created_stripe_test.ts`.
+- `subscription_lapsed` — signed webhook replay, which **failed** and proved staging's
+  `STRIPE_WEBHOOK_SECRET` differs from local `.env`; the DB-level path covered the rest 10/10.
+- `create_task` 16/16 · `order_ready` 14/14 · `draft_reorder` 8/8 · the stale-draft sweep 8/8.
+
+**Seven bugs were found this way that 2,800+ passing tests and a clean typecheck could not see**, and
+every one failed silently rather than loudly — a migration that deployed green and created nothing, a
+dedup guard that never ran, a second dedup that did not exist, an action registered in the engine but
+not in the API, a response read one level too deep, an event published from every booking path but the
+one customers use, and revenue counting orders nobody paid for.
 
 ### 9.0 WHAT IS LEFT — read this first
 
@@ -423,20 +442,32 @@ stands between this and production.**
 3. **The stale-draft sweep is not flag-gated.** It runs on the first nightly pass wherever it deploys.
    Run `backend/scripts/_qa_stale_draft_dryrun.ts` (read-only) against prod to see the number before
    that merge. See §9.4.1.
-4. **The actions/triggers QA checklist was written but never walked end-to-end** in a browser
-   (publish → fire → verify) — `docs/tasks/test/qa-workflow-actions-triggers-staging-checklist.md`.
-   Parts are covered ad hoc: `ai_step` live-verified, `draft_reorder` 8/8 automated, the campaign path
-   browser-verified 2026-08-05. `run_campaign` firing on a real trigger is the untested one.
+4. **A BROWSER pass on the three new surfaces.** Everything below is verified at the API and engine
+   level and has never been seen to render: the **Tasks card** on Automation, the **"Add a task"**
+   field in the builder, and the **"Ready"** button on booking cards (`approved` / `scheduled` only).
+   This is not pedantry — `b32899bfb` was a toast on every visit to Automation caused by reading one
+   level too deep into a response, with a clean typecheck, no frontend test runner, and a backend e2e
+   passing 16/16 against that exact endpoint. **A green backend proves nothing about what a shop sees.**
+   `run_campaign` firing on a real trigger is also still unwalked —
+   `docs/tasks/test/qa-workflow-actions-triggers-staging-checklist.md`.
 
-**B. Scoped feature work not yet built (3) — the feature is usable without all of it**
+**B. Scoped feature work — ✅ NONE LEFT (completed 2026-08-06/07)**
 
-1. **1 action of the 4 in §9.2:** *create a task / flag*. The other three shipped.
-2. **2 triggers of the 4 in §9.3:** *repair ready for pickup*, *subscription lapsed*. *new ad lead* and
-   *booking created* shipped. Each needs an event **emitted** from wherever it happens, which was the
-   real work in `no_show` and `payment_failed` — and, as `booking_created` showed, emitted from
-   **every** path, not just the convenient one.
-   **Recommendation: hand `repair_ready` back** rather than build it here. It has no status to fire on;
-   it is an order-lifecycle change wearing a trigger's clothes. See §9.3.2.
+Every action and trigger in §4 is built, and each was verified against the deployed staging system
+rather than by a green build. **7 actions · 14 event triggers**, plus schedules.
+
+- `create_task` — §9.2.1. Shipped with its surface, because an action filing tasks nobody can see
+  reports success while nothing gets actioned.
+- `subscription_lapsed` — §9.3.4. Scoped to `past_due`, which removed the entitlement blocker entirely.
+- `order_ready` — §9.3.2, and **the recommendation to hand it back was wrong in a useful way.** It was
+  sized XL because it was read as an order-lifecycle change. Checking the platform first showed why it
+  is not: repairs are ~21% of services (beauty 37, repairs 34, fitness 20, automotive 10 …), and for a
+  barber or a gym class there is nothing to collect — "ready" and "completed" are the same instant.
+  Built as an **event with a button** instead of a status, it cost S/M and touched nothing existing.
+
+**The lesson worth keeping:** the XL estimate came from accepting the scope line's framing ("repair
+ready for pickup") instead of asking who the feature is for. One query against the category data
+changed both the name and the design.
 
 **Implementation plan for all four: `remaining-actions-triggers-implementation.md`.** Read it before
 estimating — **only one of the four is small.** §9.2's "a new action costs one `register()` call" held
@@ -480,16 +511,28 @@ silent by construction —
 **Next is prod.** D3 measured staging before flipping and found 0 breaks; **prod is still unmeasured** —
 run the same "which shops have automations, at what tier" query there first.
 
-### 9.2 ACTIONS — 3 of 4 now built, 1 left
+### 9.2 ACTIONS — ✅ all 4 built (registry of 7)
 
-Registry is now 6: `send_message` · `issue_reward` · `notify_staff` · `run_campaign` · `ai_step` ·
-`draft_reorder` (`backend/src/services/autoMessageActions/registry.ts`).
+`send_message` · `issue_reward` · `notify_staff` · `run_campaign` · `ai_step` · `draft_reorder` ·
+`create_task` (`backend/src/services/autoMessageActions/registry.ts`).
 
-Each was **small**, as designed: W1's dispatcher was built so a new action costs one `register()` call
-plus its config UI, and a test asserts exactly that.
+W1's dispatcher was built so a new action costs one `register()` call plus its config UI, and a test
+asserts exactly that. **Three of the four really were that small. `create_task` was not** — see §9.2.1
+— and the difference is instructive: the cheap ones acted on something that already existed (campaigns,
+a model, a suggestions table with a card already rendering it). The expensive one had to bring its own
+surface.
 
-1. **Create a task / flag** — ⬜ **THE ONLY ACTION LEFT.** Put an item on the shop's to-do list, or flag a
-   customer/booking for follow-up. Turns "tell me" into "remind me until it's done".
+**A registry entry is not enough to make an action work.** `create_task` shipped registered in the
+engine and missing from `parseAction` in the controller, which returns `actionPayload: null` for
+anything without an explicit branch — so the configured title was silently dropped and every task fell
+back to the rule name. The workflow looked configured and ignored what the shop typed. Any new action
+carrying config needs a branch there too.
+
+1. ~~**Create a task / flag**~~ **BUILT + VERIFIED 16/16 ON STAGING 2026-08-06** (`d05f44c85`,
+   `853ff6056`, `b32899bfb`). Turns "tell me" into "remind me until it's done" — the difference from
+   `notify_staff` is that a notification is read once and gone, and a task outlives being read.
+   **§9.2.1 below** for the parts that were not obvious: it needed its own surface, its own table, and
+   a dedup boundary that is a judgement call rather than a rule.
 2. ~~**Draft a reorder (purchase order)**~~ **BUILT 2026-08-05.** On low stock, drafts a PO to approve
    rather than only alerting — closing the loop `low_stock` opens. Shop-scoped, and it **drafts, it does
    not order**: the suggestion goes to `purchase_order_suggestions` for a human to approve, never to a
@@ -534,14 +577,21 @@ plus its config UI, and a test asserts exactly that.
 
 **Highest impact was 3 and 4**, and both shipped. The one left (1) is a convenience.
 
-### 9.3 TRIGGERS — 2 of 4 built, 2 left
+### 9.3 TRIGGERS — ✅ all 4 built (14 accepted)
 
-Currently accepted (`VALID_EVENT_TYPES` in `AutoMessageController.ts`): **`booking_created`** ·
-`booking_completed` · `booking_cancelled` · `first_visit` · `inactive_30_days` · `low_bookings` ·
-`no_show` · `review_received` · `low_rating` · `payment_failed` · `low_stock` · `new_ad_lead`.
+Accepted (`VALID_EVENT_TYPES` in `AutoMessageController.ts`): `booking_created` · `booking_completed` ·
+`booking_cancelled` · `first_visit` · `inactive_30_days` · `low_bookings` · `no_show` ·
+`review_received` · `low_rating` · `payment_failed` · **`order_ready`** · `low_stock` · `new_ad_lead` ·
+**`subscription_lapsed`**.
+
+Shop-scoped (`SHOP_SCOPED_EVENTS`, no customer to act on): `low_stock` · `new_ad_lead` ·
+`subscription_lapsed`. Everything else hands the action one customer.
 
 These are **larger than the actions**, because each needs an event **emitted** from wherever it happens.
-That was the real work in `no_show` and `payment_failed`: the state already existed, nothing published it.
+That was the real work in `no_show` and `payment_failed`: the state already existed, nothing published
+it. `booking_created` sharpened the rule — the event existed and was published from two of three
+creation paths, so subscribing alone would have produced a trigger that fires for shop-entered bookings
+and silently ignores the ones customers make. **Emitted from EVERY path, not just the convenient one.**
 
 1. ~~**Booking created**~~ **BUILT + VERIFIED ON STAGING 2026-08-05** (`f0a70bb32`, `67584cdc1`).
    Customer-scoped, so no guard-table edits were needed — `triggerProvides` already defaults to
@@ -564,17 +614,90 @@ That was the real work in `no_show` and `payment_failed`: the state already exis
    `backend/scripts/_qa_booking_created_stripe_test.ts`. The trigger fired 83ms after the order.
    The API-level e2e is `_qa_booking_created_e2e.ts` (9/9).
 
-2. ⬜ **Repair ready for pickup** — **recommend handing back**, see §4 of the implementation plan.
+2. ~~**Repair ready for pickup**~~ → shipped as **`order_ready`**, **VERIFIED 14/14 ON STAGING
+   2026-08-07** (`d2d1e01f4`). Renamed and redesigned; see **§9.3.2** below.
 3. ~~**New ad lead**~~ **BUILT 2026-08-05.** Emitted from `MessagingDomain`. Shop-scoped — it happens to
    the shop with no customer attached — so it is in `SHOP_SCOPED_EVENTS` and only pairs with actions that
    need no recipient.
-4. ⬜ **Subscription lapsed**
+4. ~~**Subscription lapsed**~~ **BUILT + VERIFIED 2026-08-05** (`b5fc55f52`, `eca83f94b`). See §9.3.4.
 
 **Every action/trigger pairing is now validated** (`actionTriggerError` in `AutoMessageController.ts`,
 mirrored in the builder UI so the action list filters by the chosen trigger). Before this, a shop-scoped
 trigger like `low_stock` could be paired with `send_message`, and the rule would sit there looking active
 while the engine had nobody to send to. The form was also reordered — **trigger first, then action** —
 because the action list is what narrows.
+
+#### 9.2.1 `create_task` — the action that needed a feature underneath it
+
+The only one of the seven that was not small, and the reason is worth keeping: **the platform had no
+to-do list.** The action is one `register()` call; the cost was a table (migration 268), a repository,
+an API, and a **Tasks card** on the Automation tab. Skipping the surface was never an option — an
+action that files tasks nobody can see reports success while nothing gets actioned, which is worse than
+not shipping it.
+
+**The table is a superset of "task" and "flag".** The scope line said "a task, or a flag on a
+customer/booking", and they read as two features. They are not: `customer_address` and `order_id` are
+nullable, so a flag is a task that points at a record, and showing flags on that record later is a
+query against the same table. That is why the task-vs-flag question did not need answering before
+building.
+
+**Dedup is scoped to OPEN tasks, and that is a judgement call.** A recurring trigger must not stack ten
+copies of the same reminder — but a monthly "chase the supplier" that could only ever be created once
+would be useless after the first month. So closing one lets the next occurrence through. Asserted in
+both directions live, because a test proving only the first half would also pass for an action that
+files once and never again.
+
+Shop-scoped: one firing, one task, even with 200 people in the audience.
+
+#### 9.3.2 `order_ready` — an event, not a status
+
+Scoped as "repair ready for pickup" and sized XL on the assumption that it meant a new
+`service_orders.status`. **Checking who the feature is for changed both the name and the design.**
+
+Services on staging: beauty 37 · **repairs 34** · fitness 20 · other local 18 · health 12 · automotive
+10 · food 9 · tech 8 · professional 8 · home cleaning 4. Shops include Barber Heaven, Gold's Gym, Nail
+and Lashes, Pet Foods. So "repair" was wrong wording for ~79% of services — and the concept was wrong
+for them too. **For a barber or a gym class there is nothing to collect; "ready" and "completed" are
+the same instant.** The gap exists only for drop-off businesses, which is also why `booking_completed`
+already serves everyone else.
+
+Built as a **button plus one additive nullable timestamp** (`ready_notified_at`, migration 269):
+
+- **No status value**, so no audit of every query filtering on status — including the revenue/booked
+  split from `6c388d31e`, where a new value landing in the wrong bucket is exactly the bug that took a
+  week to notice. That audit was most of the XL.
+- **Self-selecting.** Drop-off shops press it; a gym never sees a stage that makes no sense for them.
+- **Idempotent in the WHERE clause**, not by reading first. It is a button shops double-click, and a
+  read-then-write loses that race — the customer is told twice to collect the same thing.
+- **Refuses cancelled / refunded / no-show orders.** Sending someone on a wasted trip is worse than
+  silence.
+- Customer-scoped, so it pairs with a message, an AI-written note, or a reward for coming in.
+
+Tests pin the *design* rather than the implementation — no status value, additive migration, an
+endpoint that never writes status — so a later attempt to "tidy this into a lifecycle stage" meets the
+argument against it.
+
+#### 9.3.4 `subscription_lapsed` — scoped to make the blocker disappear
+
+Planned with a carve-out in the entitlement gate, because after cancellation a shop is no longer
+entitled to automations and the trigger could never fire. **Scoping it to `past_due` removed the need
+for a carve-out entirely**: it fires while the shop is still entitled, needs no hole in the gate, and
+is the more useful moment anyway — a warning with time left to act on it. After full cancellation a
+workflow is structurally the wrong channel; that belongs in a billing email.
+
+Rides on `payment.webhook.failed`, which the Stripe webhook already published with the shopId resolved
+and which nothing consumed — so there is no second source of truth about whether a payment failed.
+
+Wiring it surfaced that `handleShopEvent` had **no dedup at all**. Stripe retries an unpaid invoice
+over several days and re-delivers webhooks on any non-2xx, so the team would have been paged
+repeatedly about one bill. Now keyed on the invoice, with its own repository method: reusing
+`hasSendForTriggerReference` with a null customer would have compared `customer_address = NULL`, which
+is never true, and deduped nothing.
+
+**Not fully verified.** The DB-level path passed 10/10, but the deployed webhook hop could not be
+reached: a signed replay proved staging's `STRIPE_WEBHOOK_SECRET` differs from local `.env`, and a
+signature made with our secret and a deliberately wrong one both return the same 400. The script works
+the moment that secret is available — `backend/scripts/_qa_subscription_lapsed_live.ts`.
 
 ### 9.4 Supporting work
 
@@ -700,6 +823,33 @@ lesson:
 
 Both are now split so each assertion can only pass for its own reason. **For the remaining triggers:
 assert on what gets written, not on what gets called, and never let a cap stand in for a guard.**
+
+### 9.8 What actually caught the bugs
+
+Seven bugs shipped or nearly shipped in this batch. **None were caught by the test suite**, which grew
+to 2,823 passing tests and a clean typecheck throughout. Every one failed *silently* rather than
+loudly, and every one was found by running the real thing against the deployed system.
+
+- **A migration that deployed green and created nothing.** Its number was unique among files but
+  already recorded in `schema_migrations` under a different name, so the runner skipped it. A duplicate
+  version is not an error, it is a skip. Now checked — see the note at the top of migration 268.
+- **A dedup guard that never ran** (§9.7) and **a second that did not exist** (§9.3.4).
+- **An action registered in the engine but not in the API** (§9.2), so its config was silently dropped.
+- **An event published from every booking path except the one customers use** (§9.3), which would have
+  produced a trigger that looked healthy and missed most bookings.
+- **A response read one level too deep**, which put an error toast on every visit to Automation while
+  the API returned 200. Found by opening the page — the typecheck was clean, there is no frontend test
+  runner, and the backend e2e passed 16/16 against that same endpoint.
+- **Revenue counting orders nobody paid for** (§9.1).
+
+**The through-line:** each was code that existed in one place and was missing in another, where the
+missing half fails by doing nothing. Tests assert that present code behaves; they cannot see an
+absence. What found these was executing the path end to end — a real test-mode payment, a signed
+webhook, a button press — and, twice, a person opening the page.
+
+Worth knowing that **QA scripts lie in both directions**: one reported PASS because a send cap did the
+dedup's job, another reported FAIL because it matched on a field the bug had nulled. Both are now split
+so each assertion can only pass for its own reason.
 
 ---
 

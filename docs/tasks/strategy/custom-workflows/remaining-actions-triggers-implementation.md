@@ -6,6 +6,22 @@
 
 ---
 
+> **STATUS 2026-08-07 — ALL FOUR ARE BUILT AND VERIFIED ON STAGING.** Kept as a record of the
+> estimates and how they held up, because two were wrong in instructive ways.
+>
+> - **Booking created** — S, as estimated. The trap it named (the main path never publishing the event)
+>   was real, and fixing it also repaired ads attribution.
+> - **Create a task** — L, as estimated, and for the predicted reason: it needed a table and a surface.
+> - **Subscription lapsed** — estimated M with an entitlement carve-out. Shipped **S**, because scoping
+>   it to `past_due` removed the need for a carve-out entirely. **Recommendation (a) in §3 was wrong;
+>   (c) was right** — the reasoning is in scope.md §9.3.4.
+> - **Repair ready** — estimated **XL** and recommended for hand-back. Shipped **S/M** as
+>   `order_ready`. The estimate came from accepting the scope line's framing instead of asking who the
+>   feature was for; one query against the service-category data changed both the name and the design.
+>   See scope.md §9.3.2.
+>
+> **The pattern in both misses: the size was set by an assumed implementation, not by the requirement.**
+
 ## The headline: only one of these four is actually small
 
 `scope.md` §9.2 says a new action "costs one `register()` call plus its config UI". That was true of
