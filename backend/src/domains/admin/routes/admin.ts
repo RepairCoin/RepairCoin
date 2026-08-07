@@ -919,4 +919,8 @@ router.use('/contract', contractRoutes);
 import purchaseAutoCompleteRoutes from '../../shop/routes/purchase-auto-complete';
 router.use('/purchases', purchaseAutoCompleteRoutes);
 
+// Bookings stuck awaiting confirmation long enough to need a human decision
+import staleBookingRoutes from './staleBookings';
+router.use('/stale-bookings', staleBookingRoutes);
+
 export default router;

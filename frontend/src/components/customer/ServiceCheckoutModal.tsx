@@ -6,7 +6,7 @@ import { ShopServiceWithShopInfo } from "@/services/api/services";
 import { createPaymentIntent, getBookableLocations, BookableLocation } from "@/services/api/services";
 import { getApiBaseUrl } from "@/utils/apiUrl";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { loadStripe, StripeElementsOptions } from "@stripe/stripe-js";
+import { StripeElementsOptions } from "@stripe/stripe-js";
 import { useCustomerStore } from "@/stores/customerStore";
 import { useAuthStore } from "@/stores/authStore";
 import { TimeSlotPicker } from "./TimeSlotPicker";
@@ -15,8 +15,7 @@ import { formatLocalDate } from "@/utils/dateUtils";
 import { appointmentsApi, TimeSlotConfig } from "@/services/api/appointments";
 import { getCustomerNoShowStatus, CustomerNoShowStatus } from "@/services/api/noShow";
 
-// Initialize Stripe
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
+import { getStripe, stripePromise } from "@/services/stripe";
 
 interface ServiceCheckoutModalProps {
   service: ShopServiceWithShopInfo;
@@ -568,9 +567,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   // if (unexpectedly) there's no connected account.
   const activeStripePromise = useMemo(() => {
     if (!connectedAccountId) return stripePromise;
-    return loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "", {
-      stripeAccount: connectedAccountId,
-    });
+    return getStripe({ stripeAccount: connectedAccountId });
   }, [connectedAccountId]);
 
   return (

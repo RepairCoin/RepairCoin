@@ -527,6 +527,8 @@ export interface StripeCheckoutResponse {
     rcnRedeemed?: number;
     rcnDiscountUsd?: number;
     finalAmount?: number;
+    /** Connected account the session was created on — required to confirm it later. */
+    connectedAccountId?: string;
   };
 }
 

@@ -5,9 +5,10 @@
  */
 
 import { useMemo } from 'react';
+import { isQualifiedStatus, type OperationalStatus } from '@/utils/operationalStatus';
 
 interface ShopData {
-  operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified' | 'paused';
+  operational_status?: OperationalStatus;
   subscriptionActive?: boolean;
   subscriptionEndsAt?: string | null;
   subscriptionCancelledAt?: string | null;
@@ -101,9 +102,7 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
       : (shopData.rcg_balance || 0);
     const isRcgQualified = shopData.operational_status === 'rcg_qualified' || rcgBalance >= 10000;
 
-    const isOperational =
-      shopData.operational_status === 'rcg_qualified' ||
-      shopData.operational_status === 'subscription_qualified';
+    const isOperational = isQualifiedStatus(shopData.operational_status);
 
     // Can perform operations if:
     // 1. NOT suspended (suspended blocks everything, even RCG qualified)

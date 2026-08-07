@@ -27,11 +27,14 @@ export function commissionBpsForTier(tier: SubscriptionTier): number {
 }
 
 /**
- * Platform commission (application fee) in cents for a booking charge, from the shop's CURRENT
- * tier. Fail-open: returns 0 if the tier can't be resolved, so a hiccup here never blocks a
- * customer's payment (worst case: that one booking takes no commission).
+ * Platform commission (application fee) in cents for a charge, from the shop's CURRENT tier.
+ * Used by booking charges and by POS card tenders — on a split-tender sale it is computed on
+ * the card leg only, since a cash leg carries no Stripe charge to attach a fee to.
+ *
+ * Fail-open: returns 0 if the tier can't be resolved, so a hiccup here never blocks a
+ * customer's payment (worst case: that one charge takes no commission).
  */
-export async function computeBookingCommissionCents(
+export async function computeCommissionCents(
   shopId: string,
   amountCents: number
 ): Promise<number> {
@@ -42,7 +45,7 @@ export async function computeBookingCommissionCents(
     // Never let the fee meet/exceed the charge (Stripe rejects it, and it'd be nonsensical).
     return Math.min(fee, amountCents - 1);
   } catch (error) {
-    logger.warn('computeBookingCommissionCents failed; charging no commission', {
+    logger.warn('computeCommissionCents failed; charging no commission', {
       shopId,
       error: error instanceof Error ? error.message : 'Unknown error',
     });

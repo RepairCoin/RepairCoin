@@ -7,11 +7,12 @@ import { ShopRepository } from '../repositories/ShopRepository';
 import { getSharedPool } from '../utils/database-pool';
 import {
   getAutoMessageActionRegistry,
-  NON_MESSAGING_ACTIONS,
+  NO_TEMPLATE_ACTIONS,
   SHOP_SCOPED_ACTIONS,
   DEFAULT_ACTION_TYPE,
 } from './autoMessageActions/registry';
 import { shopHasFeatureEffective } from '../utils/shopTier';
+import { resolveAudience, type AudienceMember } from './audienceResolver';
 
 /** How long an entitlement answer is reused. One tick can ask about the same shop once per customer. */
 const ENTITLEMENT_TTL_MS = 5 * 60 * 1000;
@@ -40,12 +41,16 @@ function resolveTemplate(template: string, context: {
   lastServiceName?: string;
   lastVisitDate?: string;
 }): string {
+  // Every text value is TRIMMED. A customer stored as "Mike " produced "Hey Mike ," — a space before
+  // the comma, in a message going out under the shop's name. Names arrive from typed input and
+  // imports, so trailing whitespace is ordinary data; substituting it raw is what makes it visible.
+  const clean = (v?: string) => (v || '').trim();
   return template
-    .replace(/\{\{customerName\}\}/g, context.customerName || 'Valued Customer')
+    .replace(/\{\{customerName\}\}/g, clean(context.customerName) || 'Valued Customer')
     .replace(/\{\{rcnBalance\}\}/g, String(context.rcnBalance || 0))
-    .replace(/\{\{shopName\}\}/g, context.shopName || 'our shop')
-    .replace(/\{\{lastServiceName\}\}/g, context.lastServiceName || 'your last service')
-    .replace(/\{\{lastVisitDate\}\}/g, context.lastVisitDate || 'recently');
+    .replace(/\{\{shopName\}\}/g, clean(context.shopName) || 'our shop')
+    .replace(/\{\{lastServiceName\}\}/g, clean(context.lastServiceName) || 'your last service')
+    .replace(/\{\{lastVisitDate\}\}/g, clean(context.lastVisitDate) || 'recently');
 }
 
 export class AutoMessageSchedulerService {
@@ -126,113 +131,22 @@ export class AutoMessageSchedulerService {
         return false;
     }
   }
-
   /**
-   * Get target customers for a rule based on audience type
+   * Get target customers for a rule based on audience type.
+   *
+   * The switch itself now lives in audienceResolver, because a campaign workflow needs the same
+   * answer and cannot express these audiences in the campaign vocabulary. One implementation, so a
+   * new audience type cannot exist for messages and not for campaigns.
    */
-  private async getTargetCustomers(rule: AutoMessage): Promise<Array<{
-    walletAddress: string;
-    name?: string;
-    rcnBalance?: number;
-    lastServiceName?: string;
-    lastVisitDate?: string;
-  }>> {
-    const pool = getSharedPool();
-
-    switch (rule.targetAudience) {
-      case 'all': {
-        // All customers who have interacted with this shop
-        const customers = await this.customerRepo.findByShopInteraction(rule.shopId);
-        return customers.map(c => ({
-          walletAddress: c.walletAddress,
-          name: c.name,
-          lastVisitDate: c.lastVisit ? c.lastVisit.toLocaleDateString() : undefined,
-        }));
-      }
-
-      case 'active': {
-        // Customers who visited in last 30 days
-        const result = await pool.query(`
-          SELECT DISTINCT c.address as wallet_address, c.name,
-            MAX(t.created_at) as last_visit
-          FROM customers c
-          INNER JOIN transactions t ON c.address = t.customer_address
-          WHERE t.shop_id = $1
-            AND t.created_at >= NOW() - INTERVAL '30 days'
-            AND c.is_active = true
-          GROUP BY c.address, c.name
-        `, [rule.shopId]);
-        return result.rows.map((r: any) => ({
-          walletAddress: r.wallet_address,
-          name: r.name || undefined,
-          lastVisitDate: r.last_visit ? new Date(r.last_visit).toLocaleDateString() : undefined,
-        }));
-      }
-
-      case 'inactive_30d': {
-        // Customers who haven't visited in 30+ days
-        const result = await pool.query(`
-          SELECT DISTINCT c.address as wallet_address, c.name,
-            MAX(t.created_at) as last_visit
-          FROM customers c
-          INNER JOIN transactions t ON c.address = t.customer_address
-          WHERE t.shop_id = $1
-            AND c.is_active = true
-          GROUP BY c.address, c.name
-          HAVING MAX(t.created_at) < NOW() - INTERVAL '30 days'
-        `, [rule.shopId]);
-        return result.rows.map((r: any) => ({
-          walletAddress: r.wallet_address,
-          name: r.name || undefined,
-          lastVisitDate: r.last_visit ? new Date(r.last_visit).toLocaleDateString() : undefined,
-        }));
-      }
-
-      case 'has_balance': {
-        // Customers with RCN balance > 0 at this shop
-        const result = await pool.query(`
-          SELECT DISTINCT c.address as wallet_address, c.name, c.current_rcn_balance
-          FROM customers c
-          INNER JOIN transactions t ON c.address = t.customer_address
-          WHERE t.shop_id = $1
-            AND c.is_active = true
-            AND c.current_rcn_balance > 0
-          GROUP BY c.address, c.name, c.current_rcn_balance
-        `, [rule.shopId]);
-        return result.rows.map((r: any) => ({
-          walletAddress: r.wallet_address,
-          name: r.name || undefined,
-          rcnBalance: parseFloat(r.current_rcn_balance) || 0,
-        }));
-      }
-
-      case 'completed_booking': {
-        // Customers who completed a booking at this shop
-        const result = await pool.query(`
-          SELECT DISTINCT c.address as wallet_address, c.name,
-            MAX(so.updated_at) as last_visit,
-            (SELECT ss.service_name FROM shop_services ss
-             JOIN service_orders so2 ON ss.service_id = so2.service_id
-             WHERE so2.customer_address = c.address AND so2.shop_id = $1 AND so2.status = 'completed'
-             ORDER BY so2.updated_at DESC LIMIT 1) as last_service_name
-          FROM customers c
-          INNER JOIN service_orders so ON LOWER(c.address) = LOWER(so.customer_address)
-          WHERE so.shop_id = $1
-            AND so.status = 'completed'
-            AND c.is_active = true
-          GROUP BY c.address, c.name
-        `, [rule.shopId]);
-        return result.rows.map((r: any) => ({
-          walletAddress: r.wallet_address,
-          name: r.name || undefined,
-          lastServiceName: r.last_service_name || undefined,
-          lastVisitDate: r.last_visit ? new Date(r.last_visit).toLocaleDateString() : undefined,
-        }));
-      }
-
-      default:
-        return [];
-    }
+  private async getTargetCustomers(rule: AutoMessage): Promise<AudienceMember[]> {
+    return resolveAudience({
+      shopId: rule.shopId,
+      targetAudience: rule.targetAudience,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      triggerType: rule.triggerType,
+      eventType: rule.eventType,
+    });
   }
 
   /**
@@ -280,7 +194,15 @@ export class AutoMessageSchedulerService {
   private async sendToCustomer(
     rule: AutoMessage,
     customer: { walletAddress: string; name?: string; rcnBalance?: number; lastServiceName?: string; lastVisitDate?: string },
-    shopName: string
+    shopName: string,
+    /**
+     * What caused this send — an order id, for event triggers. Stored on the send row so
+     * `hasSendForTriggerReference` can recognise a repeat of the SAME event later.
+     *
+     * Optional because the sweeps and schedules have no such reference: nothing "caused" a Monday
+     * message except Monday. Only the event paths pass it.
+     */
+    triggerReference?: string
   ): Promise<{ success: boolean; messageId?: string; conversationId?: string }> {
     try {
       // Entitlement at the engine. Gating HERE covers every send entry point at once — scheduled
@@ -307,7 +229,7 @@ export class AutoMessageSchedulerService {
       // message_template = NULL since migration 248, and resolveTemplate would throw on it — note
       // tsconfig has strict:false, so `messageTemplate: string | null` does NOT catch this at compile
       // time. The guard is load-bearing, not defensive decoration.
-      const isMessaging = !NON_MESSAGING_ACTIONS.has(rule.actionType || 'send_message');
+      const isMessaging = !NO_TEMPLATE_ACTIONS.has(rule.actionType || 'send_message');
       const { message: variantMessage, variant } = isMessaging
         ? this.pickVariant(rule)
         : { message: '', variant: null };
@@ -347,6 +269,7 @@ export class AutoMessageSchedulerService {
         messageId: outcome.messageId,
         status: 'sent',
         variant,
+        triggerReference,
       });
 
       return { success: true, messageId: outcome.messageId, conversationId: outcome.conversationId };
@@ -445,6 +368,16 @@ export class AutoMessageSchedulerService {
 
       for (const rule of rules) {
         try {
+          // Same event twice — a Stripe webhook retry, or a re-delivery — must not alert twice. Only
+          // checked when the caller supplied a reference: `low_stock` has none (each sweep is a fresh
+          // observation of the same shelf), so this is a no-op there rather than a silent new gate.
+          if (data.reference && await this.autoMessageRepo.hasShopScopedSendForReference(rule.id, data.reference)) {
+            logger.debug('Shop-scoped event already handled, skipping', {
+              ruleId: rule.id, eventType, reference: data.reference,
+            });
+            continue;
+          }
+
           const fired = await this.fireShopScopedRule(rule, shopName, {
             triggerDetail: data.summary,
             reference: data.reference,
@@ -544,13 +477,20 @@ export class AutoMessageSchedulerService {
             const shopName = shop?.name || 'Our Shop';
             const customer = await this.customerRepo.getCustomer(data.customerAddress);
 
+            // The trigger reference has to go in HERE, not afterwards. The comment that used to sit
+            // below said "update the send record with trigger reference" and nothing did it, so every
+            // immediate event send stored NULL — and `hasSendForTriggerReference` above, the guard
+            // meant to stop one order messaging a customer twice, could never match. It looked
+            // present and did nothing for every delayHours: 0 rule, which is most of them.
+            //
+            // The delayed branch below always passed it, which is why this survived: the same feature
+            // demonstrably worked, just never on the path people actually used.
             const sendResult = await this.sendToCustomer(rule, {
               walletAddress: data.customerAddress,
               name: customer?.name || undefined,
-            }, shopName);
+            }, shopName, data.orderId);
 
             if (sendResult.success) {
-              // Update the send record with trigger reference
               scheduledCount++;
             }
           } else {
@@ -971,7 +911,7 @@ export class AutoMessageSchedulerService {
                 : rule.actionPayload ?? null;
 
               // Same guard as the immediate path: a non-messaging action has no template to resolve.
-              const isMessaging = !NON_MESSAGING_ACTIONS.has(stepActionType);
+              const isMessaging = !NO_TEMPLATE_ACTIONS.has(stepActionType);
               // A/B on delayed single-message sends: pick a variant at send time (sequence steps skip A/B).
               const abPick = isSequenceStep || !isMessaging ? null : this.pickVariant(rule);
               const messageText = isMessaging

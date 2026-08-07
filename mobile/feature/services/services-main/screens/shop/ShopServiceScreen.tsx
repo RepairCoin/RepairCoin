@@ -5,6 +5,7 @@ import { router } from "expo-router";
 
 // Components
 import { ThemedView } from "@/shared/components/ui/ThemedView";
+import GradientHeader from "@/shared/components/ui/GradientHeader";
 import {
   ServiceActionModal,
   ShopServiceDetailsModal,
@@ -99,7 +100,9 @@ export default function ShopServiceScreen() {
 
   return (
     <ThemedView className="w-full h-full">
-      <View className="pt-20 px-4 gap-4 flex-1">
+      <GradientHeader title="Services" variant="shop" />
+
+      <View className="pt-4 px-4 gap-4 flex-1">
         {/* Tab Selector */}
         <View className="flex-row w-full h-10 bg-[#121212] rounded-lg">
           {SERVICE_TABS.map((tab, i) => (

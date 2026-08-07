@@ -21,6 +21,7 @@ export interface InventoryItem {
   stockQuantity: number;
   reservedQuantity: number;
   lowStockThreshold: number;
+  taxable: boolean;
   status: InventoryStatus;
   images: string[];
   metadata: Record<string, any>;
@@ -94,6 +95,7 @@ export interface CreateInventoryItemParams {
   lowStockThreshold?: number;
   images?: string[];
   metadata?: Record<string, any>;
+  taxable?: boolean;
 }
 
 export interface UpdateInventoryItemParams {
@@ -109,6 +111,7 @@ export interface UpdateInventoryItemParams {
   status?: InventoryStatus;
   images?: string[];
   metadata?: Record<string, any>;
+  taxable?: boolean;
 }
 
 export interface InventoryFilters {
@@ -163,6 +166,7 @@ export interface AdjustStockParams {
   locationId?: string; // branch whose stock to adjust; omitted = the shop's primary location
   adjustmentType: AdjustmentType;
   quantityChange: number;
+  clampToZero?: boolean; // deduct what is there rather than rejecting; for sales already taken
   referenceType?: string;
   referenceId?: string;
   reason?: string;
@@ -189,8 +193,8 @@ export class InventoryRepository extends BaseRepository {
       const query = `
         INSERT INTO inventory_items (
           shop_id, category_id, vendor_id, name, description, sku, barcode,
-          price, cost, stock_quantity, low_stock_threshold, images, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          price, cost, stock_quantity, low_stock_threshold, images, metadata, taxable
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `;
 
@@ -208,7 +212,8 @@ export class InventoryRepository extends BaseRepository {
         initialStock,
         params.lowStockThreshold || 5,
         JSON.stringify(params.images || []),
-        JSON.stringify(params.metadata || {})
+        JSON.stringify(params.metadata || {}),
+        params.taxable ?? true
       ];
 
       const result = await client.query(query, values);
@@ -518,6 +523,11 @@ export class InventoryRepository extends BaseRepository {
         values.push(params.lowStockThreshold);
         paramIndex++;
       }
+      if (params.taxable !== undefined) {
+        updates.push(`taxable = $${paramIndex}`);
+        values.push(params.taxable);
+        paramIndex++;
+      }
       if (params.status) {
         updates.push(`status = $${paramIndex}`);
         values.push(params.status);
@@ -696,25 +706,32 @@ export class InventoryRepository extends BaseRepository {
           quantityBefore = branch.rows[0].stock_quantity;
           quantityAfter = quantityBefore + params.quantityChange;
           if (quantityAfter < 0) {
-            throw new Error('Insufficient stock quantity');
+            if (!params.clampToZero) {
+              throw new Error('Insufficient stock quantity');
+            }
+            quantityAfter = 0;
           }
           await client.query(
             `UPDATE inventory_item_stock SET stock_quantity = $1, updated_at = CURRENT_TIMESTAMP
              WHERE item_id = $2 AND location_id = $3`,
             [quantityAfter, params.itemId, locationId]
           );
+          // The clamped delta, so the shop total never drifts from the sum of its branches.
           await client.query(
             `UPDATE inventory_items
              SET stock_quantity = GREATEST(stock_quantity + $1, 0), updated_at = CURRENT_TIMESTAMP
              WHERE id = $2`,
-            [params.quantityChange, params.itemId]
+            [quantityAfter - quantityBefore, params.itemId]
           );
         } else {
           // Legacy path: shop has no primary location — adjust the item total directly.
           quantityBefore = itemResult.rows[0].stock_quantity;
           quantityAfter = quantityBefore + params.quantityChange;
           if (quantityAfter < 0) {
-            throw new Error('Insufficient stock quantity');
+            if (!params.clampToZero) {
+              throw new Error('Insufficient stock quantity');
+            }
+            quantityAfter = 0;
           }
           await client.query(
             `UPDATE inventory_items SET stock_quantity = $1, updated_at = CURRENT_TIMESTAMP
@@ -735,7 +752,7 @@ export class InventoryRepository extends BaseRepository {
             params.shopId,
             locationId,
             params.adjustmentType,
-            params.quantityChange,
+            quantityAfter - quantityBefore,
             quantityBefore,
             quantityAfter,
             params.referenceType || null,

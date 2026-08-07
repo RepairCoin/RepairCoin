@@ -22,23 +22,28 @@ describe('low_stock — shop-scoped trigger', () => {
     expect(controller).toContain("'low_stock'");
   });
 
+  // Asserts MEMBERSHIP, not the whole list. This used to pin the set to exactly ['low_stock'], which
+  // made it fail the moment new_ad_lead became the second shop-scoped trigger — a test failing on a
+  // correct change, because it asserted the contents of a list instead of the property it cares about.
   it('is declared shop-scoped, so the API can reject customer actions on it', () => {
-    expect(controller).toContain('SHOP_SCOPED_EVENTS');
-    expect(controller).toMatch(/SHOP_SCOPED_EVENTS\s*=\s*new Set\(\['low_stock'\]\)/);
+    expect(controller).toMatch(/SHOP_SCOPED_EVENTS\s*=\s*new Set\(\[[^\]]*'low_stock'/);
   });
 
   // A low_stock rule set to "send a message" has nobody to send to. Rejected at write time rather
   // than sitting in the list looking active while quietly doing nothing.
   //
-  // Keyed on SHOP_SCOPED_ACTIONS since 2026-07-30. It used to read NON_MESSAGING_ACTIONS, which
+  // Keyed on SHOP_SCOPED_ACTIONS since 2026-07-30. It used to read NO_TEMPLATE_ACTIONS, which
   // contains issue_reward — an action that sends no message but still needs somebody to pay — so
   // "low stock → issue 25 RCN" passed validation and could only ever fail.
+  // The rule is now general — actionFitsTrigger pairs what an action NEEDS against what a trigger
+  // PROVIDES — and a shop-scoped event provides nothing, so this case falls out of it rather than
+  // being its own check. The behaviour is unchanged; it is simply no longer a special case.
   it('rejects a shop-scoped rule that would need a recipient', () => {
-    expect(controller).toContain('SHOP_SCOPED_EVENTS.has(eventType) && !SHOP_SCOPED_ACTIONS.has(actionType)');
+    expect(controller).toContain('actionFitsTrigger(actionType, triggerType, eventType)');
   });
 
   it('applies the same coherence rule on update, not just create', () => {
-    expect(controller).toContain('!SHOP_SCOPED_ACTIONS.has(effectiveActionType)');
+    expect(controller).toContain('actionFitsTrigger(effectiveActionType');
   });
 
   it('subscribes to the event the inventory service already publishes', () => {
@@ -69,17 +74,33 @@ describe('low_stock — shop-scoped trigger', () => {
     expect(shopScopedPath()).toContain('customerAddress: null');
   });
 
-  // De-duplication is deliberately absent from the EVENT path: the emitter (LowStockAlertService)
-  // already throttles per item and honours the shop's digest preference, and a second notion of "have
-  // we already said this" would eventually produce duplicates or silence depending on which won.
+  // TIME-BASED de-duplication is deliberately absent from the EVENT path: the emitter
+  // (LowStockAlertService) already throttles per item and honours the shop's digest preference, and a
+  // second notion of "have we already said this recently" would eventually produce duplicates or
+  // silence depending on which won.
   //
   // Note this is specifically about the event path. A shop-scoped action on a SCHEDULE has no emitter
   // throttling it, so that path does cap itself at one alert per day (hasSentTodayShopScoped) — which
   // is why this assertion is scoped to the region above rather than the whole file.
-  it('does not re-implement de-duplication on the event path', () => {
+  it('does not re-implement time-based de-duplication on the event path', () => {
     const body = shopScopedPath();
     expect(body).not.toContain('countSendsForCustomer');
     expect(body).not.toContain('hasSentToday');
+  });
+
+  // REFERENCE de-duplication is a different thing and was added for `subscription_lapsed`: Stripe
+  // retries one unpaid invoice over several days and re-delivers webhooks on any non-2xx, so without
+  // it the team is paged again and again about a single bill. It answers "is this the same THING",
+  // not "was it recently", so it does not compete with the emitter's throttle.
+  it('skips a repeat of the same reference', () => {
+    expect(shopScopedPath()).toContain('hasShopScopedSendForReference');
+  });
+
+  it('only dedups when the caller gave a reference — low_stock must be unaffected', () => {
+    // The guard is conditional on purpose. low_stock supplies no reference (each sweep is a fresh look
+    // at the same shelf), so an unconditional check would either no-op confusingly or, if it ever
+    // matched on NULL, silence the alert entirely.
+    expect(shopScopedPath()).toContain('data.reference && await this.autoMessageRepo.hasShopScopedSendForReference');
   });
 
   it('still respects the Business entitlement gate', () => {

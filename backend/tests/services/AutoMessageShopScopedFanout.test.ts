@@ -9,7 +9,7 @@
 // These tests deliberately assert in BOTH directions. A guard that made every rule fire once would
 // break messaging entirely while making the storm tests pass, so `send_message` and `issue_reward` are
 // pinned as still fanning out. `issue_reward` is the interesting one: it sends no message, so it lives
-// in NON_MESSAGING_ACTIONS — but it still needs somebody to pay, which is why the fix keys on the
+// in NO_TEMPLATE_ACTIONS — but it still needs somebody to pay, which is why the fix keys on the
 // narrower SHOP_SCOPED_ACTIONS instead.
 
 const mockRun = jest.fn(async () => ({ ok: true }));
@@ -135,7 +135,7 @@ describe("scheduled rules — shop-scoped actions fire once, customer actions fa
     expect(mockRun).toHaveBeenCalledTimes(AUDIENCE.length);
   });
 
-  // issue_reward is in NON_MESSAGING_ACTIONS but still needs a recipient — hence SHOP_SCOPED_ACTIONS.
+  // issue_reward is in NO_TEMPLATE_ACTIONS but still needs a recipient — hence SHOP_SCOPED_ACTIONS.
   it("still fans issue_reward out per customer — no message, but somebody has to be paid", async () => {
     const { svc } = scheduler({
       rules: [rule({ actionType: "issue_reward", messageTemplate: null, actionPayload: { amountRcn: 5 } })],

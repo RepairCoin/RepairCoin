@@ -5,6 +5,7 @@
 
 import { topCustomers } from "../../../../src/domains/AIAgentDomain/services/insights/tools/topCustomers";
 import type { Pool } from "pg";
+import { ledgerRevenueCents } from "../../../../src/utils/sqlFragments";
 
 const makeMockPool = (rowsByQuery: Array<Array<any>>) => {
   const captured: Array<{ sql: string; params: unknown[] }> = [];
@@ -74,7 +75,11 @@ describe("top_customers tool", () => {
         { range: "all", by: "spend", limit: 5 },
         ctx("peanut", mock)
       );
-      expect(mock.captured[0].sql).toMatch(/ORDER BY SUM\(o\.total_amount\) DESC/);
+      // Spend now comes from the fiat ledger, net of tax and refunds, so a customer who buys at
+      // the till is ranked on what they actually spend.
+      expect(mock.captured[0].sql).toContain(
+        `ORDER BY SUM(${ledgerRevenueCents("p")}) DESC`
+      );
     });
   });
 
@@ -98,8 +103,10 @@ describe("top_customers tool", () => {
         { range: "all", by: "order_count", limit: 5 },
         ctx("peanut", mock)
       );
+      // Purchases, not ledger rows: a split-tender counter sale writes one row per tender, and
+      // counting rows would rank a customer who paid half in cash as having bought twice.
       expect(mock.captured[0].sql).toMatch(
-        /ORDER BY COUNT\(\*\) DESC, SUM\(o\.total_amount\) DESC/
+        /ORDER BY COUNT\(DISTINCT COALESCE\(p\.order_id, p\.pos_sale_id::text, p\.id::text\)\) DESC, SUM\(/
       );
     });
   });
@@ -227,8 +234,10 @@ describe("top_customers tool", () => {
         { range: "all", by: "spend", limit: 5 },
         ctx("peanut", mock)
       );
+      // Case-insensitive now: `payments.customer_address` is written by two channels and a
+      // case mismatch would silently drop the customer's name from the table.
       expect(mock.captured[0].sql).toMatch(
-        /LEFT JOIN customers c ON c\.address = o\.customer_address/
+        /LEFT JOIN customers c ON LOWER\(c\.address\) = LOWER\(p\.customer_address\)/
       );
     });
 
@@ -238,7 +247,7 @@ describe("top_customers tool", () => {
         { range: "all", by: "spend", limit: 5 },
         ctx("shop-zzz", mock)
       );
-      expect(mock.captured[0].sql).toMatch(/o\.shop_id = \$1/);
+      expect(mock.captured[0].sql).toMatch(/p\.shop_id = \$1/);
       expect(mock.captured[0].params[0]).toBe("shop-zzz");
     });
 

@@ -40,6 +40,7 @@ export function useCreateStripeCheckoutMutation() {
         type: "service_booking",
         orderId,
         sessionId,
+        connectedAccountId: response.data.connectedAccountId,
         amount: response.data.amount,
         rcnRedeemed: response.data.rcnRedeemed,
       });

@@ -10,6 +10,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
+import GradientHeader from "@/shared/components/ui/GradientHeader";
 import {
   STATUS_FILTERS,
   DATE_FILTERS,
@@ -97,11 +98,9 @@ export default function ShopHistoryScreen() {
 
   return (
     <ThemedView className="flex-1">
-      <View className="pt-16 px-4 pb-2">
-        <Text className="text-white text-2xl font-bold mb-4">
-          Transaction History
-        </Text>
+      <GradientHeader title="Transaction History" variant="shop" />
 
+      <View className="pt-4 px-4 pb-2">
         {/* Search Input */}
         <View className="mb-4">
           <SearchInput

@@ -64,6 +64,10 @@ export const repeatCustomerAnalysis: BusinessInsightsTool = {
     // Outer: roll up into new (n=1) / repeat (n≥2) buckets +
     // avg-orders-per-repeat-customer so the prose can describe
     // depth of loyalty.
+    // Deliberately NOT revenueRecognized(): this counts orders to bucket customers as new or
+    // repeat, and a booking that happened is a visit whether or not the payment settled. Tightening
+    // it would change who the loyalty prose describes, which is a different question from the money
+    // figures that moved.
     const conds: string[] = [
       `shop_id = $1`,
       `status IN ('paid', 'completed')`,

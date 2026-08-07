@@ -405,9 +405,20 @@ class ServiceApi {
     }
   }
 
-  async confirmCheckoutPayment(sessionId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  /**
+   * Bookings are Stripe Connect direct charges, so the checkout session lives on the shop's
+   * connected account and is invisible to the platform account. Without connectedAccountId
+   * the backend retrieves it against the platform and Stripe answers "No such checkout.session".
+   */
+  async confirmCheckoutPayment(
+    sessionId: string,
+    connectedAccountId?: string,
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
-      const response = await apiClient.post("/services/orders/confirm", { paymentIntentId: sessionId });
+      const response = await apiClient.post("/services/orders/confirm", {
+        paymentIntentId: sessionId,
+        connectedAccountId,
+      });
       return { success: true, data: response };
     } catch (error: any) {
       console.error("Failed to confirm checkout payment:", error.message);
@@ -435,6 +446,7 @@ class ServiceApi {
       rcnRedeemed?: number;
       rcnDiscountUsd?: number;
       finalAmount?: number;
+      connectedAccountId?: string;
     };
   }> {
     try {

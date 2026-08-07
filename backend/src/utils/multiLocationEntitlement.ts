@@ -1,6 +1,7 @@
 import { isValidTier } from '../config/subscriptionPlans';
 import { shopSubscriptionRepository, shopLocationRepository } from '../repositories';
 import { getSharedPool } from './database-pool';
+import { liveSubscriptionFirst } from './sqlFragments';
 import { logger } from './logger';
 
 const LEGACY_BUSINESS_TYPES = new Set(['standard', 'premium', 'custom']);
@@ -14,7 +15,8 @@ function isBusinessType(subscriptionType?: string | null): boolean {
 async function isShopInTrial(shopId: string): Promise<boolean> {
   try {
     const result = await getSharedPool().query(
-      `SELECT status FROM stripe_subscriptions WHERE shop_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      `SELECT status FROM stripe_subscriptions WHERE shop_id = $1
+       ORDER BY ${liveSubscriptionFirst()} LIMIT 1`,
       [shopId]
     );
     return result.rows[0]?.status === 'trialing';

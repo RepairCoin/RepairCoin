@@ -33,6 +33,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
   const [shopViewMode, setShopViewMode] = useState<"grid" | "list">("grid");
+  const [showFollowingOnly, setShowFollowingOnly] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0); // For refreshing recently viewed
   const [customerGroups, setCustomerGroups] = useState<AffiliateShopGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
@@ -298,6 +299,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
               onClick={() => {
                 setActiveTab("services");
                 setShowFavoritesOnly(false);
+                setShowFollowingOnly(false);
               }}
               className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
                 activeTab === "services"
@@ -423,6 +425,22 @@ export const ServiceMarketplaceClient: React.FC = () => {
                     <span className="hidden sm:inline">List</span>
                   </button>
                 </div>
+
+                {/* Following Toggle — the shops-tab counterpart to Favorites */}
+                <button
+                  onClick={() => setShowFollowingOnly(!showFollowingOnly)}
+                  title={showFollowingOnly ? "Show all shops" : "Show only shops you follow"}
+                  aria-label={showFollowingOnly ? "Showing followed shops - click to show all" : "Show followed shops"}
+                  aria-pressed={showFollowingOnly}
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    showFollowingOnly
+                      ? "bg-red-500 text-white hover:bg-red-600"
+                      : "bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-red-500/50 hover:text-red-500"
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 flex-shrink-0 ${showFollowingOnly ? "fill-current" : ""}`} />
+                  <span className="hidden sm:inline">Following</span>
+                </button>
               </div>
             )}
           </div>
@@ -446,6 +464,8 @@ export const ServiceMarketplaceClient: React.FC = () => {
             searchTerm={filters.search}
             selectedCategory=""
             layout={shopViewMode}
+            followingOnly={showFollowingOnly}
+            onClearFollowing={() => setShowFollowingOnly(false)}
           />
         )}
 

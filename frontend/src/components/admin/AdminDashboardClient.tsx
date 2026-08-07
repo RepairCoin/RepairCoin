@@ -138,7 +138,7 @@ export default function AdminDashboardClient() {
     "grouped" | "all" | "unsuspend-requests"
   >("grouped");
   const [shopView, setShopView] = useState<
-    "all" | "active" | "pending" | "rejected" | "unsuspend-requests"
+    "all" | "active" | "pending" | "unsuspend-requests"
   >("all");
 
   // Initialize tab and view from URL query parameters
@@ -174,9 +174,6 @@ export default function AdminDashboardClient() {
         } else if (view === "pending") {
           setActiveSubTab("shops-pending");
           setShopView("pending");
-        } else if (view === "rejected") {
-          setActiveSubTab("shops-rejected");
-          setShopView("rejected");
         } else if (view === "unsuspend") {
           setActiveSubTab("shops-unsuspend");
           setShopView("unsuspend-requests");
@@ -242,12 +239,6 @@ export default function AdminDashboardClient() {
       setShopView("pending");
       url.searchParams.set("tab", "shops-management");
       url.searchParams.set("view", "pending");
-    } else if (tab === "shops-rejected") {
-      setActiveTab("shops-management");
-      setActiveSubTab("shops-rejected");
-      setShopView("rejected");
-      url.searchParams.set("tab", "shops-management");
-      url.searchParams.set("view", "rejected");
     } else if (tab === "shops-unsuspend") {
       setActiveTab("shops-management");
       setActiveSubTab("shops-unsuspend");

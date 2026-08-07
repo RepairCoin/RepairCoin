@@ -6,3 +6,4 @@ export { queryKeys } from '../config/queryClient';
 export { useAppToast } from './useAppToast';
 export { useHaptics } from './useHaptics';
 export { useDebounce } from './useDebounce';
+export { useFeatureAccessQuery } from './useFeatureAccessQuery';

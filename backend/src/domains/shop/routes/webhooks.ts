@@ -11,6 +11,7 @@ import { shopPurchaseService } from '../services/ShopPurchaseService';
 import { leadBookingService } from '../../AdsDomain/services/LeadBookingService';
 import { ShopSubscriptionRepository } from '../../../repositories/ShopSubscriptionRepository';
 import { setMultiLocationActive } from '../../../utils/multiLocationEntitlement';
+import { chooseSubscriptionToKeep } from '../../../utils/subscriptionSurvivor';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { EmailService } from '../../../services/EmailService';
 import { generalNotificationPreferencesRepository } from '../../../repositories/GeneralNotificationPreferencesRepository';
@@ -726,6 +727,13 @@ async function handleSubscriptionCreated(event: Stripe.Event, subscriptionServic
     return;
   }
 
+  await cancelDuplicateSubscriptions(subscription).catch((e) =>
+    logger.error('Duplicate subscription check failed', {
+      subscriptionId: subscription.id,
+      error: e instanceof Error ? e.message : 'Unknown error',
+    })
+  );
+
   // Update subscription in database if needed
   // This might already be handled by the API endpoint, but webhook ensures consistency
   eventBus.publish({
@@ -740,6 +748,78 @@ async function handleSubscriptionCreated(event: Stripe.Event, subscriptionServic
       webhookEventId: event.id
     }
   });
+}
+
+/**
+ * The last place a duplicate can be caught.
+ *
+ * Checkout refuses a shop that already has live cover, but it checks when the SESSION opens and the
+ * subscription is not created until checkout completes — so two sessions opened before either
+ * completes both pass, and the shop ends up billed twice. Here the subscription exists and Stripe
+ * is authoritative, so there is no race left to lose.
+ *
+ * Both webhooks may run at once, so which subscription survives is decided by a rule that does not
+ * depend on who asks or when: chooseSubscriptionToKeep, the same rule the dedupe script uses. Each
+ * handler cancels every non-survivor it can see, which makes a concurrent second run a no-op rather
+ * than a fight.
+ *
+ * Cancelling is safe because a plan change updates the existing subscription in place
+ * (SubscriptionService.changeTier) — a shop is never legitimately paying for two plans at once.
+ * DUPLICATE_SUBSCRIPTION_AUTOCANCEL=false reduces this to a loud log for anyone who would rather
+ * settle it by hand.
+ */
+async function cancelDuplicateSubscriptions(created: Stripe.Subscription): Promise<void> {
+  const stripe = getStripeService().getStripe();
+  const customerId = typeof created.customer === 'string' ? created.customer : created.customer?.id;
+  if (!customerId) return;
+
+  const list = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 20 });
+  const live = list.data.filter(
+    (s) =>
+      ['active', 'trialing', 'past_due'].includes(s.status) &&
+      s.metadata?.type !== 'agency_activation'
+  );
+  if (live.length <= 1) return;
+
+  const keep = chooseSubscriptionToKeep(
+    live.map((s) => ({
+      id: s.id,
+      amountCents: s.items?.data?.[0]?.price?.unit_amount ?? 0,
+      periodEnd: (s as any).current_period_end ?? s.items?.data?.[0]?.current_period_end ?? 0,
+      created: s.created,
+    }))
+  );
+
+  const redundant = live.filter((s) => s.id !== keep?.id);
+  logger.error('Duplicate subscriptions detected for one customer', {
+    customerId,
+    shopId: created.metadata?.shopId,
+    keeping: keep?.id,
+    redundant: redundant.map((s) => s.id),
+  });
+
+  if (process.env.DUPLICATE_SUBSCRIPTION_AUTOCANCEL === 'false') {
+    logger.warn('Auto-cancel disabled; duplicates left in place for manual resolution', { customerId });
+    return;
+  }
+
+  for (const sub of redundant) {
+    try {
+      await stripe.subscriptions.cancel(sub.id);
+      // The money already taken on a cancelled duplicate is a refund decision, not something this
+      // handler should make — the invoice is logged so it can be settled separately.
+      logger.warn('Cancelled duplicate subscription', {
+        subscriptionId: sub.id,
+        customerId,
+        latestInvoice: typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice?.id,
+      });
+    } catch (error) {
+      logger.error('Failed to cancel duplicate subscription', {
+        subscriptionId: sub.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
 }
 
 /**
@@ -1459,6 +1539,25 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
       const activeStatuses = ['active', 'past_due', 'unpaid'];
       const isActive = activeStatuses.includes(subscription.status);
 
+      // A shop can hold more than one Stripe subscription — that is how the duplicate billing this
+      // webhook helped clean up arose in the first place. Cancelling ONE of them says nothing about
+      // whether the shop is still covered, so the shop's own status is decided by what remains, not
+      // by the subscription that happened to arrive in this event. Without this, deduplicating a
+      // double-billed shop locks it out of the product it is still paying for.
+      const stillCovered =
+        isActive ||
+        (
+          await db.query(
+            `SELECT 1 FROM stripe_subscriptions
+             WHERE shop_id = $1
+               AND stripe_subscription_id <> $2
+               AND status IN ('active', 'trialing', 'past_due')
+               AND current_period_end > NOW()
+             LIMIT 1`,
+            [shopId, subscription.id]
+          )
+        ).rows.length > 0;
+
       // Get shop's RCG balance to determine operational status
       const shopQuery = `SELECT rcg_balance FROM shops WHERE shop_id = $1`;
       const shopResult = await db.query(shopQuery, [shopId]);
@@ -1467,7 +1566,7 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
         const rcgBalance = shopResult.rows[0].rcg_balance || 0;
         let operationalStatus: string;
 
-        if (isActive) {
+        if (stillCovered) {
           operationalStatus = 'subscription_qualified';
         } else if (rcgBalance >= 10000) {
           operationalStatus = 'rcg_qualified';
@@ -1500,9 +1599,12 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
         });
       }
 
-      // Sync shop_subscriptions with stripe subscription (creates or updates record)
+      // Sync shop_subscriptions with stripe subscription (creates or updates record).
+      // Skipped when a cancelled subscription leaves the shop covered by another: shop_subscriptions
+      // holds ONE row per shop, so writing this cancellation into it would close the shop's plan
+      // record and point billing_reference at a dead subscription while a live one is still paying.
       const { currentPeriodEnd: periodEndTs } = extractSubscriptionPeriodDates(subscription);
-      if (periodEndTs) {
+      if (periodEndTs && (isActive || !stillCovered)) {
         const shopSubRepo = new ShopSubscriptionRepository();
         await shopSubRepo.syncFromStripeSubscription(
           shopId,

@@ -7,7 +7,11 @@ export type BadgeTone =
   | "discount"
   | "group"
   | "rank"
-  | "neutral";
+  | "neutral"
+  | "success"
+  | "warning"
+  | "danger"
+  | "info";
 
 type IconLib = "ionicons" | "material-community";
 
@@ -39,6 +43,22 @@ const TONES: Record<BadgeTone, ToneStyle> = {
   },
   neutral: {
     bg: "#3F3F46",
+    text: "#FFFFFF",
+  },
+  success: {
+    bg: "#22C55E",
+    text: "#FFFFFF",
+  },
+  warning: {
+    bg: "#FFCC00",
+    text: "#000000",
+  },
+  danger: {
+    bg: "#EF4444",
+    text: "#FFFFFF",
+  },
+  info: {
+    bg: "#38BDF8",
     text: "#FFFFFF",
   },
 };

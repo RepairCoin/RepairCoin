@@ -89,6 +89,21 @@ export class RefundRepository extends BaseRepository {
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
+  /**
+   * Settles a refund that never went to Stripe — cash handed back over the counter. `markSucceeded`
+   * cannot serve: it requires a Stripe refund id, and inventing one would make a drawer payout
+   * look like a card reversal to anyone reading this table later. `stripe_refund_id` stays null,
+   * which is the honest record of what happened.
+   */
+  async markSettledOffStripe(id: string): Promise<Refund | null> {
+    const result = await this.pool.query(
+      `UPDATE refunds SET status = 'succeeded', updated_at = now()
+        WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
   async markFailed(id: string, note?: string): Promise<void> {
     await this.pool.query(
       `UPDATE refunds

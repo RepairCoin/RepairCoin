@@ -17,6 +17,7 @@ export interface InventoryItem {
   stockQuantity: number;
   reservedQuantity: number;
   lowStockThreshold: number;
+  taxable: boolean;
   status: InventoryStatus;
   images: string[];
   metadata: Record<string, any>;
@@ -102,6 +103,7 @@ export interface CreateInventoryItemData {
   cost?: number;
   stockQuantity?: number;
   lowStockThreshold?: number;
+  taxable?: boolean;
   images?: string[];
   metadata?: Record<string, any>;
 }
@@ -116,6 +118,7 @@ export interface UpdateInventoryItemData {
   price?: number;
   cost?: number;
   lowStockThreshold?: number;
+  taxable?: boolean;
   status?: InventoryStatus;
   images?: string[];
   metadata?: Record<string, any>;

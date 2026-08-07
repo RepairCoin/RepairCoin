@@ -15,13 +15,13 @@
 // they cannot drift from the values the real code uses.
 
 import {
-  NON_MESSAGING_ACTIONS,
+  NO_TEMPLATE_ACTIONS,
   SHOP_SCOPED_ACTIONS,
   DEFAULT_ACTION_TYPE,
 } from "../../src/services/autoMessageActions/registry";
 import { parseIssueRewardPayload } from "../../src/services/autoMessageActions/issueRewardAction";
 import { parseNotifyStaffPayload } from "../../src/services/autoMessageActions/notifyStaffAction";
-import { shopScopedActionError } from "../../src/domains/messaging/controllers/AutoMessageController";
+import { actionTriggerError } from "../../src/domains/messaging/controllers/AutoMessageController";
 
 describe("update field mapping — undefined leaves alone, null clears", () => {
   // Mirrors the repository's serialisation for action_payload.
@@ -95,7 +95,7 @@ describe("effective action resolution", () => {
 describe("a messaging rule must end up with something to send", () => {
   /** The controller's guard, over effective values. */
   const rejects = (action: string, template: string | null, steps: unknown[] | null) =>
-    !NON_MESSAGING_ACTIONS.has(action) && !template && !(Array.isArray(steps) && steps.length > 0);
+    !NO_TEMPLATE_ACTIONS.has(action) && !template && !(Array.isArray(steps) && steps.length > 0);
 
   // The exact corruption: form switches to notify_staff, sends messageTemplate null. If the action
   // change doesn't land, applying the null alone produces a rule that throws on every tick.
@@ -124,7 +124,7 @@ describe("a messaging rule must end up with something to send", () => {
 // A shop-scoped trigger has no customer, so an action needing a recipient can never run. Checked against
 // effective values on update so it can't be reached by changing only one side of the pair.
 //
-// Keyed on SHOP_SCOPED_ACTIONS. Using NON_MESSAGING_ACTIONS here was a real bug found by writing this
+// Keyed on SHOP_SCOPED_ACTIONS. Using NO_TEMPLATE_ACTIONS here was a real bug found by writing this
 // suite: that set contains issue_reward, which sends no message but still needs somebody to pay, so
 // "low stock → issue 25 RCN" was accepted and could only ever fail.
 describe("shop-scoped trigger coherence on update", () => {
@@ -150,19 +150,19 @@ describe("shop-scoped trigger coherence on update", () => {
   // got you corrected about a message you never wrote. Asserted against the REAL exported function, not
   // a copy of it — a test that reimplements the string can drift from the string users actually see.
   it("names the action that was actually attempted", () => {
-    expect(shopScopedActionError("low_stock", "issue_reward")).toContain(
+    expect(actionTriggerError("issue_reward", "event", "low_stock")).toContain(
       '"Issue an RCN reward" has nobody to act on'
     );
-    expect(shopScopedActionError("low_stock", "send_message")).toContain(
+    expect(actionTriggerError("send_message", "event", "low_stock")).toContain(
       '"Send a message" has nobody to act on'
     );
     // Names the trigger, and points at the fix.
-    expect(shopScopedActionError("low_stock", "issue_reward")).toContain('"low_stock"');
-    expect(shopScopedActionError("low_stock", "issue_reward")).toContain('Use "Notify my team"');
+    expect(actionTriggerError("issue_reward", "event", "low_stock")).toContain('"low_stock"');
+    expect(actionTriggerError("issue_reward", "event", "low_stock")).toContain('Use "Notify my team"');
   });
 
   it("falls back to the raw action name for an action it has no label for", () => {
-    expect(shopScopedActionError("low_stock", "some_future_action")).toContain('"some_future_action"');
+    expect(actionTriggerError("some_future_action", "event", "low_stock")).toContain('"some_future_action"');
   });
 
   // Reachable only by comparing effective values: the stored event stays low_stock while the submitted

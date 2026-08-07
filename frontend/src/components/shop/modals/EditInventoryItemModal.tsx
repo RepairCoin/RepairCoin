@@ -27,6 +27,7 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({ 
     price: item.price,
     cost: item.cost || 0,
     lowStockThreshold: item.lowStockThreshold,
+    taxable: item.taxable !== false,
     categoryId: item.categoryId || '',
     vendorId: item.vendorId || '',
     status: item.status,
@@ -477,6 +478,24 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({ 
                 className="w-full px-4 py-2 bg-[#101010] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors"
                 disabled={loading}
               />
+            </div>
+
+            <div className="flex items-end">
+              <label className="flex cursor-pointer items-start gap-3 pb-2">
+                <input
+                  type="checkbox"
+                  checked={formData.taxable !== false}
+                  onChange={(e) => handleInputChange('taxable', e.target.checked)}
+                  disabled={loading}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#FFCC00]"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-300">Charge sales tax</span>
+                  <span className="block text-xs text-gray-500">
+                    Applies your shop&apos;s tax rate at the counter.
+                  </span>
+                </span>
+              </label>
             </div>
 
             {/* Status */}

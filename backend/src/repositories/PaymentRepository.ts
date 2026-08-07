@@ -34,10 +34,56 @@ export interface Payment {
   stripePaymentIntentId: string | null;
   stripeChargeId: string | null;
   stripeAccountId: string | null;
+  posSaleId: string | null;
+  posSalePaymentId: string | null;
+  locationId: string | null;
+  /** Sales tax contained WITHIN grossCents, not added to it. Revenue is gross - tax - refunded. */
+  taxCents: number;
   capturedAt: string | null;
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * One tender of a counter sale, written by the POS rather than inferred from Stripe. Cash never
+ * produces a Stripe object, so a ledger derived only from webhooks cannot see it at all.
+ *
+ * Fiat tenders only. RCN and gift cards are settled here but are not money the shop received —
+ * see the note on `PosSaleService.writeToLedger`.
+ */
+export interface RecordPosTenderInput {
+  shopId: string;
+  posSaleId: string;
+  posSalePaymentId: string;
+  method: PaymentMethod;
+  grossCents: number;
+  /** This tender's apportioned share of the sale's tax, already included in grossCents. */
+  taxCents?: number;
+  applicationFeeCents?: number;
+  netCents?: number;
+  currency?: string;
+  customerAddress?: string | null;
+  locationId?: string | null;
+  stripePaymentIntentId?: string | null;
+  stripeAccountId?: string | null;
+  capturedAt?: string | null;
+}
+
+/**
+ * A booking settled outside Stripe — cash at the counter, bank transfer, an existing arrangement.
+ * There is no Stripe object for the reconciler to derive a row from, so the ledger row has to be
+ * written directly or the money is invisible to everything that reads `payments` (POS S9b).
+ */
+export interface RecordManualOrderPaymentInput {
+  shopId: string;
+  orderId: string;
+  grossCents: number;
+  method?: PaymentMethod;
+  currency?: string;
+  customerAddress?: string | null;
+  capturedAt?: string | null;
+  metadata?: Record<string, unknown>;
 }
 
 /** Fields the webhook reconciler upserts, keyed by the Stripe PaymentIntent id. */
@@ -99,6 +145,12 @@ export interface PaymentWithContext extends Payment {
   completedByMemberId: string | null;
   /** Only meaningful on admin reads; a shop already knows whose rows these are. */
   shopName: string | null;
+  /**
+   * A counter sale is multi-line by definition, so there is no single service to name it by —
+   * the receipt number and a line count are what identify it on screen.
+   */
+  posSaleNumber: number | null;
+  posItemCount: number | null;
 }
 
 /**
@@ -126,6 +178,10 @@ export class PaymentRepository extends BaseRepository {
       stripePaymentIntentId: row.stripe_payment_intent_id,
       stripeChargeId: row.stripe_charge_id,
       stripeAccountId: row.stripe_account_id,
+      posSaleId: row.pos_sale_id ?? null,
+      posSalePaymentId: row.pos_sale_payment_id ?? null,
+      locationId: row.location_id ?? null,
+      taxCents: Number(row.tax_cents ?? 0),
       capturedAt: row.captured_at,
       metadata: row.metadata ?? {},
       createdAt: row.created_at,
@@ -141,13 +197,17 @@ export class PaymentRepository extends BaseRepository {
    */
   async upsertByPaymentIntent(input: UpsertPaymentInput): Promise<Payment> {
     const result = await this.pool.query(
+      // location_id is resolved from the order rather than passed in: the reconciler only ever
+      // sees a charge, and every caller would otherwise have to look the booking up to tell the
+      // ledger which branch took the money (S9c-1).
       `INSERT INTO payments (
          shop_id, customer_address, order_id, invoice_id, method, source,
          gross_cents, fee_cents, application_fee_cents, net_cents,
          currency, status, stripe_payment_intent_id, stripe_charge_id, stripe_account_id,
-         captured_at, metadata
+         captured_at, metadata, location_id
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+               (SELECT location_id FROM service_orders WHERE order_id = $3))
        ON CONFLICT (stripe_payment_intent_id) WHERE stripe_payment_intent_id IS NOT NULL
        DO UPDATE SET
          status                = EXCLUDED.status,
@@ -156,6 +216,7 @@ export class PaymentRepository extends BaseRepository {
          net_cents             = EXCLUDED.net_cents,
          stripe_charge_id      = COALESCE(EXCLUDED.stripe_charge_id, payments.stripe_charge_id),
          stripe_account_id     = COALESCE(EXCLUDED.stripe_account_id, payments.stripe_account_id),
+         location_id           = COALESCE(payments.location_id, EXCLUDED.location_id),
          captured_at           = COALESCE(EXCLUDED.captured_at, payments.captured_at),
          metadata              = payments.metadata || EXCLUDED.metadata,
          updated_at            = now()
@@ -183,6 +244,121 @@ export class PaymentRepository extends BaseRepository {
     return this.mapRow(result.rows[0]);
   }
 
+  /**
+   * Write one ledger row for one tender of a counter sale.
+   *
+   * The conflict target differs by tender because the two legs are protected by different unique
+   * indexes, and a single statement can only name one. A card leg keys on the PaymentIntent so it
+   * meets whatever the webhook wrote, in either order; a cash leg keys on the tender itself,
+   * because it has no Stripe object and nothing else about it is unique.
+   *
+   * On a card leg the update deliberately leaves gross, fees, net and status alone: the webhook
+   * derives those from the balance transaction and is authoritative. This only attaches the sale
+   * and corrects the source, so completing a sale after the webhook has landed cannot zero out
+   * fees the reconciler already resolved.
+   */
+  async recordPosTender(input: RecordPosTenderInput): Promise<Payment> {
+    const columns = `
+      shop_id, customer_address, method, source, gross_cents, fee_cents,
+      application_fee_cents, net_cents, currency, status,
+      stripe_payment_intent_id, stripe_account_id, pos_sale_id, pos_sale_payment_id, captured_at,
+      location_id, tax_cents`;
+    const values = [
+      input.shopId,
+      input.customerAddress ?? null,
+      input.method,
+      'terminal',
+      input.grossCents,
+      0,
+      input.applicationFeeCents ?? 0,
+      input.netCents ?? 0,
+      input.currency ?? 'usd',
+      'succeeded',
+      input.stripePaymentIntentId ?? null,
+      input.stripeAccountId ?? null,
+      input.posSaleId,
+      input.posSalePaymentId,
+      input.capturedAt ?? new Date().toISOString(),
+      input.locationId ?? null,
+      input.taxCents ?? 0,
+    ];
+
+    // On a card leg the webhook may have written the row first, knowing nothing about the sale —
+    // so location and tax are set here even on conflict. They are facts about the sale, not about
+    // the charge, and the reconciler can never supply them.
+    const conflict = input.stripePaymentIntentId
+      ? `(stripe_payment_intent_id) WHERE stripe_payment_intent_id IS NOT NULL
+         DO UPDATE SET
+           pos_sale_id         = EXCLUDED.pos_sale_id,
+           pos_sale_payment_id = EXCLUDED.pos_sale_payment_id,
+           customer_address    = COALESCE(payments.customer_address, EXCLUDED.customer_address),
+           location_id         = COALESCE(EXCLUDED.location_id, payments.location_id),
+           tax_cents           = EXCLUDED.tax_cents,
+           source              = EXCLUDED.source,
+           updated_at          = now()`
+      : `(pos_sale_payment_id) WHERE pos_sale_payment_id IS NOT NULL
+         DO UPDATE SET updated_at = now()`;
+
+    const result = await this.pool.query(
+      `INSERT INTO payments (${columns})
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       ON CONFLICT ${conflict}
+       RETURNING *`,
+      values
+    );
+    return this.mapRow(result.rows[0]);
+  }
+
+  /**
+   * Write the ledger row for a booking that was settled outside Stripe.
+   *
+   * Cash cannot carry a platform commission — there is no charge to attach an application fee to,
+   * the same structural limit POS cash tender has — so the fee is 0 and the shop nets the gross.
+   *
+   * Keyed on `order_id` via uq_payments_manual_order (263). DO NOTHING rather than DO UPDATE: the
+   * first row recorded when the shop said the money arrived is the truthful one, and a re-run of
+   * the backfill must not overwrite it with a re-derived guess. Returns the existing row in that
+   * case, so callers cannot tell a retry from a first write.
+   */
+  async recordManualOrderPayment(input: RecordManualOrderPaymentInput): Promise<Payment> {
+    const values = [
+      input.shopId,
+      input.customerAddress ?? null,
+      input.orderId,
+      input.method ?? 'cash',
+      'booking',
+      input.grossCents,
+      input.grossCents,
+      input.currency ?? 'usd',
+      input.capturedAt ?? new Date().toISOString(),
+      JSON.stringify({ settledOutsideStripe: true, ...(input.metadata ?? {}) }),
+    ];
+
+    const result = await this.pool.query(
+      `INSERT INTO payments (
+         shop_id, customer_address, order_id, method, source,
+         gross_cents, fee_cents, application_fee_cents, net_cents,
+         currency, status, captured_at, metadata, location_id
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,0,0,$7,$8,'succeeded',$9,$10,
+               (SELECT location_id FROM service_orders WHERE order_id = $3))
+       ON CONFLICT (order_id) WHERE order_id IS NOT NULL AND stripe_payment_intent_id IS NULL
+       DO NOTHING
+       RETURNING *`,
+      values
+    );
+
+    if (result.rows[0]) return this.mapRow(result.rows[0]);
+
+    const existing = await this.pool.query(
+      `SELECT * FROM payments
+       WHERE order_id = $1 AND stripe_payment_intent_id IS NULL
+       LIMIT 1`,
+      [input.orderId]
+    );
+    return this.mapRow(existing.rows[0]);
+  }
+
   async getByPaymentIntent(stripePaymentIntentId: string): Promise<Payment | null> {
     const result = await this.pool.query(
       `SELECT * FROM payments WHERE stripe_payment_intent_id = $1`,
@@ -191,7 +367,27 @@ export class PaymentRepository extends BaseRepository {
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
-  /** Record a (partial or full) refund total against a payment and set its status. */
+  /**
+   * The ledger row written for one tender of a counter sale, which is what a POS refund has to
+   * act on. Goes through `pos_sale_payment_id` rather than the tender's own `payment_id` column:
+   * that column exists on `pos_sale_payments` but has never been written, while this one is set
+   * by `recordPosTender` on both legs and is the cash leg's idempotency key.
+   */
+  async getByPosSalePayment(posSalePaymentId: string): Promise<Payment | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM payments WHERE pos_sale_payment_id = $1`,
+      [posSalePaymentId]
+    );
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
+  /**
+   * Record a (partial or full) refund total against a payment and set its status.
+   *
+   * An absolute set, because the caller is the `charge.refunded` reconciler and the figure comes
+   * from Stripe, which is authoritative for anything carrying a charge. Do not reach for this to
+   * record an off-Stripe refund — see {@link applyOffStripeRefund}.
+   */
   async markRefunded(id: string, refundedCents: number, status: PaymentStatus): Promise<Payment | null> {
     const result = await this.pool.query(
       `UPDATE payments
@@ -199,6 +395,36 @@ export class PaymentRepository extends BaseRepository {
         WHERE id = $1
         RETURNING *`,
       [id, refundedCents, status]
+    );
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
+  /**
+   * Add to a payment's refunded total, refusing to exceed what was taken. For cash, where no
+   * Stripe object exists and this side is the only writer.
+   *
+   * An **increment guarded in the statement**, not a read-then-set. Two refunds issued at the same
+   * moment would both read `refunded_cents` as it was before either of them, and an absolute write
+   * would let the second silently overwrite the first — the shop pays out twice and the ledger
+   * records one. Postgres locks the row for the duration of the UPDATE, so the increment and the
+   * `<= gross_cents` check happen together and the loser simply matches no row.
+   *
+   * Returns null when it would overdraw, which the caller must treat as "this refund did not
+   * happen" rather than as an error to log and continue past.
+   */
+  async applyOffStripeRefund(id: string, amountCents: number): Promise<Payment | null> {
+    const result = await this.pool.query(
+      `UPDATE payments
+          SET refunded_cents = refunded_cents + $2,
+              status = CASE
+                WHEN refunded_cents + $2 >= gross_cents THEN 'refunded'
+                ELSE 'partially_refunded'
+              END,
+              updated_at = now()
+        WHERE id = $1
+          AND refunded_cents + $2 <= gross_cents
+        RETURNING *`,
+      [id, amountCents]
     );
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
@@ -211,6 +437,12 @@ export class PaymentRepository extends BaseRepository {
       orderStatus: row.order_status ?? null,
       completedByMemberId: row.completed_by_member_id ?? null,
       shopName: row.shop_name ?? null,
+      posSaleNumber: row.pos_sale_number === null || row.pos_sale_number === undefined
+        ? null
+        : Number(row.pos_sale_number),
+      posItemCount: row.pos_item_count === null || row.pos_item_count === undefined
+        ? null
+        : Number(row.pos_item_count),
     };
   }
 
@@ -220,7 +452,8 @@ export class PaymentRepository extends BaseRepository {
     LEFT JOIN service_orders o ON o.order_id = p.order_id
     LEFT JOIN shop_services  s ON s.service_id = o.service_id
     LEFT JOIN customers      c ON c.address = p.customer_address
-    LEFT JOIN shops          sh ON sh.shop_id = p.shop_id`;
+    LEFT JOIN shops          sh ON sh.shop_id = p.shop_id
+    LEFT JOIN pos_sales      ps ON ps.id = p.pos_sale_id`;
 
   private readonly contextSelect = `
       p.*,
@@ -228,7 +461,9 @@ export class PaymentRepository extends BaseRepository {
       c.name                AS customer_name,
       o.status              AS order_status,
       o.completed_by_member_id AS completed_by_member_id,
-      sh.name               AS shop_name`;
+      sh.name               AS shop_name,
+      ps.sale_number        AS pos_sale_number,
+      (SELECT COUNT(*) FROM pos_sale_items psi WHERE psi.sale_id = ps.id) AS pos_item_count`;
 
   /**
    * Build the WHERE clause shared by list/count/export.

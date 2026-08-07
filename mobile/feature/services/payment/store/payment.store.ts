@@ -8,6 +8,11 @@ interface PaymentSessionData {
   type: PaymentType;
   orderId: string;
   sessionId: string;
+  /**
+   * Connected account a booking's checkout session was created on (Stripe Connect direct
+   * charge). Must survive the trip to Stripe and back, or the session can't be confirmed.
+   */
+  connectedAccountId?: string;
   amount?: number;
   rcnRedeemed?: number;
   serviceName?: string;

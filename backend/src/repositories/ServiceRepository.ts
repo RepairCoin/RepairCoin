@@ -27,6 +27,9 @@ export interface ShopService {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
+  taxable?: boolean;
+  /** Shop's current warranty term for this service. NULL or 0 = not covered. */
+  warrantyDays?: number | null;
 }
 
 export interface ShopServiceWithShopInfo extends ShopService {
@@ -69,6 +72,8 @@ export interface CreateServiceParams {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
+  taxable?: boolean;
+  warrantyDays?: number | null;
 }
 
 export interface UpdateServiceParams {
@@ -85,6 +90,8 @@ export interface UpdateServiceParams {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
+  taxable?: boolean;
+  warrantyDays?: number | null;
 }
 
 export interface ServiceFilters {
@@ -127,8 +134,9 @@ export class ServiceRepository extends BaseRepository {
         INSERT INTO shop_services (
           service_id, shop_id, service_name, description, price_usd,
           duration_minutes, category, image_url, tags, active,
-          ai_sales_enabled, ai_tone, ai_suggest_upsells, ai_booking_assistance
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          ai_sales_enabled, ai_tone, ai_suggest_upsells, ai_booking_assistance, taxable,
+          warranty_days
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING *
       `;
 
@@ -147,7 +155,9 @@ export class ServiceRepository extends BaseRepository {
         params.aiSalesEnabled ?? false,
         params.aiTone ?? 'professional',
         params.aiSuggestUpsells ?? false,
-        params.aiBookingAssistance ?? false
+        params.aiBookingAssistance ?? false,
+        params.taxable ?? true,
+        params.warrantyDays ?? null
       ];
 
       const result = await this.pool.query(query, values);
@@ -592,7 +602,9 @@ export class ServiceRepository extends BaseRepository {
         aiSalesEnabled: 'ai_sales_enabled',
         aiTone: 'ai_tone',
         aiSuggestUpsells: 'ai_suggest_upsells',
-        aiBookingAssistance: 'ai_booking_assistance'
+        aiBookingAssistance: 'ai_booking_assistance',
+        taxable: 'taxable',
+        warrantyDays: 'warranty_days'
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -682,6 +694,8 @@ export class ServiceRepository extends BaseRepository {
       // AI Sales Assistant — fall back to defaults if columns are missing
       // (e.g. legacy services from before migration 108). Migration 108 sets
       // sane defaults so this is mostly defensive.
+      taxable: row.taxable ?? true,
+      warrantyDays: row.warranty_days ?? null,
       aiSalesEnabled: row.ai_sales_enabled ?? false,
       aiTone: row.ai_tone ?? 'professional',
       aiSuggestUpsells: row.ai_suggest_upsells ?? false,

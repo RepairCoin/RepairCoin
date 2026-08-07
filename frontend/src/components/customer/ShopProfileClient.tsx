@@ -27,7 +27,8 @@ import { FaFacebook, FaInstagram } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import { ShopService } from "@/services/shopService";
 import { getAllServices, getShopServices, getPublicShopReviews, ShopServiceWithShopInfo, ServiceReview } from "@/services/api/services";
-import { getGalleryPhotos, getShopCustomers, type GalleryPhoto } from "@/services/api/shop";
+import { getGalleryPhotos, getShopCustomers, getFollowerCounts, type GalleryPhoto } from "@/services/api/shop";
+import { FollowShopButton } from "./FollowShopButton";
 import { StarRating } from "./StarRating";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
@@ -89,6 +90,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const [isOpenNow, setIsOpenNow] = useState(false);
   const [isMessaging, setIsMessaging] = useState(false);
   const [customerCount, setCustomerCount] = useState<number | null>(null);
+  const [followerCount, setFollowerCount] = useState<number | null>(null);
 
   const [reviews, setReviews] = useState<ServiceReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -101,6 +103,18 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
 
   useEffect(() => {
     loadShopData();
+  }, [shopId]);
+
+  // Follower count. Customer-scoped endpoint, so it quietly stays hidden for a
+  // shop previewing its own profile — never an error the visitor has to see.
+  useEffect(() => {
+    let active = true;
+    getFollowerCounts([shopId]).then((counts) => {
+      if (active) setFollowerCount(counts[shopId] ?? 0);
+    });
+    return () => {
+      active = false;
+    };
   }, [shopId]);
 
   // Deep-link from an ad landing page ("Book online" → /customer/shop/:id?service=<id>):
@@ -406,8 +420,23 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                   {shopInfo.category && (
                     <p className="text-gray-400 text-base lg:text-lg">{shopInfo.category}</p>
                   )}
+                  {followerCount !== null && followerCount > 0 && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      {followerCount === 1 ? "1 follower" : `${followerCount.toLocaleString()} followers`}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
+                  {!isPreviewMode && (
+                    <FollowShopButton
+                      shopId={shopId}
+                      shopName={shopInfo.name}
+                      variant="full"
+                      onChange={(following) =>
+                        setFollowerCount((prev) => Math.max(0, (prev ?? 0) + (following ? 1 : -1)))
+                      }
+                    />
+                  )}
                   {!isPreviewMode && (
                     <button
                       onClick={handleMessageShop}

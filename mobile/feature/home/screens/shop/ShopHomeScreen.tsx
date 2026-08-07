@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
+import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { DemoBanner } from "@/shared/components/ui/DemoBanner";
 import { PayoutSetupBanner } from "../../components/ui/PayoutSetupBanner";
 import { useHomeDataUI } from "@/feature/shop/account/hooks";
@@ -24,10 +25,11 @@ import {
   StatCard,
   AgendaCard,
   ActivityCard,
-  PriorityCard,
   QuickAction,
   EmptyRow,
+  WalletCard,
 } from "../../components/shop/dashboard/DashboardSections";
+import { PriorityActions } from "../../components/shop/dashboard/PriorityActions";
 import { ShopSidebar } from "../../components/shop/dashboard/ShopSidebar";
 
 function isToday(dateStr?: string | null): boolean {
@@ -155,7 +157,13 @@ export default function Home() {
     setRefreshing(true);
     try {
       refetch(); // shop profile + growth (fire-and-forget; not promise-based)
-      await Promise.all([refetchBookings(), refetchReviews()]);
+      await Promise.all([
+        refetchBookings(),
+        refetchReviews(),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.aiRecommendations("action", 3),
+        }),
+      ]);
     } finally {
       setRefreshing(false);
     }
@@ -395,39 +403,16 @@ export default function Home() {
           <PayoutSetupBanner />
 
           {/* Priority Actions */}
-        <View>
-          <SectionHeader title="Priority Actions" />
+        <PriorityActions />
+
+        {/* Wallet */}
+        <View className="mb-6">
+          <WalletCard
+            operational={shopData?.purchasedRcnBalance}
+            totalPurchased={shopData?.totalRcnPurchased}
+            tokensIssued={shopData?.totalTokensIssued}
+          />
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mb-6 -mx-1 px-1"
-        >
-          <PriorityCard
-            icon="people-outline"
-            iconColor="#38BDF8"
-            title="Follow Up Leads"
-            subtitle="6 inquiries waiting for response"
-            ctaLabel="Contact Leads"
-            onPress={() => router.push("/shop/messages" as never)}
-          />
-          <PriorityCard
-            icon="megaphone-outline"
-            iconColor="#22C55E"
-            title="Promote Tuesday"
-            subtitle="Expected +5 to 10 bookings"
-            ctaLabel="Launch Campaign"
-            onPress={() => router.push("/shop/promo-code" as never)}
-          />
-          <PriorityCard
-            icon="star-outline"
-            iconColor="#FFCC00"
-            title="Request Reviews"
-            subtitle="12 recent customers eligible"
-            ctaLabel="Send Request"
-            onPress={() => router.push("/shop/service-orders" as never)}
-          />
-        </ScrollView>
 
         {/* Agenda for Today */}
         <SectionHeader title="Agenda for Today" sparkle />

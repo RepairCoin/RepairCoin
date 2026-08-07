@@ -22,6 +22,7 @@ const DISPLAY_ICON_EMOJI: Record<string, string> = {
   alarm: '⏰',
   campaign: '📢',
   reward: '🎉',
+  receipt: '🧾',
   default: '📬',
 };
 

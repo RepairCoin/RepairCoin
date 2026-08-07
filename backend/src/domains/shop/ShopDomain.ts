@@ -3,6 +3,8 @@ import { eventBus, createDomainEvent } from '../../events/EventBus';
 import { logger } from '../../utils/logger';
 import shopRoutes, { publicRouter as shopPublicRoutes } from './routes/index'; // Import both routers
 import { ShopService } from './services/ShopService';
+import { setupPosLoyaltyListener } from '../ShopDomain/services/PosLoyaltyListener';
+import { setupPosReceiptListener } from '../ShopDomain/services/PosReceiptListener';
 
 export class ShopDomain implements DomainModule {
   name = 'shops';
@@ -20,6 +22,8 @@ export class ShopDomain implements DomainModule {
     // Listen to token events to update shop statistics
     eventBus.subscribe('token.minted', this.handleTokenMinted.bind(this), 'ShopDomain');
     eventBus.subscribe('token.redeemed', this.handleTokenRedeemed.bind(this), 'ShopDomain');
+    setupPosLoyaltyListener();
+    setupPosReceiptListener();
   }
 
   private async handleTokenMinted(event: any): Promise<void> {

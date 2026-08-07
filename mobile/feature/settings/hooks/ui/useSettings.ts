@@ -39,8 +39,8 @@ export function useSettings(role: SettingsRole) {
   }, [performLogout, isLoggingOut]);
 
   const handleHelp = useCallback(() => {
-    // TODO: Implement help screen
-  }, []);
+    router.push(`/${role}/faq` as any);
+  }, [role]);
 
   const handleTerms = useCallback(() => {
     // TODO: Implement terms screen

@@ -76,6 +76,48 @@ export class MessagingDomain implements DomainModule {
       }
     }, 'MessagingDomain');
 
+    // booking_created → the moment a booking is made, as opposed to completed. Lets a shop send what
+    // the confirmation deliberately doesn't: parking directions, what to bring, an upsell.
+    //
+    // Every creation path publishes this now. It previously came only from the manual-booking and
+    // ad-lead paths, so subscribing before PaymentService was fixed would have produced a rule that
+    // fired for shop-entered bookings and silently ignored the ones customers made themselves — active
+    // on screen, absent in practice, and nothing in the UI could have shown the difference.
+    eventBus.subscribe('service.order_created', async (event) => {
+      try {
+        const { shopId, customerAddress, orderId } = event.data;
+        if (!shopId || !customerAddress) return;
+        await autoMessageSchedulerService.handleEventTrigger('booking_created', {
+          shopId,
+          customerAddress,
+          orderId,
+        });
+      } catch (error) {
+        logger.error('Error handling order_created for auto-messages:', error);
+      }
+    }, 'MessagingDomain');
+
+    // order_ready → "your order is ready to collect".
+    //
+    // Customer-scoped: there is exactly one person waiting on this order, so it pairs with any
+    // customer-facing action — a message, an AI-written note, even a small reward for coming in.
+    //
+    // Published by the shop pressing a button rather than by a status change, and that endpoint is
+    // idempotent, so a double-click cannot tell the same customer twice that the same thing is ready.
+    eventBus.subscribe('service.order_ready', async (event) => {
+      try {
+        const { shopId, customerAddress, orderId } = event.data;
+        if (!shopId || !customerAddress) return;
+        await autoMessageSchedulerService.handleEventTrigger('order_ready', {
+          shopId,
+          customerAddress,
+          orderId,
+        });
+      } catch (error) {
+        logger.error('Error handling order_ready for auto-messages:', error);
+      }
+    }, 'MessagingDomain');
+
     // booking_cancelled → triggers auto-messages with event_type = 'booking_cancelled'
     eventBus.subscribe('service.order_cancelled', async (event) => {
       try {
@@ -141,6 +183,71 @@ export class MessagingDomain implements DomainModule {
     // Reuses the event LowStockAlertService already publishes, which also already throttles per item
     // and honours the shop's digest preference — so the automation inherits that de-duplication
     // instead of building a second, competing one.
+    /**
+     * W3 — a new lead from an ad campaign.
+     *
+     * SHOP-scoped, and that is not a shortcut: an ad lead is a name and a phone number, not a platform
+     * customer. There is no wallet to message and nobody to credit RCN to until they convert, so a
+     * customer-facing action here would have nothing to act on. The useful automation is "tell the team
+     * to ring them", which is what the shop-scoped path gives.
+     *
+     * shopId is read from the payload rather than looked up here — LeadAttributionService resolves it
+     * via campaign_id → ad_campaigns.shop_id, because ad_leads has no shop of its own.
+     */
+    eventBus.subscribe('ads:lead_captured', async (event) => {
+      try {
+        const { shopId, campaignId } = event.data;
+        // Absent when the campaign lookup failed. Skipping is right: an automation addressed to no
+        // shop would either do nothing or, worse, be attributed to the wrong one.
+        if (!shopId) return;
+
+        await autoMessageSchedulerService.handleShopEvent('new_ad_lead', {
+          shopId,
+          reference: event.aggregateId ? String(event.aggregateId) : undefined,
+          summary: 'A new lead came in from your ads.',
+        });
+      } catch (error) {
+        logger.error('Error handling ads:lead_captured for automations:', error);
+      }
+    });
+
+    /**
+     * subscription_lapsed → the shop's OWN subscription payment failed.
+     *
+     * Deliberately scoped to the payment FAILING, not to the subscription being cancelled. After a
+     * cancellation the shop is no longer entitled to automations at all — `isShopEntitled` skips it —
+     * so a workflow is structurally the wrong channel for "you have been cut off"; that belongs in a
+     * billing email. Firing while they are still `past_due` is both deliverable and more useful: it is
+     * a warning with time left to act on it.
+     *
+     * Rides on `payment.webhook.failed`, which the Stripe webhook already publishes with the shopId
+     * resolved. No new publish — the event existed and nothing consumed it for automations.
+     *
+     * Fires once per INVOICE, not once per attempt, via the reference dedup in handleShopEvent. Stripe
+     * retries a failed invoice over several days and re-delivers webhooks on any non-2xx, so without
+     * that the team would be paged repeatedly about one unpaid bill.
+     */
+    eventBus.subscribe('payment.webhook.failed', async (event) => {
+      try {
+        const { shopId, invoiceId, attemptCount } = event.data;
+        if (!shopId) return;
+
+        const n = Number(attemptCount) || 1;
+        await autoMessageSchedulerService.handleShopEvent('subscription_lapsed', {
+          shopId,
+          // The invoice, not the attempt — so retry number 2 for the same bill is recognised as the
+          // same problem rather than a new one.
+          reference: invoiceId ? String(invoiceId) : undefined,
+          summary:
+            n > 1
+              ? `Your subscription payment failed again (attempt ${n}). Update your card to avoid losing access.`
+              : 'Your subscription payment failed. Update your card to avoid losing access.',
+        });
+      } catch (error) {
+        logger.error('Error handling payment.webhook.failed for automations:', error);
+      }
+    }, 'MessagingDomain');
+
     eventBus.subscribe('inventory:low_stock_alert', async (event) => {
       try {
         const { shopId, items, itemsCount } = event.data;

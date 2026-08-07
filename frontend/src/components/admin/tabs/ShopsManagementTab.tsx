@@ -15,7 +15,6 @@ import {
   Mail,
   Phone,
   Calendar,
-  Eye,
   Edit,
   Power,
   RefreshCw,
@@ -31,7 +30,6 @@ import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 import { EditShopModal } from "./EditShopModal";
-import { ShopReviewModal } from "./ShopReviewModal";
 import { AddShopModal } from "./AddShopModal";
 import { ShopTeamModal } from "./ShopTeamModal";
 import { useAdminDashboard } from "@/hooks/useAdminDashboard";
@@ -78,12 +76,7 @@ interface Shop {
 }
 
 interface ShopsManagementTabProps {
-  initialView?:
-    | "all"
-    | "active"
-    | "pending"
-    | "rejected"
-    | "unsuspend-requests";
+  initialView?: "all" | "active" | "pending" | "unsuspend-requests";
 }
 
 export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
@@ -98,13 +91,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   } = useAdminDashboard();
 
   const onApproveShop = shopActions.approve;
-  const onRejectShop = shopActions.reject;
   const onSuspendShop = shopActions.suspend;
   const onUnsuspendShop = shopActions.unsuspend;
   const onMintBalance = shopActions.mintBalance;
   const onRefresh = loadDashboardData;
   const [filterStatus, setFilterStatus] = useState<
-    "all" | "active" | "pending" | "suspended" | "rejected" | "unsuspend-requests"
+    "all" | "active" | "pending" | "suspended" | "unsuspend-requests"
   >(initialView);
   const [searchTerm, setSearchTerm] = useState("");
   const [editModal, setEditModal] = useState<{
@@ -112,10 +104,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     shop: Shop | null;
   }>({ isOpen: false, shop: null });
   const [teamModal, setTeamModal] = useState<{
-    isOpen: boolean;
-    shop: Shop | null;
-  }>({ isOpen: false, shop: null });
-  const [reviewModal, setReviewModal] = useState<{
     isOpen: boolean;
     shop: Shop | null;
   }>({ isOpen: false, shop: null });
@@ -223,17 +211,21 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   // Combine all shops for unified view. The dashboard hook's shop shape is a
   // superset of what we read here but typed loosely, so cast to the local Shop.
   type CombinedShop = Shop & {
-    status: "active" | "suspended" | "rejected";
+    status: "active" | "suspended";
   };
+  // Suspension is the only state that stops a shop operating. `active = false` without a
+  // suspension sets a `limitedAccess` flag nothing reads and no middleware enforces, and
+  // getShopTier ignores the column outright — such a shop trades exactly like any other free
+  // one, so listing it as a third, redder status told admins something untrue.
   const allShops: CombinedShop[] = [
     ...activeShops.map((s) => ({ ...(s as unknown as Shop), status: "active" as const })),
     ...rejectedShops.map((s) => {
       const shop = s as unknown as Shop;
       return {
         ...shop,
-        status: (shop.suspended_at || shop.suspendedAt ? "suspended" : "rejected") as
+        status: (shop.suspended_at || shop.suspendedAt ? "suspended" : "active") as
           | "suspended"
-          | "rejected",
+          | "active",
       };
     }),
   ];
@@ -269,15 +261,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
         <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
           <XCircle className="w-3 h-3 flex-shrink-0" />
           <span>Suspended</span>
-        </span>
-      );
-    }
-
-    if (shop.status === "rejected") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-          <XCircle className="w-3 h-3 flex-shrink-0" />
-          <span>Rejected</span>
         </span>
       );
     }
@@ -645,35 +628,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               </>
             )}
 
-            {shop.status === "rejected" && (
-              <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setReviewModal({ isOpen: true, shop });
-                  }}
-                  className="p-1 md:p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
-                  title="View"
-                >
-                  <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmationModal({
-                      isOpen: true,
-                      type: "reconsider",
-                      shop: shop,
-                    });
-                  }}
-                  disabled={isProcessing}
-                  className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
-                  title="Reconsider"
-                >
-                  <RefreshCw className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                </button>
-              </>
-            )}
           </div>
         );
       },
@@ -758,15 +712,14 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           </div>
         </div>
 
-        {/* Suspension/Rejection Reason */}
+        {/* Suspension Reason */}
         {shop.suspension_reason && (
           <div className="mb-4 p-3 bg-gradient-to-r from-red-500/10 to-pink-500/10 border border-red-500/20 rounded-lg">
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-medium text-red-400 mb-1">
-                  Reason for{" "}
-                  {shop.status === "rejected" ? "Rejection" : "Suspension"}
+                  Reason for Suspension
                 </p>
                 <p className="text-xs text-gray-300">
                   {shop.suspension_reason}
@@ -964,7 +917,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       {/* Header */}
       <DashboardHeader
         title="Shop Management"
-        subtitle="Manage active, suspended, and rejected shops"
+        subtitle="Manage active and suspended shops"
       />
 
       {/* Main Content */}
@@ -1001,7 +954,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               { value: "all", label: "All Shops" },
               { value: "active", label: "Active" },
               { value: "suspended", label: "Suspended" },
-              { value: "rejected", label: "Rejected" },
             ]}
             activeTab={filterStatus}
             onTabChange={(value) => setFilterStatus(value as any)}
@@ -1239,30 +1191,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           onClose={() => setEditModal({ isOpen: false, shop: null })}
           shop={editModal.shop}
           onRefresh={onRefresh}
-        />
-      )}
-
-      {reviewModal.shop && (
-        <ShopReviewModal
-          isOpen={reviewModal.isOpen}
-          onClose={() => setReviewModal({ isOpen: false, shop: null })}
-          shop={reviewModal.shop}
-          onApprove={(shopId) => {
-            handleAction(
-              () => onApproveShop(shopId),
-              "Shop approved successfully"
-            );
-            setReviewModal({ isOpen: false, shop: null });
-          }}
-          onReject={(shopId) => {
-            if (onRejectShop) {
-              handleAction(
-                () => onRejectShop(shopId, "Does not meet requirements"),
-                "Shop rejected"
-              );
-            }
-            setReviewModal({ isOpen: false, shop: null });
-          }}
         />
       )}
 

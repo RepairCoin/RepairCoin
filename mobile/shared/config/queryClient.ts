@@ -69,6 +69,29 @@ export const queryKeys = {
   connectSummary: () => [...queryKeys.shops(), 'connect', 'summary'] as const,
   connectStatus: () => [...queryKeys.shops(), 'connect', 'status'] as const,
 
+  // Marketing (campaigns + contacts)
+  shopFeatureAccess: () => [...queryKeys.shops(), 'featureAccess'] as const,
+  shopCampaigns: (shopId: string, status?: string) =>
+    [...queryKeys.shops(), 'campaigns', shopId, status] as const,
+  shopCampaign: (campaignId: string) => [...queryKeys.shops(), 'campaigns', 'detail', campaignId] as const,
+  shopCampaignStats: (shopId: string) => [...queryKeys.shops(), 'campaigns', 'stats', shopId] as const,
+  marketingTemplates: (category?: string) => [...queryKeys.shops(), 'marketingTemplates', category] as const,
+  shopAudienceCount: (
+    shopId: string,
+    audienceType: string,
+    filters?: Record<string, any>,
+    deliveryMethod?: string
+  ) => [...queryKeys.shops(), 'audienceCount', shopId, audienceType, filters, deliveryMethod] as const,
+  marketingCustomers: (shopId: string, search?: string) =>
+    [...queryKeys.shops(), 'marketingCustomers', shopId, search] as const,
+  shopContacts: (shopId: string, status?: string, search?: string) =>
+    [...queryKeys.shops(), 'contacts', shopId, status, search] as const,
+  shopContactStats: (shopId: string) => [...queryKeys.shops(), 'contacts', 'stats', shopId] as const,
+
+  // AI recommendations (dashboard cards + Priority Actions)
+  aiRecommendations: (presentation: string, limit?: number) =>
+    [...queryKeys.all, 'ai', 'recommendations', presentation, limit] as const,
+
   // Redemption related
   redemptions: () => [...queryKeys.all, 'redemptions'] as const,
   redemptionSession: (sessionId: string) => [...queryKeys.redemptions(), 'session', sessionId] as const,

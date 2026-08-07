@@ -8,6 +8,20 @@ import { PaginatedResult } from '../../../repositories/BaseRepository';
 
 const VALID_AI_TONES: ReadonlyArray<AITone> = ['friendly', 'professional', 'urgent'] as const;
 
+/** Five years. Past this the number is a data-entry slip, not a promise anyone is making. */
+const MAX_WARRANTY_DAYS = 1825;
+
+/**
+ * A blank field, a zero and a negative all mean the same thing — no warranty — so they collapse to
+ * NULL rather than being stored as three variants of "not covered" that every reader has to handle.
+ */
+function normalizeWarrantyDays(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const days = Math.floor(Number(value));
+  if (!Number.isFinite(days) || days <= 0) return null;
+  return Math.min(days, MAX_WARRANTY_DAYS);
+}
+
 export interface FaqEntryInput {
   question: string;
   answer: string;
@@ -27,6 +41,8 @@ export interface CreateServiceRequest {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
+  taxable?: boolean;
+  warrantyDays?: number | null;
   /**
    * Q&A FAQ entries for the AI to reference. Optional; empty array means
    * the AI relies on description only. Persisted to
@@ -50,6 +66,8 @@ export interface UpdateServiceRequest {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
+  taxable?: boolean;
+  warrantyDays?: number | null;
   /**
    * When provided, replaces the entire FAQ entry list for the service.
    * Undefined leaves existing entries untouched (partial updates of the
@@ -207,7 +225,9 @@ export class ServiceManagementService {
         aiSalesEnabled: request.aiSalesEnabled,
         aiTone: request.aiTone,
         aiSuggestUpsells: request.aiSuggestUpsells,
-        aiBookingAssistance: request.aiBookingAssistance
+        aiBookingAssistance: request.aiBookingAssistance,
+        taxable: request.taxable,
+        warrantyDays: normalizeWarrantyDays(request.warrantyDays)
       };
 
       const service = await this.repository.createService(params);
@@ -394,7 +414,12 @@ export class ServiceManagementService {
         aiSalesEnabled: updates.aiSalesEnabled,
         aiTone: updates.aiTone,
         aiSuggestUpsells: updates.aiSuggestUpsells,
-        aiBookingAssistance: updates.aiBookingAssistance
+        aiBookingAssistance: updates.aiBookingAssistance,
+        taxable: updates.taxable,
+        warrantyDays:
+          updates.warrantyDays === undefined
+            ? undefined
+            : normalizeWarrantyDays(updates.warrantyDays)
       };
 
       const service = await this.repository.updateService(serviceId, params);

@@ -6,14 +6,19 @@ import { logger } from '../../../utils/logger';
 import {
   AUTO_MESSAGE_ACTION_TYPES,
   DEFAULT_ACTION_TYPE,
-  NON_MESSAGING_ACTIONS,
+  NO_TEMPLATE_ACTIONS,
   SHOP_SCOPED_ACTIONS,
+  ACTION_NEEDS,
+  type ActionNeeds,
 } from '../../../services/autoMessageActions/registry';
 import {
   parseIssueRewardPayload,
   MAX_AUTOMATED_RCN,
 } from '../../../services/autoMessageActions/issueRewardAction';
 import { parseNotifyStaffPayload } from '../../../services/autoMessageActions/notifyStaffAction';
+import { parseCreateTaskPayload } from '../../../services/autoMessageActions/createTaskAction';
+import { parseRunCampaignPayload } from '../../../services/autoMessageActions/runCampaignAction';
+import { parseAiStepPayload } from '../../../services/autoMessageActions/aiStepAction';
 import { workflowRelevanceService } from '../services/WorkflowRelevanceService';
 import { workflowMetricsService, ATTRIBUTION_DAYS } from '../services/WorkflowMetricsService';
 
@@ -21,12 +26,18 @@ const VALID_TRIGGER_TYPES = ['schedule', 'event'];
 const VALID_SCHEDULE_TYPES = ['daily', 'weekly', 'monthly'];
 const VALID_EVENT_TYPES = [
   // Marketing / customer-lifecycle moments.
-  'booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days', 'low_bookings',
+  'booking_created', 'booking_completed', 'booking_cancelled', 'first_visit', 'inactive_30_days', 'low_bookings',
   // Operations triggers (W3). Each is backed by a real event the platform already emits — see
   // MessagingDomain.setupEventSubscriptions.
   'no_show', 'review_received', 'low_rating', 'payment_failed',
+  // "Ready for pickup", generalised — repairs are ~21% of services here, and for a barber or a gym
+  // class there is nothing to collect. Fired when the shop presses the button on the order, not by a
+  // status change; see OrderController.notifyReady.
+  'order_ready',
   // Shop-scoped: happens to the SHOP, with no customer involved.
-  'low_stock',
+  // `subscription_lapsed` is the shop's OWN billing failing — not to be confused with `payment_failed`
+  // above, which is a customer's booking payment. Close names, opposite audiences.
+  'low_stock', 'new_ad_lead', 'subscription_lapsed',
 ];
 
 /**
@@ -34,7 +45,59 @@ const VALID_EVENT_TYPES = [
  * action that needs no recipient — configuring "send a message" would leave the engine with nobody to
  * send to, and the rule would sit there looking active while quietly doing nothing.
  */
-const SHOP_SCOPED_EVENTS = new Set(['low_stock']);
+const SHOP_SCOPED_EVENTS = new Set(['low_stock', 'new_ad_lead', 'subscription_lapsed']);
+
+/**
+ * What each trigger hands the action to work with.
+ *
+ *   audience — the engine resolves a group: a schedule, and the two SWEEP events, which are not
+ *              handed a customer and go looking for one.
+ *   customer — a real event about one person; handleEventTrigger receives a single address.
+ *   nothing  — happened to the SHOP. Nobody is involved.
+ *
+ * Paired with ACTION_NEEDS this decides every valid combination, rather than each bad pairing being
+ * found by a shop. It replaces the shop-scoped special case: those events provide nothing, so
+ * anything needing a customer or an audience is refused by the same rule that refuses everything else.
+ */
+const AUDIENCE_TRIGGER_EVENTS = new Set(['inactive_30_days', 'low_bookings']);
+
+function triggerProvides(triggerType: string, eventType?: string): ActionNeeds | 'nothing' {
+  if (triggerType === 'schedule') return 'audience';
+  if (SHOP_SCOPED_EVENTS.has(eventType || '')) return 'nothing';
+  if (AUDIENCE_TRIGGER_EVENTS.has(eventType || '')) return 'audience';
+  return 'customer';
+}
+
+/** Can this action work with what this trigger gives it? */
+function actionFitsTrigger(actionType: string, triggerType: string, eventType?: string): boolean {
+  const needs = ACTION_NEEDS[actionType] ?? 'customer';
+  if (needs === 'nobody') return true;
+  const provides = triggerProvides(triggerType, eventType);
+  if (provides === 'nothing') return false;
+  // An audience trigger can feed a per-customer action (the engine loops), but a per-customer
+  // trigger cannot feed a one-to-many action — there is no group, only the one person it happened to.
+  return needs === 'customer' ? true : provides === 'audience';
+}
+
+/**
+ * Why a pairing was refused, in the words the form uses.
+ *
+ * Exported so tests assert against the string users actually see. A test that reimplements the
+ * message can drift from it, and the message is the entire value of the guard — a 400 nobody can act
+ * on is barely better than silently storing something broken.
+ */
+export function actionTriggerError(actionType: string, triggerType: string, eventType?: string): string {
+  const label = ACTION_LABELS[actionType] || actionType;
+  const where = triggerType === 'schedule' ? 'a schedule' : `"${eventType}"`;
+  if (triggerProvides(triggerType, eventType) === 'nothing') {
+    return `${where} happens to your shop, not to a customer — so "${label}" has nobody to act on. Use "Notify my team" instead.`;
+  }
+  return (
+    `"${label}" sends to a whole audience at once, and ${where} happens to one customer at a time — ` +
+    `so it would send to everyone each time it fires. Use a schedule, "Inactive 30 Days" or ` +
+    `"Slow Week" instead.`
+  );
+}
 const VALID_TARGET_AUDIENCES = ['all', 'active', 'inactive_30d', 'has_balance', 'completed_booking'];
 const MAX_SEQUENCE_STEPS = 10;
 
@@ -60,7 +123,7 @@ function parseSteps(raw: unknown): { steps?: SequenceStep[]; error?: string } {
     const { actionType, actionPayload, error } = parseAction(s?.actionType, s?.actionPayload);
     if (error) return { error: `step ${i + 1}: ${error}` };
 
-    if (NON_MESSAGING_ACTIONS.has(actionType)) {
+    if (NO_TEMPLATE_ACTIONS.has(actionType)) {
       steps.push({ actionType, actionPayload, delayHours: Math.round(delay) });
       continue;
     }
@@ -85,13 +148,11 @@ const ACTION_LABELS: Record<string, string> = {
   send_message: 'Send a message',
   issue_reward: 'Issue an RCN reward',
   notify_staff: 'Notify my team',
+  run_campaign: 'Send a campaign',
+  ai_step: 'Let AI write it',
+  draft_reorder: 'Draft a reorder',
+  create_task: 'Add a task',
 };
-
-/** The error explaining why a shop-scoped trigger can't be paired with a customer-facing action. */
-export function shopScopedActionError(eventType: string, actionType: string): string {
-  const label = ACTION_LABELS[actionType] || actionType;
-  return `"${eventType}" happens to your shop, not to a customer — so "${label}" has nobody to act on. Use "Notify my team" instead.`;
-}
 
 /** Which surface a request is talking about (D7). Anything unrecognised falls back to 'campaign'. */
 function parseSurface(raw: unknown): AutoMessageSurface {
@@ -131,6 +192,31 @@ function parseAction(
     return { actionType, actionPayload: payload as unknown as Record<string, unknown> };
   }
 
+  if (actionType === 'run_campaign') {
+    // The campaign is required to PUBLISH, not to save — see publishAutoMessage.
+    //
+    // The requirement exists so a live rule cannot sit erroring hourly against a campaign it does not
+    // have, which is a property of a PUBLISHED rule. A draft never runs, so it cannot error, and
+    // rejecting the save only destroyed a half-configured workflow: the shop had to leave for
+    // Marketing to build a campaign, and lost the trigger, name and timing on the way out.
+    //
+    // Ownership is not checked in either place; the handler re-checks it at send time, because a
+    // campaign can be deleted or the rule copied long after this request.
+    return {
+      actionType,
+      actionPayload: parseRunCampaignPayload(rawPayload) as unknown as Record<string, unknown>,
+    };
+  }
+
+  if (actionType === 'ai_step') {
+    // The brief is optional: with none, the generator still has the trigger, audience and rule name to
+    // work from, which is the same context the authoring-time drafter uses.
+    return {
+      actionType,
+      actionPayload: parseAiStepPayload(rawPayload) as unknown as Record<string, unknown>,
+    };
+  }
+
   if (actionType === 'notify_staff') {
     // Everything is optional — an alert with no custom text falls back to the rule name, so a shop
     // can add "tell me when this happens" without composing anything.
@@ -140,6 +226,19 @@ function parseAction(
     };
   }
 
+  if (actionType === 'create_task') {
+    // Everything is optional — the action falls back to the rule name, so "when this happens, remind
+    // me" works without composing anything.
+    return {
+      actionType,
+      actionPayload: parseCreateTaskPayload(rawPayload) as unknown as Record<string, unknown>,
+    };
+  }
+
+  // Anything without a branch above stores NO payload. That is correct for send_message, and a trap
+  // for every action that carries config: create_task shipped registered in the engine but missing
+  // here, so its title was silently dropped and every task fell back to the rule name. If you add an
+  // action with an actionPayload, it needs a branch — the registry alone is not enough.
   return { actionType, actionPayload: null };
 }
 
@@ -266,7 +365,7 @@ export class AutoMessageController {
       // What the rule DOES (W2). Absent = send_message, so every existing client keeps working.
       const { actionType, actionPayload, error: actionError } = parseAction(rawActionType, rawActionPayload);
       if (actionError) return res.status(400).json({ success: false, error: actionError });
-      const needsMessage = !NON_MESSAGING_ACTIONS.has(actionType);
+      const needsMessage = !NO_TEMPLATE_ACTIONS.has(actionType);
 
       // Validation
       if (!name || !triggerType) {
@@ -321,19 +420,27 @@ export class AutoMessageController {
         // A shop-scoped trigger has no customer, so an action that needs a recipient can never run.
         // Rejected at write time rather than failing silently every time the rule fires.
         //
-        // Keyed on SHOP_SCOPED_ACTIONS, not NON_MESSAGING_ACTIONS: the latter contains issue_reward,
+        // Keyed on SHOP_SCOPED_ACTIONS, not NO_TEMPLATE_ACTIONS: the latter contains issue_reward,
         // which sends no message but still needs somebody to PAY — so it let "low stock → issue 25 RCN"
         // be stored happily, and it could never do anything but fail. That is the exact silent failure
         // this guard exists to prevent.
-        if (SHOP_SCOPED_EVENTS.has(eventType) && !SHOP_SCOPED_ACTIONS.has(actionType)) {
+        if (!actionFitsTrigger(actionType, triggerType, eventType)) {
           return res.status(400).json({
             success: false,
-            error: shopScopedActionError(eventType, actionType),
+            error: actionTriggerError(actionType, triggerType, eventType),
           });
         }
       }
 
-      if (targetAudience && !VALID_TARGET_AUDIENCES.includes(targetAudience)) {
+      // `!== undefined`, not a truthiness check. The old guard was `if (targetAudience && ...)`, so an
+      // EMPTY audience — the one value a form can submit by accident — short-circuited past validation
+      // and was written unchecked. The two write paths then disagreed about what '' meant: create()
+      // coerces `targetAudience || 'all'` and messages EVERY customer, while update() stores '' as-is
+      // and the scheduler's audience switch falls to `default: return []` and messages NOBODY, silently.
+      // Neither is what the caller asked for, so refuse the value instead of picking one of two wrong
+      // answers. Omitting the field entirely is still fine — that means "leave it alone" on update and
+      // takes the column default on create.
+      if (targetAudience !== undefined && !VALID_TARGET_AUDIENCES.includes(targetAudience)) {
         return res.status(400).json({ success: false, error: `targetAudience must be one of: ${VALID_TARGET_AUDIENCES.join(', ')}` });
       }
 
@@ -424,7 +531,7 @@ export class AutoMessageController {
       const effectiveTemplate = messageTemplate !== undefined ? messageTemplate : existing.messageTemplate;
       const effectiveSteps = rawSteps === undefined ? existing.steps : rawSteps;
       const carriesMessage = Array.isArray(effectiveSteps) && effectiveSteps.length > 0;
-      if (!NON_MESSAGING_ACTIONS.has(effectiveActionType) && !effectiveTemplate && !carriesMessage) {
+      if (!NO_TEMPLATE_ACTIONS.has(effectiveActionType) && !effectiveTemplate && !carriesMessage) {
         return res.status(400).json({
           success: false,
           error: 'messageTemplate is required for send_message rules',
@@ -436,14 +543,14 @@ export class AutoMessageController {
       // changing only one side of the pair.
       const effectiveEventType = eventType !== undefined ? eventType : existing.eventType;
       const effectiveTriggerType = triggerType !== undefined ? triggerType : existing.triggerType;
-      if (
-        effectiveTriggerType === 'event' &&
-        SHOP_SCOPED_EVENTS.has(effectiveEventType || '') &&
-        !SHOP_SCOPED_ACTIONS.has(effectiveActionType)
-      ) {
+      if (!actionFitsTrigger(effectiveActionType, effectiveTriggerType, effectiveEventType || undefined)) {
         return res.status(400).json({
           success: false,
-          error: shopScopedActionError(effectiveEventType || '', effectiveActionType),
+          error: actionTriggerError(
+            effectiveActionType,
+            effectiveTriggerType,
+            effectiveEventType || undefined
+          ),
         });
       }
 
@@ -467,7 +574,15 @@ export class AutoMessageController {
         return res.status(400).json({ success: false, error: `triggerType must be one of: ${VALID_TRIGGER_TYPES.join(', ')}` });
       }
 
-      if (targetAudience && !VALID_TARGET_AUDIENCES.includes(targetAudience)) {
+      // `!== undefined`, not a truthiness check. The old guard was `if (targetAudience && ...)`, so an
+      // EMPTY audience — the one value a form can submit by accident — short-circuited past validation
+      // and was written unchecked. The two write paths then disagreed about what '' meant: create()
+      // coerces `targetAudience || 'all'` and messages EVERY customer, while update() stores '' as-is
+      // and the scheduler's audience switch falls to `default: return []` and messages NOBODY, silently.
+      // Neither is what the caller asked for, so refuse the value instead of picking one of two wrong
+      // answers. Omitting the field entirely is still fine — that means "leave it alone" on update and
+      // takes the column default on create.
+      if (targetAudience !== undefined && !VALID_TARGET_AUDIENCES.includes(targetAudience)) {
         return res.status(400).json({ success: false, error: `targetAudience must be one of: ${VALID_TARGET_AUDIENCES.join(', ')}` });
       }
 
@@ -539,6 +654,22 @@ export class AutoMessageController {
       const shopId = req.user?.shopId;
       if (!shopId) {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      // Publishing is where an incomplete action becomes a problem: a draft is inert, but a live rule
+      // with no campaign would log an error on every tick and send nothing. Checked here rather than
+      // at save so a workflow can be parked while the shop goes and builds the campaign.
+      // getById is not shop-scoped, so ownership is checked here. A rule belonging to another shop
+      // must read as "not found" rather than as a validation failure, which would confirm it exists.
+      const existing = await this.autoMessageRepo.getById(req.params.id);
+      if (!existing || existing.shopId !== shopId) {
+        return res.status(404).json({ success: false, error: 'Auto-message rule not found' });
+      }
+      if (existing.actionType === 'run_campaign' && !(existing.actionPayload as any)?.campaignId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Pick the campaign this workflow should send before publishing it',
+        });
       }
 
       const rule = await this.autoMessageRepo.publish(req.params.id, shopId);

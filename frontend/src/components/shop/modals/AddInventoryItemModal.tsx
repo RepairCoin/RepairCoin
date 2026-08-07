@@ -22,6 +22,7 @@ export const AddInventoryItemModal: React.FC<AddInventoryItemModalProps> = ({ on
     cost: 0,
     stockQuantity: 0,
     lowStockThreshold: 10,
+    taxable: true,
     categoryId: '',
     vendorId: '',
     images: [],
@@ -487,6 +488,22 @@ export const AddInventoryItemModal: React.FC<AddInventoryItemModalProps> = ({ on
               />
             </div>
           </div>
+
+          <label className="mt-6 flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={formData.taxable !== false}
+              onChange={(e) => handleInputChange('taxable', e.target.checked)}
+              disabled={loading}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#FFCC00]"
+            />
+            <span>
+              <span className="block text-sm font-medium text-gray-300">Charge sales tax</span>
+              <span className="block text-xs text-gray-500">
+                Applies your shop&apos;s tax rate when this item is sold at the counter.
+              </span>
+            </span>
+          </label>
 
           </div>
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { getApiBaseUrl } from "@/utils/apiUrl";
+import { hasPaidPlanStatus, type OperationalStatus } from "@/utils/operationalStatus";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import { FadeSlideIn } from "@/components/ui/motion";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
@@ -35,6 +36,7 @@ import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
 import { ShopSubTabs } from "@/components/shop/ShopSubTabs";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
+import { PosTab } from "@/components/shop/tabs/PosTab";
 import { InventoryTab } from "@/components/shop/tabs/InventoryTab";
 import { PurchaseOrdersTab } from "@/components/shop/tabs/PurchaseOrdersTab";
 import { InventoryAnalyticsTab } from "@/components/shop/tabs/InventoryAnalyticsTab";
@@ -43,6 +45,7 @@ import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTa
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { WorkflowsList } from "@/components/shop/automation/WorkflowsList";
+import { TasksCard } from "@/components/shop/automation/TasksCard";
 import { TeamTab } from "@/components/shop/tabs/TeamTab";
 import { CommissionsTab } from "@/components/shop/tabs/CommissionsTab";
 import { TransactionsTab } from "@/components/shop/tabs/TransactionsTab";
@@ -206,12 +209,7 @@ export interface ShopData {
   purchasedRcnBalance: number;
   totalRcnPurchased: number;
   lastPurchaseDate?: string;
-  operational_status?:
-    | "pending"
-    | "rcg_qualified"
-    | "subscription_qualified"
-    | "not_qualified"
-    | "paused";
+  operational_status?: OperationalStatus;
   rcg_tier?: string;
   rcg_balance?: number;
   facebook?: string;
@@ -626,7 +624,7 @@ export default function ShopDashboardClient() {
   const isOperational =
     shopData &&
     (shopData.operational_status === "rcg_qualified" ||
-      (shopData.operational_status === "subscription_qualified" && !isSubscriptionExpired) ||
+      (hasPaidPlanStatus(shopData.operational_status) && !isSubscriptionExpired) ||
       // Fallback: If operational_status is missing but shop is active and verified, assume operational
       (!shopData.operational_status && shopData.active && shopData.verified));
 
@@ -1609,6 +1607,12 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
 
+          {activeTab === "pos" && shopData && (
+            <SubscriptionGuard shopData={shopData} allowFree>
+              <PosTab />
+            </SubscriptionGuard>
+          )}
+
           {activeTab === "inventory" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <TierGate feature="inventoryManagement">
@@ -1780,7 +1784,12 @@ export default function ShopDashboardClient() {
           {activeTab === "automation" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <TierGate feature="customWorkflows">
-                <WorkflowsList />
+                <div className="space-y-6">
+                  <WorkflowsList />
+                  {/* The to-do list workflows file into. Below the list rather than beside it: the
+                      workflows are what you come here to build, the tasks are what they produce. */}
+                  <TasksCard />
+                </div>
               </TierGate>
             </SubscriptionGuard>
           )}

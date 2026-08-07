@@ -73,6 +73,26 @@ export interface BookingCancelledByCustomerData {
   stripeRefunded: number;
 }
 
+export interface PosReceiptData {
+  customerEmail: string;
+  shopName: string;
+  saleNumber: number | null;
+  completedAt: Date;
+  items: Array<{
+    name: string;
+    quantity: number;
+    totalCents: number;
+    /** Pre-formatted, e.g. "90-day warranty — covered to 4 Nov 2026". Absent when not covered. */
+    warrantyLabel?: string;
+  }>;
+  subtotalCents: number;
+  discountCents: number;
+  taxCents: number;
+  totalCents: number;
+  tenders: Array<{ label: string; amountCents: number }>;
+  changeCents: number;
+}
+
 export interface AppointmentExpiredData {
   customerEmail: string;
   customerName: string;
@@ -82,6 +102,19 @@ export interface AppointmentExpiredData {
   bookingTime: string;
   rcnRefunded: number;
   stripeRefunded: number;
+}
+
+/**
+ * A POS line's name is free text the shop typed at the counter, so it cannot go into an email
+ * body raw.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
@@ -788,6 +821,95 @@ export class EmailService {
     `;
 
     return this.sendEmail(customerEmail, subject, html);
+  }
+
+  /**
+   * The customer's copy of a counter-sale receipt.
+   *
+   * Sent to whatever address the register captured, which usually belongs to a walk-in with no
+   * RepairCoin account — so there is no shop preference to check and no customer record to look
+   * up. Money already changed hands; this is a record of it, not a message they opted into.
+   */
+  async sendPosReceipt(data: PosReceiptData): Promise<boolean> {
+    const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+    const saleLabel = data.saleNumber ? `Sale #${data.saleNumber}` : 'Your sale';
+    const subject = `Your receipt from ${data.shopName}`;
+
+    const row = (label: string, value: string, bold = false) => `
+      <tr>
+        <td style="padding: 6px 0; color: #333; ${bold ? 'font-weight: bold;' : ''}">${label}</td>
+        <td style="padding: 6px 0; text-align: right; color: #333; ${bold ? 'font-weight: bold;' : ''}">${value}</td>
+      </tr>`;
+
+    const itemRows = data.items
+      .map((item) => {
+        const line = row(
+          `${escapeHtml(item.name)}${item.quantity > 1 ? ` × ${item.quantity}` : ''}`,
+          money(item.totalCents)
+        );
+        // Under the line it belongs to, not in a block of its own — a customer checking a claim
+        // needs to see which repair is covered, not that some repair on this receipt was.
+        const warranty = item.warrantyLabel
+          ? `<tr><td colspan="2" style="padding: 0 0 6px 0; color: #0F7B4F; font-size: 12px;">${escapeHtml(
+              item.warrantyLabel
+            )}</td></tr>`
+          : '';
+        return `${line}${warranty}`;
+      })
+      .join('');
+
+    const tenderRows = data.tenders
+      .map((tender) => row(escapeHtml(tender.label), money(tender.amountCents)))
+      .join('');
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">${escapeHtml(data.shopName)}</h1>
+          <p style="color: #000; margin: 8px 0 0 0;">${saleLabel}</p>
+        </div>
+
+        <div style="padding: 20px;">
+          <p style="color: #666; margin: 0 0 20px 0;">
+            ${data.completedAt.toLocaleString('en-US', {
+              dateStyle: 'long',
+              timeStyle: 'short',
+            })}
+          </p>
+
+          <table style="width: 100%; border-collapse: collapse;">
+            ${itemRows}
+          </table>
+
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 16px 0;">
+
+          <table style="width: 100%; border-collapse: collapse;">
+            ${row('Subtotal', money(data.subtotalCents))}
+            ${data.discountCents > 0 ? row('Discount', `−${money(data.discountCents)}`) : ''}
+            ${data.taxCents > 0 ? row('Tax', money(data.taxCents)) : ''}
+            ${row('Total', money(data.totalCents), true)}
+          </table>
+
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 16px 0;">
+
+          <table style="width: 100%; border-collapse: collapse;">
+            ${tenderRows}
+            ${data.changeCents > 0 ? row('Change', money(data.changeCents)) : ''}
+          </table>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Thanks for shopping with ${escapeHtml(data.shopName)}.<br>
+            Questions about this purchase? Contact the shop directly.
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated receipt from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
   }
 
   /**

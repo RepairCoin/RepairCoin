@@ -29,6 +29,7 @@ import { AutoMessageResults } from "@/components/messaging/autoMessageResults";
 import { WORKFLOW_TEMPLATES, WorkflowTemplateDraft, WorkflowRelevance } from "./workflowTemplates";
 
 const EVENT_LABELS: Record<string, string> = {
+  booking_created: "Booking made",
   booking_completed: "Booking completed",
   booking_cancelled: "Booking cancelled",
   first_visit: "First visit",
@@ -38,7 +39,10 @@ const EVENT_LABELS: Record<string, string> = {
   review_received: "Review received",
   low_rating: "Low rating",
   payment_failed: "Payment failed",
+  order_ready: "Ready for pickup",
   low_stock: "Low stock",
+  new_ad_lead: "New ad lead",
+  subscription_lapsed: "Subscription payment failed",
 };
 
 function triggerLabel(w: AutoMessage): string {
@@ -61,6 +65,14 @@ function actionLabel(actionType: string | undefined, payload: any, short: boolea
       return short ? `${payload?.amountRcn ?? "?"} RCN` : `Issue ${payload?.amountRcn ?? "?"} RCN`;
     case "notify_staff":
       return "Notify team";
+    case "run_campaign":
+      return short ? "Campaign" : "Send a campaign";
+    case "ai_step":
+      return short ? "AI message" : "Let AI write it";
+    case "draft_reorder":
+      return short ? "Reorder" : "Draft a reorder";
+    case "create_task":
+      return short ? "Task" : "Add a task";
     default:
       return short ? "Message" : "Send a message";
   }

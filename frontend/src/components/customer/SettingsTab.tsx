@@ -35,6 +35,7 @@ import { SuspendedActionModal } from "./SuspendedActionModal";
 import { NotificationPreferences } from "./NotificationPreferences";
 import { CountryPhoneInput } from "../ui/CountryPhoneInput";
 import CustomerNoShowBadge from "./CustomerNoShowBadge";
+import { AccountStandingStats } from "./AccountStandingStats";
 import DisputeModal from "./DisputeModal";
 import { CustomerNoShowStatus, NoShowHistoryEntry, getOverallCustomerNoShowStatus, getCustomerNoShowHistory } from "@/services/api/noShow";
 import { AccessibilitySettings } from "../accessibility/AccessibilitySettings";
@@ -657,6 +658,9 @@ export function SettingsTab() {
                         </p>
                       </div>
                     </div>
+
+                    {/* Appointment history stats */}
+                    <AccountStandingStats />
 
                     {/* What this means */}
                     <div>

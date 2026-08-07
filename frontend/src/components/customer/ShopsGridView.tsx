@@ -3,8 +3,9 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Store, MapPin, Star, Loader2, Search, Verified, ShoppingBag, TrendingUp } from "lucide-react";
-import { getShops } from "@/services/api/shop";
+import { Store, MapPin, Star, Loader2, Search, Verified, ShoppingBag, TrendingUp, Heart } from "lucide-react";
+import { FollowShopButton } from "./FollowShopButton";
+import { getShops, getFollowedShops, getFollowerCounts } from "@/services/api/shop";
 import { Shop } from "@/constants/types";
 import { toast } from "react-hot-toast";
 
@@ -13,25 +14,55 @@ interface ShopsGridViewProps {
   selectedCategory?: string;
   /** "grid" = cards, "list" = compact rows. */
   layout?: "grid" | "list";
+  /** Show only the shops this customer follows. */
+  followingOnly?: boolean;
+  /** Clear the "Following" filter from the empty state. */
+  onClearFollowing?: () => void;
 }
 
-export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", selectedCategory = "", layout = "grid" }) => {
+export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", selectedCategory = "", layout = "grid", followingOnly = false, onClearFollowing }) => {
   const router = useRouter();
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
   const [filteredShops, setFilteredShops] = useState<Shop[]>([]);
+  const [followerCounts, setFollowerCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     loadShops();
-  }, []);
+  }, [followingOnly]);
 
   useEffect(() => {
     filterShops();
   }, [searchTerm, selectedCategory, shops]);
 
+  // One batched request for the follower counts of whatever is on screen.
+  useEffect(() => {
+    const ids = filteredShops.map((s: any) => s.shopId).filter(Boolean);
+    if (ids.length === 0) {
+      setFollowerCounts({});
+      return;
+    }
+    let active = true;
+    getFollowerCounts(ids).then((counts) => {
+      if (active) setFollowerCounts(counts);
+    });
+    return () => {
+      active = false;
+    };
+  }, [filteredShops]);
+
   const loadShops = async () => {
     try {
       setLoading(true);
+
+      // "Following" mode reads the customer's followed shops directly — those are
+      // already the shops they chose, so the verified/active gate doesn't apply.
+      if (followingOnly) {
+        const followed = await getFollowedShops();
+        setShops(followed as unknown as Shop[]);
+        return;
+      }
+
       // Load all verified and active shops
       const data = await getShops();
 
@@ -45,9 +76,20 @@ export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", s
       setShops(activeShops);
     } catch (error) {
       console.error("Error loading shops:", error);
-      toast.error("Failed to load shops");
+      toast.error(followingOnly ? "Failed to load followed shops" : "Failed to load shops");
     } finally {
       setLoading(false);
+    }
+  };
+
+  /** Drop a shop from the list the moment it's unfollowed in "Following" mode. */
+  const handleFollowChange = (shopId: string, following: boolean) => {
+    setFollowerCounts((prev) => ({
+      ...prev,
+      [shopId]: Math.max(0, (prev[shopId] ?? 0) + (following ? 1 : -1)),
+    }));
+    if (followingOnly && !following) {
+      setShops((prev) => prev.filter((s: any) => s.shopId !== shopId));
     }
   };
 
@@ -110,11 +152,11 @@ export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", s
         <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] rounded-full flex items-center justify-center">
-              <Store className="w-6 h-6 text-black" />
+              {followingOnly ? <Heart className="w-6 h-6 text-black fill-current" /> : <Store className="w-6 h-6 text-black" />}
             </div>
             <div>
               <p className="text-2xl font-bold text-white">{filteredShops.length}</p>
-              <p className="text-sm text-gray-400">Active Shops</p>
+              <p className="text-sm text-gray-400">{followingOnly ? "Shops You Follow" : "Active Shops"}</p>
             </div>
           </div>
         </div>
@@ -149,13 +191,38 @@ export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", s
       {/* Shops Grid */}
       {filteredShops.length === 0 ? (
         <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-12 text-center">
-          <Store className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-          <h3 className="text-xl font-semibold text-white mb-2">No shops found</h3>
-          <p className="text-gray-400">
-            {searchTerm || selectedCategory
-              ? "Try adjusting your filters"
-              : "Check back later for new shops"}
-          </p>
+          {followingOnly ? (
+            <>
+              <div className="text-6xl mb-4">❤️</div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                {searchTerm ? "No matches in the shops you follow" : "You're not following any shops yet"}
+              </h3>
+              <p className="text-gray-400">
+                {searchTerm
+                  ? "Try a different search, or browse all shops."
+                  : "Follow a shop and we'll tell you the moment it adds a new service."}
+              </p>
+              {onClearFollowing && (
+                <button
+                  type="button"
+                  onClick={onClearFollowing}
+                  className="mt-5 rounded-lg bg-[#FFCC00] px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#FFD700]"
+                >
+                  Browse all shops
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <Store className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+              <h3 className="text-xl font-semibold text-white mb-2">No shops found</h3>
+              <p className="text-gray-400">
+                {searchTerm || selectedCategory
+                  ? "Try adjusting your filters"
+                  : "Check back later for new shops"}
+              </p>
+            </>
+          )}
         </div>
       ) : layout === "list" ? (
         <div className="space-y-3">
@@ -199,12 +266,26 @@ export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", s
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className="flex-shrink-0 flex items-center gap-1 text-sm text-gray-400">
-                <ShoppingBag className="w-4 h-4" />
-                <span className="text-white font-semibold">
-                  {shop.totalTokensIssued ? `${shop.totalTokensIssued.toFixed(0)} RCN` : "New"}
-                </span>
+              {/* Stats + follow */}
+              <div className="flex-shrink-0 flex items-center gap-3">
+                {(followerCounts[shop.shopId] ?? 0) > 0 && (
+                  <div className="flex items-center gap-1 text-sm text-gray-400">
+                    <Heart className="w-4 h-4" />
+                    <span className="text-white font-semibold">{formatFollowers(followerCounts[shop.shopId])}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1 text-sm text-gray-400">
+                  <ShoppingBag className="w-4 h-4" />
+                  <span className="text-white font-semibold">
+                    {shop.totalTokensIssued ? `${shop.totalTokensIssued.toFixed(0)} RCN` : "New"}
+                  </span>
+                </div>
+                <FollowShopButton
+                  shopId={shop.shopId}
+                  shopName={shop.name}
+                  variant="icon"
+                  onChange={(following) => handleFollowChange(shop.shopId, following)}
+                />
               </div>
             </div>
           ))}
@@ -248,13 +329,21 @@ export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", s
                   )}
                 </div>
 
-                {/* Verified Badge */}
-                {shop.verified && (
-                  <div className="absolute top-3 right-3 bg-green-900 bg-opacity-90 text-green-400 text-xs font-semibold px-2 py-1 rounded-full border border-green-700 flex items-center gap-1">
-                    <Verified className="w-3 h-3 fill-current" />
-                    Verified
-                  </div>
-                )}
+                {/* Follow + Verified badges */}
+                <div className="absolute top-3 right-3 flex items-center gap-2">
+                  {shop.verified && (
+                    <div className="bg-green-900 bg-opacity-90 text-green-400 text-xs font-semibold px-2 py-1 rounded-full border border-green-700 flex items-center gap-1">
+                      <Verified className="w-3 h-3 fill-current" />
+                      Verified
+                    </div>
+                  )}
+                  <FollowShopButton
+                    shopId={shop.shopId}
+                    shopName={shop.name}
+                    variant="icon"
+                    onChange={(following) => handleFollowChange(shop.shopId, following)}
+                  />
+                </div>
               </div>
 
               {/* Shop Content */}
@@ -289,6 +378,12 @@ export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", s
                       {shop.totalTokensIssued ? `${shop.totalTokensIssued.toFixed(0)} RCN` : "New"}
                     </span>
                   </div>
+                  {(followerCounts[shop.shopId] ?? 0) > 0 && (
+                    <div className="flex items-center gap-1 text-gray-400">
+                      <Heart className="w-4 h-4" />
+                      <span className="text-white font-semibold">{formatFollowers(followerCounts[shop.shopId])}</span>
+                    </div>
+                  )}
                   {shop.crossShopEnabled && (
                     <div className="flex items-center gap-1 text-blue-400">
                       <TrendingUp className="w-4 h-4" />
@@ -304,5 +399,12 @@ export const ShopsGridView: React.FC<ShopsGridViewProps> = ({ searchTerm = "", s
     </div>
   );
 };
+
+/** Compact follower count — "1 follower", "42 followers", "1.2k followers". */
+function formatFollowers(n: number): string {
+  if (n === 1) return "1 follower";
+  if (n < 1000) return `${n} followers`;
+  return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k followers`;
+}
 
 export default ShopsGridView;

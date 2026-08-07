@@ -1,7 +1,15 @@
 // Mock data for Shop Bookings Management System
 // This will be replaced with real API data in the future
 
-export type BookingStatus = 'requested' | 'paid' | 'approved' | 'scheduled' | 'completed' | 'cancelled';
+export type BookingStatus =
+  | 'requested'
+  | 'paid'
+  | 'approved'
+  | 'scheduled'
+  | 'completed'
+  | 'cancelled'
+  /** Paid, past the completion grace window, now waiting on the customer to confirm. */
+  | 'awaiting_confirmation';
 export type CustomerTier = 'bronze' | 'silver' | 'gold';
 export type MessageChannel = 'instagram' | 'whatsapp' | 'sms' | 'facebook' | 'app';
 
@@ -362,7 +370,8 @@ export const getStatusLabel = (status: BookingStatus): string => {
     approved: 'Approved',
     scheduled: 'Scheduled',
     completed: 'Completed',
-    cancelled: 'Cancelled'
+    cancelled: 'Cancelled',
+    awaiting_confirmation: 'Needs Confirming'
   };
   return labels[status];
 };
@@ -374,7 +383,9 @@ export const getStatusColor = (status: BookingStatus): string => {
     approved: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
     scheduled: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
     completed: 'bg-green-500/20 text-green-400 border-green-500/30',
-    cancelled: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+    cancelled: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    // Amber, matching the customer view — this is money the shop hasn't settled yet.
+    awaiting_confirmation: 'bg-amber-500/20 text-amber-400 border-amber-500/30'
   };
   return colors[status];
 };

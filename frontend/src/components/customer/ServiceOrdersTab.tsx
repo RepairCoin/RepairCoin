@@ -185,6 +185,10 @@ export const ServiceOrdersTab: React.FC = () => {
   const [viewingOrder, setViewingOrder] = useState<ServiceOrderWithDetails | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<ServiceOrderWithDetails | null>(null);
   const [disputeOrder, setDisputeOrder] = useState<ServiceOrderWithDetails | null>(null);
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+  const [reportingOrder, setReportingOrder] = useState<ServiceOrderWithDetails | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
@@ -286,6 +290,72 @@ export const ServiceOrdersTab: React.FC = () => {
     toast.success("Redirecting to shop...");
   };
 
+  /**
+   * Whether a completed booking can still be reported as never having happened.
+   *
+   * Uses the platform default window; a shop can configure its own
+   * (shop_no_show_policy.completion_report_window_days), which the order payload doesn't
+   * carry. The backend is the authority and rejects a late report with a clear message —
+   * this only decides whether to offer the button.
+   */
+  const DEFAULT_REPORT_WINDOW_DAYS = 14;
+  const isWithinReportWindow = (order: ServiceOrderWithDetails): boolean => {
+    if (!order.completedAt) return false;
+    const daysSince = (Date.now() - new Date(order.completedAt).getTime()) / (1000 * 60 * 60 * 24);
+    return daysSince <= DEFAULT_REPORT_WINDOW_DAYS;
+  };
+
+  /** "Yes, this happened" — completes the booking and issues the RCN reward. */
+  const handleConfirmCompletion = async (order: ServiceOrderWithDetails) => {
+    setConfirmingOrderId(order.orderId);
+    try {
+      await servicesApi.confirmOrderCompletion(order.orderId);
+      toast.success("Thanks — booking confirmed and your rewards are on the way.");
+      await loadOrders();
+    } catch (error: unknown) {
+      console.error("Failed to confirm booking:", error);
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message: unknown }).message)
+          : "Couldn't confirm this booking. Please try again.";
+      toast.error(message);
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
+
+  /** "This didn't happen" — the only path that refunds a booking. */
+  const handleReportNotCompleted = async () => {
+    if (!reportingOrder) return;
+    setSubmittingReport(true);
+    try {
+      const { rcnRefunded, stripeRefunded } = await servicesApi.reportOrderNotCompleted(
+        reportingOrder.orderId,
+        reportReason.trim() || undefined
+      );
+      const parts: string[] = [];
+      if (stripeRefunded > 0) parts.push(`$${stripeRefunded.toFixed(2)}`);
+      if (rcnRefunded > 0) parts.push(`${rcnRefunded} RCN`);
+      toast.success(
+        parts.length > 0
+          ? `Reported — ${parts.join(" and ")} is being refunded.`
+          : "Reported. We'll follow up on your refund."
+      );
+      setReportingOrder(null);
+      setReportReason("");
+      await loadOrders();
+    } catch (error: unknown) {
+      console.error("Failed to report booking:", error);
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message: unknown }).message)
+          : "Couldn't submit your report. Please try again.";
+      toast.error(message);
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   // Map order status considering shopApproved flag
   const getEffectiveStatus = (order: ServiceOrderWithDetails): string => {
     // If status is 'paid' and shop has approved, show as 'scheduled' (auto-confirmed)
@@ -360,6 +430,26 @@ export const ServiceOrdersTab: React.FC = () => {
           description: "This booking was marked as a no-show by the shop.",
           color: "text-orange-300"
         };
+      case "expired":
+        return {
+          icon: <AlertTriangle className="w-5 h-5" />,
+          text: "Expired",
+          badge: "⌛ Expired — Refunded",
+          badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+          description:
+            "The shop didn't mark this booking as completed within 24 hours of the appointment, so it expired automatically and your payment was refunded.",
+          color: "text-amber-300"
+        };
+      case "awaiting_confirmation":
+        return {
+          icon: <HelpCircle className="w-5 h-5" />,
+          text: "Needs Your Confirmation",
+          badge: "❔ Did this happen?",
+          badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+          description:
+            "The shop hasn't marked this booking as completed. Nothing has been charged back or refunded — just let us know whether the service went ahead.",
+          color: "text-amber-300"
+        };
       default: {
         const formatted = status
           .split("_")
@@ -377,25 +467,38 @@ export const ServiceOrdersTab: React.FC = () => {
     }
   };
 
-  const getProgressPercentage = (status: string) => {
+  // An expired booking DID make real progress before it stalled — the auto-expiry
+  // sweeper only ever picks up orders sitting in 'paid', so it always cleared
+  // Requested and Paid, plus Approved when the shop had accepted it. Reporting it
+  // as step 0 (the old `default` branch) told the customer nothing had happened on
+  // a booking they had already paid for.
+  const expiredProgress = (order?: ServiceOrderWithDetails) => (order?.shopApproved ? 60 : 40);
+
+  const getProgressPercentage = (status: string, order?: ServiceOrderWithDetails) => {
     switch (status) {
       case "pending": return 20;
       case "paid": return 40;
       case "approved": return 60;
       case "scheduled": return 80;
       case "completed": return 100;
+      case "expired": return expiredProgress(order);
+      // Same shape as expired: Requested and Paid definitely cleared, Approved too
+      // when the shop accepted it. The booking is stalled, not undone.
+      case "awaiting_confirmation": return expiredProgress(order);
       case "cancelled": return 0;
       default: return 0;
     }
   };
 
-  const getCurrentStep = (status: string) => {
+  const getCurrentStep = (status: string, order?: ServiceOrderWithDetails) => {
     switch (status) {
       case "pending": return 1;
       case "paid": return 2;
       case "approved": return 3;
       case "scheduled": return 4;
       case "completed": return 5;
+      case "expired": return expiredProgress(order) / 20;
+      case "awaiting_confirmation": return expiredProgress(order) / 20;
       case "cancelled": return 0;
       default: return 0;
     }
@@ -518,7 +621,13 @@ export const ServiceOrdersTab: React.FC = () => {
             {sortedOrders.map((order) => {
               const effectiveStatus = getEffectiveStatus(order);
               const statusInfo = getStatusInfo(effectiveStatus);
-              const progress = getProgressPercentage(effectiveStatus);
+              const progress = getProgressPercentage(effectiveStatus, order);
+              const isExpired = effectiveStatus === "expired";
+              const isAwaitingConfirmation = effectiveStatus === "awaiting_confirmation";
+              // Amber, not green: these steps genuinely happened, but the booking
+              // stalled — green would read as "on track".
+              const isStalled = isExpired || isAwaitingConfirmation;
+              const reachedBarColor = isStalled ? "bg-amber-500" : "bg-green-500";
 
               return (
                 <BookingCard
@@ -546,7 +655,9 @@ export const ServiceOrdersTab: React.FC = () => {
                             Ongoing Status
                           </span>
                           <span className="text-xs text-gray-500">
-                            Step {getCurrentStep(effectiveStatus)} out of 5
+                            {isStalled
+                              ? `Stopped at step ${getCurrentStep(effectiveStatus, order)} of 5`
+                              : `Step ${getCurrentStep(effectiveStatus, order)} out of 5`}
                           </span>
                         </div>
                         <div className="flex gap-1.5 mb-3">
@@ -556,7 +667,7 @@ export const ServiceOrdersTab: React.FC = () => {
                               <div
                                 key={index}
                                 className={`flex-1 h-2.5 rounded-full transition-all duration-500 ${
-                                  isCompleted ? "bg-green-500" : "bg-gray-700"
+                                  isCompleted ? reachedBarColor : "bg-gray-700"
                                 }`}
                               />
                             );
@@ -581,7 +692,57 @@ export const ServiceOrdersTab: React.FC = () => {
                     ) : undefined
                   }
                   nextActionSection={
-                    order.status === "pending" ? (
+                    isAwaitingConfirmation ? (
+                      <div className="bg-[#0D0D0D] border border-amber-500/30 rounded-lg p-4 mb-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                            <HelpCircle className="w-5 h-5 text-amber-400" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-bold text-amber-400 mb-1 text-base">Did this service happen?</div>
+                            <div className="text-sm text-amber-200/80 mb-3">
+                              {statusInfo.description}
+                            </div>
+                            <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
+                              <button
+                                onClick={() => handleConfirmCompletion(order)}
+                                disabled={confirmingOrderId === order.orderId}
+                                className="flex items-center justify-center gap-1.5 bg-green-600 text-white font-semibold px-4 py-2.5 rounded-lg hover:bg-green-500 transition-colors text-sm disabled:opacity-60"
+                              >
+                                {confirmingOrderId === order.orderId ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="w-4 h-4" />
+                                )}
+                                Yes, this happened
+                              </button>
+                              <button
+                                onClick={() => setReportingOrder(order)}
+                                disabled={confirmingOrderId === order.orderId}
+                                className="flex items-center justify-center gap-1.5 bg-[#1A1A1A] border border-gray-700 text-gray-200 font-semibold px-4 py-2.5 rounded-lg hover:border-red-500/50 hover:text-red-400 transition-colors text-sm disabled:opacity-60"
+                              >
+                                <XCircle className="w-4 h-4" />
+                                This didn&apos;t happen
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : isExpired ? (
+                      <div className="bg-[#0D0D0D] border border-amber-500/30 rounded-lg p-4 mb-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                            <AlertTriangle className="w-5 h-5 text-amber-400" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-bold text-amber-400 mb-1 text-base">Booking expired</div>
+                            <div className="text-sm text-amber-200/80">
+                              {statusInfo.description} Any RCN you redeemed has been returned to your balance.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : order.status === "pending" ? (
                       <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 mb-4">
                         <div className="flex items-start gap-3">
                           <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center flex-shrink-0">
@@ -623,6 +784,17 @@ export const ServiceOrdersTab: React.FC = () => {
                         >
                           <Star className="w-4 h-4" />
                           Review
+                        </button>
+                      )}
+                      {order.status === "completed" && isWithinReportWindow(order) && (
+                        <button
+                          onClick={() => setReportingOrder(order)}
+                          title="Tell us if this service never actually took place"
+                          className="flex items-center justify-center gap-1.5 bg-[#1A1A1A] border border-gray-700 text-gray-300 font-semibold px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg hover:border-red-500/50 hover:text-red-400 transition-colors text-sm"
+                        >
+                          <AlertTriangle className="w-4 h-4" />
+                          <span className="hidden sm:inline">Report a problem</span>
+                          <span className="sm:hidden">Report</span>
                         </button>
                       )}
                       {(order.status === "completed" || order.status === "cancelled") && (
@@ -740,7 +912,7 @@ export const ServiceOrdersTab: React.FC = () => {
 
               {showHelp && (
                 <div className="space-y-3">
-                  {["pending", "paid", "approved", "scheduled", "completed"].map((status) => {
+                  {["pending", "paid", "approved", "scheduled", "completed", "awaiting_confirmation", "expired"].map((status) => {
                     const info = getStatusInfo(status);
                     return (
                       <div key={status} className="flex items-start gap-3 p-3 bg-[#0D0D0D] rounded-lg">
@@ -798,6 +970,57 @@ export const ServiceOrdersTab: React.FC = () => {
           loadCounts();
         }}
       />
+
+      {/* Report "this didn't happen" — the only customer-facing path to a refund.
+          Custom dialog rather than confirm(), and the reason is optional so a
+          customer isn't blocked from reporting by a required field. */}
+      {reportingOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-gray-800 bg-[#161616] p-6">
+            <h3 className="mb-2 text-lg font-bold text-white">
+              This booking didn&apos;t happen?
+            </h3>
+            <p className="mb-4 text-sm text-gray-400">
+              We&apos;ll refund <span className="font-semibold text-white">{reportingOrder.serviceName}</span>{" "}
+              at {reportingOrder.shopName}. Any RCN you redeemed goes back to your balance.
+            </p>
+
+            <label htmlFor="report-reason" className="mb-1.5 block text-sm font-medium text-gray-300">
+              What happened? <span className="text-gray-500">(optional)</span>
+            </label>
+            <textarea
+              id="report-reason"
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="e.g. the shop was closed when I arrived"
+              className="mb-4 w-full rounded-lg border border-gray-700 bg-[#0D0D0D] p-3 text-sm text-white placeholder-gray-600 focus:border-[#FFCC00] focus:outline-none"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setReportingOrder(null);
+                  setReportReason("");
+                }}
+                disabled={submittingReport}
+                className="rounded-lg border border-gray-700 px-4 py-2.5 text-sm font-semibold text-gray-300 transition-colors hover:bg-gray-800 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReportNotCompleted}
+                disabled={submittingReport}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-60"
+              >
+                {submittingReport && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submittingReport ? "Submitting..." : "Report & refund"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dispute No-Show Modal */}
       {disputeOrder && (

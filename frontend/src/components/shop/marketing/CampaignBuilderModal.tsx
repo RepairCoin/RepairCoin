@@ -23,6 +23,7 @@ import {
   ArrowLeft,
   Send,
   Save,
+  Pencil,
   Trash2,
   GripVertical,
   Type,
@@ -125,13 +126,31 @@ interface PromoCode {
 
 interface CampaignBuilderModalProps {
   open: boolean;
-  onClose: (saved: boolean) => void;
+  /**
+   * `campaign` is the row that was just written, so a caller can select it without refetching and
+   * guessing which one is new. Optional and additive — Marketing ignores it.
+   */
+  onClose: (saved: boolean, campaign?: MarketingCampaign) => void;
   shopId: string;
   shopName?: string;
   campaignType: 'announce_service' | 'offer_coupon' | 'newsletter' | 'custom';
   existingCampaign?: MarketingCampaign | null;
   template?: MarketingTemplate | null;
+  /** Opens in preview mode. The shop can still switch to editing unless the campaign has been sent. */
   viewOnly?: boolean;
+  /**
+   * Content only — no audience, no delivery, no sending.
+   *
+   * Set when the designer is opened from a WORKFLOW. A workflow decides who and when: it fires on a
+   * trigger and sends a fresh copy each time. Leaving the campaign own audience picker, delivery
+   * choice and "Send Now" in place gave two things a claim on both questions, and the send button was
+   * live — one press would have emailed the list immediately, bypassed the workflow entirely, and
+   * marked the campaign sent, which makes it permanently read-only.
+   *
+   * It also removes the audience trap: saving from the Audience step rewrites a live audience into a
+   * frozen list of addresses, so a recurring workflow would email the same people forever.
+   */
+  designOnly?: boolean;
 }
 
 interface DesignBlock {
@@ -251,8 +270,44 @@ export function CampaignBuilderModal({
   existingCampaign,
   template,
   viewOnly = false,
+  designOnly = false,
 }: CampaignBuilderModalProps) {
+  /**
+   * Preview or edit, as STATE rather than a fixed prop.
+   *
+   * It was the prop directly, so "opened for preview" and "cannot be edited" were the same thing —
+   * fine when the only way in was clicking an already-sent campaign, wrong the moment a DRAFT could
+   * be previewed. The owner had to close the modal, return to the workflow and press Edit to change
+   * a word.
+   */
+  const [readOnly, setReadOnly] = useState(viewOnly);
+
+  /**
+   * Re-seed when the modal is pointed at something else.
+   *
+   * The component is reused rather than remounted, so without this a shop that pressed Edit once
+   * would find every later Preview already editable — a stale "yes" is the worst default for the
+   * screen that decides whether a campaign is still safe to change.
+   */
+  useEffect(() => {
+    setReadOnly(viewOnly);
+  }, [viewOnly, existingCampaign?.id]);
+
+  /** A sent campaign is read-only for real: the API rejects updates to one. */
+  const permanentlyReadOnly = existingCampaign?.status === 'sent';
+
   const [step, setStep] = useState<'design' | 'audience' | 'delivery'>('design');
+
+  /**
+   * Hiding the navigation is not the same as being unable to get there.
+   *
+   * Every route to Audience and Delivery is gated, but this pins the step regardless — those panels
+   * are still mounted, and one missed control would put a live "Send Now" back on screen inside an
+   * automation. Cheap insurance against a guard that exists only in the UI.
+   */
+  useEffect(() => {
+    if (designOnly && step !== 'design') setStep('design');
+  }, [designOnly, step]);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('blocks');
@@ -618,7 +673,7 @@ export function CampaignBuilderModal({
   };
 
   const handleSelectBlock = (id: string) => {
-    if (viewOnly) return;
+    if (readOnly) return;
     setSelectedBlockId(id);
     setActiveTab('style');
     setMobileView('editor');
@@ -804,7 +859,7 @@ export function CampaignBuilderModal({
             toast.error(
               `Not enough RCN: this reward needs ${pre.required.toLocaleString()} RCN but you have ${pre.available.toLocaleString()}. Saved as a draft — buy more RCN, then send.`
             );
-            onClose(true);
+            onClose(true, savedCampaign);
             return;
           }
         }
@@ -813,7 +868,7 @@ export function CampaignBuilderModal({
         toast.success(`Campaign sent to ${result.totalRecipients} recipients!`);
       }
 
-      onClose(true);
+      onClose(true, savedCampaign);
     } catch (error: any) {
       console.error('Error saving campaign:', error);
       toast.error(error.message || 'Failed to save campaign');
@@ -848,7 +903,7 @@ export function CampaignBuilderModal({
       const savedCampaign = await persistCampaign();
       await scheduleCampaign(savedCampaign.id, when.toISOString());
       toast.success(`Campaign scheduled for ${when.toLocaleString()}`);
-      onClose(true);
+      onClose(true, savedCampaign);
     } catch (error: any) {
       console.error('Error scheduling campaign:', error);
       toast.error(error.message || 'Failed to schedule campaign');
@@ -886,8 +941,8 @@ export function CampaignBuilderModal({
         <div className="p-6 space-y-4">
           {blocks.map((block) => {
             const isSelected = selectedBlockId === block.id;
-            const outlineClass = viewOnly ? '' : (isSelected ? 'outline outline-2 outline-blue-500' : 'hover:outline hover:outline-blue-300');
-            const cursorClass = viewOnly ? '' : 'cursor-pointer';
+            const outlineClass = readOnly ? '' : (isSelected ? 'outline outline-2 outline-blue-500' : 'hover:outline hover:outline-blue-300');
+            const cursorClass = readOnly ? '' : 'cursor-pointer';
 
             switch (block.type) {
               case 'headline':
@@ -1009,6 +1064,34 @@ export function CampaignBuilderModal({
                         $ {block.servicePrice ? block.servicePrice.toFixed(2) : '0.00'}
                       </div>
                     </div>
+                  </div>
+                );
+
+              // The switch had every block type EXCEPT this one, so an image fell through to
+              // `default: return null` and drew nothing. The email renderer has always drawn it
+              // (MarketingService.renderBlock, case 'image'), so a campaign with a banner looked
+              // empty everywhere in the app and correct in the customer's inbox — and the block
+              // palette offers "Image" as something you can add and then never see.
+              case 'image':
+                return block.src ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={block.id}
+                    src={block.src}
+                    alt=""
+                    className={`mx-auto rounded ${cursorClass} ${outlineClass}`}
+                    style={{ maxWidth: block.style?.maxWidth || '100%', height: 'auto' }}
+                    onClick={() => handleSelectBlock(block.id)}
+                  />
+                ) : (
+                  // An image block with no src is a placeholder the owner has not filled in. Showing
+                  // nothing would leave them clicking an invisible row wondering why it does nothing.
+                  <div
+                    key={block.id}
+                    className={`text-center text-xs text-gray-400 border border-dashed border-gray-300 rounded py-6 ${cursorClass} ${outlineClass}`}
+                    onClick={() => handleSelectBlock(block.id)}
+                  >
+                    Image — none chosen yet
                   </div>
                 );
 
@@ -1452,9 +1535,9 @@ export function CampaignBuilderModal({
               <ArrowLeft className="w-5 h-5 text-gray-400" />
             </button>
             <h2 className="text-sm sm:text-lg font-semibold text-white truncate">
-              {viewOnly ? 'View Campaign' : 'Design Your Campaign'}
+              {readOnly ? 'View Campaign' : 'Design Your Campaign'}
             </h2>
-            {viewOnly && existingCampaign?.status && (
+            {readOnly && existingCampaign?.status && (
               <span className={`px-2 py-1 text-xs font-medium rounded shrink-0 ${
                 existingCampaign.status === 'sent' ? 'bg-green-500/20 text-green-400' :
                 existingCampaign.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400' :
@@ -1466,14 +1549,29 @@ export function CampaignBuilderModal({
             )}
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {viewOnly ? (
-              <Button
-                onClick={() => onClose(false)}
-                size="sm"
-                className="bg-yellow-500 hover:bg-yellow-600 text-black"
-              >
-                Close
-              </Button>
+            {readOnly ? (
+              <div className="flex items-center gap-2">
+                {/* Edit in place. Closing this, returning to the workflow and pressing Edit there
+                    was three steps to change one word — and the campaign was already open. */}
+                {!permanentlyReadOnly && (
+                  <Button
+                    onClick={() => setReadOnly(false)}
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-800"
+                  >
+                    <Pencil className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Edit</span>
+                  </Button>
+                )}
+                <Button
+                  onClick={() => onClose(false)}
+                  size="sm"
+                  className="bg-yellow-500 hover:bg-yellow-600 text-black"
+                >
+                  Close
+                </Button>
+              </div>
             ) : (
               <div className="hidden sm:flex items-center gap-2 sm:gap-3">
                 <Button
@@ -1486,7 +1584,9 @@ export function CampaignBuilderModal({
                   <Save className="w-4 h-4 sm:mr-2" />
                   <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save Draft'}</span>
                 </Button>
-                {(() => {
+                {/* No step action at all in design-only mode: every one of them leads toward
+                    sending, which is the workflow's job. Save Draft above is the whole story. */}
+                {!designOnly && (() => {
                   type StepAction = { label: string; onClick: () => void; disabled?: boolean; send?: boolean; scheduled?: boolean };
                   const actions: Record<typeof step, StepAction> = {
                     design: { label: 'Select Audience', onClick: () => setStep('audience') },
@@ -1513,8 +1613,9 @@ export function CampaignBuilderModal({
           </div>
         </div>
 
-        {/* Steps indicator */}
-        <div className="flex items-center justify-center gap-3 sm:gap-8 py-2 sm:py-3 border-b border-gray-800 bg-[#141414]">
+        {/* Steps indicator — hidden in design-only mode, where Audience and Delivery are not this
+            screen's decisions to make. */}
+        <div className={`flex items-center justify-center gap-3 sm:gap-8 py-2 sm:py-3 border-b border-gray-800 bg-[#141414] ${designOnly ? 'hidden' : ''}`}>
           {['design', 'audience', 'delivery'].map((s, i) => (
             <button
               key={s}
@@ -1537,7 +1638,7 @@ export function CampaignBuilderModal({
         <div className="flex-1 overflow-hidden min-h-0">
           {step === 'design' && (
             <div className="flex flex-col h-full lg:h-[calc(95vh-140px)] overflow-hidden">
-              {/* Mobile-only view switcher (Preview / Edit or Preview / Stats in viewOnly) */}
+              {/* Mobile-only view switcher (Preview / Edit or Preview / Stats in readOnly) */}
               <div className="lg:hidden flex border-b border-gray-800 bg-[#141414] shrink-0">
                 <button
                   type="button"
@@ -1559,7 +1660,7 @@ export function CampaignBuilderModal({
                       : 'text-gray-400 border-b-2 border-transparent'
                   }`}
                 >
-                  {viewOnly ? 'Stats' : selectedBlockId ? 'Edit Block' : 'Blocks'}
+                  {readOnly ? 'Stats' : selectedBlockId ? 'Edit Block' : 'Blocks'}
                 </button>
               </div>
               <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
@@ -1571,27 +1672,27 @@ export function CampaignBuilderModal({
                   <Label className="text-gray-300">Campaign Name</Label>
                   <Input
                     value={name}
-                    onChange={(e) => !viewOnly && setName(e.target.value)}
+                    onChange={(e) => !readOnly && setName(e.target.value)}
                     className="bg-gray-900 border-gray-700 text-white mt-1"
                     placeholder="Enter campaign name"
-                    readOnly={viewOnly}
+                    readOnly={readOnly}
                   />
                 </div>
                 <div className="mb-6">
                   <Label className="text-gray-300">Email Subject</Label>
                   <Input
                     value={subject}
-                    onChange={(e) => !viewOnly && setSubject(e.target.value)}
+                    onChange={(e) => !readOnly && setSubject(e.target.value)}
                     className="bg-gray-900 border-gray-700 text-white mt-1"
                     placeholder="Enter email subject"
-                    readOnly={viewOnly}
+                    readOnly={readOnly}
                   />
                 </div>
                 {renderPreview()}
               </div>
 
               {/* Editor Panel */}
-              {viewOnly ? (
+              {readOnly ? (
                 <div className={`w-full lg:w-80 lg:shrink-0 bg-[#1a1a1a] border-t lg:border-t-0 lg:border-l border-gray-800 overflow-auto p-4 flex-1 min-h-0 lg:flex-initial ${
                   mobileView === 'preview' ? 'hidden lg:block' : ''
                 }`}>
@@ -1599,9 +1700,17 @@ export function CampaignBuilderModal({
                     <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Send className="w-8 h-8 text-green-400" />
                     </div>
-                    <h3 className="text-white font-semibold mb-2">Campaign Sent</h3>
+                    {/* Says what is actually true. This panel asserted "Campaign Sent — cannot be
+                        edited" for anything opened in preview, so a DRAFT displayed a Draft badge in
+                        the header and a contradiction beside it, and the owner was told they could
+                        not change something they could. */}
+                    <h3 className="text-white font-semibold mb-2">
+                      {permanentlyReadOnly ? 'Campaign Sent' : 'Preview'}
+                    </h3>
                     <p className="text-gray-400 text-sm mb-4">
-                      This campaign has already been sent and cannot be edited.
+                      {permanentlyReadOnly
+                        ? 'This campaign has already been sent and cannot be edited.'
+                        : 'This is what your customers will receive. Press Edit to change it.'}
                     </p>
                     {existingCampaign?.sentAt && (
                       <p className="text-gray-500 text-xs">
@@ -1737,7 +1846,7 @@ export function CampaignBuilderModal({
               <p className="text-gray-400 text-xs sm:text-sm mb-4 sm:mb-6">All customers are selected by default. Uncheck customers you don&apos;t want to include.</p>
 
               {/* Manual Email Entry */}
-              {!viewOnly && (
+              {!readOnly && (
                 <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-6">
                   <h4 className="text-white font-medium text-sm mb-2 flex items-center gap-2">
                     <Mail className="w-4 h-4 text-[#FFCC00]" />
@@ -1766,7 +1875,7 @@ export function CampaignBuilderModal({
                 </div>
               )}
 
-              {viewOnly && validManualEmailCount > 0 && (
+              {readOnly && validManualEmailCount > 0 && (
                 <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-6">
                   <h4 className="text-white font-medium text-sm mb-3 flex items-center gap-2">
                     <Mail className="w-4 h-4 text-[#FFCC00]" />
@@ -1789,7 +1898,7 @@ export function CampaignBuilderModal({
               </h4>
 
               {/* Filter and Sort Controls */}
-              {!viewOnly && (
+              {!readOnly && (
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
                 {/* Search */}
                 <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
@@ -1865,7 +1974,7 @@ export function CampaignBuilderModal({
                       <label
                         key={customer.walletAddress}
                         className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                          viewOnly ? '' : 'cursor-pointer'
+                          readOnly ? '' : 'cursor-pointer'
                         } ${
                           selectedCustomers.has(customer.walletAddress)
                             ? 'bg-yellow-500/20 border border-yellow-500'
@@ -1875,8 +1984,8 @@ export function CampaignBuilderModal({
                         <input
                           type="checkbox"
                           checked={selectedCustomers.has(customer.walletAddress)}
-                          onChange={() => !viewOnly && handleToggleCustomer(customer.walletAddress)}
-                          disabled={viewOnly}
+                          onChange={() => !readOnly && handleToggleCustomer(customer.walletAddress)}
+                          disabled={readOnly}
                           className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-yellow-500 focus:ring-yellow-500 focus:ring-offset-gray-900 disabled:opacity-60"
                         />
                         <div className="flex-1 min-w-0">
@@ -1955,7 +2064,7 @@ export function CampaignBuilderModal({
                 </div>
               </div>
 
-              {!viewOnly && (
+              {!readOnly && (
                 <div className="hidden sm:flex flex-col-reverse sm:flex-row justify-between gap-2 sm:gap-0 mt-6">
                   <Button
                     variant="outline"
@@ -1989,14 +2098,14 @@ export function CampaignBuilderModal({
                 ].map((option) => (
                   <button
                     key={option.value}
-                    onClick={() => !viewOnly && setDeliveryMethod(option.value)}
-                    disabled={viewOnly}
+                    onClick={() => !readOnly && setDeliveryMethod(option.value)}
+                    disabled={readOnly}
                     className={`w-full flex items-center gap-4 p-4 rounded-lg transition-colors ${
-                      viewOnly ? 'cursor-default' : ''
+                      readOnly ? 'cursor-default' : ''
                     } ${
                       deliveryMethod === option.value
                         ? 'bg-yellow-500/20 border border-yellow-500'
-                        : viewOnly ? 'bg-gray-800 border border-transparent' : 'bg-gray-800 hover:bg-gray-700/50 border border-transparent'
+                        : readOnly ? 'bg-gray-800 border border-transparent' : 'bg-gray-800 hover:bg-gray-700/50 border border-transparent'
                     }`}
                   >
                     <div className="text-gray-400">{option.icon}</div>
@@ -2033,7 +2142,7 @@ export function CampaignBuilderModal({
                         <button
                           key={opt.value}
                           type="button"
-                          disabled={viewOnly}
+                          disabled={readOnly}
                           onClick={() => setRewardType(opt.value)}
                           className={`p-3 rounded-lg border text-sm font-medium transition-colors disabled:opacity-60 ${
                             rewardType === opt.value
@@ -2059,7 +2168,7 @@ export function CampaignBuilderModal({
                               <button
                                 key={opt.value}
                                 type="button"
-                                disabled={viewOnly}
+                                disabled={readOnly}
                                 onClick={() => setRewardMode(opt.value)}
                                 className={`p-2 rounded-md border text-sm font-medium transition-colors disabled:opacity-60 ${
                                   rewardMode === opt.value
@@ -2081,7 +2190,7 @@ export function CampaignBuilderModal({
                               min={0}
                               step="0.1"
                               value={rewardFlatAmount}
-                              disabled={viewOnly}
+                              disabled={readOnly}
                               onChange={(e) => setRewardFlatAmount(e.target.value)}
                               className="mt-1.5 bg-gray-900 border-gray-600 text-white"
                             />
@@ -2099,7 +2208,7 @@ export function CampaignBuilderModal({
                                   step="0.1"
                                   placeholder="0"
                                   value={rewardByTier[tier] ?? ''}
-                                  disabled={viewOnly}
+                                  disabled={readOnly}
                                   onChange={(e) => setRewardByTier((prev) => ({ ...prev, [tier]: e.target.value }))}
                                   className="flex-1 bg-gray-900 border-gray-600 text-white"
                                 />
@@ -2119,7 +2228,7 @@ export function CampaignBuilderModal({
                                   type="number"
                                   min={0}
                                   value={band.minSpend}
-                                  disabled={viewOnly}
+                                  disabled={readOnly}
                                   onChange={(e) => setRewardSpendBands((prev) =>
                                     prev.map((b, i) => (i === idx ? { ...b, minSpend: e.target.value } : b))
                                   )}
@@ -2132,14 +2241,14 @@ export function CampaignBuilderModal({
                                   step="0.1"
                                   placeholder="0"
                                   value={band.rcn}
-                                  disabled={viewOnly}
+                                  disabled={readOnly}
                                   onChange={(e) => setRewardSpendBands((prev) =>
                                     prev.map((b, i) => (i === idx ? { ...b, rcn: e.target.value } : b))
                                   )}
                                   className="w-24 bg-gray-900 border-gray-600 text-white"
                                 />
                                 <span className="text-sm text-gray-500">RCN</span>
-                                {!viewOnly && rewardSpendBands.length > 1 && (
+                                {!readOnly && rewardSpendBands.length > 1 && (
                                   <button
                                     type="button"
                                     onClick={() => setRewardSpendBands((prev) => prev.filter((_, i) => i !== idx))}
@@ -2150,7 +2259,7 @@ export function CampaignBuilderModal({
                                 )}
                               </div>
                             ))}
-                            {!viewOnly && (
+                            {!readOnly && (
                               <Button
                                 type="button"
                                 variant="outline"
@@ -2174,7 +2283,7 @@ export function CampaignBuilderModal({
                               <button
                                 key={opt.value}
                                 type="button"
-                                disabled={viewOnly}
+                                disabled={readOnly}
                                 onClick={() => setFulfillment(opt.value)}
                                 className={`p-3 rounded-md border text-left transition-colors disabled:opacity-60 ${
                                   fulfillment === opt.value
@@ -2197,7 +2306,7 @@ export function CampaignBuilderModal({
                               min={1}
                               max={365}
                               value={returnWindowDays}
-                              disabled={viewOnly}
+                              disabled={readOnly}
                               onChange={(e) => setReturnWindowDays(e.target.value)}
                               className="mt-1.5 bg-gray-900 border-gray-600 text-white"
                             />
@@ -2223,7 +2332,7 @@ export function CampaignBuilderModal({
                               min={1}
                               step="1"
                               value={couponBonusRcn}
-                              disabled={viewOnly}
+                              disabled={readOnly}
                               onChange={(e) => setCouponBonusRcn(e.target.value)}
                               className="mt-1.5 bg-gray-900 border-gray-600 text-white"
                             />
@@ -2235,7 +2344,7 @@ export function CampaignBuilderModal({
                               min={1}
                               max={365}
                               value={couponExpiresDays}
-                              disabled={viewOnly}
+                              disabled={readOnly}
                               onChange={(e) => setCouponExpiresDays(e.target.value)}
                               className="mt-1.5 bg-gray-900 border-gray-600 text-white"
                             />
@@ -2299,7 +2408,7 @@ export function CampaignBuilderModal({
                 )}
               </div>
 
-              {!viewOnly && (
+              {!readOnly && (
                 <div className="mt-6 p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
                   <h4 className="text-white font-medium text-sm mb-3 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-[#FFCC00]" />
@@ -2350,7 +2459,7 @@ export function CampaignBuilderModal({
                 </div>
               )}
 
-              {viewOnly && existingCampaign?.status === 'scheduled' && existingCampaign?.scheduledAt && (
+              {readOnly && existingCampaign?.status === 'scheduled' && existingCampaign?.scheduledAt && (
                 <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/40 rounded-lg flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-blue-400" />
                   <span className="text-blue-300">
@@ -2359,7 +2468,7 @@ export function CampaignBuilderModal({
                 </div>
               )}
 
-              {!viewOnly && (
+              {!readOnly && (
                 <div className="hidden sm:flex flex-col-reverse sm:flex-row justify-between gap-3 sm:gap-0 mt-8">
                   <Button
                     variant="outline"
@@ -2397,7 +2506,7 @@ export function CampaignBuilderModal({
         </div>
 
         {/* Mobile sticky action bar — replaces inline step nav buttons on mobile */}
-        {!viewOnly && (
+        {!readOnly && (
           <div
             className="sm:hidden shrink-0 border-t border-gray-800 bg-[#1a1a1a] px-3 py-2 flex gap-2"
             style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}
@@ -2414,13 +2523,16 @@ export function CampaignBuilderModal({
                   <Save className="w-4 h-4 mr-2" />
                   {saving ? 'Saving…' : 'Save Draft'}
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setStep('audience')}
-                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black"
-                >
-                  Next
-                </Button>
+                {/* Mobile footer: same reasoning as the header — "Next" only leads to Audience. */}
+                {!designOnly && (
+                  <Button
+                    size="sm"
+                    onClick={() => setStep('audience')}
+                    className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black"
+                  >
+                    Next
+                  </Button>
+                )}
               </>
             )}
             {step === 'audience' && (

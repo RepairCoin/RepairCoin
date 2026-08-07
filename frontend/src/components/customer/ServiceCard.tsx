@@ -113,7 +113,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         )}
 
         {/* Favorite + Share Buttons - Top Right (stacked) */}
-        <div className="absolute top-3 right-3 z-20 flex flex-col gap-2">
+        <div className="absolute top-3 right-3 z-20 flex flex-row items-center gap-2">
           <FavoriteButton
             serviceId={service.serviceId}
             initialIsFavorited={service.isFavorited}

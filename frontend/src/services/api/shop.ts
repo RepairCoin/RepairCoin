@@ -617,3 +617,77 @@ export const shopApi = {
   updateGalleryPhotoCaption,
   updateGalleryPhotoOrder,
 } as const;
+
+// ── Follow shop (customer) ──────────────────────────────────────────────────
+
+/** Whether the current customer follows the shop. */
+export const getFollowStatus = async (shopId: string): Promise<boolean> => {
+  try {
+    const res = await apiClient.get<{ success: boolean; data?: { following?: boolean } }>(
+      `/shops/follow/${shopId}/status`
+    );
+    return res?.data?.following === true;
+  } catch {
+    return false;
+  }
+};
+
+export const followShop = async (shopId: string): Promise<boolean> => {
+  try {
+    await apiClient.post(`/shops/follow/${shopId}`);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export const unfollowShop = async (shopId: string): Promise<boolean> => {
+  try {
+    await apiClient.delete(`/shops/follow/${shopId}`);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** A shop record as returned by the marketplace shop endpoints. */
+export interface FollowedShop {
+  shopId: string;
+  name: string;
+  verified?: boolean;
+  active?: boolean;
+  category?: string;
+  address?: string;
+  city?: string;
+  logoUrl?: string;
+  bannerUrl?: string;
+  totalTokensIssued?: number;
+  crossShopEnabled?: boolean;
+}
+
+/** The shops this customer follows. Empty on failure — never throws. */
+export const getFollowedShops = async (): Promise<FollowedShop[]> => {
+  try {
+    const res = await apiClient.get<{ success: boolean; data?: FollowedShop[] }>("/shops/follow");
+    return Array.isArray(res?.data) ? res.data : [];
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * Follower counts for a set of shops in one request. Shops with no followers are
+ * omitted from the response — treat a missing key as 0.
+ */
+export const getFollowerCounts = async (shopIds: string[]): Promise<Record<string, number>> => {
+  if (shopIds.length === 0) return {};
+  try {
+    const res = await apiClient.post<{ success: boolean; data?: { counts?: Record<string, number> } }>(
+      "/shops/follow/counts",
+      { shopIds }
+    );
+    return res?.data?.counts ?? {};
+  } catch {
+    return {};
+  }
+};

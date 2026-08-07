@@ -200,6 +200,58 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     },
   },
   {
+    id: "new-booking-prep",
+    name: "Get them ready for the visit",
+    description: "An hour after someone books, tell them what to bring and where to park.",
+    shape: "Booking made → +1h: message",
+    // Deliberately NOT a confirmation. The platform already sends `booking_confirmed` the moment a
+    // booking is made, and a second "you're booked!" an hour later reads as a system with two mouths.
+    // The copy earns its place only by carrying what the confirmation can't: the practical details.
+    benefit: "Cuts the questions and the no-shows that come from not knowing what to expect.",
+    relevance: (r) =>
+      r.bookingsLast7 && r.bookingsLast7 >= 3
+        ? `${n(r.bookingsLast7, "booking")} in the last 7 days.`
+        : null,
+    draft: {
+      name: "Get them ready for the visit",
+      triggerType: "event",
+      eventType: "booking_created",
+      delayHours: 1,
+      targetAudience: "all",
+      maxSendsPerCustomer: 1,
+      actionType: "send_message",
+      messageTemplate:
+        "Hi {{customerName}}, you're all set with {{shopName}}. A couple of things that help: bring your device and any case or charger it came with, and there's parking right outside. Anything you're unsure about, just reply here.",
+      stopOnBooking: false,
+      steps: null,
+    },
+  },
+  {
+    id: "ready-for-pickup",
+    name: "Tell them it's ready",
+    description: "The moment you mark an order ready, the customer hears about it.",
+    shape: "Ready for pickup → message",
+    // Only useful to shops that hold something for the customer — repairs, automotive, pet care, a
+    // custom order. For a barber or a gym class there is nothing to collect, so this card is honest
+    // about being for some shops rather than all.
+    benefit: "Gets things collected sooner, so finished work isn't sitting on your shelf.",
+    // No relevance line: nothing has been marked ready yet on any shop, because the button is new.
+    // A card claiming a number it cannot have is worse than a card with no number.
+    draft: {
+      name: "Ready for pickup",
+      triggerType: "event",
+      eventType: "order_ready",
+      delayHours: 0,
+      targetAudience: "all",
+      maxSendsPerCustomer: 1,
+      actionType: "send_message",
+      messageTemplate:
+        "Hi {{customerName}}, good news — your order at {{shopName}} is ready to collect. Reply here if you'd like to arrange a time.",
+      stopOnBooking: false,
+      steps: null,
+    },
+  },
+  {
     id: "no-show-recovery",
     name: "Recover a no-show",
     description: "Reach out after a missed appointment and make it easy to rebook.",
@@ -335,6 +387,35 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       // Shop-scoped: this happens to the shop, so there's no customer and no message.
       actionType: "notify_staff",
       actionPayload: { message: "Stock is running low — worth reordering before it runs out." },
+      messageTemplate: null,
+      stopOnBooking: false,
+      steps: null,
+    },
+  },
+  {
+    id: "subscription-payment-failed",
+    name: "Tell me if my subscription payment fails",
+    description: "Get an alert when the card on file is declined, while there's still time to fix it.",
+    shape: "Subscription payment failed → notify my team",
+    // The point is the timing. Stripe retries over several days before access is cut off, and this
+    // fires on the first failure — early enough that updating a card is all it takes. Nothing fires
+    // after cancellation: by then automations are switched off with everything else, so the alert
+    // could not reach you even if it existed.
+    benefit: "Catches a declined card while it's still just a declined card.",
+    // No relevance line by design. The honest number would be "your payment has failed N times", and a
+    // template card is the wrong place for a shop to learn that about their own account.
+    draft: {
+      name: "Subscription payment failed",
+      triggerType: "event",
+      eventType: "subscription_lapsed",
+      delayHours: 0,
+      targetAudience: "all",
+      maxSendsPerCustomer: 1,
+      // Shop-scoped: this happens to the shop's own billing, so there is no customer and no message.
+      actionType: "notify_staff",
+      actionPayload: {
+        message: "Your subscription payment didn't go through — update the card on file to keep access.",
+      },
       messageTemplate: null,
       stopOnBooking: false,
       steps: null,

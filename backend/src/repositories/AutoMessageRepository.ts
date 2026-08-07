@@ -598,6 +598,27 @@ export class AutoMessageRepository extends BaseRepository {
   }
 
   /**
+   * The same, for a SHOP-scoped rule — where there is no customer.
+   *
+   * Needs its own query rather than passing null above, because `customer_address = NULL` is never
+   * true in SQL: the check would silently pass every time and dedup nothing. That is the same shape as
+   * the bug fixed in 67584cdc1, so it gets an explicit IS NULL instead of a clever parameter.
+   */
+  async hasShopScopedSendForReference(autoMessageId: string, triggerReference: string): Promise<boolean> {
+    try {
+      const result = await this.pool.query(
+        `SELECT COUNT(*) FROM auto_message_sends
+          WHERE auto_message_id = $1 AND customer_address IS NULL AND trigger_reference = $2`,
+        [autoMessageId, triggerReference]
+      );
+      return parseInt(result.rows[0].count, 10) > 0;
+    } catch (error) {
+      logger.error('Error in AutoMessageRepository.hasShopScopedSendForReference:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Check if a send already exists for a specific trigger reference (prevents duplicate event sends)
    */
   async hasSendForTriggerReference(autoMessageId: string, customerAddress: string, triggerReference: string): Promise<boolean> {

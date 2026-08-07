@@ -1,5 +1,6 @@
 import { BaseResponse } from "@/shared/interfaces/base.interface";
 import { CustomerData, CustomerTier } from "@/feature/customer/profile/services/customer.interface";
+import { ShopTier } from "@/shared/constants/featureTiers";
 
 export type BonusType = "fixed" | "percentage";
 export type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
@@ -453,6 +454,14 @@ export interface ConnectStatusData {
 export interface ConnectOnboardingLinkResponse extends BaseResponse<ConnectOnboardingLinkData> {}
 export interface ConnectSummaryResponse extends BaseResponse<ConnectSummaryData> {}
 export interface ConnectStatusResponse extends BaseResponse<ConnectStatusData> {}
+
+// ==================== Feature Access (tier gate) ====================
+export interface FeatureAccessData {
+  tier: ShopTier;
+  features: Record<string, boolean>;
+  multiLocationActive: boolean;
+}
+export interface FeatureAccessResponse extends BaseResponse<FeatureAccessData> {}
 
 // ==================== Moderation: Issue Reports ====================
 export type IssueReportCategory =

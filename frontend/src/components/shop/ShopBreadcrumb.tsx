@@ -84,6 +84,11 @@ const TAB_CONFIG: Record<string, {
     icon: <Package className="w-5 h-5" />,
     description: "Manage your inventory purchase orders",
   },
+  pos: {
+    title: "Point of Sale",
+    icon: <CreditCard className="w-5 h-5" />,
+    description: "Ring up services and products at the counter, and take card or cash",
+  },
   payments: {
     title: "Payments",
     icon: <Receipt className="w-5 h-5" />,

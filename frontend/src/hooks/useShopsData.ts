@@ -138,27 +138,6 @@ export function useShopsData() {
     }
   };
 
-  const rejectShop = async (shopId: string, reason?: string) => {
-    try {
-      const success = await adminApi.rejectShop(shopId, reason || "Does not meet requirements");
-      if (!success) {
-        // Fallback to suspend for backward compatibility
-        const suspendSuccess = await adminApi.suspendShop(
-          shopId,
-          `Application Rejected: ${reason || "Does not meet requirements"}`
-        );
-        if (!suspendSuccess) {
-          throw new Error("Failed to reject shop");
-        }
-      }
-      await refreshData();
-      // Toast removed - let the component handle notifications
-    } catch (error: any) {
-      console.error("Error rejecting shop:", error);
-      throw error; // Re-throw to let component handle the error
-    }
-  };
-
   const mintShopBalance = async (shopId: string, amount: number) => {
     try {
       const success = await adminApi.mintTokensToShop(shopId, amount);
@@ -184,7 +163,6 @@ export function useShopsData() {
       suspend: suspendShop,
       unsuspend: unsuspendShop,
       approve: approveShop,
-      reject: rejectShop,
       mintBalance: mintShopBalance,
     },
   };

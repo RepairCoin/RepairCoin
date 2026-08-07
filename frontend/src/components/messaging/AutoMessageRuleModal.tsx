@@ -5,6 +5,29 @@ import { X, Loader2, Zap, Calendar, Plus, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AutoMessage, CreateAutoMessageRequest, UpdateAutoMessageRequest } from "@/services/api/messaging";
 import { generateAutoMessageContent, getAutoMessageAbResults, type AbResults } from "@/services/api/messaging";
+import dynamic from "next/dynamic";
+import {
+  getCampaigns,
+  aiDraftCampaign,
+  deleteCampaign,
+  type MarketingCampaign,
+} from "@/services/api/marketing";
+import { useAuthStore } from "@/stores/authStore";
+
+/**
+ * The real campaign designer, rendered OVER this builder rather than navigated to.
+ *
+ * Lazy on purpose: it is a 2,477-line block editor with its own image handling, and pulling it into
+ * this chunk would make every workflow — most of which never touch a campaign — pay for it.
+ *
+ * Embedding rather than rebuilding is the whole decision here. Campaigns need images to get read, so
+ * an inline composer would either duplicate that editor or ship something that cannot do the one job
+ * the campaign exists for. See campaign-action-editor-embed.md §2.
+ */
+const CampaignBuilderModal = dynamic(
+  () => import("@/components/shop/marketing/CampaignBuilderModal").then((m) => m.CampaignBuilderModal),
+  { ssr: false }
+);
 import toast from "react-hot-toast";
 
 const SCHEDULE_TYPES = [
@@ -14,6 +37,7 @@ const SCHEDULE_TYPES = [
 ];
 
 const EVENT_TYPES = [
+  { value: "booking_created", label: "Booking Made" },
   { value: "booking_completed", label: "Booking Completed" },
   { value: "booking_cancelled", label: "Booking Cancelled" },
   { value: "first_visit", label: "First Visit" },
@@ -24,7 +48,10 @@ const EVENT_TYPES = [
   { value: "review_received", label: "Review Received" },
   { value: "low_rating", label: "Low Rating (1–2 stars)" },
   { value: "payment_failed", label: "Payment Failed" },
+  { value: "order_ready", label: "Ready for Pickup" },
   { value: "low_stock", label: "Low Stock (shop alert)" },
+  { value: "new_ad_lead", label: "New Ad Lead (shop alert)" },
+  { value: "subscription_lapsed", label: "Subscription Payment Failed (shop alert)" },
 ];
 
 /**
@@ -32,7 +59,7 @@ const EVENT_TYPES = [
  * force a shop-facing action — the API rejects the alternative, and a form that let you pick it would
  * just be a 400 waiting to happen.
  */
-const SHOP_SCOPED_EVENTS = new Set(["low_stock"]);
+const SHOP_SCOPED_EVENTS = new Set(["low_stock", "new_ad_lead", "subscription_lapsed"]);
 
 /**
  * Event triggers that SWEEP instead of reacting: nothing hands them a customer, so the engine resolves
@@ -40,6 +67,37 @@ const SHOP_SCOPED_EVENTS = new Set(["low_stock"]);
  * every other event the audience is dead config, which is why the field hides itself.
  */
 const AUDIENCE_AWARE_EVENTS = new Set(["inactive_30_days", "low_bookings"]);
+
+/**
+ * Every action, and whether it acts on the SHOP rather than on a customer.
+ *
+ * One table instead of conditions repeated per field. Four separate places keyed on
+ * `actionType === "notify_staff"` as shorthand for "shop-facing", which was true until three more
+ * actions arrived — after which a campaign rule offered a Target Audience it does not consult, a
+ * reorder rule offered a per-customer send cap, and a shop-scoped trigger claimed the action was
+ * "Notify my team" whatever it actually was.
+ *
+ * `shopScoped` mirrors SHOP_SCOPED_ACTIONS in the backend registry; the two must agree, because the
+ * API rejects a shop-scoped trigger paired with a customer-facing action.
+ */
+const ACTIONS: ReadonlyArray<{
+  value: string;
+  label: string;
+  hint: string;
+  shopScoped: boolean;
+  /** What it needs to act on — mirrors ACTION_NEEDS in the backend registry. */
+  needs: "customer" | "audience" | "nobody";
+}> = [
+  { value: "send_message", label: "Send a message", hint: "To the customer", shopScoped: false, needs: "customer" },
+  { value: "issue_reward", label: "Issue an RCN reward", hint: "Credits the customer", shopScoped: false, needs: "customer" },
+  { value: "ai_step", label: "Let AI write it", hint: "Fresh copy each run", shopScoped: false, needs: "customer" },
+  { value: "notify_staff", label: "Notify my team", hint: "Alerts you, not the customer", shopScoped: true, needs: "nobody" },
+  { value: "run_campaign", label: "Send a campaign", hint: "One send to a whole audience", shopScoped: true, needs: "audience" },
+  { value: "draft_reorder", label: "Draft a reorder", hint: "A purchase order to approve", shopScoped: true, needs: "nobody" },
+  { value: "create_task", label: "Add a task", hint: "Stays on your list until done", shopScoped: true, needs: "nobody" },
+];
+
+const SHOP_SCOPED_ACTIONS = new Set(ACTIONS.filter((a) => a.shopScoped).map((a) => a.value));
 
 const TARGET_AUDIENCES = [
   { value: "all", label: "All Customers" },
@@ -50,6 +108,33 @@ const TARGET_AUDIENCES = [
 ];
 
 const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** Shared by the hour dropdown and its own trigger label, so the two can't drift. */
+const hourLabel = (h: number) =>
+  `${h === 0 ? "12:00 AM" : h < 12 ? `${h}:00 AM` : h === 12 ? "12:00 PM" : `${h - 12}:00 PM`} (UTC)`;
+
+/**
+ * Every `SelectValue` below is given EXPLICIT children rather than letting the trigger resolve its own
+ * label.
+ *
+ * Left to itself, the trigger's text comes from the selected item, and the items only exist while the
+ * dropdown is open. A select that is mounted BEFORE its value arrives therefore renders its
+ * placeholder and never re-resolves — the value is correct in state and in what gets saved, but the
+ * field reads as empty.
+ *
+ * That is exactly what happened here. Editing a saved rule showed "Select audience" on a rule that had
+ * a stored audience, because Target Audience is mounted on first render (it sits outside the trigger
+ * blocks) and the prefill effect sets it a tick later. Event looked fine purely by luck of mounting:
+ * it lives inside `triggerType === "event"`, which is false on first render, so it mounts fresh with
+ * its value already set. Same component, same props, opposite outcome — decided by mount order.
+ *
+ * Deriving the label from state removes the timing question entirely.
+ *
+ * That reasoning did NOT fix Target Audience — it stayed blank on the deployed build — so that one
+ * field goes further and renders its label as a plain span, bypassing `SelectValue` altogether. See
+ * `effectiveAudience`. The explicit children below remain correct and are worth keeping regardless;
+ * they are simply not sufficient on their own.
+ */
 
 const TEMPLATE_VARIABLES = [
   { key: "{{customerName}}", label: "Customer Name" },
@@ -100,11 +185,77 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [messageTemplate, setMessageTemplate] = useState("");
   // What the rule DOES when it fires (Custom Workflows W2). 'send_message' is everything that existed
   // before actions; 'issue_reward' sends nothing and needs no template.
-  const [actionType, setActionType] = useState<"send_message" | "issue_reward" | "notify_staff">("send_message");
+  const [actionType, setActionType] = useState<
+    "send_message" | "issue_reward" | "notify_staff" | "run_campaign" | "ai_step" | "draft_reorder" | "create_task"
+  >("send_message");
+  /** run_campaign: the campaign used as a template. Each firing clones and sends a copy. */
+  const [campaignId, setCampaignId] = useState("");
+  /**
+   * The shop's campaigns, kept WHOLE rather than narrowed.
+   *
+   * They were mapped down to a handful of fields, which threw away everything the summary needed and
+   * — once the editor could be opened from here — left nothing to hand it: `existingCampaign` wants
+   * the real row, and refetching one we already had would be a second request to rebuild an object we
+   * chose to discard.
+   */
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  /** The brief for an AI-drafted campaign, and whether one is being written right now. */
+  const [campaignBrief, setCampaignBrief] = useState("");
+  const [draftingCampaign, setDraftingCampaign] = useState(false);
+  /**
+   * Why the last AI draft has no banner image.
+   *
+   * Kept and shown rather than swallowed: the image is refused for ordinary reasons — the shop's
+   * kill-switch is off, its monthly image budget is gone, the prompt was flagged — and a campaign
+   * that quietly arrives without the picture the owner expected reads as broken.
+   */
+  const [campaignImageSkipped, setCampaignImageSkipped] = useState<string | null>(null);
+  /**
+   * The campaign this panel drafted and the owner has NOT touched since.
+   *
+   * Every press of "Create it for me" persists a campaign, so regenerating three times left two
+   * orphans behind — and across the platform three quarters of AI-generated campaigns are never sent.
+   * The superseded one is discarded when a new one replaces it.
+   *
+   * Cleared the moment the owner edits or previews it in the designer: once they have opened it, it is
+   * their work and not ours to throw away, even if they then regenerate.
+   */
+  const [disposableDraftId, setDisposableDraftId] = useState<string | null>(null);
+  /**
+   * The campaign summary, so a freshly drafted campaign can be scrolled into view.
+   *
+   * The brief and the button sit at the TOP of the panel and the result lands below the fold, so a
+   * success looked like nothing had happened — the shop reported the feature as broken for a
+   * campaign that had been created, written and illustrated.
+   */
+  const campaignSummaryRef = React.useRef<HTMLDivElement | null>(null);
+  /** Which campaign the embedded editor is open on, and why. `null` = closed. */
+  const [campaignEditor, setCampaignEditor] = useState<
+    { mode: "create" | "edit" | "view"; campaign: MarketingCampaign | null } | null
+  >(null);
+  /** Subscribed rather than read via getState(), so the editor gets the shop even on a late login. */
+  const shopProfile = useAuthStore((s) => s.userProfile);
+  const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [rewardAmount, setRewardAmount] = useState(25);
   const [rewardReason, setRewardReason] = useState("");
   /** Body of a `notify_staff` alert. Separate from rewardReason — see the prefill note below. */
   const [alertText, setAlertText] = useState("");
+  /** ai_step: the owner's brief. Optional — the generator also has the trigger, audience and name. */
+  const [aiBrief, setAiBrief] = useState("");
+  /**
+   * create_task: what the to-do item says. Optional — the action falls back to the workflow's name, so
+   * a half-configured rule still files something readable rather than a blank row in a list.
+   */
+  const [taskTitle, setTaskTitle] = useState("");
+  /**
+   * A one-off sample of what this workflow might send.
+   *
+   * Without it the owner publishes a BEHAVIOUR rather than a message — they never see a sentence
+   * before real customers do. It is called on demand only: every sample is a real generation against
+   * the shop's monthly AI allowance, so it must never fire on typing.
+   */
+  const [aiSample, setAiSample] = useState("");
+  const [samplingAi, setSamplingAi] = useState(false);
   const [triggerType, setTriggerType] = useState<"schedule" | "event">("schedule");
   /**
    * Has the trigger been chosen deliberately (by a click or a template) rather than left at its default?
@@ -120,6 +271,30 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const [eventType, setEventType] = useState("booking_completed");
   const [delayHours, setDelayHours] = useState(24);
   const [targetAudience, setTargetAudience] = useState("all");
+  /**
+   * The audience this form is actually operating on.
+   *
+   * Target Audience rendered as an empty "Select audience" on rules that demonstrably HAVE a stored
+   * audience — the API returns `inactive_30d`, the database agrees, and yet the control came up blank.
+   * Two causes were possible and I could not tell them apart from outside the browser: either the state
+   * was somehow empty, or the dropdown was failing to reflect a state that was fine.
+   *
+   * Rather than guess again, this collapses both. The value is whatever the state holds IF that is a
+   * real option; otherwise it falls back to the rule's stored audience, and only then to "all". So a
+   * blank or corrupted state can no longer either display as empty or be SAVED over the top of a
+   * correct stored value — which was the actual risk, since an owner seeing a blank field would pick
+   * something and overwrite an audience that was right all along.
+   *
+   * It never invents a value that contradicts the rule: the fallback IS the stored one.
+   */
+  const isAudience = (v: unknown): v is string =>
+    typeof v === "string" && TARGET_AUDIENCES.some((a) => a.value === v);
+  const storedAudience = rule?.targetAudience;
+  const effectiveAudience = isAudience(targetAudience)
+    ? targetAudience
+    : isAudience(storedAudience)
+    ? storedAudience
+    : "all";
   const [maxSendsPerCustomer, setMaxSendsPerCustomer] = useState(1);
   // Drip sequence (multi-step) state. Sequences are event-triggered only.
   const [useSequence, setUseSequence] = useState(false);
@@ -137,6 +312,42 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   const notifiesStaff = actionType === "notify_staff";
 
   /**
+   * Does the ACTION act on the shop rather than on a customer?
+   *
+   * Distinct from `shopScoped`, which asks the same of the TRIGGER. Either one being true means no
+   * customer is involved, so a target audience and a per-customer send cap are both meaningless.
+   */
+  const actionActsOnShop = SHOP_SCOPED_ACTIONS.has(actionType);
+
+  /**
+   * What this trigger hands the action to work with — mirrors triggerProvides on the API.
+   *
+   * A schedule and the two sweeps resolve a GROUP. Every other event is about one person. Shop-scoped
+   * events are about nobody.
+   */
+  const triggerProvides: "audience" | "customer" | "nothing" =
+    triggerType === "schedule"
+      ? "audience"
+      : SHOP_SCOPED_EVENTS.has(eventType)
+      ? "nothing"
+      : AUDIENCE_AWARE_EVENTS.has(eventType)
+      ? "audience"
+      : "customer";
+
+  /**
+   * Only offer actions this trigger can actually feed.
+   *
+   * The API rejects the rest, but a form that offers a choice and then refuses it teaches the owner
+   * that the product is broken. The one that mattered: "Send a campaign" on a per-customer event
+   * would email the whole list every time one customer did anything.
+   */
+  const availableActions = ACTIONS.filter((a) => {
+    if (a.needs === "nobody") return true;
+    if (triggerProvides === "nothing") return false;
+    return a.needs === "customer" ? true : triggerProvides === "audience";
+  });
+
+  /**
    * Does Target Audience actually do anything for this configuration?
    *
    * It only ever did for rules where the engine has to decide WHO to act on: schedule rules, plus the
@@ -145,8 +356,29 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
    * never consults the audience — so showing the field there promised a filter that did not exist.
    */
   const audienceApplies =
-    !notifiesStaff &&
+    // run_campaign is shop-scoped — it fires once, not once per customer — but it DOES consult the
+    // audience now: the engine resolves it on each firing and hands the campaign that exact list.
+    // Hiding it here was right when the campaign chose for itself; it is wrong now, and it left a
+    // recurring campaign quietly going to every customer the shop has.
+    (!actionActsOnShop || actionType === "run_campaign") &&
     (triggerType === "schedule" || AUDIENCE_AWARE_EVENTS.has(eventType));
+
+  /**
+   * Does the engine actually wait before acting?
+   *
+   * `delayHours` is only read on the event-DISPATCH path (`handleEventTrigger`), where a real event
+   * hands over a customer and the send can be queued for later. The two SWEEP events resolve their
+   * own audience in `processInactiveCustomers` / `processLowBookings` and send immediately, and the
+   * shop-scoped events run through `handleShopEvent`, which has no delay either.
+   *
+   * Found the hard way: a published "Inactive 30 days + 1h" workflow sent within the same tick. The
+   * field promised a wait that nothing implements — the same dead config Target Audience was, and
+   * worth hiding for the same reason.
+   */
+  const delayApplies =
+    triggerType === "event" &&
+    !SHOP_SCOPED_EVENTS.has(eventType) &&
+    !AUDIENCE_AWARE_EVENTS.has(eventType);
 
   useEffect(() => {
     if (rule) {
@@ -156,7 +388,11 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       setName(rule.name ?? "");
       setMessageTemplate(rule.messageTemplate ?? "");
       setActionType(
-        rule.actionType === "issue_reward" || rule.actionType === "notify_staff"
+        rule.actionType === "issue_reward" ||
+          rule.actionType === "notify_staff" ||
+          rule.actionType === "run_campaign" ||
+          rule.actionType === "ai_step" ||
+          rule.actionType === "draft_reorder"
           ? rule.actionType
           : "send_message"
       );
@@ -166,6 +402,13 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       // doesn't trim a value set programmatically.
       setRewardReason(typeof rule.actionPayload?.reason === "string" ? rule.actionPayload.reason : "");
       setAlertText(typeof rule.actionPayload?.message === "string" ? rule.actionPayload.message : "");
+      setTaskTitle(typeof rule.actionPayload?.title === "string" ? rule.actionPayload.title : "");
+      setAiBrief(
+        typeof rule.actionPayload?.prompt === "string" ? rule.actionPayload.prompt : ""
+      );
+      setCampaignId(
+        typeof rule.actionPayload?.campaignId === "string" ? rule.actionPayload.campaignId : ""
+      );
       setTriggerType(rule.triggerType ?? "schedule");
       // A prefill that states a trigger has made the choice deliberately — don't second-guess it below.
       if (rule.triggerType) setTriggerTouched(true);
@@ -196,7 +439,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       const { messageTemplate: text } = await generateAutoMessageContent({
         triggerType,
         eventType: triggerType === "event" ? eventType : undefined,
-        targetAudience,
+        targetAudience: effectiveAudience,
         name: name || undefined,
         prompt: "This is variant B of an A/B test — write a distinctly different angle from variant A.",
       });
@@ -206,6 +449,68 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       toast.error(e?.response?.data?.error || "Couldn't generate — please try again");
     } finally {
       setGeneratingB(false);
+    }
+  };
+
+  const draftCampaignWithAi = async () => {
+    const shopId = shopProfile?.shopId;
+    if (!shopId) return;
+    setDraftingCampaign(true);
+    setCampaignImageSkipped(null);
+    try {
+      const { campaign, imageSkipped } = await aiDraftCampaign(shopId, {
+        brief: campaignBrief.trim() || undefined,
+        triggerType,
+        eventType: triggerType === "event" ? eventType : undefined,
+        name: name.trim() || undefined,
+      });
+      // Selected immediately — the point of drafting it here is that the owner does not then have to
+      // go and find it in a list they never left.
+      // Discard the one this replaces. Best-effort and deliberately unawaited: failing to tidy up must
+      // never turn a successful generation into an error the owner sees.
+      const superseded = disposableDraftId;
+      if (superseded && superseded !== campaign.id) {
+        void deleteCampaign(superseded).catch(() => undefined);
+      }
+
+      setCampaigns((prev) =>
+        [campaign, ...prev.filter((c) => c.id !== campaign.id && c.id !== superseded)]
+      );
+      setCampaignId(campaign.id);
+      setDisposableDraftId(campaign.id);
+      setCampaignImageSkipped(imageSkipped);
+      toast.success("Campaign drafted — preview it before you publish");
+      // Bring the result into view. A toast at the top of the screen is not evidence that something
+      // appeared at the bottom of a scrolling form; the shop has to SEE the thing that was made.
+      // Deferred a frame so the summary has rendered before we scroll to it.
+      requestAnimationFrame(() =>
+        campaignSummaryRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+      );
+    } catch (e: any) {
+      // The API chooses its status for a reason: budget reached, an offer nobody asked for, or
+      // unusable output. Relaying its message keeps that reason instead of "something went wrong".
+      toast.error(e?.response?.data?.error || "Couldn't draft the campaign — please try again");
+    } finally {
+      setDraftingCampaign(false);
+    }
+  };
+
+  const sampleAiMessage = async () => {
+    setSamplingAi(true);
+    try {
+      const { messageTemplate: text } = await generateAutoMessageContent({
+        triggerType,
+        scheduleType: triggerType === "schedule" ? scheduleType : undefined,
+        eventType: triggerType === "event" ? eventType : undefined,
+        targetAudience: effectiveAudience,
+        name: name || undefined,
+        prompt: aiBrief.trim() || undefined,
+      });
+      setAiSample(text);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Couldn't write a sample — please try again");
+    } finally {
+      setSamplingAi(false);
     }
   };
 
@@ -221,7 +526,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       const { messageTemplate: text } = await generateAutoMessageContent({
         triggerType,
         eventType: triggerType === "event" ? eventType : undefined,
-        targetAudience,
+        targetAudience: effectiveAudience,
         name: name || undefined,
         prompt: `This is step ${i + 1} of a multi-step sequence. Keep it distinct from earlier steps.`,
       });
@@ -246,7 +551,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         triggerType,
         scheduleType: triggerType === "schedule" ? scheduleType : undefined,
         eventType: triggerType === "event" ? eventType : undefined,
-        targetAudience,
+        targetAudience: effectiveAudience,
         name: name || undefined,
       });
       setMessageTemplate(text);
@@ -272,20 +577,67 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
   // become meaningless — there is nobody on the other end.
   const shopScoped = triggerType === "event" && SHOP_SCOPED_EVENTS.has(eventType);
   const rewardMode = actionType === "issue_reward" && !shopScoped;
+
+  /**
+   * Does this rule compose a customer message IN THIS FORM?
+   *
+   * Only `send_message` does. Every other action either carries its own content (a campaign has its
+   * own subject and body), writes it at send time (`ai_step`), or messages nobody at all (reward,
+   * staff alert, reorder). For all of them the Message Template, the variable chips, the drip
+   * sequence and the A/B toggle are meaningless — and worse than meaningless, because the form
+   * accepted text there and then discarded it at submit, so choosing "Let AI write it" still showed a
+   * template box to fill in.
+   *
+   * Written as one predicate rather than repeated inline conditions, which is how the three actions
+   * added on 2026-08-03 came to be missed in two places at once.
+   */
+  const composesMessage = !shopScoped && actionType === "send_message";
   // Sequences are event-triggered only (enrollment is wired into the event path).
-  const sequenceMode = useSequence && triggerType === "event" && !rewardMode && !shopScoped;
+  // Keyed on composesMessage, not just on "not a reward": a rule loaded WITH steps and then switched
+  // to an AI or campaign action would otherwise keep sequenceMode true while its editor is hidden —
+  // invisible state still driving what gets submitted.
+  const sequenceMode = useSequence && triggerType === "event" && composesMessage;
   // A/B works on any single-message rule; can't combine with a sequence.
-  const abMode = useAbTest && !sequenceMode && !rewardMode && !shopScoped;
+  const abMode = useAbTest && !sequenceMode && composesMessage;
 
-  // Does this rule carry a message on the RULE itself? A sequence keeps its copy in the steps, and
-  // reward / staff-alert / shop-scoped rules send no customer message at all.
-  const needsRuleMessage = !rewardMode && !sequenceMode && !shopScoped && actionType === "send_message";
+  // Does this rule carry a message on the RULE itself? A sequence keeps its copy in the steps.
+  const needsRuleMessage = composesMessage && !sequenceMode;
 
-  // Picking a shop-scoped trigger forces the shop-facing action, so the form can't produce a rule the
-  // API will reject.
+  /**
+   * Campaigns available as templates for `run_campaign`.
+   *
+   * Fetched lazily — only when the action is actually chosen — so opening the builder to edit a
+   * message rule doesn't pull a campaign list nobody asked for. Failure is silent and leaves the
+   * list empty: the select then says there are none, which is the same thing a shop with no
+   * campaigns sees, and is better than an error toast on a field you may not be using.
+   */
   useEffect(() => {
-    if (shopScoped && actionType !== "notify_staff") setActionType("notify_staff" as any);
-  }, [shopScoped, actionType]);
+    if (actionType !== "run_campaign" || campaignsLoaded) return;
+    const shopId = useAuthStore.getState().userProfile?.shopId;
+    if (!shopId) return;
+    setCampaignsLoaded(true);
+    getCampaigns(shopId, 1, 50)
+      .then((res) =>
+        setCampaigns(res.items ?? [])
+      )
+      .catch(() => setCampaigns([]));
+  }, [actionType, campaignsLoaded]);
+
+  /**
+   * Changing the trigger can invalidate the action already chosen.
+   *
+   * Pick "Send a campaign", then switch to Booking Completed: the picker stops offering it, but the
+   * selection would survive and the form would submit a pairing the API refuses — a hidden choice
+   * still driving the request, which is the failure this form keeps producing in different shapes.
+   *
+   * Corrects to the first action the trigger can actually feed, rather than a fixed fallback, so it
+   * lands somewhere sensible for whichever kind of trigger it is.
+   */
+  useEffect(() => {
+    if (availableActions.some((a) => a.value === actionType)) return;
+    const fallback = availableActions[0]?.value;
+    if (fallback) setActionType(fallback as typeof actionType);
+  }, [availableActions, actionType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,9 +648,13 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
       return;
     }
 
+    // No campaign-required check at SAVE. A draft never runs, so it cannot error, and blocking the
+    // save meant a shop with no campaign yet lost its half-configured workflow on the way to
+    // Marketing to build one. The requirement is enforced at Publish, where it actually matters.
+
     let cleanSteps: WorkflowStep[] = [];
-    if (rewardMode || actionType === "notify_staff") {
-      // Neither sends a customer message, so there is no body to validate.
+    if (rewardMode || actionType === "notify_staff" || actionType === "run_campaign" || actionType === "ai_step" || actionType === "draft_reorder" || actionType === "create_task") {
+      // None of these sends a customer message, so there is no body to validate.
     } else if (sequenceMode) {
       // Keep a step if it's a non-messaging step (nothing to compose) OR a message step with a body.
       cleanSteps = steps
@@ -338,7 +694,13 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
     try {
       const isReward = actionType === "issue_reward";
       const isNotify = actionType === "notify_staff";
-      const sendsNoMessage = isReward || isNotify;
+      const isCampaign = actionType === "run_campaign";
+      const isAiStep = actionType === "ai_step";
+      const isReorder = actionType === "draft_reorder";
+      const isTask = actionType === "create_task";
+      // None of these stores a message_template: a campaign carries its own body, and an AI step
+      // writes one when it runs — a stored template is the thing it exists to replace.
+      const sendsNoMessage = isReward || isNotify || isCampaign || isAiStep || isReorder || isTask;
       const data: CreateAutoMessageRequest = {
         name: name.trim(),
         // An action that sends nothing carries no template. In a sequence the rule-level template
@@ -354,6 +716,12 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           ? { amountRcn: rewardAmount, ...(rewardReason.trim() ? { reason: rewardReason.trim() } : {}) }
           : isNotify
           ? (alertText.trim() ? { message: alertText.trim() } : {})
+          : isCampaign
+          ? { campaignId }
+          : isAiStep
+          ? (aiBrief.trim() ? { prompt: aiBrief.trim() } : {})
+          : isTask
+          ? (taskTitle.trim() ? { title: taskTitle.trim() } : {})
           : null,
         triggerType,
         ...(triggerType === "schedule" && {
@@ -364,13 +732,15 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
         }),
         ...(triggerType === "event" && {
           eventType,
-          delayHours,
+          // Forced to 0 where the engine ignores it, so the stored rule cannot claim a wait that
+          // never happens — hiding the input alone would leave the old value in place on edit.
+          delayHours: delayApplies ? delayHours : 0,
         }),
-        targetAudience,
+        targetAudience: effectiveAudience,
         // Hiding the input is not enough: it defaults to 1, and the engine's per-customer cap applies
         // to a staff alert on a customer event too — so a repeat no-show by the same customer would be
         // reported once and then never again. 0 means uncapped (the engine's check is truthy).
-        maxSendsPerCustomer: isNotify ? 0 : maxSendsPerCustomer,
+        maxSendsPerCustomer: actionActsOnShop ? 0 : maxSendsPerCustomer,
         // Send the sequence (or clear it when not in sequence mode).
         steps: sequenceMode ? cleanSteps : null,
         stopOnBooking: sequenceMode ? stopOnBooking : false,
@@ -416,112 +786,14 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             />
           </div>
 
-          {/* What the rule DOES (Custom Workflows W2). Everything above/below — triggers, audience,
-              timing — applies identically whichever action is chosen. */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">Then do this</label>
-            {shopScoped ? (
-              // Nobody to message — the trigger happened to the shop, so the action is fixed.
-              <div className="rounded-lg border border-[#FFCC00] bg-[#FFCC00]/10 px-3 py-2">
-                <div className="text-sm font-medium text-white">Notify my team</div>
-                <div className="text-xs text-gray-400 mt-0.5">
-                  This one happens to your shop, not to a customer — there&apos;s nobody to message.
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActionType("send_message")}
-                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                    actionType === "send_message"
-                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                      : "border-gray-700 text-gray-400 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="font-medium">Send a message</div>
-                  <div className="text-xs text-gray-500">To the customer</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActionType("issue_reward")}
-                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                    actionType === "issue_reward"
-                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                      : "border-gray-700 text-gray-400 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="font-medium">Issue an RCN reward</div>
-                  <div className="text-xs text-gray-500">Credits the customer</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActionType("notify_staff");
-                    // "Alert me when X happens" is the overwhelmingly common intent. Only nudge an
-                    // untouched default — a deliberate Schedule choice ("every Monday, remind the team")
-                    // is legitimate and must survive.
-                    if (!triggerTouched) setTriggerType("event");
-                  }}
-                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                    actionType === "notify_staff"
-                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
-                      : "border-gray-700 text-gray-400 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="font-medium">Notify my team</div>
-                  <div className="text-xs text-gray-500">Alerts you, not the customer</div>
-                </button>
-              </div>
-            )}
-          </div>
 
-          {actionType === "notify_staff" && (
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Alert text (optional)</label>
-              <input
-                type="text"
-                value={alertText}
-                onChange={(e) => setAlertText(e.target.value)}
-                placeholder="e.g. Reorder before the weekend"
-                maxLength={500}
-                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Goes to you and your team. Leave blank to use the workflow name.
-              </p>
-            </div>
-          )}
+          {/* ORDER: trigger, then action.
 
-          {rewardMode && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Amount (RCN)</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={rewardAmount}
-                  onChange={(e) => setRewardAmount(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Debited from your RCN balance each time this fires. Max 100 per automated issue.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Reason (optional)</label>
-                <input
-                  type="text"
-                  value={rewardReason}
-                  onChange={(e) => setRewardReason(e.target.value)}
-                  placeholder="e.g. Loyalty bonus"
-                  maxLength={120}
-                  className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
-                />
-              </div>
-            </div>
-          )}
+              The action used to come first, which contradicted how the form actually behaves — the
+              trigger decides which actions are offered, so being asked to choose an action and then
+              having it silently narrowed reads as the form changing its mind. It also contradicted
+              the product's own language everywhere else: a workflow row reads "Low stock → Notify
+              team", and the feature is described as "when something happens, do this". */}
 
           {/* Trigger Type */}
           <div>
@@ -567,7 +839,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 <label className="block text-xs text-gray-400 mb-1">Frequency</label>
                 <Select value={scheduleType} onValueChange={(value) => setScheduleType(value)}>
                   <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                    <SelectValue placeholder="Select frequency" />
+                    <SelectValue placeholder="Select frequency">
+                      {SCHEDULE_TYPES.find((t) => t.value === scheduleType)?.label}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent variant="dark">
                     {SCHEDULE_TYPES.map((t) => (
@@ -582,7 +856,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   <label className="block text-xs text-gray-400 mb-1">Day of Week</label>
                   <Select value={String(scheduleDayOfWeek)} onValueChange={(value) => setScheduleDayOfWeek(parseInt(value))}>
                     <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder="Select day">{DAYS_OF_WEEK[scheduleDayOfWeek]}</SelectValue>
                     </SelectTrigger>
                     <SelectContent variant="dark">
                       {DAYS_OF_WEEK.map((day, i) => (
@@ -598,7 +872,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   <label className="block text-xs text-gray-400 mb-1">Day of Month</label>
                   <Select value={String(scheduleDayOfMonth)} onValueChange={(value) => setScheduleDayOfMonth(parseInt(value))}>
                     <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder="Select day">{String(scheduleDayOfMonth)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent variant="dark">
                       {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
@@ -613,12 +887,12 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 <label className="block text-xs text-gray-400 mb-1">Send at (UTC Hour)</label>
                 <Select value={String(scheduleHour)} onValueChange={(value) => setScheduleHour(parseInt(value))}>
                   <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                    <SelectValue placeholder="Select hour" />
+                    <SelectValue placeholder="Select hour">{hourLabel(scheduleHour)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent variant="dark">
                     {Array.from({ length: 24 }, (_, i) => (
                       <SelectItem variant="dark" key={i} value={String(i)}>
-                        {i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i - 12}:00 PM`} (UTC)
+                        {hourLabel(i)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -634,7 +908,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                 <label className="block text-xs text-gray-400 mb-1">Event</label>
                 <Select value={eventType} onValueChange={(value) => setEventType(value)}>
                   <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
-                    <SelectValue placeholder="Select event" />
+                    <SelectValue placeholder="Select event">
+                      {EVENT_TYPES.find((t) => t.value === eventType)?.label}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent variant="dark">
                     {EVENT_TYPES.map((t) => (
@@ -643,7 +919,9 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-              <div>
+              {/* Hidden where the engine never waits — see delayApplies. A sweep sends the moment it
+                  runs, so offering a delay there promises something nothing implements. */}
+              <div className={delayApplies ? "" : "hidden"}>
                 <label className="block text-xs text-gray-400 mb-1">Delay (hours after event)</label>
                 <input
                   type="number"
@@ -654,15 +932,358 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
                   className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
                 />
               </div>
+              {!delayApplies && (
+                <p className="text-xs text-gray-500">
+                  This one runs on a sweep, so it acts as soon as it finds someone — there is nothing
+                  to delay.
+                </p>
+              )}
             </div>
           )}
 
+          {/* What the rule DOES (Custom Workflows W2). Everything above/below — triggers, audience,
+              timing — applies identically whichever action is chosen. */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Then do this</label>
+            {/* Driven by the ACTIONS table, so a new action cannot be added to the picker and
+                forgotten in the shop-scoped case. A shop-scoped TRIGGER now NARROWS the choice to
+                shop-facing actions rather than asserting one: "low stock → draft a reorder" is the
+                obvious workflow for that trigger, and the hardcoded "Notify my team" box made it
+                unreachable in the UI entirely. */}
+            {shopScoped && (
+              <p className="text-xs text-gray-400 mb-2">
+                This one happens to your shop, not to a customer — so it can only do something for you.
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              {availableActions.map((a) => (
+                <button
+                  key={a.value}
+                  type="button"
+                  onClick={() => {
+                    setActionType(a.value as typeof actionType);
+                    // "Alert me when X happens" is the overwhelmingly common intent. Only nudge an
+                    // untouched default — a deliberate Schedule choice ("every Monday, remind the
+                    // team") is legitimate and must survive.
+                    if (a.value === "notify_staff" && !triggerTouched) setTriggerType("event");
+                  }}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                    actionType === a.value
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="font-medium">{a.label}</div>
+                  <div className="text-xs text-gray-500">{a.hint}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {actionType === "draft_reorder" && (
+            // No config: the reorder logic already decides which items and how many from usage
+            // analytics. A quantity field here would just be a second opinion competing with it.
+            <div className="rounded-lg border border-gray-700 bg-[#0D0D0D] px-3 py-2">
+              <p className="text-xs text-gray-400">
+                Drafts a purchase order for whatever is at or below its reorder level, and puts it in
+                your PO suggestions to approve. It never places an order or spends money on its own,
+                and running again won&apos;t create a duplicate draft for the same item.
+              </p>
+            </div>
+          )}
+
+          {actionType === "ai_step" && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">What should it say? (optional)</label>
+              <textarea
+                value={aiBrief}
+                onChange={(e) => setAiBrief(e.target.value)}
+                placeholder="e.g. friendly nudge, mention we're open Sundays"
+                maxLength={500}
+                rows={2}
+                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+              />
+              {/* Says the two things an owner would otherwise have to discover: the copy changes
+                  between runs, and it is written once per run rather than once per person — which is
+                  what keeps it affordable against the shop's monthly AI allowance. */}
+              <p className="text-xs text-gray-500 mt-1">
+                Written fresh each time this runs, using your brand voice. One version per run, with{" "}
+                {"{{customerName}}"} filled in per customer. Leave blank and it works from the trigger
+                and audience alone.
+              </p>
+
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={sampleAiMessage}
+                  disabled={samplingAi}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 text-xs hover:border-gray-600 disabled:opacity-60"
+                >
+                  {samplingAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                  {aiSample ? "Show another example" : "Show me an example"}
+                </button>
+                <span className="text-xs text-gray-500">Uses a little of your AI allowance</span>
+              </div>
+
+              {aiSample && (
+                <div className="mt-2 rounded-lg border border-gray-700 bg-[#0D0D0D] p-3">
+                  <p className="text-sm text-gray-200 whitespace-pre-wrap">{aiSample}</p>
+                  {/* "Example", never "preview". The live message is generated fresh at send time, so
+                      this is not what will be sent — saying otherwise would set an expectation the
+                      feature cannot keep. */}
+                  <p className="text-xs text-gray-500 mt-2">
+                    An example of what it might say. The real message is written when the workflow
+                    runs, so it will read differently.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {actionType === "run_campaign" && (
+            <div>
+              {/* AI first. Writing a campaign by hand — subject, body, and an image that makes it
+                  worth opening — is work a shop owner will not do, which is the whole reason this
+                  action went unused. The designer below stays for fixing what the AI wrote. */}
+              <div className="rounded-lg border border-[#FFCC00]/40 bg-[#FFCC00]/5 p-3 mb-3">
+                <label className="block text-sm text-white mb-1">Let AI write the campaign</label>
+                <p className="text-xs text-gray-400 mb-2">
+                  Describe it in a line and AI writes the subject, the body and a banner image. You
+                  preview it before anything is published.
+                </p>
+                <input
+                  type="text"
+                  value={campaignBrief}
+                  onChange={(e) => setCampaignBrief(e.target.value)}
+                  placeholder="e.g. win back customers we haven't seen since spring"
+                  maxLength={500}
+                  className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+                />
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={draftCampaignWithAi}
+                    disabled={draftingCampaign}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FFCC00] text-black text-xs font-medium disabled:opacity-60"
+                  >
+                    {draftingCampaign ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5" />
+                    )}
+                    {draftingCampaign ? "Writing…" : "Create it for me"}
+                  </button>
+                  {/* Regeneration is a decision, not a reflex — each press is a Claude call plus an
+                      image, and the image is the expensive half. */}
+                  <span className="text-xs text-gray-500">Writes copy and an image — uses your AI allowance</span>
+                </div>
+                {campaignImageSkipped && (
+                  <p className="text-xs text-amber-400/90 mt-2">
+                    Written without a banner image: {campaignImageSkipped} You can add one in Edit.
+                  </p>
+                )}
+              </div>
+
+              <label className="block text-sm text-gray-400 mb-2">Campaign to send</label>
+              <select
+                value={campaignId}
+                onChange={(e) => setCampaignId(e.target.value)}
+                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
+              >
+                <option value="">
+                  {/* No longer sends anyone to Marketing: both routes out of an empty list are on
+                      this screen now — let AI write one, or build one in the designer. */}
+                  {campaigns.length ? "Select a campaign…" : "No campaigns yet — let AI write one above"}
+                </option>
+                {campaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {/* A draft is the RECOMMENDED choice, not an unfinished one: the workflow only
+                        ever sends copies, so a draft is never itself sent and stays editable
+                        forever. A sent campaign is read-only, so picking one freezes the content of
+                        this workflow for good. "(draft)" alone read as a warning about the better
+                        option. */}
+                    {c.status === "sent" ? " — content locked" : c.status === "draft" ? " — editable" : ""}
+                  </option>
+                ))}
+              </select>
+              {/* Both sentences describe behaviour a shop would otherwise discover by accident: that
+                  the campaign is reused rather than consumed, and that its rewards do NOT fire on a
+                  schedule nobody approved. */}
+              {(() => {
+                const picked = campaigns.find((c) => c.id === campaignId);
+                if (!picked) return null;
+                const audience = picked.audienceType
+                  ? picked.audienceType.replace(/_/g, " ")
+                  : "its own audience";
+                // The banner, straight out of the campaign we are already holding. AI drawing a
+                // picture is the most reassuring part of what just happened, and the summary was
+                // four lines of grey text — so the shop asked where the image was for a campaign
+                // that had one all along.
+                const banner = (picked.designContent as { blocks?: Array<{ type?: string; src?: string }> })
+                  ?.blocks?.find((b) => b.type === "image" && b.src)?.src;
+
+                return (
+                  <div ref={campaignSummaryRef} className="mt-2 rounded-lg border border-gray-700 bg-[#0D0D0D] p-3 space-y-2">
+                    {banner && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      // Full width, natural height — NOT object-cover. Cropping a banner to a fixed
+                      // height cut the middle out of it, which is the one thing a preview must not
+                      // do: the owner is deciding whether to send this, so they have to see what
+                      // the customer sees, not a slice of it.
+                      <img
+                        src={banner}
+                        alt=""
+                        className="w-full h-auto rounded border border-gray-800"
+                      />
+                    )}
+                    <p className="text-sm text-gray-200">
+                      {picked.subject || <span className="text-gray-500">No subject line set</span>}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Goes to {audience}
+                      {picked.deliveryMethod ? ` by ${picked.deliveryMethod.replace(/_/g, "-")}` : ""}
+                      {picked.totalRecipients ? ` · reached ${picked.totalRecipients} last time` : ""}
+                    </p>
+                    {picked.status === "sent" && (
+                      <p className="text-xs text-amber-400/90">
+                        This one has been sent, so its content can no longer be edited. Pick a draft
+                        campaign if you want to change the wording later.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Design, preview and edit happen HERE. Sending the shop to Marketing mid-task was the
+                  whole complaint: they lost the half-built workflow on the way out, and a shop with
+                  no campaigns hit a dead end. */}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCampaignEditor({ mode: "create", campaign: null })}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 text-xs hover:border-gray-600"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Create new campaign
+                </button>
+                {(() => {
+                  const picked = campaigns.find((c) => c.id === campaignId);
+                  if (!picked) return null;
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Opened by the owner — no longer ours to discard on the next regenerate.
+                          setDisposableDraftId(null);
+                          setCampaignEditor({ mode: "view", campaign: picked });
+                        }}
+                        className="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 text-xs hover:border-gray-600"
+                      >
+                        Preview
+                      </button>
+                      {/* A sent campaign is read-only, so an Edit button here would only ever produce
+                          a 400. The locked state in the summary explains why instead. */}
+                      {picked.status !== "sent" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDisposableDraftId(null);
+                            setCampaignEditor({ mode: "edit", campaign: picked });
+                          }}
+                          className="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 text-xs hover:border-gray-600"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+
+              <p className="text-xs text-gray-500 mt-1">
+                Used as a template — each run sends a fresh copy, so the original keeps its own history.
+                The campaign picks its own audience, and any RCN rewards on it are <strong>not</strong>{" "}
+                issued by the workflow.
+              </p>
+            </div>
+          )}
+
+          {actionType === "notify_staff" && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Alert text (optional)</label>
+              <input
+                type="text"
+                value={alertText}
+                onChange={(e) => setAlertText(e.target.value)}
+                placeholder="e.g. Reorder before the weekend"
+                maxLength={500}
+                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Goes to you and your team. Leave blank to use the workflow name.
+              </p>
+            </div>
+          )}
+
+          {actionType === "create_task" && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Task (optional)</label>
+              <input
+                type="text"
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                placeholder="e.g. Call the customer back"
+                maxLength={200}
+                className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Lands on your Tasks list and stays there until you tick it off — unlike an alert, which
+                you read once. Leave blank to use the workflow name. One task per run, and it won&apos;t
+                add another while the last one is still open.
+              </p>
+            </div>
+          )}
+
+          {rewardMode && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Amount (RCN)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={rewardAmount}
+                  onChange={(e) => setRewardAmount(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Debited from your RCN balance each time this fires. Max 100 per automated issue.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Reason (optional)</label>
+                <input
+                  type="text"
+                  value={rewardReason}
+                  onChange={(e) => setRewardReason(e.target.value)}
+                  placeholder="e.g. Loyalty bonus"
+                  maxLength={120}
+                  className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
           {/* Target Audience — hidden when the engine won't consult it (see audienceApplies). */}
           <div className={audienceApplies ? "" : "hidden"}>
             <label className="block text-sm text-gray-400 mb-1">Target Audience</label>
-            <Select value={targetAudience} onValueChange={(value) => setTargetAudience(value)}>
+            <Select value={effectiveAudience} onValueChange={(value) => setTargetAudience(value)}>
+              {/* The label is rendered directly, NOT via <SelectValue>. SelectValue only shows its
+                  children when the library's own copy of the value is non-empty; when that copy went
+                  empty the field showed a placeholder over a rule that had a perfectly good audience.
+                  A plain span cannot do that — it renders what this form is holding, always. */}
               <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#0D0D0D] border-gray-700 rounded-lg text-white text-sm">
-                <SelectValue placeholder="Select audience" />
+                <span>{TARGET_AUDIENCES.find((a) => a.value === effectiveAudience)?.label}</span>
               </SelectTrigger>
               <SelectContent variant="dark">
                 {TARGET_AUDIENCES.map((a) => (
@@ -674,7 +1295,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
           {/* Max Sends — a staff alert isn't addressed to a customer, so a per-customer cap is
               meaningless for it (and the submitted value is forced to "uncapped"). */}
-          <div className={notifiesStaff ? "hidden" : ""}>
+          <div className={actionActsOnShop ? "hidden" : ""}>
             <label className="block text-sm text-gray-400 mb-1">Max sends per customer</label>
             <input
               type="number"
@@ -693,7 +1314,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
 
           {/* Advanced-mode toggles: a rule is a single message, OR a drip sequence, OR an A/B test.
               All three are message concepts, so none of them apply to a reward rule. */}
-          <div className={`flex flex-col gap-1.5 ${rewardMode || actionType === "notify_staff" ? "hidden" : ""}`}>
+          <div className={`flex flex-col gap-1.5 ${composesMessage ? "" : "hidden"}`}>
             {/* Multi-step sequence toggle (event triggers only — enrollment is event-driven) */}
             {triggerType === "event" && (
               <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
@@ -730,7 +1351,7 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           </div>
 
           {/* A reward rule has no message at all — skip the whole composer. */}
-          {rewardMode || actionType === "notify_staff" ? null : sequenceMode ? (
+          {!composesMessage ? null : sequenceMode ? (
             /* Sequence steps editor */
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -967,6 +1588,38 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Rendered as a sibling of this modal, not inside the form — it is a Radix Dialog and portals
+          to document.body regardless, and nesting a <form> inside another would submit the wrong one. */}
+      {campaignEditor && (
+        <CampaignBuilderModal
+          open
+          shopId={shopProfile?.shopId || ""}
+          shopName={shopProfile?.name}
+          campaignType={campaignEditor.campaign?.campaignType || "custom"}
+          existingCampaign={campaignEditor.campaign}
+          viewOnly={campaignEditor.mode === "view"}
+          // Opened from a workflow: the workflow decides who and when, so the designer is content only.
+          designOnly
+          onClose={(saved, campaign) => {
+            setCampaignEditor(null);
+            if (!saved) return;
+            // Select whatever was just written, so creating one from here leaves it chosen rather
+            // than making the owner find it in a list they just left. The row comes back from the
+            // editor: picking "the newest" instead would be a guess, and wrong if another tab saved.
+            if (campaign) {
+              setCampaigns((prev) => {
+                const without = prev.filter((c) => c.id !== campaign.id);
+                return [campaign, ...without];
+              });
+              setCampaignId(campaign.id);
+            } else {
+              // Saved without telling us which — refetch rather than show a stale summary.
+              setCampaignsLoaded(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -25,8 +25,10 @@ import { ReferralService } from '../../../services/ReferralService';
 import { agencyService } from '../../agency/services/AgencyService';
 import { PromoCodeService } from '../../../services/PromoCodeService';
 import { PromoCodeRepository } from '../../../repositories/PromoCodeRepository';
+import { calculateBaseReward, calculateTierBonus } from '../../../utils/repairReward';
 import rcgRoutes from './rcg';
 import reportsRoutes from './reports';
+import followRoutes from './follow';
 import { eventBus } from '../../../events/EventBus';
 import { getSharedPool } from '../../../utils/database-pool';
 import { ShopMetricsService } from '../../../services/ShopMetricsService';
@@ -70,6 +72,7 @@ import depositRoutes from './deposit';
 import purchaseSyncRoutes from './purchase-sync';
 import paymentMethodsRoutes from './paymentMethods';
 import moderationRoutes from './moderation';
+import tasksRoutes from './tasks';
 import welcomeRcnRoutes from './welcomeRcn';
 import teamRoutes from './team';
 import commissionsRoutes from './commissions';
@@ -82,6 +85,7 @@ const router = Router();
 
 // Register sub-routes (protected by auth)
 // Purchase routes - auth required, but subscription only for purchase operations (not viewing history/balance)
+router.use('/follow', authMiddleware, requireRole(['customer']), followRoutes); // Customer "follow shop"
 router.use('/purchase', authMiddleware, requireRole(['shop']), purchaseRoutes);
 router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes);
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
@@ -89,6 +93,9 @@ router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSync
 router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
 router.use('/reports', authMiddleware, requireRole(['shop']), requireShopPermission('analytics:view'), reportsRoutes); // Reports routes
 router.use('/moderation', authMiddleware, requireRole(['shop']), requireShopPermission('customers:view'), moderationRoutes); // Moderation routes
+// Shop to-do list (Custom Workflows §9.2.1). Deliberately NOT behind requireActiveSubscription: a task
+// filed while the shop was active is theirs, and hiding it during a billing lapse loses work.
+router.use('/tasks', authMiddleware, requireRole(['shop']), tasksRoutes);
 router.use('/team', teamRoutes); // Team management (auth handled per-route: accept is public)
 router.use('/locations', locationsRoutes); // Multi-location management (Business tier; auth + gate per-route)
 router.use('/feature-access', authMiddleware, requireRole(['shop']), featureAccessRoutes); // Tier-based feature access map
@@ -1108,9 +1115,10 @@ router.get('/:shopId/dashboard',
         });
       }
 
-      const [analytics, recentTransactions] = await Promise.all([
+      const [analytics, recentTransactions, revenue] = await Promise.all([
         shopRepository.getShopAnalytics(shopId),
-        shopRepository.getShopTransactions(shopId, 10)
+        shopRepository.getShopTransactions(shopId, 10),
+        shopRepository.getFiatRevenueUsd(shopId)
       ]);
 
       const dashboardData = {
@@ -1128,7 +1136,10 @@ router.get('/:shopId/dashboard',
         analytics,
         recentTransactions: recentTransactions.slice(0, 5), // Last 5 transactions
         summary: {
-          totalRevenue: shop.totalTokensIssued || 0,
+          // Fiat revenue from the ledger. This field returned `totalTokensIssued` until S9c-3 —
+          // a count of loyalty tokens, in a field named revenue, so a shop that had issued 500 RCN
+          // read as $500 of takings. The token figure is still available above, under its own name.
+          totalRevenue: revenue,
           totalRedemptions: shop.totalRedemptions || 0,
           activeCustomers: analytics.totalCustomersServed || 0,
           averageRepairValue: analytics.averageTransactionAmount || 0
@@ -2117,30 +2128,11 @@ router.post('/:shopId/issue-reward',
         baseReward = customBaseReward;
       } else {
         // Standard calculation based on repair amount
-        if (repairAmount >= 100) {
-          baseReward = 15;
-        } else if (repairAmount >= 50) {
-          baseReward = 10;
-        } else if (repairAmount >= 30) {
-          baseReward = 5;
-        } else {
-          baseReward = 0; // Allow any repair amount, just no reward for under $30
-        }
+        baseReward = calculateBaseReward(repairAmount);
       }
 
       // Get tier bonus based on customer tier - updated values
-      let tierBonus = 0;
-      switch (customer.tier) {
-        case 'BRONZE':
-          tierBonus = 0;  // No bonus for Bronze
-          break;
-        case 'SILVER':
-          tierBonus = 2;  // +2 RCN for Silver
-          break;
-        case 'GOLD':
-          tierBonus = 5;  // +5 RCN for Gold
-          break;
-      }
+      const tierBonus = calculateTierBonus(customer.tier);
 
       // Calculate promo code bonus if provided
       // Uses atomic validation + reservation to prevent race conditions (Bug #4 fix)
@@ -2990,6 +2982,15 @@ router.use('/', subscriptionRoutes); // Then mount authenticated routes
 
 // Mount Stripe Connect onboarding routes (authenticated)
 router.use('/', connectRoutes);
+
+import terminalRoutes from './terminal';
+router.use('/', terminalRoutes);
+
+import posRoutes from './pos';
+router.use('/', posRoutes);
+
+import taxRoutes from './tax';
+router.use('/', taxRoutes);
 
 // Mount webhook routes - MUST BE PUBLIC FOR STRIPE
 import webhookRoutes from './webhooks';

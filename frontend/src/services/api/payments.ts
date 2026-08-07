@@ -55,6 +55,23 @@ export interface Transaction {
   customerName: string | null;
   orderStatus: string | null;
   completedByMemberId: string | null;
+  // Counter sales have no single service to name them by — the receipt number and line count do.
+  posSaleId: string | null;
+  posSaleNumber: number | null;
+  posItemCount: number | null;
+}
+
+/**
+ * What to show where a service name goes. A counter sale is multi-line by definition, so it is
+ * identified by its receipt number instead — joining a single service name would be a lie.
+ */
+export function describePayment(t: Transaction): string | null {
+  if (!t.posSaleId) return t.serviceName;
+  const number = t.posSaleNumber !== null ? ` #${t.posSaleNumber}` : "";
+  const items = t.posItemCount
+    ? ` · ${t.posItemCount} item${t.posItemCount === 1 ? "" : "s"}`
+    : "";
+  return `Counter sale${number}${items}`;
 }
 
 export interface TransactionPage {

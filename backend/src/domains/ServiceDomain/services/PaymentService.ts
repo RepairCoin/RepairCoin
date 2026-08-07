@@ -19,7 +19,7 @@ import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
 import { resolveBookingLocationId, getCalendarLocationLabel } from '../../../utils/multiLocationEntitlement';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
 import { isShopStripeConnected } from '../../../middleware/stripeConnectGuard';
-import { computeBookingCommissionCents } from '../../../utils/platformCommission';
+import { computeCommissionCents } from '../../../utils/platformCommission';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
 export interface CreatePaymentIntentRequest {
@@ -141,6 +141,9 @@ export interface CreateStripeCheckoutResponse {
   rcnDiscountUsd?: number;
   finalAmount?: number;
   customerRcnBalance?: number;
+  // Direct charge: the session lives on this connected account, so the client must send it
+  // back to /orders/confirm — a session on a connected account is invisible to the platform.
+  connectedAccountId?: string;
 }
 
 export interface ConfirmPaymentRequest {
@@ -362,7 +365,7 @@ export class PaymentService {
       // tier-based platform commission (Starter/Growth 1%, Business 0.5%). The shop is
       // guaranteed connected here — the isShopStripeConnected() guard above already blocked
       // the booking otherwise.
-      const commissionCents = await computeBookingCommissionCents(service.shopId, amountInCents);
+      const commissionCents = await computeCommissionCents(service.shopId, amountInCents);
 
       const paymentIntent = await this.stripeService.createPaymentIntent({
         amount: amountInCents,
@@ -611,7 +614,7 @@ export class PaymentService {
       // Connect: route the payment to the shop's own Stripe account and retain the tier-based
       // platform commission (Starter/Growth 1%, Business 0.5%). The shop is guaranteed connected
       // here — the isShopStripeConnected() guard above already blocked the booking otherwise.
-      const commissionCents = await computeBookingCommissionCents(service.shopId, amountInCents);
+      const commissionCents = await computeCommissionCents(service.shopId, amountInCents);
       const connectedAccountId = shop?.stripeConnectAccountId;
 
       // Set redirect URLs - use deep links for mobile (shared payment success screen)
@@ -700,7 +703,8 @@ export class PaymentService {
         rcnRedeemed,
         rcnDiscountUsd,
         finalAmount: finalAmountUsd,
-        customerRcnBalance
+        customerRcnBalance,
+        connectedAccountId
       };
     } catch (error) {
       logger.error('Error creating Stripe checkout session:', error);
@@ -798,6 +802,46 @@ export class PaymentService {
         finalAmount: order.finalAmountUsd,
         rcnDiscount: order.rcnDiscountUsd
       });
+
+      // A booking now exists. This is the ONLY place customer self-service bookings are created, and
+      // until now it was the only creation path that stayed silent — `service.order_created` was
+      // published from the manual-booking and ad-lead paths but never from here, so every consumer of
+      // it saw a fraction of the platform's bookings and had no way to know. That is why the ads
+      // Kanban never auto-advanced for orders customers made themselves.
+      //
+      // Fires exactly once per order: the idempotency guard at the top of this method returns early
+      // for an order that is already paid/completed, so `createOrder` above cannot run twice. The other
+      // two paths INSERT directly rather than going through it, so there is no double-publish either.
+      //
+      // Distinct from `service.order_paid` below. On this path the two are the same instant (an order
+      // only exists after payment), but they are NOT the same event elsewhere — a manual or ad-lead
+      // booking is created `pending` and paid later, if at all. Subscribers that care about "a booking
+      // happened" want this one; subscribers that care about money want that one.
+      //
+      // Own try/catch: this runs inside a Stripe webhook, and a bus failure must never fail it — Stripe
+      // would retry the webhook and we would be reasoning about a duplicate payment to save an event.
+      try {
+        await eventBus.publish(createDomainEvent(
+          'service.order_created',
+          order.customerAddress,
+          {
+            orderId: order.orderId,
+            customerAddress: order.customerAddress,
+            shopId: order.shopId,
+            serviceId: order.serviceId,
+            // Read by adsEventListeners to choose the Kanban stage — 'paid' here, never 'pending',
+            // because this path creates the order already paid.
+            status: order.status,
+            totalAmount: order.totalAmount,
+            bookingDate: order.bookingDate,
+            bookingTime: order.bookingTime,
+            conversationId: order.conversationId ?? null,
+          },
+          'ServiceDomain'
+        ));
+      } catch (busError) {
+        logger.error('Failed to publish service.order_created:', busError);
+      }
 
       // Process RCN redemption if any
       if (order.rcnRedeemed && order.rcnRedeemed > 0) {

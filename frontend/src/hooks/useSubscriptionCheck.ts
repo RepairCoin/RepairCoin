@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "@/services/api/client";
+import { isQualifiedStatus, type OperationalStatus } from "@/utils/operationalStatus";
 
 /**
  * Shop data returned from the subscription check
@@ -9,7 +10,7 @@ import apiClient from "@/services/api/client";
 export interface ShopSubscriptionData {
   shopId: string;
   subscriptionActive: boolean;
-  operational_status?: string;
+  operational_status?: OperationalStatus;
   purchasedRcnBalance?: number;
   subscriptionCancelledAt?: string | null;
   subscriptionEndsAt?: string | null;
@@ -67,7 +68,7 @@ export function useSubscriptionCheck(
         data?: {
           subscriptionActive?: boolean;
           shopId?: string;
-          operational_status?: string;
+          operational_status?: OperationalStatus;
           purchasedRcnBalance?: number;
         };
       } = { success: false };
@@ -110,12 +111,10 @@ export function useSubscriptionCheck(
       }
 
       if (result.success && result.data) {
-        // Check both subscriptionActive flag AND operational_status
-        // operational_status can be 'subscription_qualified' or 'rcg_qualified'
+        // Check both subscriptionActive flag AND operational_status — see
+        // utils/operationalStatus for which statuses mean the shop has access.
         const isActive =
-          result.data.subscriptionActive ||
-          result.data.operational_status === "subscription_qualified" ||
-          result.data.operational_status === "rcg_qualified";
+          result.data.subscriptionActive || isQualifiedStatus(result.data.operational_status);
 
         setSubscriptionActive(isActive);
         setShopId(result.data.shopId || "");

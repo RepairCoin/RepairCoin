@@ -53,7 +53,16 @@ export interface ConnectAccountStatus {
    *   Stripe Dashboard. The UI must link out rather than offering an editor that can't work.
    */
   accountType: 'express' | 'standard' | null;
+  /**
+   * State of `card_payments`, the capability Terminal transacts under. `card_present` is a
+   * PaymentIntent payment_method_type, not a capability — there is nothing extra to request.
+   */
+  cardPaymentsCapability: CardPaymentsCapability;
+  /** Whether a reader on this account can take a payment. */
+  terminalReady: boolean;
 }
+
+export type CardPaymentsCapability = 'active' | 'pending' | 'inactive' | 'unrequested';
 
 /**
  * Which surface started the OAuth flow, so the callback knows how to hand the shop back.
@@ -77,6 +86,12 @@ function accountTypeFrom(account: Stripe.Account): 'express' | 'standard' {
   if (dashboard === 'full') return 'standard';
   if (dashboard === 'express' || dashboard === 'none') return 'express';
   return account.type === 'standard' ? 'standard' : 'express';
+}
+
+function cardPaymentsCapabilityFrom(account: Stripe.Account): CardPaymentsCapability {
+  const state = account.capabilities?.card_payments;
+  if (state === 'active' || state === 'pending' || state === 'inactive') return state;
+  return 'unrequested';
 }
 
 export interface ConnectOnboardingSummary {
@@ -277,6 +292,8 @@ export class StripeConnectService {
         taxIdProvided: false,
         identityVerification: 'unverified',
         accountType: null,
+        cardPaymentsCapability: 'unrequested',
+        terminalReady: false,
       };
     }
 
@@ -289,13 +306,15 @@ export class StripeConnectService {
       account.individual?.id_number_provided === true;
 
     const verificationStatus = account.individual?.verification?.status;
+    const requirementsDue = account.requirements?.currently_due ?? [];
+    const cardPaymentsCapability = cardPaymentsCapabilityFrom(account);
 
     const status: ConnectAccountStatus = {
       accountId: account.id,
       chargesEnabled: account.charges_enabled === true,
       payoutsEnabled: account.payouts_enabled === true,
       detailsSubmitted: account.details_submitted === true,
-      requirementsDue: account.requirements?.currently_due ?? [],
+      requirementsDue,
       eventuallyDue: account.requirements?.eventually_due ?? [],
       pendingVerification: account.requirements?.pending_verification ?? [],
       disabledReason: account.requirements?.disabled_reason ?? null,
@@ -316,6 +335,8 @@ export class StripeConnectService {
       // replaces express/standard/custom) comes back as type `none` with the controller set, so
       // keying on `type` alone would classify it as Express and hide the link-out branch.
       accountType: accountTypeFrom(account),
+      cardPaymentsCapability,
+      terminalReady: cardPaymentsCapability === 'active' && account.charges_enabled === true,
     };
 
     await this.syncAccountState(shopId, status.chargesEnabled, status.payoutsEnabled);

@@ -11,6 +11,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import publicAiRoutes from './domains/AIAgentDomain/routes/publicAsk';
 import { Config } from './config';
 import { logger } from './utils/logger';
 import { setupSwagger } from './docs/swagger';
@@ -334,6 +335,7 @@ class RepairCoinApp {
       '/ai/brand-kit/analyze-brand', // Claude vision — full brand profile
       '/ai/brand-kit/templates',     // on-demand template gen (gpt-image-1)
       '/ai/brand-kit/generate-banner', // banner gen (gpt-image-1, wide = slowest)
+      '/campaigns/ai-draft',         // workflow builder: writes campaign copy AND a banner (gpt-image-1)
       '/campaign-requests/',         // ads push: Build generates an AI creative (gpt-image-1)
       '/draft',                      // ads push: draft edit can regenerate the AI image
       '/go-live',                    // ads push: go-live does several Graph round-trips
@@ -495,6 +497,11 @@ class RepairCoinApp {
 
     // Upload routes
     this.app.use('/api/upload', uploadRoutes);
+
+    // Homepage AI assistant — PUBLIC and unauthenticated, so it carries its own captcha and per-IP
+    // limits rather than relying on the app-wide ones. Answers come from the prospect corpus; no
+    // model is called. See domains/AIAgentDomain/routes/publicAsk.ts.
+    this.app.use('/api/public/ai', publicAiRoutes);
 
     // Waitlist routes
     this.app.use('/api/waitlist', waitlistRoutes);

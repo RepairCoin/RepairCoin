@@ -32,11 +32,24 @@ const AUDIENCE_LABELS: Record<string, string> = {
   completed_booking: "Completed Booking",
 };
 
+// Every event the API accepts needs a row here, or the rule list prints the raw key at the shop. This
+// had fallen six behind the API before `booking_created` was added — W3's operations triggers were
+// never backfilled.
 const EVENT_LABELS: Record<string, string> = {
+  booking_created: "Booking Made",
   booking_completed: "Booking Completed",
   booking_cancelled: "Booking Cancelled",
   first_visit: "First Visit",
   inactive_30_days: "Inactive 30 Days",
+  low_bookings: "Slow Week",
+  no_show: "Customer No-Show",
+  review_received: "Review Received",
+  low_rating: "Low Rating",
+  payment_failed: "Payment Failed",
+  order_ready: "Ready for Pickup",
+  low_stock: "Low Stock",
+  new_ad_lead: "New Ad Lead",
+  subscription_lapsed: "Subscription Payment Failed",
 };
 
 export const AutoMessagesManager: React.FC = () => {

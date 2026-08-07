@@ -13,14 +13,30 @@
 //    estimate from, and "Opened" would borrow email's vaguer meaning.
 //  - Booked and revenue carry the attribution window in the label, with the rule on hover. "Revenue
 //    Generated" would assert the automation CAUSED the money, which a time window cannot show.
+//  - Booked and revenue count DIFFERENT sets of orders. Booked = every order the customer did not
+//    cancel; revenue = only the ones actually paid. They shared a filter until 2026-08-03, which summed
+//    expired and no-show orders into revenue — on staging, ~45% of the figure was orders that never
+//    happened. So "Booked 2 · $5" is a truthful line, not a rendering bug.
 //  - A shop-facing rule (notify_staff) has no recipient, so it reports "Ran N times" rather than
 //    pretending to a 0% read rate on messages it never sent.
 
-import React from "react";
+import React, { useState } from "react";
+import { Info } from "lucide-react";
 import { WorkflowMetrics } from "@/services/api/messaging";
 
 const money = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: n < 100 ? 2 : 0 })}`;
+
+/**
+ * The caveat, written once and used by both the hover title and the ⓘ panel.
+ *
+ * Two copies of this sentence would drift, and the moment they disagree the product is telling two
+ * different stories about the same number.
+ */
+const attributionNote = (days: number) =>
+  `Booked counts orders placed within ${days} days of a message from this automation. ` +
+  `Revenue counts only the ones that were actually paid, so it can be lower than the booking count ` +
+  `suggests. Correlation, not proof of cause.`;
 
 /**
  * Renders null when the rule has never run. That is a real state, not an error: a brand-new automation
@@ -31,6 +47,8 @@ export const AutoMessageResults: React.FC<{
   attributionDays: number;
   className?: string;
 }> = ({ metrics: m, attributionDays, className = "" }) => {
+  const [showNote, setShowNote] = useState(false);
+
   if (!m || m.sent === 0) return null;
 
   // No send was addressed to a customer, so there is no read rate or revenue to speak of.
@@ -47,15 +65,43 @@ export const AutoMessageResults: React.FC<{
   const readPct = Math.round((m.read / m.delivered) * 100);
 
   return (
-    <div
-      className={`text-xs text-gray-400 ${className}`}
-      title={
-        `Booked and revenue count orders placed within ${attributionDays} days of a message from this ` +
-        `automation. Correlation, not proof of cause.`
-      }
-    >
-      Sent {m.delivered} · Read {readPct}% · Booked {m.booked} · {money(m.revenue)}
-      <span className="text-gray-600"> within {attributionDays}d</span>
+    <div className={`text-xs text-gray-400 ${className}`}>
+      <span title={attributionNote(attributionDays)}>
+        Sent {m.delivered} · Read {readPct}% · Booked {m.booked} · {money(m.revenue)}
+        <span className="text-gray-600"> within {attributionDays}d</span>
+      </span>
+
+      {/* The caveat needs to be FINDABLE, not just hoverable. A native title is invisible until you rest
+          the cursor on it and does nothing at all on touch — and the revenue figure is the number that
+          gets screenshotted and quoted. If it's read as "the workflow caused this", that is very hard to
+          walk back, so the explanation gets an affordance you can actually see and tap. */}
+      <span className="relative inline-flex align-middle ml-1">
+        <button
+          type="button"
+          aria-label="How these numbers are counted"
+          aria-expanded={showNote}
+          // Rows and cards around this are clickable — opening the note must not also open the editor.
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowNote((v) => !v);
+          }}
+          onBlur={() => setShowNote(false)}
+          className="text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          <Info className="w-3.5 h-3.5" />
+        </button>
+
+        {showNote && (
+          // Absolutely positioned so it can't disturb either layout: this component sits inline in a flex
+          // row on the campaigns list and under the name in the workflows table.
+          <span
+            role="tooltip"
+            className="absolute left-0 top-5 z-30 w-64 rounded-lg border border-gray-700 bg-[#1A1A1A] p-2.5 text-xs leading-relaxed text-gray-300 shadow-lg"
+          >
+            {attributionNote(attributionDays)}
+          </span>
+        )}
+      </span>
     </div>
   );
 };

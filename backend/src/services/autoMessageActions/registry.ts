@@ -15,25 +15,94 @@ import type {
 import { SendMessageAction, SendMessageDeps } from './sendMessageAction';
 import { IssueRewardAction } from './issueRewardAction';
 import { NotifyStaffAction } from './notifyStaffAction';
+import { RunCampaignAction } from './runCampaignAction';
+import { AiStepAction } from './aiStepAction';
+import { DraftReorderAction } from './draftReorderAction';
+import { CreateTaskAction } from './createTaskAction';
 
 export const DEFAULT_ACTION_TYPE = 'send_message';
 
 /** Action types a shop can configure. The UI and the create/update validator read this. */
-export const AUTO_MESSAGE_ACTION_TYPES = ['send_message', 'issue_reward', 'notify_staff'] as const;
+export const AUTO_MESSAGE_ACTION_TYPES = [
+  'send_message',
+  'issue_reward',
+  'notify_staff',
+  'run_campaign',
+  'ai_step',
+  'draft_reorder',
+  'create_task',
+] as const;
 export type AutoMessageActionType = (typeof AUTO_MESSAGE_ACTION_TYPES)[number];
 
-/** Actions that send no customer message — message_template is not required for these. */
-export const NON_MESSAGING_ACTIONS: ReadonlySet<string> = new Set(['issue_reward', 'notify_staff']);
+/**
+ * Actions that carry no `message_template`, so the engine must not try to resolve one.
+ *
+ * Named for what it CHECKS, not for what its members happen to have in common. It was
+ * `NON_MESSAGING_ACTIONS`, which was true of every member until `ai_step` — an AI step very much
+ * messages the customer, it just writes the body at send time instead of storing a template. The
+ * previous overloading of a set name is what let the coherence guard accept `low_stock` +
+ * `issue_reward`, a pairing that could only ever fail; SHOP_SCOPED_ACTIONS below exists because of it.
+ *
+ * All nine call sites are template checks: skip `resolveTemplate`, and don't demand a body at write time.
+ */
+export const NO_TEMPLATE_ACTIONS: ReadonlySet<string> = new Set([
+  'issue_reward',
+  'notify_staff',
+  // The campaign carries its own subject and body; there is no per-customer template to write here.
+  'run_campaign',
+  // Writes the body when it runs — a stored template is exactly what it exists to replace.
+  'ai_step',
+  // Drafts a purchase order; nobody is being messaged.
+  'draft_reorder',
+  // Files a to-do item; the title is not a customer-facing body.
+  'create_task',
+]);
 
 /**
  * Actions whose recipient is the SHOP, so no customer is involved at all.
  *
- * Deliberately narrower than NON_MESSAGING_ACTIONS: `issue_reward` sends no message but still needs
+ * Deliberately narrower than NO_TEMPLATE_ACTIONS: `issue_reward` sends no message but still needs
  * somebody to pay, so it belongs there and not here. The distinction is load-bearing — the scheduler
  * runs an action once per customer in the target audience, which for a staff alert would page the team
  * once per customer rather than once. Anything listed here fires exactly once per rule per run.
  */
-export const SHOP_SCOPED_ACTIONS: ReadonlySet<string> = new Set(['notify_staff']);
+/**
+ * What each action NEEDS to have somebody to act on.
+ *
+ * Paired with what each trigger PROVIDES (see TRIGGER_PROVIDES in the controller), this is the whole
+ * rule for which combinations are coherent — stated once rather than discovered one bad pairing at a
+ * time. It subsumes the older "shop-scoped trigger needs a shop-scoped action" special case, which
+ * was the only guard that existed and therefore the only mistake that got caught.
+ *
+ *   customer — needs one person to act on. Fine on a per-customer event, and fine on an audience
+ *              trigger, where the engine runs it once per member.
+ *   audience — needs a GROUP. `run_campaign` sends one-to-many and fires once per rule, so on a
+ *              per-customer event it would email the whole list every time one customer did
+ *              anything: five completed bookings on a busy day, five blasts.
+ *   nobody   — acts on the shop itself, so any trigger will do.
+ */
+export type ActionNeeds = 'customer' | 'audience' | 'nobody';
+
+export const ACTION_NEEDS: Readonly<Record<string, ActionNeeds>> = {
+  send_message: 'customer',
+  issue_reward: 'customer',
+  ai_step: 'customer',
+  run_campaign: 'audience',
+  notify_staff: 'nobody',
+  draft_reorder: 'nobody',
+  create_task: 'nobody',
+};
+
+export const SHOP_SCOPED_ACTIONS: ReadonlySet<string> = new Set([
+  'notify_staff',
+  // A campaign resolves its OWN audience and sends one-to-many. Run per customer it would fire fifty
+  // campaigns to fifty people, each one addressing all fifty again.
+  'run_campaign',
+  // Reordering happens to the shop's inventory — there is no customer in it at all.
+  'draft_reorder',
+  // The task belongs to the shop. One firing, one task — even when the audience holds 200 people.
+  'create_task',
+]);
 
 export class AutoMessageActionRegistry {
   private readonly handlers = new Map<string, AutoMessageActionHandler>();
@@ -74,10 +143,18 @@ let _registry: AutoMessageActionRegistry | null = null;
 
 /** Process-wide registry, built from the message repository the scheduler already owns. */
 export function getAutoMessageActionRegistry(messages: SendMessageDeps): AutoMessageActionRegistry {
-  return (_registry ??= new AutoMessageActionRegistry([
-    new SendMessageAction(messages),
+  if (_registry) return _registry;
+  // ai_step delegates delivery to the same instance rather than building a second one — the
+  // conversation lookup and blocked-conversation skip live there and must not be duplicated.
+  const sendMessage = new SendMessageAction(messages);
+  return (_registry = new AutoMessageActionRegistry([
+    sendMessage,
     new IssueRewardAction(),
     new NotifyStaffAction(),
+    new RunCampaignAction(),
+    new AiStepAction(sendMessage),
+    new DraftReorderAction(),
+    new CreateTaskAction(),
   ]));
 }
 

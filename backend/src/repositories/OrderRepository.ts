@@ -3,7 +3,29 @@ import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
 import { formatLocalDate } from '../utils/dateUtils';
 
-export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show' | 'expired';
+/**
+ * The warranty term promised on this job, copied from the service at the moment the work is
+ * delivered. Inlined into both completion writes rather than done as a second query: an order that
+ * completed without its term recorded is a claim nobody can settle, and a separate UPDATE could
+ * fail on its own. COALESCE keeps the first snapshot, so re-completing an order can never move an
+ * expiry the customer has already been told about.
+ */
+const WARRANTY_SNAPSHOT = `COALESCE(
+  service_orders.warranty_days,
+  (SELECT s.warranty_days FROM shop_services s WHERE s.service_id = service_orders.service_id)
+)`;
+
+export type OrderStatus =
+  | 'pending'
+  | 'paid'
+  | 'completed'
+  | 'cancelled'
+  | 'refunded'
+  | 'no_show'
+  /** Legacy. No new order enters this state; kept so historical rows still map. */
+  | 'expired'
+  /** Grace window closed with no completion. Not refunded, not settled. */
+  | 'awaiting_confirmation';
 
 export interface ServiceOrder {
   orderId: string;
@@ -20,6 +42,8 @@ export interface ServiceOrder {
   bookingDate?: Date;
   bookingTime?: string;
   completedAt?: Date;
+  /** Warranty term promised on completion. Coverage runs from completedAt. */
+  warrantyDays?: number | null;
   notes?: string;
   // Approval fields
   shopApproved: boolean;
@@ -33,6 +57,8 @@ export interface ServiceOrder {
   rescheduleReason?: string;
   rescheduleCount: number;
   noShow?: boolean;
+  /** When the shop told the customer it was ready to collect. Not a status — see migration 269. */
+  readyNotifiedAt?: Date;
   markedNoShowAt?: Date;
   noShowNotes?: string;
   // Expired fields (24h past appointment without completion)
@@ -497,7 +523,8 @@ export class OrderRepository extends BaseRepository {
       if (status === 'completed') {
         query = `
           UPDATE service_orders
-          SET status = $1, completed_at = NOW(), updated_at = NOW()
+          SET status = $1, completed_at = NOW(), updated_at = NOW(),
+              warranty_days = ${WARRANTY_SNAPSHOT}
           WHERE order_id = $2
           RETURNING *
         `;
@@ -539,7 +566,8 @@ export class OrderRepository extends BaseRepository {
       const updateResult = await client.query(
         `UPDATE service_orders
          SET status = 'completed', completed_at = NOW(), updated_at = NOW(),
-             completed_by_member_id = COALESCE($2, completed_by_member_id)
+             completed_by_member_id = COALESCE($2, completed_by_member_id),
+             warranty_days = ${WARRANTY_SNAPSHOT}
          WHERE order_id = $1
          RETURNING *`,
         [orderId, completedByMemberId ?? null]
@@ -688,6 +716,24 @@ export class OrderRepository extends BaseRepository {
   /**
    * Mark order as no-show
    */
+  /**
+   * Stamp "we told the customer it's ready", once.
+   *
+   * Returns the timestamp on the FIRST call and null on any later one. The guard lives in the WHERE
+   * clause rather than a read-then-write, so two clicks landing together cannot both win and fire the
+   * workflow twice — which for the customer means being told twice that the same thing is ready.
+   */
+  async markReadyNotified(orderId: string): Promise<Date | null> {
+    const res = await this.pool.query(
+      `UPDATE service_orders
+          SET ready_notified_at = NOW(), updated_at = NOW()
+        WHERE order_id = $1 AND ready_notified_at IS NULL
+        RETURNING ready_notified_at`,
+      [orderId]
+    );
+    return res.rows[0]?.ready_notified_at ?? null;
+  }
+
   async markAsNoShow(orderId: string, notes?: string): Promise<ServiceOrder> {
     try {
       const query = `
@@ -770,6 +816,92 @@ export class OrderRepository extends BaseRepository {
   }
 
   /**
+   * Park an unconfirmed booking in 'awaiting_confirmation'.
+   *
+   * The shop's grace window closed without a completion — which is NOT evidence the
+   * service didn't happen, so nothing is refunded and nothing is settled. Only a shop
+   * completion, a customer confirmation, or a customer report resolves it from here.
+   *
+   * Guarded on `status = 'paid'` so a booking completed between the sweep's SELECT and
+   * this UPDATE isn't dragged backwards.
+   */
+  async markAwaitingConfirmation(orderId: string): Promise<ServiceOrder | null> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE service_orders
+            SET status = 'awaiting_confirmation',
+                awaiting_confirmation_at = NOW(),
+                updated_at = NOW()
+          WHERE order_id = $1
+            AND status = 'paid'
+            AND completed_at IS NULL
+        RETURNING *`,
+        [orderId]
+      );
+
+      if (result.rows.length === 0) {
+        logger.info('Order no longer eligible for awaiting_confirmation (already resolved)', { orderId });
+        return null;
+      }
+
+      logger.info('Order moved to awaiting_confirmation', { orderId });
+      return this.mapOrderRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error moving order to awaiting_confirmation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stamp the customer's "yes, this happened" confirmation.
+   *
+   * Only records attribution — the caller routes through completeOrder() so reward and
+   * commission side effects stay identical to a shop-driven completion.
+   */
+  async markCustomerConfirmed(orderId: string): Promise<void> {
+    try {
+      await this.pool.query(
+        `UPDATE service_orders
+            SET customer_confirmed_at = NOW(), updated_at = NOW()
+          WHERE order_id = $1`,
+        [orderId]
+      );
+    } catch (error) {
+      logger.error('Error stamping customer confirmation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Record a customer report that the service never happened and move the order to
+   * 'refunded'. Guarded on the source status so a double-submit can't refund twice —
+   * the caller must treat a null return as "already handled" and skip the refund.
+   */
+  async markCompletionReported(orderId: string, reason: string): Promise<ServiceOrder | null> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE service_orders
+            SET status = 'refunded',
+                completion_reported_at = NOW(),
+                completion_report_reason = $2,
+                updated_at = NOW()
+          WHERE order_id = $1
+            AND status IN ('awaiting_confirmation', 'completed')
+        RETURNING *`,
+        [orderId, reason]
+      );
+
+      if (result.rows.length === 0) return null;
+
+      logger.info('Order marked refunded after customer report', { orderId });
+      return this.mapOrderRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error recording completion report:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Map database row to ServiceOrder
    */
   private mapOrderRow(row: any): ServiceOrder {
@@ -788,6 +920,7 @@ export class OrderRepository extends BaseRepository {
       bookingDate: row.booking_date,
       bookingTime: row.booking_time || row.booking_time_slot,
       completedAt: row.completed_at,
+      warrantyDays: row.warranty_days ?? null,
       notes: row.notes,
       // Approval fields
       shopApproved: row.shop_approved || false,
@@ -803,6 +936,7 @@ export class OrderRepository extends BaseRepository {
       noShow: row.no_show || false,
       markedNoShowAt: row.marked_no_show_at,
       noShowNotes: row.no_show_notes,
+      readyNotifiedAt: row.ready_notified_at,
       // Expired fields
       expiredAt: row.expired_at,
       expiredBy: row.expired_by,

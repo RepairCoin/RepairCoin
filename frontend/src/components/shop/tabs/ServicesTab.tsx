@@ -38,6 +38,7 @@ import { AIAssistantBadge } from "@/components/shared/AIAssistantBadge";
 import { getShopAiSettings, type ShopAiSettings } from "@/services/api/aiSettings";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
+import type { OperationalStatus } from "@/utils/operationalStatus";
 
 interface ShopData {
   shopName?: string;
@@ -48,7 +49,7 @@ interface ShopData {
   subscriptionEndsAt?: string | null;
   rcg_balance?: number;
   rcg_tier?: string;
-  operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified' | 'paused';
+  operational_status?: OperationalStatus;
   active?: boolean;
   verified?: boolean;
   // Suspended shop fields

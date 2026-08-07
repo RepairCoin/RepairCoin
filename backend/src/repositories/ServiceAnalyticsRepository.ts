@@ -1,6 +1,13 @@
 // backend/src/repositories/ServiceAnalyticsRepository.ts
 import { BaseRepository } from './BaseRepository';
 import { logger } from '../utils/logger';
+import {
+  revenueRecognized,
+  ledgerRecognized,
+  ledgerRevenueCents,
+  ledgerCustomerRevenue,
+  SERVICE_LINE_REVENUE,
+} from '../utils/sqlFragments';
 
 export interface ShopServiceMetrics {
   totalServices: number;
@@ -115,13 +122,24 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           SELECT
             COUNT(*) as total_orders,
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_orders,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE 0 END), 0) as total_revenue,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_redeemed ELSE 0 END), 0) as total_rcn_redeemed,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_discount_usd ELSE 0 END), 0) as total_rcn_discount,
-            COALESCE(AVG(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE NULL END), 0) as avg_order_value
+            COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_redeemed ELSE 0 END), 0) as total_rcn_redeemed,
+            COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_discount_usd ELSE 0 END), 0) as total_rcn_discount
           FROM service_orders
           WHERE shop_id = $1
             AND ($2::uuid IS NULL OR location_id = $2::uuid)
+        ),
+        -- Money comes from the ledger, not from service_orders: the ledger is the union of every
+        -- channel, so a counter sale is counted here without this query growing a case for it.
+        -- Volume above stays on service_orders — a counter sale has no booking to count (S9c-1).
+        revenue_stats AS (
+          SELECT
+            COALESCE(SUM(${ledgerRevenueCents()}), 0) / 100.0 as total_revenue,
+            COALESCE(AVG(${ledgerRevenueCents()}), 0) / 100.0 as avg_order_value
+          FROM payments p
+          WHERE p.shop_id = $1
+            AND ($2::uuid IS NULL OR p.location_id = $2::uuid)
+            AND ${ledgerRecognized()}
+            AND ${ledgerCustomerRevenue()}
         )
         SELECT
           ss.total_services,
@@ -129,15 +147,16 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           ss.inactive_services,
           os.total_orders,
           os.completed_orders,
-          os.total_revenue,
+          rs.total_revenue,
           os.total_rcn_redeemed,
           os.total_rcn_discount,
-          os.avg_order_value,
+          rs.avg_order_value,
           ss.avg_rating,
           ss.total_reviews,
           ss.total_favorites
         FROM service_stats ss
         CROSS JOIN order_stats os
+        CROSS JOIN revenue_stats rs
       `;
 
       const result = await this.pool.query(query, [shopId, locationId || null]);
@@ -185,7 +204,24 @@ export class ServiceAnalyticsRepository extends BaseRepository {
    */
   async getServicePerformance(shopId: string, limit: number = 10, locationId?: string | null): Promise<ServicePerformance[]> {
     try {
+      // Revenue is a pre-aggregated join, not another LEFT JOIN into the same GROUP BY: adding a
+      // second one-to-many join alongside service_orders and service_favorites multiplies their
+      // rows against each other and every SUM inflates (S9c-2).
+      //
+      // Counts stay booking-only on purpose. Orders, completions, favourites and the conversion
+      // rate they feed are questions about the booking funnel, and a walk-in has no funnel. A
+      // service sold only over the counter therefore shows 0 orders and real revenue — which is
+      // the honest answer, not a gap.
       const query = `
+        WITH lines AS (${SERVICE_LINE_REVENUE}),
+        service_revenue AS (
+          SELECT service_id, SUM(revenue_cents)::bigint AS revenue_cents
+          FROM lines
+          WHERE shop_id = $1
+            AND service_id IS NOT NULL
+            AND ($3::uuid IS NULL OR location_id = $3::uuid)
+          GROUP BY service_id
+        )
         SELECT
           s.service_id,
           s.service_name,
@@ -193,12 +229,12 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           s.price_usd,
           COALESCE(COUNT(DISTINCT o.order_id), 0) as total_orders,
           COALESCE(SUM(CASE WHEN o.status = 'completed' THEN 1 ELSE 0 END), 0) as completed_orders,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) as total_revenue,
+          COALESCE(MAX(sr.revenue_cents), 0) / 100.0 as total_revenue,
           COALESCE(s.average_rating, 0) as average_rating,
           COALESCE(s.review_count, 0) as review_count,
           COALESCE(COUNT(DISTINCT f.customer_address), 0) as favorite_count,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.rcn_redeemed ELSE 0 END), 0) as rcn_redeemed,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized('o')} THEN o.rcn_redeemed ELSE 0 END), 0) as rcn_redeemed,
+          COALESCE(SUM(CASE WHEN ${revenueRecognized('o')} THEN o.rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd,
           CASE
             WHEN COUNT(DISTINCT o.order_id) > 0 AND COUNT(DISTINCT f.customer_address) > 0
             THEN (COUNT(DISTINCT o.order_id)::float / COUNT(DISTINCT f.customer_address)) * 100
@@ -208,6 +244,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         LEFT JOIN service_orders o ON s.service_id = o.service_id
           AND ($3::uuid IS NULL OR o.location_id = $3::uuid)
         LEFT JOIN service_favorites f ON s.service_id = f.service_id
+        LEFT JOIN service_revenue sr ON sr.service_id = s.service_id
         WHERE s.shop_id = $1
         GROUP BY s.service_id, s.service_name, s.category, s.price_usd, s.average_rating, s.review_count
         ORDER BY total_revenue DESC
@@ -242,17 +279,40 @@ export class ServiceAnalyticsRepository extends BaseRepository {
    */
   async getOrderTrends(shopId: string, days: number = 30, locationId?: string | null): Promise<OrderTrend[]> {
     try {
+      // Two different questions sharing a row: how many bookings were taken that day, and how much
+      // money arrived that day. They no longer come from the same table and they do not bucket on
+      // the same date — revenue lands when it was captured, not when the booking was made — so the
+      // days are unioned rather than joined. A day of pure counter trade has revenue and no
+      // bookings; a day of unpaid bookings has the reverse. Both are real (S9c-1).
       const query = `
+        WITH order_days AS (
+          SELECT DATE(created_at) as date,
+                 COUNT(*) as order_count,
+                 COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd
+          FROM service_orders
+          WHERE shop_id = $1
+            AND created_at >= NOW() - INTERVAL '1 day' * $2
+            AND ($3::uuid IS NULL OR location_id = $3::uuid)
+          GROUP BY DATE(created_at)
+        ),
+        revenue_days AS (
+          SELECT DATE(COALESCE(p.captured_at, p.created_at)) as date,
+                 COALESCE(SUM(${ledgerRevenueCents()}), 0) / 100.0 as revenue
+          FROM payments p
+          WHERE p.shop_id = $1
+            AND COALESCE(p.captured_at, p.created_at) >= NOW() - INTERVAL '1 day' * $2
+            AND ($3::uuid IS NULL OR p.location_id = $3::uuid)
+            AND ${ledgerRecognized()}
+            AND ${ledgerCustomerRevenue()}
+          GROUP BY 1
+        )
         SELECT
-          DATE(created_at) as date,
-          COUNT(*) as order_count,
-          COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE 0 END), 0) as revenue,
-          COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd
-        FROM service_orders
-        WHERE shop_id = $1
-          AND created_at >= NOW() - INTERVAL '1 day' * $2
-          AND ($3::uuid IS NULL OR location_id = $3::uuid)
-        GROUP BY DATE(created_at)
+          COALESCE(o.date, r.date) as date,
+          COALESCE(o.order_count, 0) as order_count,
+          COALESCE(r.revenue, 0) as revenue,
+          COALESCE(o.rcn_discount_usd, 0) as rcn_discount_usd
+        FROM order_days o
+        FULL OUTER JOIN revenue_days r ON r.date = o.date
         ORDER BY date DESC
       `;
 
@@ -275,19 +335,48 @@ export class ServiceAnalyticsRepository extends BaseRepository {
    */
   async getShopCategoryPerformance(shopId: string, locationId?: string | null): Promise<CategoryPerformance[]> {
     try {
+      // Counter sales include things the service catalogue has no category for — a part sold on its
+      // own, an ad-hoc charge. Dropping them would make the categories stop adding up to the shop's
+      // revenue, which is worse than the gap it hides: two screens that visibly contradict each
+      // other. They get their own rows instead (S9c-2).
       const query = `
-        SELECT
-          s.category,
-          COUNT(DISTINCT s.service_id) as service_count,
-          COALESCE(COUNT(DISTINCT o.order_id), 0) as total_orders,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) as total_revenue,
-          COALESCE(AVG(s.average_rating), 0) as average_rating,
-          COALESCE(AVG(s.price_usd), 0) as average_price
-        FROM shop_services s
-        LEFT JOIN service_orders o ON s.service_id = o.service_id
-          AND ($2::uuid IS NULL OR o.location_id = $2::uuid)
-        WHERE s.shop_id = $1
-        GROUP BY s.category
+        WITH lines AS (${SERVICE_LINE_REVENUE}),
+        shop_lines AS (
+          SELECT * FROM lines
+          WHERE shop_id = $1 AND ($2::uuid IS NULL OR location_id = $2::uuid)
+        ),
+        by_service AS (
+          SELECT service_id,
+                 SUM(revenue_cents)::bigint AS revenue_cents,
+                 COUNT(DISTINCT ref)::bigint AS orders
+          FROM shop_lines WHERE service_id IS NOT NULL GROUP BY service_id
+        ),
+        catalogue AS (
+          SELECT
+            s.category::varchar as category,
+            COUNT(DISTINCT s.service_id)::bigint as service_count,
+            COALESCE(SUM(bs.orders), 0)::bigint as total_orders,
+            (COALESCE(SUM(bs.revenue_cents), 0) / 100.0)::numeric as total_revenue,
+            COALESCE(AVG(s.average_rating), 0)::numeric as average_rating,
+            COALESCE(AVG(s.price_usd), 0)::numeric as average_price
+          FROM shop_services s
+          LEFT JOIN by_service bs ON bs.service_id = s.service_id
+          WHERE s.shop_id = $1
+          GROUP BY s.category
+        ),
+        buckets AS (
+          SELECT
+            bucket::varchar as category,
+            0::bigint as service_count,
+            COUNT(DISTINCT ref)::bigint as total_orders,
+            (SUM(revenue_cents) / 100.0)::numeric as total_revenue,
+            0::numeric as average_rating,
+            0::numeric as average_price
+          FROM shop_lines WHERE bucket IS NOT NULL GROUP BY bucket
+        )
+        SELECT * FROM catalogue
+        UNION ALL
+        SELECT * FROM buckets
         ORDER BY total_revenue DESC
       `;
 
@@ -323,23 +412,29 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         order_stats AS (
           SELECT
             COUNT(*) as total_orders,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE 0 END), 0) as total_revenue,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_redeemed ELSE 0 END), 0) as total_rcn_redeemed,
-            COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_discount_usd ELSE 0 END), 0) as total_rcn_discount,
-            COALESCE(AVG(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE NULL END), 0) as avg_order_value
+            COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_redeemed ELSE 0 END), 0) as total_rcn_redeemed,
+            COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_discount_usd ELSE 0 END), 0) as total_rcn_discount
           FROM service_orders
+        ),
+        revenue_stats AS (
+          SELECT
+            COALESCE(SUM(${ledgerRevenueCents()}), 0) / 100.0 as total_revenue,
+            COALESCE(AVG(${ledgerRevenueCents()}), 0) / 100.0 as avg_order_value
+          FROM payments p
+          WHERE ${ledgerRecognized()} AND ${ledgerCustomerRevenue()}
         )
         SELECT
           ss.shops_with_services,
           ss.active_services,
           os.total_orders,
-          os.total_revenue,
+          rs.total_revenue,
           os.total_rcn_redeemed,
           os.total_rcn_discount,
           ss.avg_service_price,
-          os.avg_order_value
+          rs.avg_order_value
         FROM service_stats ss
         CROSS JOIN order_stats os
+        CROSS JOIN revenue_stats rs
       `;
 
       const result = await this.pool.query(metricsQuery);
@@ -369,18 +464,42 @@ export class ServiceAnalyticsRepository extends BaseRepository {
    */
   async getPlatformCategoryPerformance(limit: number = 10): Promise<CategoryPerformance[]> {
     try {
+      // Platform-wide twin of the shop version — same line source, same non-service buckets, no
+      // shop or location filter (S9c-2).
       const query = `
-        SELECT
-          s.category,
-          COUNT(DISTINCT s.service_id) as service_count,
-          COALESCE(COUNT(DISTINCT o.order_id), 0) as total_orders,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) as total_revenue,
-          COALESCE(AVG(s.average_rating), 0) as average_rating,
-          COALESCE(AVG(s.price_usd), 0) as average_price
-        FROM shop_services s
-        LEFT JOIN service_orders o ON s.service_id = o.service_id
-        WHERE s.active = true
-        GROUP BY s.category
+        WITH lines AS (${SERVICE_LINE_REVENUE}),
+        by_service AS (
+          SELECT service_id,
+                 SUM(revenue_cents)::bigint AS revenue_cents,
+                 COUNT(DISTINCT ref)::bigint AS orders
+          FROM lines WHERE service_id IS NOT NULL GROUP BY service_id
+        ),
+        catalogue AS (
+          SELECT
+            s.category::varchar as category,
+            COUNT(DISTINCT s.service_id)::bigint as service_count,
+            COALESCE(SUM(bs.orders), 0)::bigint as total_orders,
+            (COALESCE(SUM(bs.revenue_cents), 0) / 100.0)::numeric as total_revenue,
+            COALESCE(AVG(s.average_rating), 0)::numeric as average_rating,
+            COALESCE(AVG(s.price_usd), 0)::numeric as average_price
+          FROM shop_services s
+          LEFT JOIN by_service bs ON bs.service_id = s.service_id
+          WHERE s.active = true
+          GROUP BY s.category
+        ),
+        buckets AS (
+          SELECT
+            bucket::varchar as category,
+            0::bigint as service_count,
+            COUNT(DISTINCT ref)::bigint as total_orders,
+            (SUM(revenue_cents) / 100.0)::numeric as total_revenue,
+            0::numeric as average_rating,
+            0::numeric as average_price
+          FROM lines WHERE bucket IS NOT NULL GROUP BY bucket
+        )
+        SELECT * FROM catalogue
+        UNION ALL
+        SELECT * FROM buckets
         ORDER BY total_revenue DESC
         LIMIT $1
       `;
@@ -406,13 +525,23 @@ export class ServiceAnalyticsRepository extends BaseRepository {
    */
   async getTopPerformingShops(limit: number = 10): Promise<TopPerformingShop[]> {
     try {
+      // Revenue is a per-shop subquery rather than another join. Joining `payments` alongside
+      // `service_orders` multiplies the rows of each against the other, and every SUM in the
+      // query silently inflates — the classic fan-out that a COUNT(DISTINCT) hides until money
+      // is added to it (S9c-1).
       const query = `
         SELECT
           s.shop_id,
           sh.name as shop_name,
           COUNT(DISTINCT s.service_id) FILTER (WHERE s.active = true) as active_services,
           COALESCE(COUNT(DISTINCT o.order_id), 0) as total_orders,
-          COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) as total_revenue,
+          COALESCE((
+            SELECT SUM(${ledgerRevenueCents()}) / 100.0
+            FROM payments p
+            WHERE p.shop_id = s.shop_id
+              AND ${ledgerRecognized()}
+              AND ${ledgerCustomerRevenue()}
+          ), 0) as total_revenue,
           COALESCE(AVG(s.average_rating), 0) as average_rating
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
@@ -445,15 +574,33 @@ export class ServiceAnalyticsRepository extends BaseRepository {
    */
   async getPlatformOrderTrends(days: number = 30): Promise<OrderTrend[]> {
     try {
+      // Same union as the per-shop trend: bookings bucket on when they were taken, revenue on when
+      // it was captured, and a day can have either without the other (S9c-1).
       const query = `
+        WITH order_days AS (
+          SELECT DATE(created_at) as date,
+                 COUNT(*) as order_count,
+                 COALESCE(SUM(CASE WHEN ${revenueRecognized()} THEN rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd
+          FROM service_orders
+          WHERE created_at >= NOW() - INTERVAL '1 day' * $1
+          GROUP BY DATE(created_at)
+        ),
+        revenue_days AS (
+          SELECT DATE(COALESCE(p.captured_at, p.created_at)) as date,
+                 COALESCE(SUM(${ledgerRevenueCents()}), 0) / 100.0 as revenue
+          FROM payments p
+          WHERE COALESCE(p.captured_at, p.created_at) >= NOW() - INTERVAL '1 day' * $1
+            AND ${ledgerRecognized()}
+            AND ${ledgerCustomerRevenue()}
+          GROUP BY 1
+        )
         SELECT
-          DATE(created_at) as date,
-          COUNT(*) as order_count,
-          COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN total_amount ELSE 0 END), 0) as revenue,
-          COALESCE(SUM(CASE WHEN status IN ('paid', 'completed') THEN rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd
-        FROM service_orders
-        WHERE created_at >= NOW() - INTERVAL '1 day' * $1
-        GROUP BY DATE(created_at)
+          COALESCE(o.date, r.date) as date,
+          COALESCE(o.order_count, 0) as order_count,
+          COALESCE(r.revenue, 0) as revenue,
+          COALESCE(o.rcn_discount_usd, 0) as rcn_discount_usd
+        FROM order_days o
+        FULL OUTER JOIN revenue_days r ON r.date = o.date
         ORDER BY date DESC
       `;
 
@@ -515,7 +662,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           COUNT(DISTINCT sga.group_id) as total_groups_active,
           COALESCE(SUM(
             CASE
-              WHEN so.status IN ('paid', 'completed') THEN
+              WHEN ${revenueRecognized('so')} THEN
                 (so.total_amount * (sga.token_reward_percentage / 100) * sga.bonus_multiplier)
               ELSE 0
             END
@@ -531,8 +678,31 @@ export class ServiceAnalyticsRepository extends BaseRepository {
       const summaryResult = await this.pool.query(summaryQuery, [shopId, loc]);
       const summary = summaryResult.rows[0];
 
-      // Get group breakdown
+      // Revenue joins in pre-aggregated per service. Token issuance stays on service_orders: it is
+      // computed from the booking's amount and the group's reward percentage, and counter sales
+      // issue group tokens through their own path rather than this arithmetic (S9c-2).
       const groupQuery = `
+        WITH lines AS (${SERVICE_LINE_REVENUE}),
+        service_revenue AS (
+          SELECT service_id, SUM(revenue_cents)::bigint AS revenue_cents
+          FROM lines
+          WHERE shop_id = $1
+            AND service_id IS NOT NULL
+            AND ($2::uuid IS NULL OR location_id = $2::uuid)
+          GROUP BY service_id
+        ),
+        -- Summed per group here rather than in the outer query: the outer joins fan out over both
+        -- linked services and their orders, so a service's revenue repeats across rows. SUM would
+        -- multiply it and SUM(DISTINCT) would silently drop a second service that happened to earn
+        -- exactly the same amount.
+        group_revenue AS (
+          SELECT sga2.group_id, SUM(sr2.revenue_cents)::bigint AS revenue_cents
+          FROM service_group_availability sga2
+          INNER JOIN shop_services s2 ON s2.service_id = sga2.service_id
+          INNER JOIN service_revenue sr2 ON sr2.service_id = sga2.service_id
+          WHERE s2.shop_id = $1 AND sga2.active = true
+          GROUP BY sga2.group_id
+        )
         SELECT
           asg.group_id,
           asg.group_name,
@@ -540,10 +710,10 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           asg.icon,
           COUNT(DISTINCT sga.service_id) as services_linked,
           COUNT(DISTINCT so.order_id) as total_bookings,
-          COALESCE(SUM(CASE WHEN so.status IN ('paid', 'completed') THEN so.total_amount ELSE 0 END), 0) as total_revenue,
+          COALESCE(MAX(gr.revenue_cents), 0) / 100.0 as total_revenue,
           COALESCE(SUM(
             CASE
-              WHEN so.status IN ('paid', 'completed') THEN
+              WHEN ${revenueRecognized('so')} THEN
                 (so.total_amount * (sga.token_reward_percentage / 100) * sga.bonus_multiplier)
               ELSE 0
             END
@@ -553,6 +723,7 @@ export class ServiceAnalyticsRepository extends BaseRepository {
         INNER JOIN shop_services s ON sga.service_id = s.service_id
         LEFT JOIN service_orders so ON s.service_id = so.service_id
           AND ($2::uuid IS NULL OR so.location_id = $2::uuid)
+        LEFT JOIN group_revenue gr ON gr.group_id = asg.group_id
         WHERE s.shop_id = $1 AND sga.active = true
         GROUP BY asg.group_id, asg.group_name, asg.custom_token_symbol, asg.icon
         ORDER BY total_bookings DESC, total_revenue DESC
@@ -562,6 +733,15 @@ export class ServiceAnalyticsRepository extends BaseRepository {
 
       // Get services linked to groups
       const servicesQuery = `
+        WITH lines AS (${SERVICE_LINE_REVENUE}),
+        service_revenue AS (
+          SELECT service_id, SUM(revenue_cents)::bigint AS revenue_cents
+          FROM lines
+          WHERE shop_id = $1
+            AND service_id IS NOT NULL
+            AND ($2::uuid IS NULL OR location_id = $2::uuid)
+          GROUP BY service_id
+        )
         SELECT
           s.service_id,
           s.service_name,
@@ -573,12 +753,13 @@ export class ServiceAnalyticsRepository extends BaseRepository {
             'bonusMultiplier', sga.bonus_multiplier
           )) as groups,
           COUNT(DISTINCT so.order_id) as bookings,
-          COALESCE(SUM(CASE WHEN so.status IN ('paid', 'completed') THEN so.total_amount ELSE 0 END), 0) as revenue
+          COALESCE(MAX(sr.revenue_cents), 0) / 100.0 as revenue
         FROM shop_services s
         INNER JOIN service_group_availability sga ON s.service_id = sga.service_id
         INNER JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
         LEFT JOIN service_orders so ON s.service_id = so.service_id
           AND ($2::uuid IS NULL OR so.location_id = $2::uuid)
+        LEFT JOIN service_revenue sr ON sr.service_id = s.service_id
         WHERE s.shop_id = $1 AND sga.active = true
         GROUP BY s.service_id, s.service_name
         ORDER BY bookings DESC, revenue DESC

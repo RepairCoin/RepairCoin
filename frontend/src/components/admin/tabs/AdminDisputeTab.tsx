@@ -22,6 +22,7 @@ import {
   type DisputeEntry,
   type AdminDisputeStats,
 } from '@/services/api/noShow';
+import StaleBookingsPanel from '../StaleBookingsPanel';
 
 type DisputeFilter = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -150,6 +151,9 @@ export default function AdminDisputeTab() {
 
   return (
     <div className="space-y-6">
+      {/* Bookings nobody ever confirmed — self-hiding when the queue is empty. */}
+      <StaleBookingsPanel />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

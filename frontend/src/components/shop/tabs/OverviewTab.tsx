@@ -22,6 +22,7 @@ import Link from "next/link";
 import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
 import { ProfitChart } from "@/components/shop/ProfitChart";
+import { isQualifiedStatus, type OperationalStatus } from "@/utils/operationalStatus";
 
 interface ShopData {
   shopId: string;
@@ -35,11 +36,7 @@ interface ShopData {
   totalRcnPurchased: number;
   lastPurchaseDate?: string;
   walletAddress?: string;
-  operational_status?:
-    | "pending"
-    | "rcg_qualified"
-    | "subscription_qualified"
-    | "not_qualified";
+  operational_status?: OperationalStatus;
   rcg_tier?: string;
   rcg_balance?: number;
 }
@@ -375,10 +372,7 @@ const OverviewStatCard: React.FC<{
 // New Shop Status Card matching Figma design
 const ShopStatusCard: React.FC<{ shopData: ShopData }> = ({ shopData }) => {
   const getOperationalStatusBadge = () => {
-    if (
-      shopData.operational_status === "rcg_qualified" ||
-      shopData.operational_status === "subscription_qualified"
-    ) {
+    if (isQualifiedStatus(shopData.operational_status)) {
       return {
         text:
           shopData.operational_status === "rcg_qualified"
@@ -416,7 +410,7 @@ const ShopStatusCard: React.FC<{ shopData: ShopData }> = ({ shopData }) => {
           badge={{
             text: operationalBadge.text,
             className: operationalBadge.className,
-            showIcon: shopData.operational_status !== "rcg_qualified" && shopData.operational_status !== "subscription_qualified",
+            showIcon: !isQualifiedStatus(shopData.operational_status),
           }}
         />
         <StatusRowNew
