@@ -152,7 +152,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
 
         {/* Support Section */}
         <SettingsSection title="Support">
-          {/* <SettingsItem
+          <SettingsItem
             icon={
               <Ionicons
                 name="help-circle-outline"
@@ -160,11 +160,11 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
                 color="#FFCC00"
               />
             }
-            title="Help & Support"
-            subtitle="Get help with your account"
+            title="FAQ & Help"
+            subtitle="Answers to common questions"
             onPress={handleHelp}
           />
-          <Divider /> */}
+          <Divider />
           <SettingsItem
             icon={
               <Ionicons
