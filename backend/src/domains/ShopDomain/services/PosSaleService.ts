@@ -10,13 +10,20 @@ import {
   customerRepository,
   paymentRepository,
   posSaleRepository,
+  refundRepository,
+  shopRepository,
   shopTaxRepository,
   shopTerminalRepository,
 } from '../../../repositories';
+import { deliverReceiptEmail } from './PosReceiptListener';
+import { issueRefund, REFUND_REASONS } from '../../PaymentsDomain/services/RefundIssuer';
+import type { Payment } from '../../../repositories/PaymentRepository';
+import type { RefundReason } from '../../../repositories/RefundRepository';
 import type {
   AddPosSaleItemInput,
   PosSale,
   PosSaleItemKind,
+  PosSaleStatus,
   PosSaleWithDetails,
   PosTenderMethod,
 } from '../../../repositories/PosSaleRepository';
@@ -33,6 +40,22 @@ function normalizeEmail(value: unknown): string | null {
   const email = value.trim().toLowerCase();
   if (!email) return null;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
+}
+
+export interface PosRefundLeg {
+  method: PosTenderMethod;
+  amountCents: number;
+}
+
+export interface PosRefundResult {
+  sale: PosSaleWithDetails;
+  refundedCents: number;
+  legs: PosRefundLeg[];
+  /**
+   * Legs that could not be reversed. Reported rather than thrown: once one tender has gone back,
+   * hiding the rest behind an error would leave the cashier believing nothing happened.
+   */
+  failures: string[];
 }
 
 export interface AddItemRequest {
@@ -500,11 +523,280 @@ export class PosSaleService {
     return voided;
   }
 
+  /**
+   * Hands money back on a completed counter sale.
+   *
+   * Goes through the fiat ledger's own refund machinery rather than a POS-specific one: S6a already
+   * writes every cash and card tender into `payments`, and `issueRefund` already knows how to
+   * reverse a direct charge on the shop's connected account and claw the platform fee back with it.
+   * A second refund path would be a second set of rules to keep in step.
+   *
+   * The sale is the unit, the tender is the mechanism. A shop refunds "sale #7", and this spreads
+   * it across however many ways #7 was paid — card legs first because they are traceable and return
+   * the commission, cash last because it comes out of the drawer.
+   *
+   * **Only cash and card are refundable here.** S9c-1 deliberately keeps RCN and gift-card tenders
+   * out of the fiat ledger, so there is nothing to reverse; RCN already issued as loyalty on the
+   * sale is not clawed back either — see the event note below.
+   */
+  async refundSale(
+    shopId: string,
+    saleId: string,
+    input: {
+      amountCents?: unknown;
+      reason?: unknown;
+      note?: unknown;
+      restock?: boolean;
+      actorAddress?: string | null;
+    } = {}
+  ): Promise<PosRefundResult> {
+    const sale = await this.requireSale(saleId, shopId);
+    if (sale.status !== 'completed' && sale.status !== 'partially_refunded') {
+      throw httpError(`A ${sale.status} sale cannot be refunded.`, 409);
+    }
+
+    // Card first, then cash. A card leg reverses through Stripe and brings the application fee
+    // back with it; cash leaves the drawer and can never be recovered if the order were flipped.
+    const legs = sale.payments
+      .filter((p) => p.status === 'succeeded' && (p.method === 'card' || p.method === 'cash'))
+      .sort((a, b) => (a.method === b.method ? 0 : a.method === 'card' ? -1 : 1));
+
+    if (!legs.length) {
+      throw httpError('This sale has no card or cash payment to refund.', 400);
+    }
+
+    const refundable = legs.reduce((sum, p) => sum + (p.amountCents - p.refundedCents), 0);
+    if (refundable <= 0) throw httpError('This sale has already been fully refunded.', 400);
+
+    const amount = input.amountCents === undefined ? refundable : Number(input.amountCents);
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw httpError('amountCents must be a positive integer.', 400);
+    }
+    if (amount > refundable) {
+      throw httpError(`That is more than the ${refundable} cents still refundable.`, 400);
+    }
+
+    // Every ledger row is resolved BEFORE any money moves. A tender rung up before S6a wired the
+    // POS into the ledger has no row to refund against, and finding that out halfway through would
+    // leave a sale refunded on one leg and not the other.
+    const planned: { leg: (typeof legs)[number]; ledger: Payment; allocCents: number }[] = [];
+    let remaining = amount;
+    for (const leg of legs) {
+      if (remaining <= 0) break;
+      const legRefundable = leg.amountCents - leg.refundedCents;
+      if (legRefundable <= 0) continue;
+
+      const ledger =
+        (await paymentRepository.getByPosSalePayment(leg.id)) ??
+        (leg.stripePaymentIntentId
+          ? await paymentRepository.getByPaymentIntent(leg.stripePaymentIntentId)
+          : null);
+      if (!ledger) {
+        throw httpError(
+          'This sale predates the fiat ledger and cannot be refunded from FixFlow. Refund it in Stripe, or hand the cash back and record it manually.',
+          409
+        );
+      }
+
+      const allocCents = Math.min(remaining, legRefundable);
+      planned.push({ leg, ledger, allocCents });
+      remaining -= allocCents;
+    }
+
+    const refundedLegs: PosRefundLeg[] = [];
+    const failures: string[] = [];
+
+    for (const { leg, ledger, allocCents } of planned) {
+      try {
+        if (leg.method === 'cash') {
+          await this.refundCashLeg(ledger, allocCents, input);
+        } else {
+          const result = await issueRefund({
+            payment: ledger,
+            amountCents: allocCents,
+            reason: input.reason,
+            note: input.note,
+            actor: 'shop',
+            actorAddress: input.actorAddress ?? null,
+          });
+          if (result.outcome === 'rejected') throw httpError(result.error, result.status);
+        }
+
+        await posSaleRepository.applyTenderRefund(leg.id, leg.refundedCents + allocCents);
+        refundedLegs.push({ method: leg.method, amountCents: allocCents });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        failures.push(`${leg.method}: ${message}`);
+        logger.error('POS refund leg failed', { saleId, salePaymentId: leg.id, error: message });
+      }
+    }
+
+    const refundedNow = refundedLegs.reduce((sum, leg) => sum + leg.amountCents, 0);
+    if (refundedNow === 0) {
+      throw httpError(failures[0] ?? 'The refund could not be issued.', 502);
+    }
+
+    const fullyRefunded = refundedNow >= refundable;
+    await posSaleRepository.setRefundStatus(
+      saleId,
+      shopId,
+      fullyRefunded ? 'refunded' : 'partially_refunded'
+    );
+
+    await this.announceRefund(sale, refundedNow, fullyRefunded, input.restock === true);
+
+    return {
+      sale: await this.requireSale(saleId, shopId),
+      refundedCents: refundedNow,
+      legs: refundedLegs,
+      failures,
+    };
+  }
+
+  /**
+   * Cash out of the drawer. No Stripe object exists or ever will, so this is the one place the
+   * ledger's `refunded_cents` is written by us rather than by the `charge.refunded` webhook — the
+   * same reasoning S9b used to write the ledger row for an off-Stripe booking instead of waiting
+   * for a reconciliation that is never coming.
+   */
+  private async refundCashLeg(
+    ledger: Payment,
+    amountCents: number,
+    input: { reason?: unknown; note?: unknown; actorAddress?: string | null }
+  ): Promise<void> {
+    const reason = REFUND_REASONS.includes(input.reason as RefundReason)
+      ? (input.reason as RefundReason)
+      : 'requested_by_customer';
+    const note = typeof input.note === 'string' && input.note.trim() ? input.note.trim().slice(0, 1000) : null;
+
+    const alreadyRefunded = ledger.refundedCents;
+    if (amountCents > ledger.grossCents - alreadyRefunded) {
+      throw httpError('That is more than this cash tender has left to refund.', 400);
+    }
+
+    // Recorded before the ledger moves, matching issueRefund: a row that exists but did not settle
+    // is recoverable, a payout with no record of who authorised it is not.
+    const refund = await refundRepository.createPending({
+      paymentId: ledger.id,
+      shopId: ledger.shopId,
+      amountCents,
+      currency: ledger.currency,
+      reason,
+      note,
+      createdBy: input.actorAddress ?? null,
+      createdByRole: 'shop',
+    });
+
+    const total = alreadyRefunded + amountCents;
+    await paymentRepository.markRefunded(
+      ledger.id,
+      total,
+      total >= ledger.grossCents ? 'refunded' : 'partially_refunded'
+    );
+    await refundRepository.markSettledOffStripe(refund.id);
+  }
+
+  /**
+   * Announces the refund for consumers to act on — inventory restocks returned products from here.
+   *
+   * Loyalty is deliberately NOT reversed. The RCN was an on-chain transfer plus an atomic balance
+   * debit; the customer may have spent it, and a claw-back that fails has no good answer at a
+   * counter where the refund has already been handed over. The asymmetry is real and accepted, in
+   * the same way S6a accepts that cash sales carry no platform commission.
+   */
+  private async announceRefund(
+    sale: PosSaleWithDetails,
+    refundedCents: number,
+    fullyRefunded: boolean,
+    restock: boolean
+  ): Promise<void> {
+    try {
+      await eventBus.publish(
+        createDomainEvent(
+          'pos.sale_refunded',
+          sale.id,
+          {
+            saleId: sale.id,
+            shopId: sale.shopId,
+            locationId: sale.locationId,
+            customerAddress: sale.customerAddress,
+            saleNumber: sale.saleNumber,
+            refundedCents,
+            fullyRefunded,
+            // Only a fully refunded sale can say which goods came back. On a partial refund the
+            // amount says nothing about which lines it covered, so guessing would move stock that
+            // is still on a customer's shelf.
+            restock: restock && fullyRefunded,
+            items: sale.items.map((item) => ({
+              kind: item.kind,
+              serviceId: item.serviceId,
+              inventoryItemId: item.inventoryItemId,
+              quantity: item.quantity,
+              name: item.name,
+            })),
+          },
+          'ShopDomain'
+        )
+      );
+    } catch (error) {
+      logger.error('Failed to publish pos.sale_refunded', {
+        saleId: sale.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Sends the emailed receipt again, optionally to a different address. Unlike the send at
+   * completion this one is allowed to fail loudly: the customer is standing there asking for it,
+   * so a bad address or a rejected send is something the cashier can act on.
+   *
+   * Only the email copy. The in-app notification is a record that the sale happened, and
+   * re-dispatching it would tell the customer they had paid a second time.
+   */
+  async resendReceipt(shopId: string, saleId: string, email?: unknown): Promise<{ sentTo: string }> {
+    const sale = await this.requireSale(saleId, shopId);
+    if (sale.status === 'open') {
+      throw httpError('This sale has not been completed yet.', 409);
+    }
+
+    let target = sale.receiptEmail;
+    if (email !== undefined && email !== null && String(email).trim()) {
+      const normalized = normalizeEmail(email);
+      if (!normalized) throw httpError('That email address is not usable.', 400);
+      const redirected = await posSaleRepository.redirectReceipt(saleId, shopId, normalized);
+      if (!redirected) throw httpError('Sale not found.', 404);
+      target = normalized;
+      sale.receiptEmail = normalized;
+    }
+
+    if (!target) {
+      throw httpError('No email address on this sale — enter one to send a receipt.', 400);
+    }
+
+    const shopName = (await shopRepository.getShop(shopId))?.name || 'the shop';
+    const sent = await deliverReceiptEmail(sale, target, shopName);
+    if (!sent) throw httpError('The receipt could not be sent. Try again in a moment.', 502);
+
+    return { sentTo: target };
+  }
+
   async getSale(shopId: string, saleId: string): Promise<PosSaleWithDetails> {
     return this.requireSale(saleId, shopId);
   }
 
-  listSales(shopId: string, options: { limit?: number } = {}) {
+  listSales(
+    shopId: string,
+    options: {
+      status?: PosSaleStatus;
+      locationId?: string | null;
+      saleNumber?: number | null;
+      from?: string | null;
+      to?: string | null;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ) {
     return posSaleRepository.listSales(shopId, options);
   }
 

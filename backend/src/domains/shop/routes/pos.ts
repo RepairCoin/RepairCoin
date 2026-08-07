@@ -3,7 +3,7 @@ import { getPosSaleService, assertSupportedTender } from '../../ShopDomain/servi
 import { logger } from '../../../utils/logger';
 import { authMiddleware, requireRole } from '../../../middleware/auth';
 import { warrantyRepository } from '../../../repositories';
-import type { PosTenderMethod } from '../../../repositories/PosSaleRepository';
+import type { PosSaleStatus, PosTenderMethod } from '../../../repositories/PosSaleRepository';
 
 const router = Router();
 
@@ -11,7 +11,9 @@ router.use(authMiddleware, requireRole(['shop']));
 
 const fail = (res: Response, error: unknown, fallback: string) => {
   const status = (error as { status?: number })?.status;
-  if (status === 400 || status === 404 || status === 409) {
+  // 502 carries through as well: a receipt the mail provider refused is something the cashier can
+  // retry, and swallowing it into a generic 500 loses the one detail that says so.
+  if (status === 400 || status === 404 || status === 409 || status === 502) {
     return res.status(status).json({
       success: false,
       error: error instanceof Error ? error.message : fallback,
@@ -52,10 +54,20 @@ router.post(
   )
 );
 
+// `from` and `to` are full ISO timestamps, not calendar dates — the client resolves its own day
+// boundaries, because no shop timezone is recorded to resolve them against here.
 router.get(
   '/pos/sales',
   handle('Failed to list sales', (shopId, req) =>
-    getPosSaleService().listSales(shopId, { limit: Number(req.query.limit) || undefined })
+    getPosSaleService().listSales(shopId, {
+      status: typeof req.query.status === 'string' ? (req.query.status as PosSaleStatus) : undefined,
+      locationId: typeof req.query.locationId === 'string' ? req.query.locationId : undefined,
+      saleNumber: Number(req.query.saleNumber) || undefined,
+      from: typeof req.query.from === 'string' ? req.query.from : undefined,
+      to: typeof req.query.to === 'string' ? req.query.to : undefined,
+      limit: Number(req.query.limit) || undefined,
+      offset: Number(req.query.offset) || undefined,
+    })
   )
 );
 
@@ -84,6 +96,29 @@ router.get(
 router.get(
   '/pos/sales/:id',
   handle('Failed to load sale', (shopId, req) => getPosSaleService().getSale(shopId, req.params.id))
+);
+
+// Re-sends the emailed copy, to the address on the sale or a new one. The paper and on-screen
+// copies need no endpoint — the register renders those from the sale it already has.
+router.post(
+  '/pos/sales/:id/receipt',
+  handle('Failed to send the receipt', (shopId, req) =>
+    getPosSaleService().resendReceipt(shopId, req.params.id, req.body?.email)
+  )
+);
+
+// Refunds a completed sale across its tenders. Omit amountCents to give the whole thing back.
+router.post(
+  '/pos/sales/:id/refund',
+  handle('Failed to refund the sale', (shopId, req) =>
+    getPosSaleService().refundSale(shopId, req.params.id, {
+      amountCents: req.body?.amountCents,
+      reason: req.body?.reason,
+      note: req.body?.note,
+      restock: req.body?.restock === true,
+      actorAddress: req.user?.address ?? null,
+    })
+  )
 );
 
 router.post(

@@ -367,6 +367,20 @@ export class PaymentRepository extends BaseRepository {
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
+  /**
+   * The ledger row written for one tender of a counter sale, which is what a POS refund has to
+   * act on. Goes through `pos_sale_payment_id` rather than the tender's own `payment_id` column:
+   * that column exists on `pos_sale_payments` but has never been written, while this one is set
+   * by `recordPosTender` on both legs and is the cash leg's idempotency key.
+   */
+  async getByPosSalePayment(posSalePaymentId: string): Promise<Payment | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM payments WHERE pos_sale_payment_id = $1`,
+      [posSalePaymentId]
+    );
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
   /** Record a (partial or full) refund total against a payment and set its status. */
   async markRefunded(id: string, refundedCents: number, status: PaymentStatus): Promise<Payment | null> {
     const result = await this.pool.query(

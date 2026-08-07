@@ -47,6 +47,7 @@ export interface PosSalePayment {
   status: PosPaymentStatus;
   stripePaymentIntentId: string | null;
   applicationFeeCents: number;
+  refundedCents: number;
   failureReason: string | null;
 }
 
@@ -63,12 +64,19 @@ export interface PosSale {
   totalCents: number;
   currency: string;
   receiptEmail: string | null;
+  receiptSentAt: string | null;
   completedAt: string | null;
+  createdAt: string;
   items: PosSaleItem[];
   payments: PosSalePayment[];
   paidCents: number;
   balanceCents: number;
 }
+
+/** A history row: the sale without its lines, plus the line count a list needs to show. */
+export type PosSaleListRow = Omit<PosSale, "items" | "payments" | "paidCents" | "balanceCents"> & {
+  itemCount: number;
+};
 
 export interface PosSalesSummary {
   saleCount: number;
@@ -104,6 +112,80 @@ export async function createSale(input: {
 
 export async function getSale(saleId: string): Promise<PosSale> {
   return unwrap(await apiClient.get(`/shops/pos/sales/${saleId}`), "Could not load the sale");
+}
+
+export interface PosSalesPage {
+  sales: PosSaleListRow[];
+  total: number;
+}
+
+/**
+ * `from` and `to` are sent as full ISO timestamps resolved in the browser's timezone. No shop
+ * timezone is recorded anywhere, so a bare calendar date would be read as UTC on the server and
+ * cut an evening's takings onto the wrong day.
+ */
+export async function listSales(options: {
+  status?: PosSaleStatus;
+  locationId?: string | null;
+  saleNumber?: number;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<PosSalesPage> {
+  const query = new URLSearchParams();
+  if (options.status) query.set("status", options.status);
+  if (options.locationId) query.set("locationId", options.locationId);
+  if (options.saleNumber) query.set("saleNumber", String(options.saleNumber));
+  if (options.from) query.set("from", options.from);
+  if (options.to) query.set("to", options.to);
+  if (options.limit) query.set("limit", String(options.limit));
+  if (options.offset) query.set("offset", String(options.offset));
+  const qs = query.toString();
+  return unwrap(
+    await apiClient.get(`/shops/pos/sales${qs ? `?${qs}` : ""}`),
+    "Could not load sales"
+  );
+}
+
+/** Start of the local day for a `YYYY-MM-DD` from a date input, as an ISO instant. */
+export const localDayStart = (day: string): string =>
+  new Date(`${day}T00:00:00`).toISOString();
+
+/** Start of the day *after* a `YYYY-MM-DD`, so a range bounded with `<` includes that whole day. */
+export const localDayEnd = (day: string): string => {
+  const d = new Date(`${day}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return d.toISOString();
+};
+
+export interface PosRefundResult {
+  sale: PosSale;
+  refundedCents: number;
+  legs: { method: PosTenderMethod; amountCents: number }[];
+  failures: string[];
+}
+
+/**
+ * Refunds a completed sale. Omit `amountCents` to give the whole remaining balance back; the
+ * server spreads it across the sale's tenders, card first.
+ */
+export async function refundSale(
+  saleId: string,
+  input: { amountCents?: number; reason?: string; note?: string; restock?: boolean } = {}
+): Promise<PosRefundResult> {
+  return unwrap(
+    await apiClient.post(`/shops/pos/sales/${saleId}/refund`, input),
+    "Could not refund the sale"
+  );
+}
+
+/** Re-sends the emailed receipt. Omit the address to use the one already on the sale. */
+export async function resendReceipt(saleId: string, email?: string): Promise<{ sentTo: string }> {
+  return unwrap(
+    await apiClient.post(`/shops/pos/sales/${saleId}/receipt`, email ? { email } : {}),
+    "Could not send the receipt"
+  );
 }
 
 export async function addItem(

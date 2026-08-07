@@ -63,7 +63,7 @@ export async function sendReceiptForSale(event: PosSaleCompletedEvent): Promise<
       await dispatchInApp(sale, customerAddress, shopName);
     }
 
-    if (email) await sendEmail(sale, email, shopName);
+    if (email) await deliverReceiptEmail(sale, email, shopName);
   } catch (error) {
     logger.error('POS receipt: failed to send', {
       saleId,
@@ -98,11 +98,16 @@ async function dispatchInApp(
   }
 }
 
-async function sendEmail(
+/**
+ * Builds and sends the emailed copy. Exported because a resend from the sales history has to
+ * produce a byte-identical receipt — a second rendering of the same sale that disagreed with the
+ * first is worse than no resend at all.
+ */
+export async function deliverReceiptEmail(
   sale: PosSaleWithDetails,
   email: string,
   shopName: string
-): Promise<void> {
+): Promise<boolean> {
   // Only settled tenders appear. A failed or cancelled attempt is register noise the customer
   // never needs to see, and showing it would make the tenders fail to sum to the total.
   const settled = sale.payments.filter((payment) => payment.status === 'succeeded');
@@ -131,11 +136,12 @@ async function sendEmail(
 
   if (!sent) {
     logger.warn('POS receipt: email was not accepted', { saleId: sale.id });
-    return;
+    return false;
   }
 
   await posSaleRepository.markReceiptSent(sale.id);
   logger.info('POS receipt: emailed', { saleId: sale.id, shopId: sale.shopId });
+  return true;
 }
 
 export function setupPosReceiptListener(): void {
