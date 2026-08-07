@@ -11,6 +11,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import publicAiRoutes from './domains/AIAgentDomain/routes/publicAsk';
 import { Config } from './config';
 import { logger } from './utils/logger';
 import { setupSwagger } from './docs/swagger';
@@ -496,6 +497,11 @@ class RepairCoinApp {
 
     // Upload routes
     this.app.use('/api/upload', uploadRoutes);
+
+    // Homepage AI assistant — PUBLIC and unauthenticated, so it carries its own captcha and per-IP
+    // limits rather than relying on the app-wide ones. Answers come from the prospect corpus; no
+    // model is called. See domains/AIAgentDomain/routes/publicAsk.ts.
+    this.app.use('/api/public/ai', publicAiRoutes);
 
     // Waitlist routes
     this.app.use('/api/waitlist', waitlistRoutes);
