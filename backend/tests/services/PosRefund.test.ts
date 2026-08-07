@@ -9,6 +9,10 @@ process.env.SKIP_DB_CONNECTION_TESTS = 'true';
  */
 describe('POS refunds', () => {
   const getSale = jest.fn<(...a: any[]) => Promise<any>>();
+  const addItemRow = jest.fn<(...a: any[]) => Promise<any>>();
+  const setItemQuantityRow = jest.fn<(...a: any[]) => Promise<any>>();
+  const removeItemRow = jest.fn<(...a: any[]) => Promise<any>>();
+  const resolveRateBps = jest.fn<(...a: any[]) => Promise<any>>();
   const applyTenderRefund = jest.fn<(...a: any[]) => Promise<any>>();
   const setRefundStatus = jest.fn<(...a: any[]) => Promise<any>>();
   const getByPosSalePayment = jest.fn<(...a: any[]) => Promise<any>>();
@@ -57,6 +61,10 @@ describe('POS refunds', () => {
     jest.resetModules();
     [
       getSale,
+      addItemRow,
+      setItemQuantityRow,
+      removeItemRow,
+      resolveRateBps,
       applyTenderRefund,
       setRefundStatus,
       getByPosSalePayment,
@@ -97,8 +105,22 @@ describe('POS refunds', () => {
     // as "the update matched nothing", which is what the service sees when it refuses.
     voidSale.mockResolvedValue(null);
 
+    addItemRow.mockResolvedValue({ id: 'new-line' });
+    setItemQuantityRow.mockResolvedValue({ id: 'line-1' });
+    removeItemRow.mockResolvedValue(true);
+    resolveRateBps.mockResolvedValue(0);
+
     jest.doMock('../../src/repositories', () => ({
-      posSaleRepository: { getSale, applyTenderRefund, setRefundStatus, voidSale },
+      posSaleRepository: {
+        getSale,
+        addItem: addItemRow,
+        setItemQuantity: setItemQuantityRow,
+        removeItem: removeItemRow,
+        applyTenderRefund,
+        setRefundStatus,
+        voidSale,
+      },
+      shopTaxRepository: { resolveRateBps },
       paymentRepository: {
         getByPosSalePayment,
         getByPaymentIntent,
@@ -108,7 +130,6 @@ describe('POS refunds', () => {
       refundRepository: { createPending, markSettledOffStripe, markFailed },
       customerRepository: {},
       shopRepository: {},
-      shopTaxRepository: {},
       shopTerminalRepository: {},
     }));
     jest.doMock('../../src/domains/PaymentsDomain/services/RefundIssuer', () => ({

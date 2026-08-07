@@ -96,7 +96,93 @@ export class PosSaleService {
   async addItem(shopId: string, saleId: string, req: AddItemRequest): Promise<PosSaleWithDetails> {
     const sale = await this.requireSale(saleId, shopId);
     const input = await this.resolveItem(shopId, req);
+
+    // Ringing the same thing up twice is one line of two, not two lines of one. A till that grows
+    // a row per tap produces a receipt nobody can read and a cart nobody can correct — the
+    // cashier's only fix for over-tapping was to delete a line and start the count again.
+    const existing = this.mergeableLine(sale, input);
+    if (existing) {
+      return this.setItemQuantity(
+        shopId,
+        saleId,
+        existing.id,
+        existing.quantity + (input.quantity ?? 1)
+      );
+    }
+
     await posSaleRepository.addItem(saleId, await this.applyTax(shopId, sale.locationId, input));
+    return this.requireSale(saleId, shopId);
+  }
+
+  /**
+   * The line an incoming item should fold into, or null to start a new one.
+   *
+   * Everything that makes the line's money must match, because merging rewrites the quantity and
+   * leaves the rest alone: a different price or tax treatment would silently take on the existing
+   * line's. A discounted line is left alone for the same reason — the discount is a fixed amount
+   * against the quantity it was given for, and doubling the goods under it would halve it per unit.
+   *
+   * **Custom lines never merge.** They are ad-hoc by definition, so two charges that happen to
+   * share a name and a price are not evidence they are the same thing.
+   */
+  private mergeableLine(
+    sale: PosSaleWithDetails,
+    input: AddPosSaleItemInput
+  ): { id: string; quantity: number } | null {
+    if (input.kind === 'custom') return null;
+    if ((input.discountCents ?? 0) !== 0) return null;
+
+    const match = sale.items.find(
+      (item) =>
+        item.kind === input.kind &&
+        item.serviceId === (input.serviceId ?? null) &&
+        item.inventoryItemId === (input.inventoryItemId ?? null) &&
+        item.unitPriceCents === input.unitPriceCents &&
+        item.taxable === (input.taxable ?? true) &&
+        item.discountCents === 0
+    );
+    return match ? { id: match.id, quantity: match.quantity } : null;
+  }
+
+  /**
+   * Sets a line's quantity, recomputing its tax through the same path `addItem` uses so a line
+   * edited to three is taxed identically to one rung up three times.
+   */
+  async setItemQuantity(
+    shopId: string,
+    saleId: string,
+    itemId: string,
+    quantity: number
+  ): Promise<PosSaleWithDetails> {
+    const sale = await this.requireSale(saleId, shopId);
+    const line = sale.items.find((item) => item.id === itemId);
+    if (!line) throw httpError('Line not found on this sale.', 404);
+
+    if (!Number.isInteger(quantity) || quantity < 0) {
+      throw httpError('Quantity must be a whole number of zero or more.', 400);
+    }
+    // Zero is how a quantity stepper reaches "remove", and a line of nothing is not a line.
+    if (quantity === 0) return this.removeItem(shopId, saleId, itemId);
+
+    const taxed = await this.applyTax(shopId, sale.locationId, {
+      kind: line.kind,
+      name: line.name,
+      quantity,
+      unitPriceCents: line.unitPriceCents,
+      discountCents: line.discountCents,
+      taxable: line.taxable,
+    });
+    const taxCents = taxed.taxCents ?? 0;
+    const totalCents = quantity * line.unitPriceCents - line.discountCents + taxCents;
+
+    const updated = await posSaleRepository.setItemQuantity(
+      saleId,
+      itemId,
+      quantity,
+      taxCents,
+      totalCents
+    );
+    if (!updated) throw httpError('Line not found on this sale.', 404);
     return this.requireSale(saleId, shopId);
   }
 

@@ -208,6 +208,18 @@ export async function addItem(
   );
 }
 
+/** Sets a line's quantity outright. Zero removes the line. */
+export async function setItemQuantity(
+  saleId: string,
+  itemId: string,
+  quantity: number
+): Promise<PosSale> {
+  return unwrap(
+    await apiClient.patch(`/shops/pos/sales/${saleId}/items/${itemId}`, { quantity }),
+    "Could not change the quantity"
+  );
+}
+
 export async function removeItem(saleId: string, itemId: string): Promise<PosSale> {
   return unwrap(
     await apiClient.delete(`/shops/pos/sales/${saleId}/items/${itemId}`),

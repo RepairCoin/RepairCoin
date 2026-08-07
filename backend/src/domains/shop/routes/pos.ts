@@ -157,6 +157,19 @@ router.delete(
   )
 );
 
+// Quantity 0 removes the line, so a stepper can count down to nothing without a second call.
+router.patch(
+  '/pos/sales/:id/items/:itemId',
+  handle('Failed to change the quantity', (shopId, req) =>
+    getPosSaleService().setItemQuantity(
+      shopId,
+      req.params.id,
+      req.params.itemId,
+      Number(req.body?.quantity)
+    )
+  )
+);
+
 router.post(
   '/pos/sales/:id/payments',
   handle('Failed to take payment', (shopId, req) => {
