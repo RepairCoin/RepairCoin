@@ -34,15 +34,19 @@ const TAB_ROUTES: Record<string, string> = {
   services: "/shop/tabs/service",
   promo: "/shop/promo-code",
   orders: "/shop/service-orders",
+  marketing: "/shop/marketing",
 };
 
 /**
- * Only `navigate` actions can be honoured on mobile. `assistant`, `campaign`
- * and `workflow` all open surfaces that only exist on web (the AI assistant and
- * the automation builder), so those recommendations are filtered out until
- * mobile has an equivalent screen.
+ * Only `navigate` and `campaign` actions can be honoured on mobile. `campaign`
+ * always opens the Marketing hub — its `audience` string isn't a route and its
+ * value set isn't documented, so it's never mapped, only used as the signal that
+ * a mobile screen now exists. `assistant` and `workflow` still open surfaces that
+ * only exist on web (the AI assistant and the automation builder), so those
+ * recommendations are filtered out until mobile has an equivalent screen.
  */
 function routeForAction(action: RecAction): string | null {
+  if (action.kind === "campaign") return "/shop/marketing";
   if (action.kind !== "navigate") return null;
   return TAB_ROUTES[action.tab] ?? null;
 }

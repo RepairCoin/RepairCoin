@@ -3,7 +3,7 @@ import { Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useAppToast } from "@/shared/hooks";
+import { useAppToast, useQueryClient, queryKeys } from "@/shared/hooks";
 import { apiClient } from "@/shared/utilities/axios";
 import { useShop } from "../../account/hooks/useShopQuery";
 import {
@@ -91,6 +91,7 @@ export function useSubscription() {
   const { useGetShopByWalletAddress } = useShop();
   const { data: shopData, refetch } = useGetShopByWalletAddress(account?.address || "");
   const { showSuccess, showError } = useAppToast();
+  const queryClient = useQueryClient();
 
   const [isCancelling, setIsCancelling] = useState(false);
   const [isReactivating, setIsReactivating] = useState(false);
@@ -226,6 +227,9 @@ export function useSubscription() {
         setTrialEligible(false);
         await refetch();
         await fetchSubscriptionDetails();
+        // A trial can unlock tier-gated features (e.g. Marketing) — refresh the gate so
+        // TierGate reflects it without the shop needing to restart the app.
+        queryClient.invalidateQueries({ queryKey: queryKeys.shopFeatureAccess() });
 
         showSuccess(
           result.data?.message ||
@@ -307,6 +311,9 @@ export function useSubscription() {
       if (result.success) {
         await refetch();
         await fetchSubscriptionDetails();
+        // A plan change can unlock/lock tier-gated features (e.g. Marketing) — refresh the
+        // gate so TierGate reflects it without the shop needing to restart the app.
+        queryClient.invalidateQueries({ queryKey: queryKeys.shopFeatureAccess() });
 
         showSuccess(result.data?.message || "Your subscription plan has been updated.");
       } else {

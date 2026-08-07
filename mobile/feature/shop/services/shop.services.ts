@@ -29,6 +29,7 @@ import {
   ConnectSummaryResponse,
   ConnectOnboardingLinkResponse,
   ConnectStatusResponse,
+  FeatureAccessResponse,
 } from "./shop.interface";
 import {
   PurchaseHistoryResponse,
@@ -469,6 +470,18 @@ class ShopApi {
       return await apiClient.get("/shops/connect/status");
     } catch (error: any) {
       console.error("Failed to get Stripe Connect status:", error.message);
+      throw error;
+    }
+  }
+
+  // ─── Feature Access (tier gate) ───────────────────────────────────────────────
+
+  // Auth-only, so this never 403s on itself — the shop always gets back its own tier + map.
+  async getFeatureAccess(): Promise<FeatureAccessResponse> {
+    try {
+      return await apiClient.get("/shops/feature-access");
+    } catch (error: any) {
+      console.error("Failed to get feature access:", error.message);
       throw error;
     }
   }
