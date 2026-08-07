@@ -1,12 +1,19 @@
 # Twilio Toll-Free Verification — Submission Packet (copy-paste ready)
 
 Everything management needs to **resubmit** the toll-free verification for **+1 888 471 5544**, with
-every field pre-written to match what is live on `fixflow.ai`. The prior rejection was for
-inconsistency (30496) and opt-in (30498) — so the golden rule here is: **every field below describes
-the same messaging program, and matches the website. Do not reword one field without the others.**
+every field pre-written to match what is live on `fixflow.ai`.
 
-Companion to `twilio-tollfree-verification-compliance.md` (why) and
-`../test/twilio-tollfree-compliance-test-and-screenshots.md` (screenshots).
+**Rejection history:** inconsistency (30496) and opt-in (30498), then business email (30482), then —
+2026-08-07 — business email again, plus *"Marketing Messages Require Express Written Consent"* and
+*"Opt-in — Consent for messaging is a requirement for service"*.
+
+**This version is TRANSACTIONAL ONLY**, because the last two rejections were caused by claiming a
+marketing program the product does not have. Read
+[`twilio-tollfree-resolution-plan.md`](./twilio-tollfree-resolution-plan.md) before editing anything
+here — it explains why, and what has to be built before marketing can be submitted at all.
+
+Two golden rules: **every field below describes the same messaging program and matches the website**
+(do not reword one without the others), and **do not add marketing back in.**
 
 ---
 
@@ -43,22 +50,34 @@ Companion to `twilio-tollfree-verification-compliance.md` (why) and
 
 | Field | Value |
 |---|---|
-| Use-case category | **Mixed** — the program is transactional (appointments/service) **and** opt-in marketing. The website/policies mention marketing, so the category must too, or it re-triggers 30496. |
+| Use-case category | **Customer Care / Notifications** — NOT "Mixed". See the warning below. |
 | Opt-in type | **Web form / online** (the SMS consent toggle in the customer's account) |
 | Estimated monthly volume | *[management to fill — a realistic number; toll-free has daily/monthly throughput limits, so don't over-state]* |
+
+> 🔴 **This section was rewritten 2026-08-07 after the third rejection. Do not put marketing back in.**
+>
+> The previous version declared **Mixed** and said marketing SMS goes to customers who "separately opt
+> in". That claim is not true of the product: there is one SMS toggle, for transactional messages, and
+> **no separate marketing opt-in exists** — not in the UI, and not in the consent ledger, which records
+> a channel (`sms`/`whatsapp`) and not a purpose.
+>
+> So a reviewer read the claim, looked at our screenshot, found no marketing consent capture, and
+> rejected for *"Marketing Messages Require Express Written Consent"*. Rewording will not fix it,
+> because the mechanism genuinely is not there.
+>
+> **Marketing goes in a SEPARATE submission, after the toggle and the ledger `purpose` column are
+> built.** See `twilio-tollfree-resolution-plan.md`.
 
 ### Use case description  *(free text — paste verbatim)*
 > FixFlow sends transactional SMS to customers of the service businesses on our platform: appointment
 > confirmations, appointment reminders, repair/service status updates, payment confirmations, one-time
-> verification codes, and customer-support replies. Marketing or promotional SMS are sent only to
-> customers who have separately and explicitly opted in. Customers opt in via a checkbox in their
+> verification codes, and customer-support replies. Customers opt in via a consent toggle in their
 > FixFlow account settings, and can reply STOP to unsubscribe or HELP for help at any time.
 
 ### Use case summary  *(free text — paste verbatim; this is the field that must MATCH the description)*
 > Transactional messaging for appointment- and service-based businesses on FixFlow: appointment
 > confirmations and reminders, service/repair updates, payment confirmations, verification codes, and
-> support replies. Marketing SMS only to customers who separately opt in. STOP to unsubscribe, HELP
-> for help.
+> support replies. Customers opt in in their account settings. STOP to unsubscribe, HELP for help.
 
 > ⚠️ The description and summary above deliberately say the **same thing**. If you edit one, edit both.
 > Reason 30496 was these two disagreeing.
@@ -74,12 +93,12 @@ Paste verbatim:
 > action. Directly beneath it, before the customer enables it, we display: the message types
 > (appointment confirmations, reminders, service updates), "Message frequency varies", "Msg & data
 > rates may apply", "Reply STOP to unsubscribe, HELP for help", and links to our SMS Policy and
-> Privacy Policy. Marketing messages require a separate, distinct opt-in. Consent is recorded per
-> customer and honored on every send.
+> Privacy Policy. Consent is recorded per customer and honored on every send. Customers can withdraw
+> consent at any time by turning the toggle off or replying STOP.
 
 **Opt-in evidence to attach:**
-- Screenshot: the "SMS Notifications" toggle **with the disclosure text beneath it** (see the
-  screenshot guide, Screenshot 1).
+- Screenshot: the "SMS Notifications" toggle **with the disclosure text beneath it** (the message
+  types, "Msg & data rates may apply", STOP/HELP, and the SMS/Privacy Policy links).
 - Opt-in / policy URLs:
   - SMS Policy — **https://fixflow.ai/sms-policy**
   - Privacy Policy — **https://fixflow.ai/privacy-policy**
@@ -97,8 +116,8 @@ Paste verbatim:
    > FixFlow: Update from Downtown Auto Repair — your brake service is complete and ready for pickup. Reply STOP to opt out.
 4. **Payment confirmation** —
    > FixFlow: Payment of $145.00 to Downtown Auto Repair received. Thank you! Reply STOP to opt out, HELP for help.
-5. **Marketing (opt-in only)** —
-   > FixFlow: Downtown Auto Repair is offering 15% off oil changes this month. Book in the app. Reply STOP to unsubscribe.
+> ⚠️ There is deliberately **no marketing sample here**. One was removed 2026-08-07 — a promotional
+> example tells the reviewer to look for marketing consent, which is exactly what got this rejected.
 
 > Samples name the business (FixFlow), reflect the stated use case, and carry STOP/HELP — all things
 > reviewers look for. Keep at least one showing the opt-out language.
@@ -108,10 +127,12 @@ Paste verbatim:
 ## Pre-submit checklist
 
 - [ ] Email = `admin@fixflow.ai` and the inbox receives mail.
-- [ ] Category = **Mixed**; opt-in type = **Web form/online**.
+- [ ] Category = **Customer Care / Notifications** (NOT Mixed); opt-in type = **Web form/online**.
+- [ ] No mention of marketing anywhere — description, summary, opt-in text, or samples.
+- [ ] Business email is **admin@fixflow.ai**, and someone has confirmed it receives mail.
 - [ ] Use case **description** and **summary** pasted verbatim (they match).
 - [ ] Opt-in workflow pasted verbatim; matches the screenshot and the live toggle.
-- [ ] Screenshot 1 (opt-in + disclosure) attached; policy URLs = the three fixflow.ai links.
+- [ ] The opt-in screenshot (toggle + disclosure) attached; policy URLs = the three fixflow.ai links.
 - [ ] Sample messages entered.
 - [ ] Volume filled realistically.
 - [ ] Editing the **rejected** verification (in the 7-day window), not creating a new one.
