@@ -176,7 +176,7 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S1 | **Phase 1** — reader pairing, status, default reader, disconnect, test charge — **built, untested against hardware** | M | S0 |
 | S2 | **Sale model** — `pos_sales` / `pos_sale_items` / `pos_sale_payments` — **shipped (#710)** | L | — |
 | S3 | Tax — rates, taxability, per-line snapshot — **built** | M | S2 |
-| S4 | **Phase 2** — POS UI, tablet web, split tender — **shipped (#715)** | L | S1, S2, S3 |
+| S4 | **Phase 2** — POS UI, tablet web — **shipped (#715)**; split tender is backend-only, see 13 | L | S1, S2, S3 |
 | S5 | **Phase 5** — inventory wiring, per-branch stock, cost/margin — **built** | S | S2 |
 | S6a | **Fiat-ledger reconciliation** (see 7a) — **built** | M | S2 |
 | S6b | **Customer + loyalty** — attach a customer, earn RCN — **built** | M | S2 |
@@ -1157,6 +1157,29 @@ register showing 0 invites the shop to refuse a claim it still owes.
 **Not covered:** what the work was performed on. That is still S7b, still greenfield. This records
 the term, not the device, so a customer with two phones has one list of covered repairs and no way to
 tell which phone each belongs to.
+
+---
+
+## 13. Split tender never reached the register — **found, not fixed**
+
+The build order above credited S4 with split tender. The backend has it: `assertTenderable` accepts
+any amount up to the outstanding balance, `pos_sale_payments` is one row per tender, S6a apportions
+tax across the fiat legs, and S6d's refund walks card legs before cash. The **register never sends a
+partial amount.** `takeCash` is called with `sale.balanceCents` and `startCardPayment` with no
+amount at all, which the service resolves to the same thing. Every tender the till can create
+settles the whole balance.
+
+So "twenty in cash and the rest on the card" — an ordinary counter request — cannot be rung up, and
+a split-tender sale can only be produced through the API. Nothing is broken by this; a large amount
+of machinery is simply unreachable, including the part of S6d that decides which leg to reverse
+first.
+
+Fixing it is a register change, not a backend one: an amount field on each tender path, defaulting
+to the balance, and a screen that reads as partially paid between the two. Deliberately left for
+whoever picks S4 back up, because it is that slice's scope rather than this one's.
+
+The claim in the table has been corrected. §4.2's reasoning about commission on split tender still
+stands and is still right — it just describes a path no shop can currently walk.
 
 ---
 
