@@ -252,10 +252,21 @@ router.post('/ask', askDailyLimiter, askLimiter, verifyCaptcha('homepage_ai'), a
     }
 
     if (isOffTopic(question)) {
-      const count = await record(sid, ipHash, question, 'refused', null, null, Date.now() - started);
+      await record(
+        sid, ipHash, question, 'refused', null, null, Date.now() - started, null,
+        OFF_TOPIC.answer, OFF_TOPIC.nextStep
+      );
+      // `used`, not record()'s return. record() gives the TOTAL message count, so this branch was
+      // still charging for a refusal while /session correctly reported it as free — the two endpoints
+      // disagreeing about the same session, with this one wrong.
       return res.json({
         success: true,
-        data: { answeredBy: 'refused', ...OFF_TOPIC, remaining: Math.max(0, FREE_ANSWERS - count), gated: false },
+        data: {
+          answeredBy: 'refused',
+          ...OFF_TOPIC,
+          remaining: Math.max(0, FREE_ANSWERS - used),
+          gated: false,
+        },
       });
     }
 

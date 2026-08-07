@@ -55,6 +55,23 @@ describe('the grounding guard — what the model is not allowed to say', () => {
     }
   });
 
+  it('allows a price followed by a comma', () => {
+    // The bug that shipped. `[\d,]*` swallowed sentence punctuation, so "$80," was read as the figure,
+    // was not in the corpus, and a correct pricing answer was discarded — on the most-asked question
+    // on the site. From outside it looked like the model just preferring the canned reply.
+    //
+    // My own "blocks an invented price" test passed throughout, because I wrote "$49 a month" with no
+    // comma. Real traffic found it in a day.
+    expect(
+      violatesGrounding('Starter AI at $80, Growth AI at $299 and Business AI at $599.', CORPUS)
+    ).toBeNull();
+  });
+
+  it('still treats a real thousands separator as part of the figure', () => {
+    // The comma handling exists for a reason — "$1,200" is one number, not "$1" followed by junk.
+    expect(violatesGrounding('Plans go up to $1,200.', CORPUS)).toMatch(/invented figure \$1,200/);
+  });
+
   it('does not block ordinary sentences', () => {
     // A guard that fires on normal copy would discard every good answer and quietly turn P3 back into
     // P1 — passing tests, no model, and nobody any the wiser.
@@ -71,6 +88,43 @@ describe('the grounding guard — what the model is not allowed to say', () => {
   it('catches a price hidden in the next step, not just the answer', () => {
     // The route checks answer + nextStep together, because the CTA is where a price is most tempting.
     expect(violatesGrounding('Sounds good. Try it for $19.', CORPUS)).toMatch(/invented figure/);
+  });
+});
+
+describe('what the model is shown as facts', () => {
+  // Built from the real corpus, because the bug was about what the real files contain.
+  const { ProspectCorpusMatcher } = require('../../src/domains/AIAgentDomain/services/ProspectCorpusMatcher');
+  const block = new ProspectCorpusMatcher()
+    .listArticles()
+    .map((a: any) => `## ${a.title}\n\n${a.answer}`)
+    .join('\n\n---\n\n');
+
+  it('contains no "People ask this as" lists', () => {
+    // Those are P1 matcher input. Shown to a model they read as "questions this article answers", so
+    // it answers them whether or not the body does — which is exactly how "What happens after the
+    // trial?" produced the invented "your account will stop working".
+    expect(block).not.toMatch(/People ask this as/i);
+  });
+
+  it('contains no per-article CTAs', () => {
+    // The model writes its own NEXT line; leaving ours in the facts invites it to parrot them.
+    expect(block).not.toMatch(/## Next step/i);
+  });
+
+  it('still contains the actual facts', () => {
+    // The guard above must not be satisfied by an empty block — that would silently un-ground the
+    // model while every other test kept passing.
+    expect(block).toContain('$80');
+    expect(block).toContain('14-day');
+    expect(block.length).toBeGreaterThan(2000);
+  });
+
+  it('answers what happens when the trial ends', () => {
+    // The specific gap that caused the invention. A lapsed trial drops to the Free plan; it does not
+    // stop the account working, and telling a prospect otherwise is both false and a conversion
+    // killer.
+    expect(block).toMatch(/trial ends/i);
+    expect(block).toMatch(/Free.{0,40}plan|drop to the/i);
   });
 });
 
