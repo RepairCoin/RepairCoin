@@ -459,6 +459,64 @@ export function setupPosSaleListener(): void {
   logger.info('POS sale listener registered for inventory stock deduction');
 }
 
+/**
+ * Puts returned goods back on the shelf when a counter sale is refunded.
+ *
+ * **Products only.** A service's linked parts were consumed doing the repair — the customer's money
+ * comes back, the fitted screen does not — so restocking them would invent stock the shop does not
+ * have. That asymmetry is the whole reason this is not simply the deduction run backwards.
+ *
+ * The refunding shop asks for this explicitly (`restock`), because a refund does not imply a
+ * return: a customer refunded for a faulty part is not handing back something sellable. The
+ * publisher additionally withholds it on a partial refund, where nothing says which lines came back.
+ */
+export function setupPosRefundListener(): void {
+  eventBus.subscribe(
+    'pos.sale_refunded',
+    async (event: {
+      data: {
+        saleId: string;
+        shopId: string;
+        locationId: string | null;
+        restock: boolean;
+        items: Array<{ kind: string; inventoryItemId: string | null; quantity: number }>;
+      };
+    }) => {
+      const { saleId, shopId, locationId, restock, items } = event.data;
+      if (!restock) return;
+
+      for (const item of items ?? []) {
+        if (item.kind !== 'product' || !item.inventoryItemId) continue;
+        try {
+          await inventoryRepo.adjustStock({
+            itemId: item.inventoryItemId,
+            shopId,
+            locationId: locationId || undefined,
+            adjustmentType: 'return',
+            quantityChange: item.quantity,
+            reason: 'Returned on a refunded counter sale',
+            referenceType: 'pos_sale_refund',
+            referenceId: saleId,
+            adjustedBy: 'system'
+          });
+        } catch (error) {
+          // Swallowed per item, as on the deduction path: the money is already back with the
+          // customer, and one unresolvable item must not strand the rest of the return.
+          logger.error('Error restocking a refunded POS line', {
+            itemId: item.inventoryItemId,
+            shopId,
+            saleId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+    },
+    'InventoryDomain:PosRefund'
+  );
+
+  logger.info('POS refund listener registered for inventory restock');
+}
+
 // Setup event listener for service completion
 export function setupServiceCompletionListener(): void {
   eventBus.subscribe('service:completed', async (event: {

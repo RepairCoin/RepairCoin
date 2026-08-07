@@ -9,6 +9,7 @@ import { listTaxRates, bpsToPercent, type ShopTaxRate } from "@/services/api/tax
 import { getLocations, type ShopLocation } from "@/services/api/locations";
 import { getPosSummary, formatCents, type PosSalesSummary } from "@/services/api/pos";
 import { readPosLocation, writePosLocation } from "@/components/shop/pos/posLocation";
+import { SalesHistory } from "@/components/shop/pos/SalesHistory";
 
 const RANGES = [
   { days: 1, label: "24 hours" },
@@ -62,6 +63,7 @@ export function PosTab() {
   // Scoped to the branch only when there is more than one. A single-location shop that predates
   // the register binding has sales with no location_id, and filtering would hide them.
   const scoped = locations.length > 1 ? locationId : null;
+  const scopedName = scoped ? locations.find((l) => l.id === scoped)?.name ?? "this branch" : null;
 
   useEffect(() => {
     let live = true;
@@ -106,10 +108,7 @@ export function PosTab() {
       <div className={PANEL}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-white">
-            Counter sales
-            {locations.length > 1 && scoped
-              ? ` — ${locations.find((l) => l.id === scoped)?.name ?? "this branch"}`
-              : ""}
+            Counter sales{scopedName ? ` — ${scopedName}` : ""}
           </h2>
           <div className="flex gap-1 rounded-lg bg-white/[0.04] p-1">
             {RANGES.map((r) => (
@@ -233,6 +232,10 @@ export function PosTab() {
             />
           </ul>
         )}
+      </div>
+
+      <div className={PANEL}>
+        <SalesHistory locationId={scoped} locationName={scopedName} />
       </div>
     </div>
   );

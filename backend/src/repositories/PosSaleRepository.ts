@@ -85,6 +85,14 @@ export interface PosSaleWithDetails extends PosSale {
   balanceCents: number;
 }
 
+/**
+ * A history row. Carries the line count rather than the lines: a list showing "3 items" needs a
+ * number, and loading every line of every sale to produce one is the query that gets slow first.
+ */
+export interface PosSaleListRow extends PosSale {
+  itemCount: number;
+}
+
 export interface PosSalesSummary {
   saleCount: number;
   netRevenueCents: number; // what was sold, after discounts, before tax
@@ -262,6 +270,21 @@ export class PosSaleRepository extends BaseRepository {
     await this.pool.query(`UPDATE pos_sales SET receipt_sent_at = now() WHERE id = $1`, [saleId]);
   }
 
+  /**
+   * Redirects a closed sale's receipt to a new address, for the customer who gave the wrong one or
+   * asks for a copy later. Deliberately not `setReceiptEmail`, which guards on `open` so the
+   * register cannot rewrite a sale it has already closed. `receipt_email` means "where the receipt
+   * went", so a resend moves it rather than keeping the address that failed.
+   */
+  async redirectReceipt(saleId: string, shopId: string, receiptEmail: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE pos_sales SET receipt_email = $3, updated_at = now()
+       WHERE id = $1 AND shop_id = $2 AND status <> 'open'`,
+      [saleId, shopId, receiptEmail]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async getSale(saleId: string, shopId: string): Promise<PosSaleWithDetails | null> {
     const saleResult = await this.pool.query(
       `SELECT * FROM pos_sales WHERE id = $1 AND shop_id = $2`,
@@ -299,23 +322,78 @@ export class PosSaleRepository extends BaseRepository {
     return { ...sale, items, payments, paidCents, balanceCents: sale.totalCents - paidCents };
   }
 
+  /**
+   * A page of sales history, with the total behind it.
+   *
+   * The count is a second query on purpose. Without it the caller can only show "here are 50 sales"
+   * and has no way to say 50 of how many — a cap the shop cannot see is indistinguishable from
+   * having no more sales. Both queries ride `idx_pos_sales_shop (shop_id, created_at DESC)`.
+   *
+   * Dates arrive as full timestamps rather than calendar days: shops still have no timezone
+   * recorded, so resolving "the 6th" here would mean UTC midnight and cut a west-coast evening's
+   * takings onto the wrong day. The caller knows its own timezone and bounds the range itself.
+   */
   async listSales(
     shopId: string,
-    options: { status?: PosSaleStatus; limit?: number } = {}
-  ): Promise<PosSale[]> {
+    options: {
+      status?: PosSaleStatus;
+      locationId?: string | null;
+      saleNumber?: number | null;
+      from?: string | null;
+      to?: string | null;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ): Promise<{ sales: PosSaleListRow[]; total: number }> {
     const params: unknown[] = [shopId];
-    let where = 'shop_id = $1';
+    let where = 's.shop_id = $1';
+
+    // An exact number, not a prefix search. It comes off a receipt in the customer's hand, and
+    // `uq_pos_sales_number (shop_id, sale_number)` makes it a single index lookup.
+    if (options.saleNumber) {
+      params.push(options.saleNumber);
+      where += ` AND s.sale_number = $${params.length}`;
+    }
     if (options.status) {
       params.push(options.status);
-      where += ` AND status = $${params.length}`;
+      where += ` AND s.status = $${params.length}`;
     }
-    params.push(Math.min(options.limit ?? 50, 200));
+    if (options.locationId) {
+      params.push(options.locationId);
+      where += ` AND s.location_id = $${params.length}`;
+    }
+    if (options.from) {
+      params.push(options.from);
+      where += ` AND s.created_at >= $${params.length}`;
+    }
+    if (options.to) {
+      params.push(options.to);
+      where += ` AND s.created_at < $${params.length}`;
+    }
 
-    const result = await this.pool.query(
-      `SELECT * FROM pos_sales WHERE ${where} ORDER BY created_at DESC LIMIT $${params.length}`,
-      params
-    );
-    return result.rows.map((r) => this.mapSale(r));
+    const limit = Math.min(Math.max(options.limit ?? 25, 1), 200);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    // Ordered by created_at, not completed_at: an open cart has no completion time, and the one
+    // thing a cashier looks for in this list is the sale they just rang up. At a counter the two
+    // are minutes apart, so a date range bounded on creation says what anyone means by it.
+    const [result, count] = await Promise.all([
+      this.pool.query(
+        `SELECT s.*,
+                (SELECT COUNT(*) FROM pos_sale_items i WHERE i.sale_id = s.id)::int AS item_count
+           FROM pos_sales s
+          WHERE ${where}
+          ORDER BY s.created_at DESC
+          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, limit, offset]
+      ),
+      this.pool.query(`SELECT COUNT(*)::int AS total FROM pos_sales s WHERE ${where}`, params),
+    ]);
+
+    return {
+      sales: result.rows.map((r) => ({ ...this.mapSale(r), itemCount: n(r.item_count) })),
+      total: n(count.rows[0]?.total),
+    };
   }
 
   async addItem(saleId: string, input: AddPosSaleItemInput): Promise<PosSaleItem> {
@@ -600,13 +678,74 @@ export class PosSaleRepository extends BaseRepository {
     };
   }
 
+  /**
+   * Discards an open cart.
+   *
+   * Refuses once any tender has settled or is still in flight. A void is meant to throw away a cart
+   * nobody paid for; run against a sale that took money it produces two different wrongs depending
+   * on how the customer paid. Cash never reaches the ledger at all — `writeToLedger` runs only on
+   * completion — so the drawer is up and revenue is not. A card leg *does* reach it, because
+   * `PaymentReconciler` writes from `charge.succeeded` whether or not the sale was ever completed,
+   * so the ledger holds real money against a sale marked voided. Neither is recoverable from the
+   * register afterwards.
+   *
+   * In-flight legs (`pending`, `processing`) are refused too: voiding around one orphans the
+   * PaymentIntent, which is the abandoned-authorisation problem of 6a with a customer's real card
+   * behind it. `cancelCardPayment` is the way out of that state and already exists.
+   *
+   * The guard is in the statement, not only in the service, so a tender settling between the check
+   * and the write cannot slip through.
+   */
   async voidSale(saleId: string, shopId: string, reason?: string): Promise<PosSale | null> {
     const result = await this.pool.query(
       `UPDATE pos_sales
        SET status = 'voided', voided_at = now(), void_reason = $3, updated_at = now()
        WHERE id = $1 AND shop_id = $2 AND status = 'open'
+         AND NOT EXISTS (
+           SELECT 1 FROM pos_sale_payments
+            WHERE sale_id = $1 AND status IN ('succeeded', 'pending', 'processing')
+         )
        RETURNING *`,
       [saleId, shopId, reason ?? null]
+    );
+    return result.rows[0] ? this.mapSale(result.rows[0]) : null;
+  }
+
+  /**
+   * Adds to how much of one tender has been handed back.
+   *
+   * Written immediately, unlike `payments.refunded_cents`, which stays the webhook reconciler's to
+   * own for anything carrying a charge. The two answer different questions: this is the register's
+   * record of what it gave back and the cashier needs it on screen now, while the ledger figure is
+   * what actually settled at Stripe and is not known until `charge.refunded` lands. They converge;
+   * only one of them can be certain straight away.
+   *
+   * Takes the **delta**, and increments in the statement. Passing a precomputed total would mean
+   * reading the current figure first, and two refunds racing would both read the same starting
+   * point and the second would overwrite rather than add — losing one of them from the register's
+   * own record even where the money genuinely moved twice.
+   */
+  async applyTenderRefund(salePaymentId: string, addCents: number): Promise<void> {
+    await this.pool.query(
+      `UPDATE pos_sale_payments
+          SET refunded_cents = LEAST(refunded_cents + $2, amount_cents),
+              status = CASE WHEN refunded_cents + $2 >= amount_cents THEN 'refunded' ELSE status END
+        WHERE id = $1`,
+      [salePaymentId, addCents]
+    );
+  }
+
+  /** Moves a completed sale to `refunded` or `partially_refunded` once the money has gone back. */
+  async setRefundStatus(
+    saleId: string,
+    shopId: string,
+    status: 'refunded' | 'partially_refunded'
+  ): Promise<PosSale | null> {
+    const result = await this.pool.query(
+      `UPDATE pos_sales SET status = $3, updated_at = now()
+        WHERE id = $1 AND shop_id = $2 AND status IN ('completed', 'partially_refunded')
+        RETURNING *`,
+      [saleId, shopId, status]
     );
     return result.rows[0] ? this.mapSale(result.rows[0]) : null;
   }

@@ -6,6 +6,7 @@ import { Router } from 'express';
 import {
   setupServiceCompletionListener,
   setupPosSaleListener,
+  setupPosRefundListener,
 } from './controllers/serviceIntegrationController';
 import { getLowStockAlertScheduler } from '../../services/LowStockAlertScheduler';
 
@@ -21,6 +22,7 @@ export class InventoryDomain implements DomainModule {
     // Setup service completion event listener for auto stock deduction
     setupServiceCompletionListener();
     setupPosSaleListener();
+    setupPosRefundListener();
 
     // Start low stock alert scheduler in production
     if (process.env.NODE_ENV === 'production' || process.env.LOW_STOCK_ALERTS_ENABLED === 'true') {

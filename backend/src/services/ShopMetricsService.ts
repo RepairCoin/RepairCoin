@@ -1,6 +1,11 @@
 // backend/src/services/ShopMetricsService.ts
 import { getSharedPool } from '../utils/database-pool';
 import { logger } from '../utils/logger';
+import {
+  ledgerCustomerRevenue,
+  ledgerRecognized,
+  ledgerRevenueCents,
+} from '../utils/sqlFragments';
 
 export interface DailyStats {
   newBookings: number;
@@ -183,13 +188,20 @@ export class ShopMetricsService {
          GROUP BY 1
        ),
        takings AS (
-         -- Net of refunds, and captured_at is when the money moved; created_at only stands in
-         -- for rows written before capture (a cash tender is captured as it is taken).
+         -- captured_at is when the money moved; created_at only stands in for rows written before
+         -- capture (a cash tender is captured as it is taken).
+         --
+         -- Reads the shared fragments rather than its own arithmetic. This tile predates S9c-1 and
+         -- kept a copy that drifted from it in two ways: it counted sales tax as revenue, so a
+         -- taxed counter sale read higher here than in analytics; and it had no source filter, so
+         -- a shop's own rcn_purchase spending and its held no-show deposits counted as its
+         -- earnings — the exact double-count S9c-1 introduced ledgerCustomerRevenue to prevent.
          SELECT COALESCE(p.captured_at, p.created_at)::date AS day,
-                SUM(p.gross_cents - p.refunded_cents) AS cents
+                SUM(${ledgerRevenueCents('p')}) AS cents
          FROM payments p
          WHERE p.shop_id = $1
-           AND p.status IN ('succeeded', 'partially_refunded', 'refunded')
+           AND ${ledgerRecognized('p')}
+           AND ${ledgerCustomerRevenue('p')}
            AND COALESCE(p.captured_at, p.created_at)::date BETWEEN
                  COALESCE($2::date, CURRENT_DATE) - INTERVAL '6 days'
              AND COALESCE($2::date, CURRENT_DATE)

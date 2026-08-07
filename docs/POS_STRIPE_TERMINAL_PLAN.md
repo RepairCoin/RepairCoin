@@ -176,12 +176,13 @@ being designed. That is the fastest route to something real in a shop's hands.
 | S1 | **Phase 1** — reader pairing, status, default reader, disconnect, test charge — **built, untested against hardware** | M | S0 |
 | S2 | **Sale model** — `pos_sales` / `pos_sale_items` / `pos_sale_payments` — **shipped (#710)** | L | — |
 | S3 | Tax — rates, taxability, per-line snapshot — **built** | M | S2 |
-| S4 | **Phase 2** — POS UI, tablet web, split tender — **shipped (#715)** | L | S1, S2, S3 |
+| S4 | **Phase 2** — POS UI, tablet web — **shipped (#715)**; split tender is backend-only, see 13 | L | S1, S2, S3 |
 | S5 | **Phase 5** — inventory wiring, per-branch stock, cost/margin — **built** | S | S2 |
 | S6a | **Fiat-ledger reconciliation** (see 7a) — **built** | M | S2 |
 | S6b | **Customer + loyalty** — attach a customer, earn RCN — **built** | M | S2 |
 | S6c-1 | **Customer's receipt** — email captured at the register, in-app for an attached customer — **built** | M | S6b |
 | S6c-2 | **Review request** for a counter sale — needs the review path to accept one — **not started** | M | S6c-1 |
+| S6d | **Sales history and refunds** (see 12) — **built** | M | S6a, S6c-1 |
 | S7a | **Warranty terms** — per-service term, snapshotted on sales and bookings — **built** | M | S2 |
 | S7b | **Phase 6** — devices owned, per-device warranty | M | S2 |
 | S8 | **Phase 4** — repair ticket workflow | L | S2, S7 |
@@ -427,8 +428,52 @@ Transactions renders `Counter sale #7 · 3 items` where a service name would go,
 where the customer would be. Blank is the correct answer for a counter sale with no customer
 attached, but it is indistinguishable from lost attribution, so it says which.
 
-**Still true:** a sale voided after a cash tender was taken leaves that tender in the ledger.
-The money did move, so the row is not wrong, but there is no refund flow behind it yet.
+**Corrected 2026-08-07, then fixed.** This paragraph previously said a voided sale
+"leaves that tender in the ledger" and that "the row is not wrong". That is wrong for cash and
+misleading for card. `writeToLedger` runs only inside `completeSale`, and `takeCashPayment` writes to
+`pos_sale_payments` and nowhere else — so a voided sale never had a ledger row written for its cash.
+
+The two tenders fail in opposite directions:
+
+- **Cash.** No ledger row at all. The money is in the drawer, the tender is recorded against the
+  sale, and `payments` never hears about it. Revenue **under**-reports, and there is nothing anywhere
+  in FixFlow to refund against — it is not that S6d's refund path refuses, it is that there is no row
+  for it to act on.
+- **Card.** `PaymentReconciler` writes the row from `charge.succeeded` regardless of whether the sale
+  was ever completed — S6a deliberately taught `sourceFromMetadata` to return `terminal` so a charge
+  reconciling *before* completion is filed correctly. So the ledger holds real money against a sale
+  marked voided, and revenue **over**-reports relative to the sale record. This one is refundable
+  today, just not from the register: the Transactions page reads `payments` and has its own refund
+  button through `RefundController`.
+
+Both were reachable the same way: take a tender on an open sale, then void instead of completing.
+
+### The fix — the void refuses instead
+
+`voidSale` now declines a sale carrying a tender that has **settled** or is **still in flight**, and
+the shop completes and refunds it instead. Letting `refundSale` accept a voided sale was the other
+option and is worse: it would still leave cash with no row to refund, closing the smaller half while
+leaving the ledger disagreeing with the sale record on the other.
+
+**In-flight legs are refused too.** Voiding around a `pending` or `processing` card leg orphans the
+PaymentIntent — the abandoned-authorisation problem of 6a, but with a customer's real card behind it
+rather than a test. `cancelCardPayment` already existed and is plainly the intended move; nothing
+had ever required reaching for it.
+
+**The guard is in the UPDATE**, as a `NOT EXISTS` over the sale's tenders, so a card leg settling
+between a check and a write cannot slip through. The service re-reads only to choose the message,
+because "you cannot clear this sale" without saying what to do next leaves a cashier holding an open
+till and a customer who has paid. It names the amount and points at complete-then-refund, or at the
+cancel action for an in-flight leg.
+
+**The register had to change with it.** `discard` swallowed void failures and opened a fresh sale
+regardless, so a refused void would have silently abandoned the paid sale — the exact state the guard
+exists to prevent, reached by a different route. It now surfaces the error and stays put.
+
+**Sales voided before this landed are not repaired.** A cash one has money in the drawer and no
+ledger row; a card one has a ledger row under a voided sale. Both need a decision per sale rather
+than a migration, since only the shop knows whether the customer was given their money back. Worth a
+query on staging and production before anyone assumes the count is zero.
 
 ## 8a. Phase 8 is bigger than this plan implies (S6b)
 
@@ -586,6 +631,16 @@ only ever sharing a join. `ancient-realm-tech` went from $0 to $205.69 on the fi
 This is the first piece of S9c rather than a parallel `pos_sales` branch. The ledger is already the
 union of every channel, so the tile does not grow a case per channel; the warning against parallel
 aggregation still stands for the remaining reports.
+
+> **Corrected in S6d.** Being first meant the tile predated the three shared fragments S9c-1 later
+> introduced, and it kept its own `gross - refunded` instead of adopting them. Two consequences, both
+> live until now. It counted **sales tax as revenue**, so a taxed counter sale read higher on the
+> dashboard than on every other revenue surface. And it had **no source filter**, so a shop's own
+> `rcn_purchase` spending and its held no-show deposits counted as its earnings — precisely the
+> double-count S9c-1 introduced `ledgerCustomerRevenue` to prevent, in the one place that never got
+> it. On staging: `1111` reported $62,423.41 and now reports $62,145.40; `prepnasyon-1` reported
+> $52.50 whose every cent was the shop buying its own tokens, and now reports $0.00. The guard test
+> covering the other three revenue sites now covers this one too.
 
 **Consequence to expect:** revenue for a booking now lands on the day it was paid, not the day it
 was booked, so historical days will not match what the tile showed before. The S9b gap also applies
@@ -840,8 +895,17 @@ non-fiat tender is involved. Reconciliation between `pos_sales` and `payments` h
 that, deliberately.
 
 **Decision 3 resolved: revenue is net of tax.** Migration 264 adds `tax_cents` to `payments`,
-holding the tax contained *within* `gross_cents` rather than added to it, so revenue is
-`gross - tax - refunded` in one expression for both channels. Bookings carry 0 and are unaffected.
+holding the tax contained *within* `gross_cents` rather than added to it, so one expression serves
+both channels. Bookings carry 0 and are unaffected.
+
+> **Corrected in S6d.** That expression was `gross - tax - refunded`, and it is wrong the moment a
+> row carrying tax is refunded: a $100 sale with $8.25 tax is `gross 10825, tax 825`, and refunding
+> all of it gave `10825 - 825 - 10825 = -825`. A full refund cost the shop more revenue than the
+> sale ever earned. It survived review here because nothing could refund a taxed row yet — bookings
+> carry no tax and cancel to exactly zero — so the defect was dormant until S6d made counter sales
+> refundable. A refund takes tax back with it, so the tax has to scale with what is left:
+> `(gross - refunded) × (gross - tax) / gross`. Verified against Postgres across full, partial and
+> zero-gross rows.
 
 Tax belongs to the sale but the ledger stores one row per tender, so it is apportioned pro rata
 across the fiat legs with the rounding remainder on the largest — `utils/apportionTax.ts`, unit
@@ -1093,6 +1157,177 @@ register showing 0 invites the shop to refuse a claim it still owes.
 **Not covered:** what the work was performed on. That is still S7b, still greenfield. This records
 the term, not the device, so a customer with two phones has one list of covered repairs and no way to
 tell which phone each belongs to.
+
+---
+
+## 13. Split tender never reached the register — **found, not fixed**
+
+The build order above credited S4 with split tender. The backend has it: `assertTenderable` accepts
+any amount up to the outstanding balance, `pos_sale_payments` is one row per tender, S6a apportions
+tax across the fiat legs, and S6d's refund walks card legs before cash. The **register never sends a
+partial amount.** `takeCash` is called with `sale.balanceCents` and `startCardPayment` with no
+amount at all, which the service resolves to the same thing. Every tender the till can create
+settles the whole balance.
+
+So "twenty in cash and the rest on the card" — an ordinary counter request — cannot be rung up, and
+a split-tender sale can only be produced through the API. Nothing is broken by this; a large amount
+of machinery is simply unreachable, including the part of S6d that decides which leg to reverse
+first.
+
+Fixing it is a register change, not a backend one: an amount field on each tender path, defaulting
+to the balance, and a screen that reads as partially paid between the two. Deliberately left for
+whoever picks S4 back up, because it is that slice's scope rather than this one's.
+
+The claim in the table has been corrected. §4.2's reasoning about commission on split tender still
+stands and is still right — it just describes a path no shop can currently walk.
+
+---
+
+## 12. Sales history and refunds (S6d) — **built**
+
+Two gaps that only looked separate. A completed counter sale could not be undone — `voidSale`
+rejects anything that is not `open`, so the only escape from a mis-rung sale was to catch it before
+payment. And `listSales` had **no frontend caller at all**, so a sale was unreachable the moment its
+receipt left the screen: no lookup, no reprint, and nowhere to put a refund button even if one had
+existed.
+
+### The history half was almost entirely already built
+
+`GET /api/shops/pos/sales` and `/pos/sales/:id` both existed and were never called. What was added is
+the screen, a line count on the list rows, a status filter, and two things the backend was missing:
+a resend of the emailed receipt, and the ability to void an abandoned cart from somewhere other than
+the register that abandoned it.
+
+### Finding a sale, not just seeing the recent ones
+
+The first cut returned the 50 newest sales and said nothing about it — a silent cap, which is the
+thing this plan warns against elsewhere. A shop with a thousand sales saw fifty and had no route to
+sale #400, which is exactly the sale someone walks in holding a receipt for. Refunds were the point
+of the slice, so a history reaching back two days made the refund path close to unusable.
+
+It now takes an exact **sale number**, a **date range**, and pages 25 at a time with a **total**
+alongside, so a page can never read as the whole. None of it needed a migration:
+`uq_pos_sales_number (shop_id, sale_number)` makes the lookup a single index hit and
+`idx_pos_sales_shop (shop_id, created_at DESC)` already served the ordering — speed was never the
+problem here, reachability was.
+
+**The count is a second query, deliberately.** Without it the screen can only say "here are 25
+sales" and has no way to say 25 of how many, which is the same silence in a smaller font. Both
+queries are built from one WHERE clause, and a test asserts they stay identical in both SQL and
+parameters — a count that drifts from the list it counts is worse than no count.
+
+**Date bounds arrive as full timestamps, resolved in the browser.** Shops still have no timezone
+recorded, so resolving "the 6th" on the server would mean UTC midnight and file a west-coast
+evening's takings under the following day — the same trap the S5 summary sidesteps with rolling
+windows. The client knows its own offset and sends the instants. The range is half-open
+(`>= from`, `< to`) so picking one day means that whole day and nothing else.
+
+Filtering by status happens in SQL before the page is cut, so "Refunded" gives the 25 most recent
+refunded sales rather than the refunds that happen to fall inside the last 25 of everything.
+
+Reprint needed no new endpoint — `printReceipt.ts` already renders the 80mm layout from a sale, so
+the drawer reuses it. The resend reuses `deliverReceiptEmail`, extracted from the completion
+listener, because a second rendering of the same sale that disagreed with the first would be worse
+than not offering one.
+
+**Resending moves `receipt_email`** rather than preserving what was captured at the counter. The
+column means "where the receipt went", and the common case for a resend is that the first address was
+wrong. `redirectReceipt` is separate from `setReceiptEmail` for that reason: the register's write
+still guards on `open`, so it cannot rewrite a sale it has already closed.
+
+Unlike the send at completion, this one **fails loudly**. The completion path swallows everything
+because the customer has already left; here they are standing at the counter asking for it, so a bad
+address is something the cashier can act on.
+
+### Refunds go through the ledger's own machinery
+
+`payments` already carries every fiat tender (S6a) and `RefundIssuer` already knows how to reverse a
+direct charge on the shop's connected account and claw the platform fee back with it. A POS-specific
+refund path would have been a second set of rules to keep in step — the same argument S9c makes
+against aggregating `pos_sales` in parallel with `service_orders`.
+
+**No migration.** Migration 256 already permits `refunded` and `partially_refunded` on `pos_sales`
+and already has `refunded_cents` on `pos_sale_payments`; migration 262 already links a tender to its
+ledger row through `payments.pos_sale_payment_id`. The schema anticipated this slice.
+
+**The sale is the unit, the tender is the mechanism.** A shop refunds "sale #7"; the server spreads
+it across however many ways #7 was paid. **Card legs go first** — they are traceable and return the
+commission, and cash leaves a drawer that can never get it back, so the reverse order would hand
+back the unrecoverable money first on every partial refund.
+
+**Every ledger row is resolved before any money moves.** A tender rung up before S6a wired the POS
+into the ledger has no row to refund against, and discovering that halfway through would leave a sale
+refunded on one leg and not the other. Those sales reject with an explanation rather than a partial
+reversal.
+
+### The one place we write `refunded_cents` ourselves
+
+Cash has no Stripe object and never will, so `charge.refunded` is not coming. The cash leg therefore
+writes `payments.refunded_cents` directly — a deliberate exception to the ownership rule stated in
+`RefundIssuer`'s header, and the same reasoning S9b used to write a ledger row for an off-Stripe
+booking instead of waiting for a reconciliation that never arrives. `refunds.stripe_refund_id` stays
+null via `markSettledOffStripe`; inventing an id would make a drawer payout read as a card reversal.
+
+**`pos_sale_payments.refunded_cents` moves immediately, `payments.refunded_cents` waits on the
+webhook for card.** Not a discrepancy — they answer different questions. The register's record of
+what it gave back has to be on screen now; the ledger figure is what actually settled at Stripe and
+is not knowable yet. Revenue therefore corrects when the webhook lands, exactly as it does for a
+booking refund today.
+
+**Both refunded totals are claimed in the UPDATE, never read-then-written.** Two refunds issued at
+the same moment — two tabs, two tills, a double-tapped button that outran its own disabled state —
+would otherwise both read the figure as it stood before either of them, and the second write would
+erase the first: the drawer pays out twice and the ledger records one. `applyOffStripeRefund` and
+`applyTenderRefund` both increment with the guard in the same statement, so Postgres holds the row
+lock across the check and the write and the loser matches no row. The loser is told, and its refund
+row is closed as `failed` rather than left pending.
+
+The two legs guard differently because they lag differently, and that is worth keeping straight: a
+card leg's ledger figure trails the webhook, so `issueRefund` has to count its own pending rows to
+know what is outstanding; nothing lags for cash, so the ledger row itself is the authority.
+
+Verified against Postgres on a throwaway table: successive increments accumulate, an overdraw
+matches no row, and the status flips to `refunded` exactly when the total reaches gross.
+
+Note that `pos_sale_payments.payment_id` exists and has **never been written** — the link runs
+through `payments.pos_sale_payment_id` instead, which `recordPosTender` does populate. The unused
+column is left alone.
+
+### What a refund does not reverse
+
+**RCN loyalty is not clawed back.** The issuance was an on-chain transfer plus an atomic balance
+debit; the customer may have spent it, and a claw-back that fails has no good answer at a counter
+where the money has already been handed over. The asymmetry is real and accepted, in the same class
+as S6a accepting that cash sales carry no platform commission. Worth revisiting if abuse shows up.
+
+**RCN and gift-card tenders are not refundable at all**, and are excluded from the refundable
+balance. S9c-1 deliberately kept them out of the fiat ledger, so there is nothing there to reverse.
+
+**Restock is opt-in, products only, and full refunds only.** A refund does not imply a return — a
+customer refunded for a faulty part is not handing back something sellable — so the shop asks for it
+explicitly. Service lines are never restocked: their linked parts were consumed doing the repair,
+which is why this is not the deduction run backwards. And on a partial refund the amount says nothing
+about which lines came back, so the publisher withholds restock regardless of what was asked for.
+It runs off a new `pos.sale_refunded` event with `InventoryDomain` subscribing, so a stock failure
+can never fail a refund that has already gone out.
+
+### A partly-failed refund reports rather than throws
+
+If one leg reverses and another does not, the response carries both — `legs` and `failures`. Throwing
+would tell the cashier nothing happened when the drawer is already short. Only a refund where
+*nothing* moved raises an error.
+
+### Not covered
+
+**A sale voided after a tender settled** used to be unrecoverable in two different directions — cash
+left no ledger row to refund at all, card left one the register could not reach. Closed by refusing
+the void rather than by extending the refund; see the correction and fix in 7a. Sales voided before
+that landed still need looking at.
+
+No refund receipt: the customer gets no emailed or printed record of the reversal, only the shop's.
+Line-level refunds were considered and rejected for this slice — the ledger has no line-level money,
+so picking individual lines needs a line-to-tender apportionment layer that does not exist, and it
+would roughly double the work. The restock toggle covers the case that motivated it.
 
 ---
 
