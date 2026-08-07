@@ -69,6 +69,10 @@ export const queryKeys = {
   connectSummary: () => [...queryKeys.shops(), 'connect', 'summary'] as const,
   connectStatus: () => [...queryKeys.shops(), 'connect', 'status'] as const,
 
+  // AI recommendations (dashboard cards + Priority Actions)
+  aiRecommendations: (presentation: string, limit?: number) =>
+    [...queryKeys.all, 'ai', 'recommendations', presentation, limit] as const,
+
   // Redemption related
   redemptions: () => [...queryKeys.all, 'redemptions'] as const,
   redemptionSession: (sessionId: string) => [...queryKeys.redemptions(), 'session', sessionId] as const,
