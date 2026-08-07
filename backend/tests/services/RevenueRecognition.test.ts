@@ -114,8 +114,22 @@ describe('no money query counts fulfilment status alone', () => {
     'src/repositories/ServiceAnalyticsRepository.ts',
     'src/repositories/CustomerRepository.ts',
     'src/repositories/ShopRepository.ts',
+    'src/services/ShopMetricsService.ts',
   ])('%s does not inline the ledger revenue expression', (rel) => {
     expect(read(rel)).not.toContain('gross_cents - tax_cents');
+    // The dashboard tile's own drift was this shape, not the one above: `gross - refunded` with
+    // the tax never taken out at all, which read higher than every other revenue surface.
+    expect(read(rel)).not.toContain('gross_cents - p.refunded_cents');
+  });
+
+  // Revenue is three separate questions — did the money arrive, whose money is it, how much counts
+  // — and a site that answers only the first two counts a shop's own rcn_purchase spending and its
+  // held deposits as earnings. The tile did exactly that until S6d.
+  //
+  // Only the tile is checked directly. CustomerRepository reaches the same restriction through
+  // CUSTOMER_SPEND_FROM_LEDGER, which is the point of that constant.
+  it('the dashboard tile restricts the ledger to money a customer paid this shop', () => {
+    expect(read('src/services/ShopMetricsService.ts')).toContain('ledgerCustomerRevenue');
   });
 
   it('the dashboard tile reads the ledger, not service_orders', () => {

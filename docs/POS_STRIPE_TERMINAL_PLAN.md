@@ -632,6 +632,16 @@ This is the first piece of S9c rather than a parallel `pos_sales` branch. The le
 union of every channel, so the tile does not grow a case per channel; the warning against parallel
 aggregation still stands for the remaining reports.
 
+> **Corrected in S6d.** Being first meant the tile predated the three shared fragments S9c-1 later
+> introduced, and it kept its own `gross - refunded` instead of adopting them. Two consequences, both
+> live until now. It counted **sales tax as revenue**, so a taxed counter sale read higher on the
+> dashboard than on every other revenue surface. And it had **no source filter**, so a shop's own
+> `rcn_purchase` spending and its held no-show deposits counted as its earnings — precisely the
+> double-count S9c-1 introduced `ledgerCustomerRevenue` to prevent, in the one place that never got
+> it. On staging: `1111` reported $62,423.41 and now reports $62,145.40; `prepnasyon-1` reported
+> $52.50 whose every cent was the shop buying its own tokens, and now reports $0.00. The guard test
+> covering the other three revenue sites now covers this one too.
+
 **Consequence to expect:** revenue for a booking now lands on the day it was paid, not the day it
 was booked, so historical days will not match what the tile showed before. The S9b gap also applies
 — a booking whose payment never reached the ledger contributes nothing here until S9b closes it.
