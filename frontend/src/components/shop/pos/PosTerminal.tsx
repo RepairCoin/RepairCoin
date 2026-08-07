@@ -7,6 +7,7 @@ import {
   CreditCard,
   Loader2,
   Mail,
+  Minus,
   Package,
   Plus,
   Printer,
@@ -28,6 +29,7 @@ import {
   formatCents,
   getCustomerWarranties,
   removeItem,
+  setItemQuantity,
   setSaleCustomer,
   startCardPayment,
   syncCardPayment,
@@ -438,10 +440,37 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-white">{item.name}</p>
                     <p className="text-xs text-[#6B6B6B]">
-                      {item.quantity} × {formatCents(item.unitPriceCents)}
+                      {formatCents(item.unitPriceCents)} each
                       {item.taxCents > 0 && ` · tax ${formatCents(item.taxCents)}`}
                       {!item.taxable && " · no tax"}
                     </p>
+                    {/* Counting up and down beats tapping the catalogue four times and having no
+                        way back down but deleting the line and starting again. */}
+                    <div className="mt-2 flex items-center gap-1">
+                      <button
+                        onClick={() =>
+                          run(() => setItemQuantity(sale.id, item.id, item.quantity - 1))
+                        }
+                        disabled={busy}
+                        aria-label={`Reduce ${item.name}`}
+                        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-[#303236] text-white transition-colors hover:border-[#FFCC00] hover:text-[#FFCC00] disabled:opacity-50"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="min-w-[2rem] text-center text-sm font-medium text-white">
+                        {item.quantity}
+                      </span>
+                      <button
+                        onClick={() =>
+                          run(() => setItemQuantity(sale.id, item.id, item.quantity + 1))
+                        }
+                        disabled={busy}
+                        aria-label={`Add another ${item.name}`}
+                        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-[#303236] text-white transition-colors hover:border-[#FFCC00] hover:text-[#FFCC00] disabled:opacity-50"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
                   <span className="shrink-0 text-sm text-white">
                     {formatCents(item.totalCents)}
@@ -449,6 +478,7 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
                   <button
                     onClick={() => run(() => removeItem(sale.id, item.id))}
                     disabled={busy}
+                    aria-label={`Remove ${item.name}`}
                     className="shrink-0 cursor-pointer text-[#6B6B6B] transition-colors hover:text-[#F87171] disabled:opacity-50"
                   >
                     <Trash2 className="h-4 w-4" />

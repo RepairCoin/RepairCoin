@@ -441,6 +441,33 @@ export class PosSaleRepository extends BaseRepository {
     });
   }
 
+  /**
+   * Sets a line's quantity outright. Tax and total are computed by the service and passed in
+   * rather than recomputed here — the tax rule lives in one place, and a copy of it in SQL is the
+   * shape of drift that has already cost this domain two revenue bugs.
+   */
+  async setItemQuantity(
+    saleId: string,
+    itemId: string,
+    quantity: number,
+    taxCents: number,
+    totalCents: number
+  ): Promise<PosSaleItem | null> {
+    return this.withTransaction(async (client: PoolClient) => {
+      await this.assertOpen(client, saleId);
+      const result = await client.query(
+        `UPDATE pos_sale_items
+            SET quantity = $3, tax_cents = $4, total_cents = $5
+          WHERE id = $1 AND sale_id = $2
+          RETURNING *`,
+        [itemId, saleId, quantity, taxCents, totalCents]
+      );
+      if (!result.rows[0]) return null;
+      await this.recalculate(client, saleId);
+      return this.mapItem(result.rows[0]);
+    });
+  }
+
   async removeItem(saleId: string, itemId: string): Promise<boolean> {
     return this.withTransaction(async (client: PoolClient) => {
       await this.assertOpen(client, saleId);
