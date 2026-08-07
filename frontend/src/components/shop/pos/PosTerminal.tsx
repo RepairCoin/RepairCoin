@@ -240,12 +240,26 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
     }
   };
 
+  /**
+   * Clearing only works on a cart nobody has paid for. The server refuses once a tender has
+   * settled, and the failure has to be shown rather than swallowed: starting a fresh sale anyway
+   * would leave the paid one open behind the cashier's back, which is the state this guard exists
+   * to prevent.
+   */
   const discard = async () => {
     if (!sale) return;
-    await voidSale(sale.id, "cleared at register").catch(() => {});
-    setCashOpen(false);
-    setCardLeg(null);
-    openSale();
+    setBusy(true);
+    setError(null);
+    try {
+      await voidSale(sale.id, "cleared at register");
+      setCashOpen(false);
+      setCardLeg(null);
+      openSale();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not clear this sale");
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (receipt) {
@@ -402,7 +416,8 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
             {sale && sale.items.length > 0 && (
               <button
                 onClick={discard}
-                className="shrink-0 cursor-pointer text-xs text-[#6B6B6B] transition-colors hover:text-[#F87171]"
+                disabled={busy}
+                className="shrink-0 cursor-pointer text-xs text-[#6B6B6B] transition-colors hover:text-[#F87171] disabled:opacity-50"
               >
                 Clear
               </button>

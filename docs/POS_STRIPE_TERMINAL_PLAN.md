@@ -428,7 +428,7 @@ Transactions renders `Counter sale #7 · 3 items` where a service name would go,
 where the customer would be. Blank is the correct answer for a counter sale with no customer
 attached, but it is indistinguishable from lost attribution, so it says which.
 
-**Corrected 2026-08-07, and S6d does not close it.** This paragraph previously said a voided sale
+**Corrected 2026-08-07, then fixed.** This paragraph previously said a voided sale
 "leaves that tender in the ledger" and that "the row is not wrong". That is wrong for cash and
 misleading for card. `writeToLedger` runs only inside `completeSale`, and `takeCashPayment` writes to
 `pos_sale_payments` and nowhere else — so a voided sale never had a ledger row written for its cash.
@@ -446,13 +446,34 @@ The two tenders fail in opposite directions:
   today, just not from the register: the Transactions page reads `payments` and has its own refund
   button through `RefundController`.
 
-Reachable today either way: take a tender on an open sale, then void instead of completing.
+Both were reachable the same way: take a tender on an open sale, then void instead of completing.
 
-**The fix.** Refuse the void once any tender has settled, and require complete-then-refund.
-`cancelCardPayment` already exists and is plainly the intended move before voiding a card leg;
-nothing enforces reaching for it. Letting `refundSale` accept a voided sale was the other option and
-is worse — it would still leave cash with no row to refund, so it fixes the smaller half of the
-problem and leaves the ledger disagreeing with the sale record on the other.
+### The fix — the void refuses instead
+
+`voidSale` now declines a sale carrying a tender that has **settled** or is **still in flight**, and
+the shop completes and refunds it instead. Letting `refundSale` accept a voided sale was the other
+option and is worse: it would still leave cash with no row to refund, closing the smaller half while
+leaving the ledger disagreeing with the sale record on the other.
+
+**In-flight legs are refused too.** Voiding around a `pending` or `processing` card leg orphans the
+PaymentIntent — the abandoned-authorisation problem of 6a, but with a customer's real card behind it
+rather than a test. `cancelCardPayment` already existed and is plainly the intended move; nothing
+had ever required reaching for it.
+
+**The guard is in the UPDATE**, as a `NOT EXISTS` over the sale's tenders, so a card leg settling
+between a check and a write cannot slip through. The service re-reads only to choose the message,
+because "you cannot clear this sale" without saying what to do next leaves a cashier holding an open
+till and a customer who has paid. It names the amount and points at complete-then-refund, or at the
+cancel action for an in-flight leg.
+
+**The register had to change with it.** `discard` swallowed void failures and opened a fresh sale
+regardless, so a refused void would have silently abandoned the paid sale — the exact state the guard
+exists to prevent, reached by a different route. It now surfaces the error and stays put.
+
+**Sales voided before this landed are not repaired.** A cash one has money in the drawer and no
+ledger row; a card one has a ledger row under a voided sale. Both need a decision per sale rather
+than a migration, since only the shop knows whether the customer was given their money back. Worth a
+query on staging and production before anyone assumes the count is zero.
 
 ## 8a. Phase 8 is bigger than this plan implies (S6b)
 
@@ -1241,10 +1262,10 @@ would tell the cashier nothing happened when the drawer is already short. Only a
 
 ### Not covered
 
-**A sale voided after a tender settled is still broken, in two different directions** — see the
-correction in 7a. Cash leaves no ledger row to refund at all; card leaves one the register cannot
-reach. Both want the same answer, which is to stop allowing the void rather than to extend the
-refund, and that is a change to the register's behaviour rather than to how a refund is issued.
+**A sale voided after a tender settled** used to be unrecoverable in two different directions — cash
+left no ledger row to refund at all, card left one the register could not reach. Closed by refusing
+the void rather than by extending the refund; see the correction and fix in 7a. Sales voided before
+that landed still need looking at.
 
 No refund receipt: the customer gets no emailed or printed record of the reversal, only the shop's.
 Line-level refunds were considered and rejected for this slice — the ledger has no line-level money,

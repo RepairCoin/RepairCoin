@@ -18,6 +18,7 @@ describe('POS refunds', () => {
   const markSettledOffStripe = jest.fn<(...a: any[]) => Promise<any>>();
   const issueRefund = jest.fn<(...a: any[]) => Promise<any>>();
   const publish = jest.fn<(...a: any[]) => Promise<any>>();
+  const voidSale = jest.fn<(...a: any[]) => Promise<any>>();
 
   const tender = (over: Record<string, any> = {}) => ({
     id: 'tender-1',
@@ -63,6 +64,7 @@ describe('POS refunds', () => {
       markSettledOffStripe,
       issueRefund,
       publish,
+      voidSale,
     ].forEach((m) => m.mockReset());
 
     getSale.mockResolvedValue(saleRow);
@@ -84,8 +86,12 @@ describe('POS refunds', () => {
     issueRefund.mockResolvedValue({ outcome: 'issued', refund: { id: 'refund-1' } });
     publish.mockResolvedValue(undefined);
 
+    // The statement-level guard is tested against the SQL in PosSalesHistory; here it is stubbed
+    // as "the update matched nothing", which is what the service sees when it refuses.
+    voidSale.mockResolvedValue(null);
+
     jest.doMock('../../src/repositories', () => ({
-      posSaleRepository: { getSale, applyTenderRefund, setRefundStatus },
+      posSaleRepository: { getSale, applyTenderRefund, setRefundStatus, voidSale },
       paymentRepository: { getByPosSalePayment, getByPaymentIntent, markRefunded },
       refundRepository: { createPending, markSettledOffStripe },
       customerRepository: {},
@@ -257,6 +263,46 @@ describe('POS refunds', () => {
     const service = await load(sale({ status: 'voided' }));
 
     await expect(service.refundSale('shop-1', 'sale-1')).rejects.toThrow(/voided sale cannot/);
+  });
+
+  /**
+   * When the guard refuses, the message has to say what to do instead. "You cannot clear this
+   * sale" on its own leaves a cashier holding an open till and a customer who has paid.
+   */
+  describe('void guard messages', () => {
+    // Open, because that is the state a sale carrying an un-completed tender is actually in.
+    it('tells the cashier to complete and refund when money has settled', async () => {
+      const service = await load(
+        sale({ status: 'open', payments: [tender({ method: 'cash', amountCents: 4250 })] })
+      );
+
+      await expect(service.voidSale('shop-1', 'sale-1')).rejects.toThrow(
+        /already taken 42\.50.*Complete it and then refund it/s
+      );
+    });
+
+    it('points at the cancel action while a card leg is still in flight', async () => {
+      const service = await load(
+        sale({ status: 'open', payments: [tender({ status: 'processing' })] })
+      );
+
+      await expect(service.voidSale('shop-1', 'sale-1')).rejects.toThrow(/Cancel it before clearing/);
+    });
+
+    it('says so plainly when the sale was already closed', async () => {
+      const service = await load(sale({ status: 'completed' }));
+
+      await expect(service.voidSale('shop-1', 'sale-1')).rejects.toThrow(/already completed/);
+    });
+
+    it('lets a genuinely empty cart go', async () => {
+      const service = await load(sale({ status: 'open', payments: [] }));
+      voidSale.mockResolvedValue({ id: 'sale-1', status: 'voided' });
+
+      await expect(service.voidSale('shop-1', 'sale-1')).resolves.toMatchObject({
+        status: 'voided',
+      });
+    });
   });
 
   it('reports a failed leg rather than hiding it behind an error', async () => {

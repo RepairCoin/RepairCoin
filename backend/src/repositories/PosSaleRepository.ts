@@ -678,11 +678,33 @@ export class PosSaleRepository extends BaseRepository {
     };
   }
 
+  /**
+   * Discards an open cart.
+   *
+   * Refuses once any tender has settled or is still in flight. A void is meant to throw away a cart
+   * nobody paid for; run against a sale that took money it produces two different wrongs depending
+   * on how the customer paid. Cash never reaches the ledger at all — `writeToLedger` runs only on
+   * completion — so the drawer is up and revenue is not. A card leg *does* reach it, because
+   * `PaymentReconciler` writes from `charge.succeeded` whether or not the sale was ever completed,
+   * so the ledger holds real money against a sale marked voided. Neither is recoverable from the
+   * register afterwards.
+   *
+   * In-flight legs (`pending`, `processing`) are refused too: voiding around one orphans the
+   * PaymentIntent, which is the abandoned-authorisation problem of 6a with a customer's real card
+   * behind it. `cancelCardPayment` is the way out of that state and already exists.
+   *
+   * The guard is in the statement, not only in the service, so a tender settling between the check
+   * and the write cannot slip through.
+   */
   async voidSale(saleId: string, shopId: string, reason?: string): Promise<PosSale | null> {
     const result = await this.pool.query(
       `UPDATE pos_sales
        SET status = 'voided', voided_at = now(), void_reason = $3, updated_at = now()
        WHERE id = $1 AND shop_id = $2 AND status = 'open'
+         AND NOT EXISTS (
+           SELECT 1 FROM pos_sale_payments
+            WHERE sale_id = $1 AND status IN ('succeeded', 'pending', 'processing')
+         )
        RETURNING *`,
       [saleId, shopId, reason ?? null]
     );

@@ -517,10 +517,38 @@ export class PosSaleService {
     }
   }
 
+  /**
+   * Discards a cart nobody paid for. Once a tender has settled the sale has to be completed and
+   * then refunded instead — see the repository for why voiding around money is unrecoverable.
+   *
+   * The reason is worked out here rather than inferred from the failed update, because "you cannot
+   * void this" without saying what to do next leaves a cashier holding an open till.
+   */
   async voidSale(shopId: string, saleId: string, reason?: string): Promise<PosSale> {
     const voided = await posSaleRepository.voidSale(saleId, shopId, reason);
-    if (!voided) throw httpError('Only an open sale can be voided.', 409);
-    return voided;
+    if (voided) return voided;
+
+    const sale = await this.requireSale(saleId, shopId);
+    if (sale.status !== 'open') {
+      throw httpError(`This sale is already ${sale.status} and cannot be cleared.`, 409);
+    }
+
+    const inFlight = sale.payments.filter(
+      (p) => p.status === 'pending' || p.status === 'processing'
+    );
+    if (inFlight.length) {
+      throw httpError(
+        'A card payment is still in progress. Cancel it before clearing this sale.',
+        409
+      );
+    }
+
+    const settled = sale.payments.filter((p) => p.status === 'succeeded');
+    const takenCents = settled.reduce((sum, p) => sum + p.amountCents, 0);
+    throw httpError(
+      `This sale has already taken ${(takenCents / 100).toFixed(2)}. Complete it and then refund it — clearing it would leave the money unaccounted for.`,
+      409
+    );
   }
 
   /**

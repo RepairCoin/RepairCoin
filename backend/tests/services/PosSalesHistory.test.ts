@@ -97,3 +97,48 @@ describe('PosSaleRepository.listSales', () => {
     expect(whereOf(pageCall())).toBe('s.shop_id = $1');
   });
 });
+
+/**
+ * A void throws away a cart. Run against a sale that has taken money it produces two different
+ * unrecoverable states — cash never reaches the ledger, a card leg reaches it and then belongs to a
+ * sale marked voided — so the statement itself has to refuse.
+ */
+describe('PosSaleRepository.voidSale', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockQuery.mockResolvedValue({ rows: [{ id: 'sale-1', status: 'voided' }] });
+  });
+
+  const sqlOf = () => String(mockQuery.mock.calls[0][0]);
+
+  it('refuses a sale carrying a settled tender', async () => {
+    await new PosSaleRepository().voidSale('sale-1', 'shop-1');
+
+    const guard = sqlOf().split('NOT EXISTS')[1];
+    expect(guard).toContain('pos_sale_payments');
+    expect(guard).toContain("'succeeded'");
+  });
+
+  it('refuses one still in flight, so no PaymentIntent is orphaned', async () => {
+    await new PosSaleRepository().voidSale('sale-1', 'shop-1');
+
+    const guard = sqlOf().split('NOT EXISTS')[1];
+    expect(guard).toContain("'pending'");
+    expect(guard).toContain("'processing'");
+  });
+
+  it('still only touches an open sale belonging to this shop', async () => {
+    await new PosSaleRepository().voidSale('sale-1', 'shop-1');
+
+    expect(sqlOf()).toContain("status = 'open'");
+    expect(sqlOf()).toContain('shop_id = $2');
+  });
+
+  it('guards in the statement rather than a read-then-write', async () => {
+    await new PosSaleRepository().voidSale('sale-1', 'shop-1');
+
+    // One statement, so a tender settling mid-check cannot slip between a SELECT and an UPDATE.
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(sqlOf()).toContain('UPDATE pos_sales');
+  });
+});
