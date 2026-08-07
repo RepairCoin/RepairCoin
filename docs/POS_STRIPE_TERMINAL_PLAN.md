@@ -428,15 +428,31 @@ Transactions renders `Counter sale #7 · 3 items` where a service name would go,
 where the customer would be. Blank is the correct answer for a counter sale with no customer
 attached, but it is indistinguishable from lost attribution, so it says which.
 
-**Still true, and S6d does not close it.** A sale voided after a cash tender was taken leaves that
-tender in the ledger. The money did move, so the row is not wrong — but S6d's refund path requires a
-`completed` sale and this one is `voided`, so it refuses. The cash stands as revenue with no way to
-reverse it from FixFlow.
+**Corrected 2026-08-07, and S6d does not close it.** This paragraph previously said a voided sale
+"leaves that tender in the ledger" and that "the row is not wrong". That is wrong for cash and
+misleading for card. `writeToLedger` runs only inside `completeSale`, and `takeCashPayment` writes to
+`pos_sale_payments` and nowhere else — so a voided sale never had a ledger row written for its cash.
 
-Reachable today: take cash on an open sale, then void it instead of completing it. The fix is either
-to let `refundSale` accept a voided sale carrying settled tenders, or to refuse the void once any
-tender has settled and require complete-then-refund. The second is the more honest model — money that
-has changed hands is not a cart you can throw away — and it is the smaller change.
+The two tenders fail in opposite directions:
+
+- **Cash.** No ledger row at all. The money is in the drawer, the tender is recorded against the
+  sale, and `payments` never hears about it. Revenue **under**-reports, and there is nothing anywhere
+  in FixFlow to refund against — it is not that S6d's refund path refuses, it is that there is no row
+  for it to act on.
+- **Card.** `PaymentReconciler` writes the row from `charge.succeeded` regardless of whether the sale
+  was ever completed — S6a deliberately taught `sourceFromMetadata` to return `terminal` so a charge
+  reconciling *before* completion is filed correctly. So the ledger holds real money against a sale
+  marked voided, and revenue **over**-reports relative to the sale record. This one is refundable
+  today, just not from the register: the Transactions page reads `payments` and has its own refund
+  button through `RefundController`.
+
+Reachable today either way: take a tender on an open sale, then void instead of completing.
+
+**The fix.** Refuse the void once any tender has settled, and require complete-then-refund.
+`cancelCardPayment` already exists and is plainly the intended move before voiding a card leg;
+nothing enforces reaching for it. Letting `refundSale` accept a voided sale was the other option and
+is worse — it would still leave cash with no row to refund, so it fixes the smaller half of the
+problem and leaves the ledger disagreeing with the sale record on the other.
 
 ## 8a. Phase 8 is bigger than this plan implies (S6b)
 
@@ -1225,9 +1241,10 @@ would tell the cashier nothing happened when the drawer is already short. Only a
 
 ### Not covered
 
-**A voided sale that already took cash still cannot be reversed** — see the correction in 7a. That
-case needs a decision about whether a void should be allowed at all once money has settled, which is
-a different question from how a refund is issued.
+**A sale voided after a tender settled is still broken, in two different directions** — see the
+correction in 7a. Cash leaves no ledger row to refund at all; card leaves one the register cannot
+reach. Both want the same answer, which is to stop allowing the void rather than to extend the
+refund, and that is a change to the register's behaviour rather than to how a refund is issued.
 
 No refund receipt: the customer gets no emailed or printed record of the reversal, only the shop's.
 Line-level refunds were considered and rejected for this slice — the ledger has no line-level money,
