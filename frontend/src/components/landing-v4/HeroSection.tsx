@@ -7,7 +7,7 @@ import { FaMicrophone } from "react-icons/fa";
 import Badge from "./Badge";
 import { m, useReducedMotion } from "framer-motion";
 import { useModalStore } from "@/stores/modalStore";
-import { askHomepageAi, type AnsweredBy } from "@/services/api/publicAi";
+import { askHomepageAi, getHomepageAiSession, type AnsweredBy } from "@/services/api/publicAi";
 
 interface HeroSectionProps {
   hasWallet: boolean;
@@ -190,9 +190,12 @@ function CurvedArrow() {
 
 /* ── AI chat bar ──────────────────────────────────────────────────────────
  *
- * P1: answers come from the prospect corpus on the server; no model is called, so this cannot
- * produce a surprise bill. Three free answers, then an account is required — the limit is the call
- * to action, not a punishment.
+ * A model answers, grounded in the prospect corpus, behind a $2/day ceiling. Five free answers, then
+ * an account is required — the limit is the call to action, not a punishment, and only real answers
+ * count against it: a fallback is our corpus failing them, not them using something up.
+ *
+ * The allowance is enforced server-side against an httpOnly cookie, so this component never decides
+ * when someone is done; it only reflects what the server said.
  *
  * The thread grows DOWNWARD from the input and the input stays put, so nothing the visitor is
  * reading moves under them. See docs/tasks/strategy/homepage-ai/homepage-ai-plan.md §7.
@@ -211,6 +214,23 @@ function AIChatBar({ onCta }: { onCta: () => void }) {
   const [gated, setGated] = React.useState(false);
   const threadRef = React.useRef<HTMLDivElement>(null);
 
+  // Restore the conversation and the allowance on mount.
+  //
+  // The allowance was always server-side, so a refresh never granted more answers — but the thread
+  // lived only in this component, so the page came back empty with the input enabled while the server
+  // would still refuse. The UI was inviting something it would then decline.
+  React.useEffect(() => {
+    let cancelled = false;
+    void getHomepageAiSession().then((s) => {
+      if (cancelled || !s.turns.length) return;
+      setTurns(s.turns);
+      setGated(s.gated);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Bring the newest answer into view without yanking the page. The answer appears directly under the
   // input, so nudging the thread itself is enough — scrolling the window would move the headline.
   React.useEffect(() => {
@@ -226,8 +246,18 @@ function AIChatBar({ onCta }: { onCta: () => void }) {
     setPending(true);
     try {
       const r = await askHomepageAi(question);
-      setTurns((prev) => [...prev, { question, answer: r.answer, nextStep: r.nextStep, answeredBy: r.answeredBy }]);
-      if (r.gated || r.answeredBy === "gated") setGated(true);
+      const isGate = r.answeredBy === "gated";
+
+      // A refused-for-being-over-the-limit reply is NOT an answer, so it does not become a turn — the
+      // gate card below says the same sentence, and pushing both printed it twice, once under the
+      // question and once on its own. The question is still shown so the thread does not look like it
+      // swallowed what they typed.
+      setTurns((prev) =>
+        isGate
+          ? [...prev, { question, answer: "", nextStep: "", answeredBy: r.answeredBy }]
+          : [...prev, { question, answer: r.answer, nextStep: r.nextStep, answeredBy: r.answeredBy }]
+      );
+      if (r.gated || isGate) setGated(true);
     } catch {
       // Never an error card. Rate limited, over budget and broken all read the same, because a
       // visitor cannot act on the difference and a broken box on the homepage is worse than no box.
@@ -287,9 +317,13 @@ function AIChatBar({ onCta }: { onCta: () => void }) {
           {turns.map((t, i) => (
             <div key={i} className="rounded-2xl bg-black/60 border border-white/10 p-4">
               <p className="text-sm text-gray-400">{t.question}</p>
-              <div className="mt-2 text-[0.95rem] leading-relaxed text-gray-100 whitespace-pre-line">
-                {stripMarkdown(t.answer)}
-              </div>
+              {/* Empty on the gated turn — the gate card carries that message, and rendering it here
+                  too printed the same sentence twice. */}
+              {t.answer && (
+                <div className="mt-2 text-[0.95rem] leading-relaxed text-gray-100 whitespace-pre-line">
+                  {stripMarkdown(t.answer)}
+                </div>
+              )}
               {t.nextStep && (
                 <p className="mt-3 text-sm text-[#F7CC00]">{t.nextStep}</p>
               )}
