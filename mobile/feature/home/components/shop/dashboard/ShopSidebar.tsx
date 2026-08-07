@@ -27,7 +27,7 @@ type Group = {
 /*
  * Only routes that exist in app/(dashboard)/shop are included.
  * Excluded (named by request / no mobile screen): Purchase Orders, Inventory,
- * Staff & Time, Service Queue, Marketing, standalone Reviews, Reports.
+ * Staff & Time, Service Queue, standalone Reviews, Reports.
  */
 const HOME_ROUTE = "/shop/tabs/home";
 
@@ -49,6 +49,7 @@ const GROUPS: Group[] = [
     items: [
       { label: "Customers", route: "/shop/tabs/customer" },
       { label: "Messages", route: "/shop/messages" },
+      { label: "Marketing", route: "/shop/marketing" },
       { label: "Affiliate Groups", route: "/shop/groups" },
       { label: "Loyalty & Rewards", route: "/shop/promo-code" },
     ],
