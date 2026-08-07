@@ -1,15 +1,19 @@
 "use client";
 
+import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import PosTerminal from "@/components/shop/pos/PosTerminal";
 
 /**
  * The register itself, deliberately full-screen and without the dashboard sidebar — the setup
  * checks live on the Point of Sale tab, the selling screen wants the whole display.
+ *
+ * `?sale=<id>` resumes an open cart, which is how the sales history hands one back.
  */
-export default function PosPage() {
+function Register() {
   const router = useRouter();
+  const params = useSearchParams();
   const exit = () => router.push("/shop?tab=pos");
 
   return (
@@ -24,7 +28,16 @@ export default function PosPage() {
           Close register
         </button>
       </div>
-      <PosTerminal onExit={exit} />
+      <PosTerminal onExit={exit} resumeSaleId={params.get("sale")} />
     </div>
+  );
+}
+
+// useSearchParams needs a boundary — without one the whole route opts out of static rendering.
+export default function PosPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#191919]" />}>
+      <Register />
+    </Suspense>
   );
 }

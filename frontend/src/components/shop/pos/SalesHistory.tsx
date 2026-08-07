@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Mail, Printer, Receipt, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Loader2,
+  Mail,
+  Printer,
+  Receipt,
+  RotateCcw,
+  Search,
+  ShoppingCart,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import {
   formatCents,
@@ -304,6 +315,7 @@ function SaleDetail({
 }) {
   // The shop's own name, not the signed-in team member's — a receipt is the shop's.
   const shopName = useAuthStore((s) => s.userProfile?.name);
+  const router = useRouter();
 
   const [sale, setSale] = useState<PosSale | null>(null);
   const [loading, setLoading] = useState(true);
@@ -453,20 +465,31 @@ function SaleDetail({
         {sale && !loading && (
           <div className="space-y-3 border-t border-[#303236] p-5">
             {sale.status === "open" ? (
-              <button
-                disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    await voidSale(sale.id, "Cleared from sales history");
-                    onClose();
-                    return "Sale voided.";
-                  })
-                }
-                className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-[#303236] text-sm font-medium text-white transition-colors hover:border-[#EF4444] hover:text-[#EF4444] disabled:opacity-50"
-              >
-                <Trash2 className="h-4 w-4" />
-                Void this open sale
-              </button>
+              <>
+                {/* Carrying on beats starting over. Voiding was the only thing offered here, so a
+                    cart abandoned four items in could be seen but not picked back up. */}
+                <button
+                  onClick={() => router.push(`/shop/pos?sale=${sale.id}`)}
+                  className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-[#FFCC00] text-sm font-medium text-black transition-colors hover:bg-[#E5BB00]"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Resume this sale
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      await voidSale(sale.id, "Cleared from sales history");
+                      onClose();
+                      return "Sale voided.";
+                    })
+                  }
+                  className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-[#303236] text-sm font-medium text-white transition-colors hover:border-[#EF4444] hover:text-[#EF4444] disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Void this open sale
+                </button>
+              </>
             ) : sale.status === "voided" ? (
               // No receipt for a sale that took no money. Printing one produces a document that
               // reads as proof of purchase for something that never happened, and emailing it to

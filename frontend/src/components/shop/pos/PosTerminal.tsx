@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Banknote,
@@ -28,6 +29,7 @@ import {
   createSale,
   formatCents,
   getCustomerWarranties,
+  getSale,
   removeItem,
   setItemQuantity,
   setSaleCustomer,
@@ -54,10 +56,17 @@ const INPUT =
 
 type CatalogTab = "services" | "products";
 
-export default function PosTerminal({ onExit }: { onExit?: () => void }) {
+export default function PosTerminal({
+  onExit,
+  resumeSaleId,
+}: {
+  onExit?: () => void;
+  resumeSaleId?: string | null;
+}) {
   const shopId = useAuthStore((s) => s.userProfile?.shopId);
   // The shop's own name, not the signed-in team member's — a printed receipt is the shop's.
   const shopName = useAuthStore((s) => s.userProfile?.name);
+  const router = useRouter();
 
   const [sale, setSale] = useState<PosSale | null>(null);
   const [busy, setBusy] = useState(false);
@@ -104,6 +113,33 @@ export default function PosTerminal({ onExit }: { onExit?: () => void }) {
     setError(null);
     setCustomerName(null);
   }, []);
+
+  /**
+   * Picks a cart back up where it was left. A sale abandoned mid-ring-up was previously reachable
+   * from the history screen only to be voided — the shop could see the four things it had already
+   * scanned and had no way to carry on from them.
+   *
+   * Runs once, and only for a sale still open: anything completed or voided is a record rather
+   * than a cart, and loading one into the register would offer to add lines to it.
+   */
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (!resumeSaleId || resumedRef.current) return;
+    resumedRef.current = true;
+
+    getSale(resumeSaleId)
+      .then((loaded) => {
+        if (loaded.status !== "open") {
+          setError(`That sale is ${loaded.status} and can no longer be changed.`);
+          return;
+        }
+        setSale(loaded);
+        // Drop the parameter once it has been used. Left in place it would try to reload the same
+        // sale on a refresh, which by then may have been paid for or cleared.
+        router.replace("/shop/pos");
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Could not open that sale"));
+  }, [resumeSaleId, router]);
 
   useEffect(() => {
     if (!shopId) return;
