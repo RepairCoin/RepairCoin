@@ -66,6 +66,7 @@ export interface PosSale {
   receiptEmail: string | null;
   receiptSentAt: string | null;
   completedAt: string | null;
+  voidReason: string | null;
   createdAt: string;
   items: PosSaleItem[];
   payments: PosSalePayment[];

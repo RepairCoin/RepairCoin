@@ -467,6 +467,14 @@ function SaleDetail({
                 <Trash2 className="h-4 w-4" />
                 Void this open sale
               </button>
+            ) : sale.status === "voided" ? (
+              // No receipt for a sale that took no money. Printing one produces a document that
+              // reads as proof of purchase for something that never happened, and emailing it to
+              // a customer is worse — the lines and the total are there, only the tenders are not.
+              <p className="text-xs text-[#6B6B6B]">
+                This sale was voided before it was paid, so there is no receipt for it.
+                {sale.voidReason ? ` Reason: ${sale.voidReason}` : ""}
+              </p>
             ) : (
               <>
                 <button

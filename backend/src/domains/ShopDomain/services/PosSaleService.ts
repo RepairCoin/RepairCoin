@@ -798,6 +798,11 @@ export class PosSaleService {
     if (sale.status === 'open') {
       throw httpError('This sale has not been completed yet.', 409);
     }
+    // A voided sale took no money, so a receipt for it would read as proof of a purchase that
+    // never happened. The register hides the action, but the endpoint is reachable without it.
+    if (sale.status === 'voided') {
+      throw httpError('This sale was voided, so there is no receipt to send.', 409);
+    }
 
     let target = sale.receiptEmail;
     if (email !== undefined && email !== null && String(email).trim()) {

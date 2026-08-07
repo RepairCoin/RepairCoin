@@ -350,6 +350,22 @@ describe('POS refunds', () => {
     });
   });
 
+  describe('receipts follow the money', () => {
+    it('will not send a receipt for a sale that was voided', async () => {
+      const service = await load(sale({ status: 'voided', receiptEmail: 'a@b.com' }));
+
+      // A voided sale took nothing. A receipt for it is a document that reads as proof of a
+      // purchase that never happened — the lines and total are there, only the tenders are not.
+      await expect(service.resendReceipt('shop-1', 'sale-1')).rejects.toThrow(/was voided/);
+    });
+
+    it('will not send one for a sale still open at the register', async () => {
+      const service = await load(sale({ status: 'open', receiptEmail: 'a@b.com' }));
+
+      await expect(service.resendReceipt('shop-1', 'sale-1')).rejects.toThrow(/not been completed/);
+    });
+  });
+
   it('reports a failed leg rather than hiding it behind an error', async () => {
     const service = await load(
       sale({
